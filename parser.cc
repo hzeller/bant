@@ -27,8 +27,7 @@ class Parser {
         continue;  // Pythonism: Toplevel document no-effect statement
       }
       if (tok.type != kIdentifier) {
-        MsgAt(tok) << "Expected identifier, got " << tok.text << "\n";
-        SetErrorToken(tok);
+        ErrAt(tok) << "Expected identifier, got " << tok.text << "\n";
         return statement_list;
       }
 
@@ -42,8 +41,7 @@ class Parser {
         statement_list->Append(ParseFunCall(tok));
         break;
       default:
-        MsgAt(after_id) << "expected '(' or '=', got " << after_id.text << "\n";
-        SetErrorToken(tok);
+        ErrAt(after_id) << "expected '(' or '=', got " << after_id.text << "\n";
         return statement_list;
       }
     }
@@ -74,8 +72,7 @@ class Parser {
         scanner_->Next();
         upcoming = scanner_->Peek();
       } else if (upcoming.type != end_tok) {
-        MsgAt(upcoming) << "Expected comma or close " << end_tok << "\n";
-        SetErrorToken(scanner_->Next());
+        ErrAt(scanner_->Next()) << "Expected `,` or close " << end_tok << "\n";
         return result;
       }
     }
@@ -113,8 +110,7 @@ class Parser {
         List::Type::kMap, [&]() { return ParseMapTuple(); },
         TokenType::kCloseBrace);
     default:
-      MsgAt(t) << "Expected value of sorts\n";
-      SetErrorToken(t);
+      ErrAt(t) << "Expected value of sorts\n";
       return nullptr;
     }
   }
@@ -143,8 +139,7 @@ class Parser {
     Node *exp = ParseExpression();
     p = scanner_->Next();
     if (p.type != ')') {
-      MsgAt(p) << "Expected close parenthesis\n";
-      SetErrorToken(p);
+      ErrAt(p) << "Expected close parenthesis\n";
     }
     return exp;
   }
@@ -152,8 +147,7 @@ class Parser {
   IntScalar *ParseIntFromToken(Token t) {
     IntScalar *scalar = IntScalar::FromLiteral(&node_arena_, t.text);
     if (!scalar) {
-      MsgAt(t) << "Error parsing int literal " << t.text << "\n";
-      SetErrorToken(t);
+      ErrAt(t) << "Error parsing int literal " << t.text << "\n";
     }
     return scalar;
   }
@@ -167,30 +161,24 @@ class Parser {
       break;
     case kNumberLiteral: lhs = ParseIntFromToken(p); break;
     default:
-      MsgAt(p) << "Expected literal in map key\n";
-      SetErrorToken(p);
+      ErrAt(p) << "Expected literal in map key\n";
       return nullptr;
     }
 
     p = scanner_->Next();
     if (p.type != ':') {
-      MsgAt(p) << "Expected ':' in map-tuple\n";
-      SetErrorToken(p);
+      ErrAt(p) << "Expected ':' in map-tuple\n";
       return nullptr;
     }
     return new BinOpNode(lhs, ParseExpression(), ':');
   }
 
-  std::ostream &MsgAt(Token t) {
+  std::ostream &ErrAt(Token t) {
     std::cerr << filename_ << ":" << scanner_->GetPos(t.text) << "'" << t.text
               << "' ";
-    return std::cerr;
-  }
-
-  void SetErrorToken(Token t) {
-    MsgAt(t) << "Got error\n";
-    last_token_ = t;
     error_ = true;
+    last_token_ = t;
+    return std::cerr;
   }
 
   // Error token or kEof
@@ -241,9 +229,9 @@ int main(int argc, char *argv[]) {
     List *const statements = parser.parse();
     if (statements) {
       std::cerr << "------- file " << filename << "\n";
-      PrintVisitor printer(std::cerr);
+      PrintVisitor printer(std::cout);
       statements->Accept(&printer);
-      std::cerr << "\n";
+      std::cout << "\n";
     }
     const Token last = parser.lastToken();
     if (last.type != kEof) {
