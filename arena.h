@@ -6,34 +6,43 @@
 #include <iostream>
 #include <utility>
 
-// TODO: this is a sketch only, does not actually implement the arena aspect
-// and will leak memory.
-
 // Arena: Provide allocation of memory that can be deallocated at once.
 // Fast, but does not call any destructors.
 class Arena {
  public:
-  char* Alloc(size_t size) {
+  Arena(int max_size)
+      : buffer_(new char[max_size]), end_(buffer_ + max_size), pos_(buffer_) {}
+
+  char *Alloc(size_t size) {
     total_allocations_++;
-    total_memory_ += size;
-    return new char[size];  // TODO: actuallly make this an arena.
+    char *start = pos_;
+    if (pos_ + size > end_) {
+      // TODO: just add more blocks.
+      std::cerr << "Allocation exhausted. New block alloc not implmented yet\n";
+      return nullptr;
+    }
+    pos_ += size;
+    return start;
   }
 
   // Convenience constructor in place
   template <typename T, class... U>
-  T* New(U&&... args) {
+  T *New(U &&...args) {
     const size_t size = sizeof(T);
     return new (Alloc(size)) T(std::forward<U>(args)...);
   }
 
   ~Arena() {
     std::cerr << "Arena: " << total_allocations_ << " allocations with "
-              << total_memory_ << " bytes.\n";
+              << (pos_ - buffer_) << " bytes.\n";
+    delete[] buffer_;
   }
 
  private:
+  char *const buffer_;
+  const char *const end_;
+  char *pos_;
   size_t total_allocations_ = 0;
-  size_t total_memory_ = 0;
 };
 
 #endif  // ARENA_H

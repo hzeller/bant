@@ -11,8 +11,8 @@
 
 class Parser {
  public:
-  Parser(const char *filename, Scanner *scanner)
-      : filename_(filename), scanner_(scanner) {}
+  Parser(const char *filename, Scanner *scanner, Arena *arena)
+      : filename_(filename), scanner_(scanner), node_arena_(arena) {}
 
   // Parse file. If there is an error, return at least partial tree.
   List *parse() {
@@ -35,11 +35,11 @@ class Parser {
       auto after_id = scanner_->Next();
       switch (after_id.type) {
       case TokenType::kEquals:
-        statement_list->Append(&node_arena_,
+        statement_list->Append(node_arena_,
                                ParseAssignmentRhs(Make<Identifier>(tok.text)));
         break;
       case TokenType::kOpenParen:
-        statement_list->Append(&node_arena_, ParseFunCall(tok));
+        statement_list->Append(node_arena_, ParseFunCall(tok));
         break;
       default:
         ErrAt(after_id) << "expected '(' or '=', got " << after_id.text << "\n";
@@ -67,7 +67,7 @@ class Parser {
     List *result = Make<List>(type);
     Token upcoming = scanner_->Peek();
     while (upcoming.type != end_tok) {
-      result->Append(&node_arena_, element_parse());
+      result->Append(node_arena_, element_parse());
       upcoming = scanner_->Peek();
       if (upcoming.type == ',') {
         scanner_->Next();
@@ -94,7 +94,7 @@ class Parser {
     Token t = scanner_->Next();
     switch (t.type) {
     case TokenType::kStringLiteral:
-      return StringScalar::FromLiteral(&node_arena_, t.text);
+      return StringScalar::FromLiteral(node_arena_, t.text);
     case TokenType::kNumberLiteral: return ParseIntFromToken(t);
     case TokenType::kIdentifier:
       if (scanner_->Peek().type == '(') {
@@ -144,7 +144,7 @@ class Parser {
   }
 
   IntScalar *ParseIntFromToken(Token t) {
-    IntScalar *scalar = IntScalar::FromLiteral(&node_arena_, t.text);
+    IntScalar *scalar = IntScalar::FromLiteral(node_arena_, t.text);
     if (!scalar) {
       ErrAt(t) << "Error parsing int literal " << t.text << "\n";
     }
@@ -156,7 +156,7 @@ class Parser {
     Node *lhs;
     switch (p.type) {
     case kStringLiteral:
-      lhs = StringScalar::FromLiteral(&node_arena_, p.text);
+      lhs = StringScalar::FromLiteral(node_arena_, p.text);
       break;
     case kNumberLiteral: lhs = ParseIntFromToken(p); break;
     default: ErrAt(p) << "Expected literal in map key\n"; return nullptr;
@@ -184,13 +184,13 @@ class Parser {
   // Convenience constructor in place
   template <typename T, class... U>
   T *Make(U &&...args) {
-    return node_arena_.New<T>(std::forward<U>(args)...);
+    return node_arena_->New<T>(std::forward<U>(args)...);
   }
 
  private:
   const char *filename_;
   Scanner *const scanner_;
-  Arena node_arena_;
+  Arena *const node_arena_;
   bool error_ = false;
   Token last_token_;
 };
@@ -218,6 +218,7 @@ int main(int argc, char *argv[]) {
   int file_count = 0;
   int file_error_count = 0;
 
+  Arena arena(5 << 20);
   for (int i = 1; i < argc; ++i) {
     const char *const filename = argv[i];
     std::optional<std::string> content = ReadFileToString(filename);
@@ -228,7 +229,7 @@ int main(int argc, char *argv[]) {
     }
     ++file_count;
     Scanner scanner(*content);
-    Parser parser(filename, &scanner);
+    Parser parser(filename, &scanner, &arena);
     List *const statements = parser.parse();
     if (statements) {
       std::cerr << "------- file " << filename << "\n";
