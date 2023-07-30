@@ -14,7 +14,7 @@ public:
   Parser(const char *filename, Scanner *scanner)
     : filename_(filename), scanner_(scanner) {}
 
-  // Attempt to parse. If there is an error, return at least partial tree.
+  // Parse file. If there is an error, return at least partial tree.
   List *parse() {
     List *statement_list = new List(List::Type::kList);
     while (!error_) {
@@ -97,7 +97,7 @@ public:
     Token t = scanner_->Next();
     switch (t.type) {
     case TokenType::kStringLiteral:
-      return StringScalar::FromLiteral(t.text);
+      return StringScalar::FromLiteral(&node_arena_, t.text);
     case TokenType::kNumberLiteral:
       return ParseIntFromToken(t);
     case TokenType::kIdentifier:
@@ -148,7 +148,7 @@ public:
   }
 
   IntScalar *ParseIntFromToken(Token t) {
-    IntScalar *scalar = IntScalar::FromLiteral(t.text);
+    IntScalar *scalar = IntScalar::FromLiteral(&node_arena_, t.text);
     if (!scalar) {
       MsgAt(t) << "Error parsing int literal " << t.text << "\n";
       SetErrorToken(t);
@@ -161,7 +161,7 @@ public:
     Node *lhs;
     switch (p.type) {
     case kStringLiteral:
-      lhs = StringScalar::FromLiteral(p.text);
+      lhs = StringScalar::FromLiteral(&node_arena_, p.text);
       break;
     case kNumberLiteral:
       lhs = ParseIntFromToken(p);
@@ -199,6 +199,7 @@ public:
 private:
   const char *filename_;
   Scanner *const scanner_;
+  Arena node_arena_;
   bool error_ = false;
   Token last_token_;
 };
@@ -247,7 +248,7 @@ int main(int argc, char *argv[]) {
     const Token last = parser.lastToken();
     if (last.type != kEof) {
       std::cout << filename << ":" << scanner.GetPos(last.text) <<
-        ": FAILED AT '" << last.text << "' ----------------- \n";
+        " FAILED AT '" << last.text << "' ----------------- \n";
       ++file_error_count;
     }
   }

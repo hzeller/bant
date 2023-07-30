@@ -7,6 +7,8 @@
 #include <cstdint>
 #include <cassert>
 
+#include "arena.h"
+
 class Visitor;
 
 class Node {
@@ -29,32 +31,27 @@ public:
 
 class StringScalar : public Scalar {
 public:
-  static StringScalar *FromLiteral(std::string_view literal);
-  StringScalar(std::string_view value, bool pass_ownership)
-    : value_(value) {
-    if (pass_ownership) {
-      backing_.assign(value.begin(), value.end());
-      value_ = backing_;
-    }
-  }
+  static StringScalar *FromLiteral(Arena *arena, std::string_view literal);
 
   std::string_view AsString() final { return value_; }
   ScalarType type() final { return kString; }
 
 private:
+  StringScalar(std::string_view value) : value_(value) {}
+
   std::string_view value_;
-  std::string backing_;
 };
 
 class IntScalar : public Scalar {
 public:
-  static IntScalar *FromLiteral(std::string_view literal);
-  IntScalar(int64_t value) : value_(value) {}
+  static IntScalar *FromLiteral(Arena *arena, std::string_view literal);
 
   virtual int64_t AsInt() { return value_; }
   ScalarType type() final { return kInt; }
 
 private:
+  IntScalar(int64_t value) : value_(value) {}
+
   int64_t value_;
 };
 
@@ -72,9 +69,10 @@ private:
 };
 
 class BinNode : public Node {
-public:
+protected:
   BinNode(Node *lhs, Node *rhs) : left_(lhs), right_(rhs) {}
 
+public:
   Node *left() { return left_; }
   Node *right() { return right_; }
 
@@ -88,8 +86,8 @@ class BinOpNode : public BinNode {
 public:
   BinOpNode(Node *lhs, Node *rhs, char op) : BinNode(lhs, rhs), op_(op) {}
   void Accept(Visitor *v) override;
-
   char op() const { return op_; }
+
 private:
   const char op_;
 };

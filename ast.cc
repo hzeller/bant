@@ -3,19 +3,23 @@
 
 #include "ast.h"
 
-IntScalar *IntScalar::FromLiteral(std::string_view literal) {
+IntScalar *IntScalar::FromLiteral(Arena *arena, std::string_view literal) {
   int64_t val = 0;
   auto result = std::from_chars(literal.begin(), literal.end(), val);
   if (result.ec != std::errc{}) {
     return nullptr;
   }
-  return new IntScalar(val);
+  char *mem = arena->Alloc(sizeof(IntScalar));
+  return new (mem) IntScalar(val);
 }
 
-StringScalar *StringScalar::FromLiteral(std::string_view literal) {
+StringScalar *StringScalar::FromLiteral(Arena *arena, std::string_view literal) {
     literal = literal.substr(1);
     literal.remove_suffix(1);
-    return new StringScalar(literal, false);
+
+    char *mem = arena->Alloc(sizeof(StringScalar));
+    return new (mem) StringScalar(literal);
+    return new (mem) StringScalar(literal);
   }
 
 void PrintVisitor::VisitAssignment(Assignment *a)  {
