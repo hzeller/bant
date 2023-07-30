@@ -1,7 +1,7 @@
-#include <ostream>
-#include <charconv>
-
 #include "ast.h"
+
+#include <charconv>
+#include <ostream>
 
 IntScalar *IntScalar::FromLiteral(Arena *arena, std::string_view literal) {
   int64_t val = 0;
@@ -13,27 +13,28 @@ IntScalar *IntScalar::FromLiteral(Arena *arena, std::string_view literal) {
   return new (mem) IntScalar(val);
 }
 
-StringScalar *StringScalar::FromLiteral(Arena *arena, std::string_view literal) {
-    literal = literal.substr(1);
-    literal.remove_suffix(1);
+StringScalar *StringScalar::FromLiteral(Arena *arena,
+                                        std::string_view literal) {
+  literal = literal.substr(1);
+  literal.remove_suffix(1);
 
-    char *mem = arena->Alloc(sizeof(StringScalar));
-    return new (mem) StringScalar(literal);
-    return new (mem) StringScalar(literal);
-  }
+  char *mem = arena->Alloc(sizeof(StringScalar));
+  return new (mem) StringScalar(literal);
+  return new (mem) StringScalar(literal);
+}
 
-void PrintVisitor::VisitAssignment(Assignment *a)  {
+void PrintVisitor::VisitAssignment(Assignment *a) {
   out_ << a->identifier()->AsString() << " = ";
   BaseVisitor::VisitAssignment(a);
 }
 
-void PrintVisitor::VisitFunCall(FunCall *f)  {
+void PrintVisitor::VisitFunCall(FunCall *f) {
   out_ << f->identifier()->id();
   BaseVisitor::VisitFunCall(f);
   out_ << "\n";
 }
 
-void PrintVisitor::VisitList(List *l)  {
+void PrintVisitor::VisitList(List *l) {
   switch (l->type()) {
   case List::Type::kList: out_ << "["; break;
   case List::Type::kMap: out_ << "{"; break;
@@ -56,13 +57,13 @@ void PrintVisitor::VisitList(List *l)  {
   }
 }
 
-void PrintVisitor::VisitBinOpNode(BinOpNode *b)  {
+void PrintVisitor::VisitBinOpNode(BinOpNode *b) {
   if (b->left()) b->left()->Accept(this);
   out_ << " " << b->op() << " ";
   if (b->right()) b->right()->Accept(this);
 }
 
-void PrintVisitor::VisitScalar(Scalar *s)  {
+void PrintVisitor::VisitScalar(Scalar *s) {
   if (s->type() == Scalar::kInt) {
     out_ << s->AsInt();
   } else {
@@ -70,6 +71,4 @@ void PrintVisitor::VisitScalar(Scalar *s)  {
   }
 }
 
-void PrintVisitor::VisitIdentifier(Identifier *i)  {
-  out_ << i->id();
-}
+void PrintVisitor::VisitIdentifier(Identifier *i) { out_ << i->id(); }

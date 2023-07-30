@@ -1,18 +1,18 @@
 // next steps
 //  triple-string.
 
-#include <ostream>
-#include <iostream> // for main
 #include <fstream>
 #include <functional>
+#include <iostream>  // for main
+#include <ostream>
 
-#include "scanner.h"
 #include "ast.h"
+#include "scanner.h"
 
 class Parser {
-public:
+ public:
   Parser(const char *filename, Scanner *scanner)
-    : filename_(filename), scanner_(scanner) {}
+      : filename_(filename), scanner_(scanner) {}
 
   // Parse file. If there is an error, return at least partial tree.
   List *parse() {
@@ -42,8 +42,7 @@ public:
         statement_list->Append(ParseFunCall(tok));
         break;
       default:
-        MsgAt(after_id)
-          << "expected '(' or '=', got " << after_id.text << "\n";
+        MsgAt(after_id) << "expected '(' or '=', got " << after_id.text << "\n";
         SetErrorToken(tok);
         return statement_list;
       }
@@ -58,9 +57,9 @@ public:
 
   FunCall *ParseFunCall(Token identifier) {
     // opening '(' already consumed.
-    List *args = ParseList(List::Type::kTuple,
-                           [&]() { return ValueOrAssignment(); },
-                           TokenType::kCloseParen);
+    List *args = ParseList(
+      List::Type::kTuple, [&]() { return ValueOrAssignment(); },
+      TokenType::kCloseParen);
     return new FunCall(new Identifier(identifier.text), args);
   }
 
@@ -88,7 +87,7 @@ public:
     Node *value = ParseValue();
     if (value->is_identifier() && scanner_->Peek().type == '=') {
       scanner_->Next();
-      return ParseAssignmentRhs(static_cast<Identifier*>(value));
+      return ParseAssignmentRhs(static_cast<Identifier *>(value));
     }
     return value;
   }
@@ -98,8 +97,7 @@ public:
     switch (t.type) {
     case TokenType::kStringLiteral:
       return StringScalar::FromLiteral(&node_arena_, t.text);
-    case TokenType::kNumberLiteral:
-      return ParseIntFromToken(t);
+    case TokenType::kNumberLiteral: return ParseIntFromToken(t);
     case TokenType::kIdentifier:
       if (scanner_->Peek().type == '(') {
         scanner_->Next();
@@ -107,13 +105,17 @@ public:
       }
       return new Identifier(t.text);
     case TokenType::kOpenSquare:
-      return ParseList(List::Type::kList, [&]() { return ParseExpression(); }, TokenType::kCloseSquare);
+      return ParseList(
+        List::Type::kList, [&]() { return ParseExpression(); },
+        TokenType::kCloseSquare);
     case TokenType::kOpenBrace:
-      return ParseList(List::Type::kMap, [&]() { return ParseMapTuple(); }, TokenType::kCloseBrace);
-      default:
-        MsgAt(t) << "Expected value of sorts\n";
-        SetErrorToken(t);
-        return nullptr;
+      return ParseList(
+        List::Type::kMap, [&]() { return ParseMapTuple(); },
+        TokenType::kCloseBrace);
+    default:
+      MsgAt(t) << "Expected value of sorts\n";
+      SetErrorToken(t);
+      return nullptr;
     }
   }
 
@@ -163,9 +165,7 @@ public:
     case kStringLiteral:
       lhs = StringScalar::FromLiteral(&node_arena_, p.text);
       break;
-    case kNumberLiteral:
-      lhs = ParseIntFromToken(p);
-      break;
+    case kNumberLiteral: lhs = ParseIntFromToken(p); break;
     default:
       MsgAt(p) << "Expected literal in map key\n";
       SetErrorToken(p);
@@ -196,7 +196,7 @@ public:
   // Error token or kEof
   Token lastToken() { return last_token_; }
 
-private:
+ private:
   const char *filename_;
   Scanner *const scanner_;
   Arena node_arena_;
@@ -247,14 +247,14 @@ int main(int argc, char *argv[]) {
     }
     const Token last = parser.lastToken();
     if (last.type != kEof) {
-      std::cout << filename << ":" << scanner.GetPos(last.text) <<
-        " FAILED AT '" << last.text << "' ----------------- \n";
+      std::cout << filename << ":" << scanner.GetPos(last.text)
+                << " FAILED AT '" << last.text << "' ----------------- \n";
       ++file_error_count;
     }
   }
 
-  fprintf(stderr, "Scanned %d files; %d file with issues.\n",
-          file_count, file_error_count);
+  fprintf(stderr, "Scanned %d files; %d file with issues.\n", file_count,
+          file_error_count);
 
   return file_error_count;
 }
