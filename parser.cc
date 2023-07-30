@@ -5,163 +5,189 @@
 #include <iostream> // for main
 #include <fstream>
 #include <functional>
+#include <charconv>
 
 #include "scanner.h"
-
-#define RET_ON_ERROR(token)                                                    \
-  ({                                                                           \
-    const Token &_t = (token);                                                 \
-    if (_t.type == TokenType::kError) {                                        \
-      return _t;                                                               \
-    }                                                                          \
-    _t;                                                                        \
-  })
+#include "ast.h"
 
 class Parser {
 public:
   Parser(const char *filename, Scanner *scanner)
     : filename_(filename), scanner_(scanner) {}
 
-  Token parse_top() {
-    for (;;) {
+  // Attempt to parse. If there is an error, return at least partial tree.
+  List *parse() {
+    List *statement_list = new List(List::Type::kList);
+    while (!error_) {
       auto tok = scanner_->Next();
       if (tok.type == kEof) {
-        return tok;
+        last_token_ = tok;
+        return statement_list;
       }
       if (tok.type == kStringLiteral) {
-        continue;  // crazy Python folks.
+        continue;  // Pythonism: Toplevel document no-effect statement
       }
       if (tok.type != kIdentifier) {
         MsgAt(tok) << "Expected identifier, got " << tok.text << "\n";
-        return ConvertToError(tok);
+        SetErrorToken(tok);
+        return statement_list;
       }
 
       // Got identifier, next step: either function call or assignment.
       auto after_id = scanner_->Next();
       switch (after_id.type) {
       case TokenType::kEquals:
-        RET_ON_ERROR(ParseAssignmentRhs(tok, "toplevel"));
+        statement_list->Append(ParseAssignmentRhs(new Identifier(tok.text)));
         break;
       case TokenType::kOpenParen:
-        RET_ON_ERROR(ParseFunCall(tok));
+        statement_list->Append(ParseFunCall(tok));
         break;
       default:
         MsgAt(after_id)
           << "expected '(' or '=', got " << after_id.text << "\n";
-        return ConvertToError(after_id);
+        SetErrorToken(tok);
+        return statement_list;
       }
     }
+    return statement_list;
   }
 
-  Token ParseAssignmentRhs(Token identifier, const char *msg) {
+  Assignment *ParseAssignmentRhs(Identifier *id) {
     // '=' already consumed
-    Token t = RET_ON_ERROR(ParseExpression());
-    MsgAt(t) << "Got successful assignment for '" << identifier.text << "=' "
-             << msg << "\n";
-    return t;
+    return new Assignment(id, ParseExpression());
   }
 
-  Token ParseFunCall(Token identifier) {
-    // open paren already consumed
-    Token t = RET_ON_ERROR(ParseList([&]() { return ValueOrAssignment(); },
-                                     TokenType::kCloseParen));
-    MsgAt(identifier) << "Finished fun call\n";
-    return t;
+  FunCall *ParseFunCall(Token identifier) {
+    // opening '(' already consumed.
+    List *args = ParseList(List::Type::kTuple,
+                           [&]() { return ValueOrAssignment(); },
+                           TokenType::kCloseParen);
+    return new FunCall(new Identifier(identifier.text), args);
   }
 
-  Token ParseList(const std::function<Token()> &element_parse,
+  List *ParseList(List::Type type, const std::function<Node *()> &element_parse,
                   TokenType end_tok) {
+    List *result = new List(type);
     Token upcoming = scanner_->Peek();
     while (upcoming.type != end_tok) {
-      RET_ON_ERROR(element_parse());
+      result->Append(element_parse());
       upcoming = scanner_->Peek();
       if (upcoming.type == ',') {
         scanner_->Next();
         upcoming = scanner_->Peek();
       } else if (upcoming.type != end_tok) {
         MsgAt(upcoming) << "Expected comma or close " << end_tok << "\n";
-        return ConvertToError(scanner_->Next());
+        SetErrorToken(scanner_->Next());
+        return result;
       }
     }
-    return scanner_->Next();  // eats end_tok
+    scanner_->Next();  // eats end_tok
+    return result;
   }
 
-  Token ValueOrAssignment() {
-    Token t = RET_ON_ERROR(ParseValue());  // simple lhs
-    if (t.type == TokenType::kIdentifier && scanner_->Peek().type == '=') {
+  Node *ValueOrAssignment() {
+    Node *value = ParseValue();
+    if (value->is_identifier() && scanner_->Peek().type == '=') {
       scanner_->Next();
-      return ParseAssignmentRhs(t, "in fun-call");
+      return ParseAssignmentRhs(static_cast<Identifier*>(value));
     }
-    MsgAt(t) << "Value in fun-call\n";
-    return t;
+    return value;
   }
 
-  Token ParseValue() {
+  IntScalar *ParseIntFromToken(Token t) {
+    int64_t val = 0;
+    auto result = std::from_chars(t.text.begin(), t.text.end(), val);
+    if (result.ec != std::errc{}) {
+      MsgAt(t) << "Can't parse integer " << result.ptr << "\n";
+      SetErrorToken(t);
+      return nullptr;
+    }
+    return new IntScalar(val);
+  }
+
+  StringScalar *ParseStringScalarFromToken(Token t) {
+    std::string_view literal = t.text.substr(1);
+    literal.remove_suffix(1);
+    return new StringScalar(literal);
+  }
+
+  Node *ParseValue() {
     Token t = scanner_->Next();
     switch (t.type) {
     case TokenType::kStringLiteral:
+      return ParseStringScalarFromToken(t);
     case TokenType::kNumberLiteral:
-      return t;
+      return ParseIntFromToken(t);
     case TokenType::kIdentifier:
       if (scanner_->Peek().type == '(') {
         scanner_->Next();
-          return ParseFunCall(t);
-        } else {
-          return t;
-        }
-      case TokenType::kOpenSquare:
-        return ParseList([&]() { return ParseExpression(); }, TokenType::kCloseSquare);
-      case TokenType::kOpenBrace:
-        return ParseList([&]() { return ParseMapTuple(); }, TokenType::kCloseBrace);
+        return ParseFunCall(t);
+      }
+      return new Identifier(t.text);
+    case TokenType::kOpenSquare:
+      return ParseList(List::Type::kList, [&]() { return ParseExpression(); }, TokenType::kCloseSquare);
+    case TokenType::kOpenBrace:
+      return ParseList(List::Type::kMap, [&]() { return ParseMapTuple(); }, TokenType::kCloseBrace);
       default:
         MsgAt(t) << "Expected value of sorts\n";
-        return ConvertToError(t);
-      }
-  }
-
-  Token ParseExpression(bool tuple_expression_allowed = false) {
-    for (;;) {
-      Token t;
-      if (scanner_->Peek().type == '(') {
-        t = ParseParenExpression();
-      } else {
-        t = ParseValue();
-      }
-      RET_ON_ERROR(t);
-      const Token upcoming = scanner_->Peek();
-      if (upcoming.type == '+' || upcoming.type == '-' || upcoming.type == '.'
-          || (upcoming.type == ',' && tuple_expression_allowed)) {
-        scanner_->Next();
-      } else {
-        return t;
-      }
+        SetErrorToken(t);
+        return nullptr;
     }
   }
 
-  Token ParseParenExpression() {
+  Node *ParseExpression() {
+    Node *n;
+    if (scanner_->Peek().type == '(') {
+      n = ParseParenExpression();
+    } else {
+      n = ParseValue();
+    }
+    if (n == nullptr) return n;
+
+    const Token upcoming = scanner_->Peek();
+    if (upcoming.type == '+' || upcoming.type == '-') {
+      Token op = scanner_->Next();
+      return new BinOpNode(n, ParseExpression(), op.type);
+    } else {
+      return n;
+    }
+  }
+
+  Node *ParseParenExpression() {
     Token p = scanner_->Next();
-    if (p.type != '(') return ConvertToError(p);
-    Token exp = ParseExpression(true);
+    assert(p.type == '(');  // We have only be called if this is true.
+    Node *exp = ParseExpression();
     p = scanner_->Next();
     if (p.type != ')') {
       MsgAt(p) << "Expected close parenthesis\n";
-      return ConvertToError(p);
+      SetErrorToken(p);
     }
     return exp;
   }
 
-  Token ParseMapTuple() {
+  BinOpNode *ParseMapTuple() {
     Token p = scanner_->Next();
-    if (p.type != kStringLiteral && p.type != kNumberLiteral) {
+    Node *lhs;
+    switch (p.type) {
+    case kStringLiteral:
+      lhs = ParseStringScalarFromToken(p);
+      break;
+    case kNumberLiteral:
+      lhs = ParseIntFromToken(p);
+      break;
+    default:
       MsgAt(p) << "Expected literal in map key\n";
-      return ConvertToError(p);
+      SetErrorToken(p);
+      return nullptr;
     }
+
     p = scanner_->Next();
     if (p.type != ':') {
       MsgAt(p) << "Expected ':' in map-tuple\n";
-      return ConvertToError(p);
+      SetErrorToken(p);
+      return nullptr;
     }
-    return ParseExpression();
+    return new BinOpNode(lhs, ParseExpression(), ':');
   }
 
   std::ostream &MsgAt(Token t) {
@@ -170,14 +196,20 @@ public:
     return std::cerr;
   }
 
-  Token ConvertToError(Token t) {
-    t.type = TokenType::kError;
-    return t;  // keep text.
+  void SetErrorToken(Token t) {
+    MsgAt(t) << "Got error\n";
+    last_token_ = t;
+    error_ = true;
   }
+
+  // Error token or kEof
+  Token lastToken() { return last_token_; }
 
 private:
   const char *filename_;
   Scanner *const scanner_;
+  bool error_ = false;
+  Token last_token_;
 };
 
 std::optional<std::string> ReadFileToString(const char *filename) {
@@ -214,7 +246,14 @@ int main(int argc, char *argv[]) {
     ++file_count;
     Scanner scanner(*content);
     Parser parser(filename, &scanner);
-    Token last = parser.parse_top();
+    List *const statements = parser.parse();
+    if (statements) {
+      std::cerr << "------- file " << filename << "\n";
+      PrintVisitor printer(std::cerr);
+      statements->Accept(&printer);
+      std::cerr << "\n";
+    }
+    const Token last = parser.lastToken();
     if (last.type != kEof) {
       std::cout << filename << ":" << scanner.GetPos(last.text) <<
         ": FAILED AT '" << last.text << "' ----------------- \n";
@@ -222,7 +261,7 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  fprintf(stderr, "Scanned %d files; failed to read %d files\n",
+  fprintf(stderr, "Scanned %d files; %d file with issues.\n",
           file_count, file_error_count);
 
   return file_error_count;

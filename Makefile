@@ -1,7 +1,7 @@
 CFLAGS=-Wall -Wextra
 CXXFLAGS=$(CFLAGS)
 
-parser: parser.o scanner.o
+parser: parser.o scanner.o ast.o
 	$(CXX) -o $@ $^
 
 clean:

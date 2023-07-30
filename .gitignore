@@ -1,0 +1,4 @@
+*.o
+parser
+*~
+.envrc
