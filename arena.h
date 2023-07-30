@@ -4,6 +4,7 @@
 
 #include <cstddef>
 #include <iostream>
+#include <utility>
 
 // TODO: this is a sketch only, does not actually implement the arena aspect
 // and will leak memory.
@@ -12,12 +13,17 @@
 // Fast, but does not call any destructors.
 class Arena {
  public:
-  // TODO: provid template that takes type and forwards constructor calls.
-
-  char *Alloc(size_t size) {
+  char* Alloc(size_t size) {
     total_allocations_++;
     total_memory_ += size;
     return new char[size];  // TODO: actuallly make this an arena.
+  }
+
+  // Convenience constructor in place
+  template <typename T, class... U>
+  T* New(U&&... args) {
+    const size_t size = sizeof(T);
+    return new (Alloc(size)) T(std::forward<U>(args)...);
   }
 
   ~Arena() {

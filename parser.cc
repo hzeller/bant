@@ -16,7 +16,7 @@ class Parser {
 
   // Parse file. If there is an error, return at least partial tree.
   List *parse() {
-    List *statement_list = new List(List::Type::kList);
+    List *statement_list = Make<List>(List::Type::kList);
     while (!error_) {
       auto tok = scanner_->Next();
       if (tok.type == kEof) {
@@ -35,10 +35,11 @@ class Parser {
       auto after_id = scanner_->Next();
       switch (after_id.type) {
       case TokenType::kEquals:
-        statement_list->Append(ParseAssignmentRhs(new Identifier(tok.text)));
+        statement_list->Append(&node_arena_,
+                               ParseAssignmentRhs(Make<Identifier>(tok.text)));
         break;
       case TokenType::kOpenParen:
-        statement_list->Append(ParseFunCall(tok));
+        statement_list->Append(&node_arena_, ParseFunCall(tok));
         break;
       default:
         ErrAt(after_id) << "expected '(' or '=', got " << after_id.text << "\n";
@@ -50,7 +51,7 @@ class Parser {
 
   Assignment *ParseAssignmentRhs(Identifier *id) {
     // '=' already consumed
-    return new Assignment(id, ParseExpression());
+    return Make<Assignment>(id, ParseExpression());
   }
 
   FunCall *ParseFunCall(Token identifier) {
@@ -58,15 +59,15 @@ class Parser {
     List *args = ParseList(
       List::Type::kTuple, [&]() { return ValueOrAssignment(); },
       TokenType::kCloseParen);
-    return new FunCall(new Identifier(identifier.text), args);
+    return Make<FunCall>(Make<Identifier>(identifier.text), args);
   }
 
   List *ParseList(List::Type type, const std::function<Node *()> &element_parse,
                   TokenType end_tok) {
-    List *result = new List(type);
+    List *result = Make<List>(type);
     Token upcoming = scanner_->Peek();
     while (upcoming.type != end_tok) {
-      result->Append(element_parse());
+      result->Append(&node_arena_, element_parse());
       upcoming = scanner_->Peek();
       if (upcoming.type == ',') {
         scanner_->Next();
@@ -100,7 +101,7 @@ class Parser {
         scanner_->Next();
         return ParseFunCall(t);
       }
-      return new Identifier(t.text);
+      return Make<Identifier>(t.text);
     case TokenType::kOpenSquare:
       return ParseList(
         List::Type::kList, [&]() { return ParseExpression(); },
@@ -109,9 +110,7 @@ class Parser {
       return ParseList(
         List::Type::kMap, [&]() { return ParseMapTuple(); },
         TokenType::kCloseBrace);
-    default:
-      ErrAt(t) << "Expected value of sorts\n";
-      return nullptr;
+    default: ErrAt(t) << "Expected value of sorts\n"; return nullptr;
     }
   }
 
@@ -127,7 +126,7 @@ class Parser {
     const Token upcoming = scanner_->Peek();
     if (upcoming.type == '+' || upcoming.type == '-') {
       Token op = scanner_->Next();
-      return new BinOpNode(n, ParseExpression(), op.type);
+      return Make<BinOpNode>(n, ParseExpression(), op.type);
     } else {
       return n;
     }
@@ -160,9 +159,7 @@ class Parser {
       lhs = StringScalar::FromLiteral(&node_arena_, p.text);
       break;
     case kNumberLiteral: lhs = ParseIntFromToken(p); break;
-    default:
-      ErrAt(p) << "Expected literal in map key\n";
-      return nullptr;
+    default: ErrAt(p) << "Expected literal in map key\n"; return nullptr;
     }
 
     p = scanner_->Next();
@@ -170,7 +167,7 @@ class Parser {
       ErrAt(p) << "Expected ':' in map-tuple\n";
       return nullptr;
     }
-    return new BinOpNode(lhs, ParseExpression(), ':');
+    return Make<BinOpNode>(lhs, ParseExpression(), ':');
   }
 
   std::ostream &ErrAt(Token t) {
@@ -183,6 +180,12 @@ class Parser {
 
   // Error token or kEof
   Token lastToken() { return last_token_; }
+
+  // Convenience constructor in place
+  template <typename T, class... U>
+  T *Make(U &&...args) {
+    return node_arena_.New<T>(std::forward<U>(args)...);
+  }
 
  private:
   const char *filename_;

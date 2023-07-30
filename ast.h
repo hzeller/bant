@@ -11,6 +11,11 @@
 
 class Visitor;
 
+// Constructors are not public, only accessible via Arena. Use Arena::New()
+// for all nodes.
+// All nodes are only composed of trivially destructable components so that
+// we do not have to call destructors.
+
 class Node {
  public:
   virtual ~Node() = default;
@@ -37,6 +42,7 @@ class StringScalar : public Scalar {
   ScalarType type() final { return kString; }
 
  private:
+  friend class Arena;
   StringScalar(std::string_view value) : value_(value) {}
 
   std::string_view value_;
@@ -50,6 +56,7 @@ class IntScalar : public Scalar {
   ScalarType type() final { return kInt; }
 
  private:
+  friend class Arena;
   IntScalar(int64_t value) : value_(value) {}
 
   int64_t value_;
@@ -57,26 +64,27 @@ class IntScalar : public Scalar {
 
 class Identifier : public Node {
  public:
-  // Needs to be owned outside. Typically the region in the
-  // original file, that way it allows us report file location.
-  Identifier(std::string_view id) : id_(id) {}
   const std::string_view id() const { return id_; }
   void Accept(Visitor *v) override;
   bool is_identifier() const final { return true; }
 
  private:
+  friend class Arena;
+
+  // Needs to be owned outside. Typically the region in the
+  // original file, that way it allows us report file location.
+  Identifier(std::string_view id) : id_(id) {}
+
   std::string_view id_;
 };
 
 class BinNode : public Node {
- protected:
-  BinNode(Node *lhs, Node *rhs) : left_(lhs), right_(rhs) {}
-
  public:
   Node *left() { return left_; }
   Node *right() { return right_; }
 
  protected:
+  BinNode(Node *lhs, Node *rhs) : left_(lhs), right_(rhs) {}
   Node *left_;
   Node *right_;
 };
@@ -84,11 +92,12 @@ class BinNode : public Node {
 // Few binops currently: '+', '-', ':' (mapping op).
 class BinOpNode : public BinNode {
  public:
-  BinOpNode(Node *lhs, Node *rhs, char op) : BinNode(lhs, rhs), op_(op) {}
   void Accept(Visitor *v) override;
   char op() const { return op_; }
 
  private:
+  friend class Arena;
+  BinOpNode(Node *lhs, Node *rhs, char op) : BinNode(lhs, rhs), op_(op) {}
   const char op_;
 };
 
@@ -105,12 +114,10 @@ class List : public Node {
     void Accept(Visitor *) final { assert(0); }  // Never called.
   };
 
-  List(Type t) : type_(t) {}
-
   Element *first() { return first_; }
 
-  void Append(Node *value) {
-    Element *element = new Element(value);
+  void Append(Arena *arena, Node *value) {
+    Element *element = arena->New<Element>(value);
     if (!first_) first_ = element;
     if (last_) last_->SetNext(element);
     last_ = element;
@@ -120,6 +127,9 @@ class List : public Node {
   Type type() { return type_; }
 
  private:
+  friend class Arena;
+  List(Type t) : type_(t) {}
+
   const Type type_;
   Element *first_ = nullptr;
   Element *last_ = nullptr;
@@ -128,25 +138,30 @@ class List : public Node {
 // Simple assignment: the only allowed lvalue is an identifier.
 class Assignment : public BinNode {
  public:
-  Assignment(Identifier *identifier, Node *value)
-      : BinNode(identifier, value) {}
-
   StringScalar *identifier() { return static_cast<StringScalar *>(left_); }
   Node *value() { return right_; }
 
   void Accept(Visitor *v) final;
+
+ private:
+  friend class Arena;
+  Assignment(Identifier *identifier, Node *value)
+      : BinNode(identifier, value) {}
 };
 
 // Function call.
 class FunCall : public BinNode {
  public:
+  Identifier *identifier() { return static_cast<Identifier *>(left_); }
+  List *argument() { return static_cast<List *>(right_); }
+  void Accept(Visitor *v) final;
+
+ private:
+  friend class Arena;
   FunCall(Identifier *identifier, List *argument_list)
       : BinNode(identifier, argument_list) {
     assert(argument_list->type() == List::Type::kTuple);
   }
-  Identifier *identifier() { return static_cast<Identifier *>(left_); }
-  List *argument() { return static_cast<List *>(right_); }
-  void Accept(Visitor *v) final;
 };
 
 class Visitor {

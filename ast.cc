@@ -9,8 +9,7 @@ IntScalar *IntScalar::FromLiteral(Arena *arena, std::string_view literal) {
   if (result.ec != std::errc{}) {
     return nullptr;
   }
-  char *mem = arena->Alloc(sizeof(IntScalar));
-  return new (mem) IntScalar(val);
+  return arena->New<IntScalar>(val);
 }
 
 StringScalar *StringScalar::FromLiteral(Arena *arena,
@@ -18,9 +17,7 @@ StringScalar *StringScalar::FromLiteral(Arena *arena,
   literal = literal.substr(1);
   literal.remove_suffix(1);
 
-  char *mem = arena->Alloc(sizeof(StringScalar));
-  return new (mem) StringScalar(literal);
-  return new (mem) StringScalar(literal);
+  return arena->New<StringScalar>(literal);
 }
 
 void PrintVisitor::VisitAssignment(Assignment *a) {
