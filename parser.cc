@@ -5,7 +5,6 @@
 #include <iostream> // for main
 #include <fstream>
 #include <functional>
-#include <charconv>
 
 #include "scanner.h"
 #include "ast.h"
@@ -94,28 +93,11 @@ public:
     return value;
   }
 
-  IntScalar *ParseIntFromToken(Token t) {
-    int64_t val = 0;
-    auto result = std::from_chars(t.text.begin(), t.text.end(), val);
-    if (result.ec != std::errc{}) {
-      MsgAt(t) << "Can't parse integer " << result.ptr << "\n";
-      SetErrorToken(t);
-      return nullptr;
-    }
-    return new IntScalar(val);
-  }
-
-  StringScalar *ParseStringScalarFromToken(Token t) {
-    std::string_view literal = t.text.substr(1);
-    literal.remove_suffix(1);
-    return new StringScalar(literal);
-  }
-
   Node *ParseValue() {
     Token t = scanner_->Next();
     switch (t.type) {
     case TokenType::kStringLiteral:
-      return ParseStringScalarFromToken(t);
+      return StringScalar::FromLiteral(t.text);
     case TokenType::kNumberLiteral:
       return ParseIntFromToken(t);
     case TokenType::kIdentifier:
@@ -165,12 +147,21 @@ public:
     return exp;
   }
 
+  IntScalar *ParseIntFromToken(Token t) {
+    IntScalar *scalar = IntScalar::FromLiteral(t.text);
+    if (!scalar) {
+      MsgAt(t) << "Error parsing int literal " << t.text << "\n";
+      SetErrorToken(t);
+    }
+    return scalar;
+  }
+
   BinOpNode *ParseMapTuple() {
     Token p = scanner_->Next();
     Node *lhs;
     switch (p.type) {
     case kStringLiteral:
-      lhs = ParseStringScalarFromToken(p);
+      lhs = StringScalar::FromLiteral(p.text);
       break;
     case kNumberLiteral:
       lhs = ParseIntFromToken(p);

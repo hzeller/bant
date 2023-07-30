@@ -29,17 +29,26 @@ public:
 
 class StringScalar : public Scalar {
 public:
-  StringScalar(std::string_view value) : value_(value) {}
+  static StringScalar *FromLiteral(std::string_view literal);
+  StringScalar(std::string_view value, bool pass_ownership)
+    : value_(value) {
+    if (pass_ownership) {
+      backing_.assign(value.begin(), value.end());
+      value_ = backing_;
+    }
+  }
 
   std::string_view AsString() final { return value_; }
   ScalarType type() final { return kString; }
 
 private:
-  std::string value_;
+  std::string_view value_;
+  std::string backing_;
 };
 
 class IntScalar : public Scalar {
 public:
+  static IntScalar *FromLiteral(std::string_view literal);
   IntScalar(int64_t value) : value_(value) {}
 
   virtual int64_t AsInt() { return value_; }
@@ -51,13 +60,15 @@ private:
 
 class Identifier : public Node {
 public:
+  // Needs to be owned outside. Typically the region in the
+  // original file, that way it allows us report file location.
   Identifier(std::string_view id) : id_(id) {}
-  const std::string& id() const { return id_; }
+  const std::string_view id() const { return id_; }
   void Accept(Visitor *v) override;
   bool is_identifier() const final { return true; }
 
 private:
-  std::string id_;
+  std::string_view id_;
 };
 
 class BinNode : public Node {
@@ -83,7 +94,7 @@ private:
   const char op_;
 };
 
-// List, maps and tuples are
+// List, maps and tuples are all lists.
 class List : public Node {
 public:
   enum Type {
