@@ -1,0 +1,1 @@
+common --cxxopt=-std=c++17 --host_cxxopt=-std=c++17 --cxxopt=-Wall --cxxopt=-Wextra --cxxopt=-pedantic
