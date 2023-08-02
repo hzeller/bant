@@ -11,6 +11,12 @@ bant_used_stdenv.mkDerivation {
   buildInputs = with pkgs;
     [
       bazel_4
+      jdk11
+
+      # WORKSPACE pkg-config test
+      #pkg-config
+      #gtest
+
       clang-tools_14    # clang-format, clang-tidy
       bazel-buildtools  # buildifier
     ];

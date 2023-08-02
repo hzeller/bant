@@ -31,3 +31,12 @@ cc_library(
     name = "memory",
     hdrs = ["arena.h"],
 )
+
+cc_test(
+    name = "scanner_test",
+    srcs = [ "scanner_test.cc" ],
+    deps = [
+        ":parser",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
