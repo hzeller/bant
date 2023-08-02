@@ -16,6 +16,7 @@ class Parser {
   // stream receives user-readable error messages.
   Parser(Scanner *token_source, Arena *allocator, const char *info_filename,
          std::ostream &err_out);
+  ~Parser();
 
   // Parse file and return an ast. The toplevel returns a list of
   // statements.

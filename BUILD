@@ -1,25 +1,26 @@
 # -*- python -*-
 cc_binary(
-    name = "parser",
+    name = "bant",
     srcs = [
-        "parser.cc",
-        "parser.h",
+        "bant.cc",
     ],
     deps = [
         ":memory",
-        ":scanner",
+        ":parser",
     ],
 )
 
 cc_library(
-    name = "scanner",
+    name = "parser",
     srcs = [
         "ast.cc",
         "scanner.cc",
+        "parser.cc",
     ],
     hdrs = [
         "ast.h",
         "scanner.h",
+        "parser.h",
     ],
     deps = [
         ":memory",
