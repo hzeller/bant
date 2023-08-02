@@ -1,6 +1,8 @@
 // next steps
 //  triple-string.
 
+#include "parser.h"
+
 #include <fstream>
 #include <functional>
 #include <iostream>  // for main
@@ -9,14 +11,23 @@
 #include "ast.h"
 #include "scanner.h"
 
-class Parser {
+// Simple recursive descent parser. As Parser::Impl to not clobber the header
+// file with all the parse methods needed for each production.
+class Parser::Impl {
  public:
-  Parser(const char *filename, Scanner *scanner, Arena *arena)
-      : filename_(filename), scanner_(scanner), node_arena_(arena) {}
+  Impl(Scanner *token_source, Arena *allocator, const char *info_filename,
+       std::ostream &err_out)
+      : scanner_(token_source),
+        node_arena_(allocator),
+        filename_(info_filename),
+        err_out_(err_out) {}
 
   // Parse file. If there is an error, return at least partial tree.
   List *parse() {
+    if (previous_parse_result_) return previous_parse_result_;
+
     List *statement_list = Make<List>(List::Type::kList);
+    previous_parse_result_ = statement_list;
     while (!error_) {
       auto tok = scanner_->Next();
       if (tok.type == kEof) {
@@ -27,7 +38,7 @@ class Parser {
         continue;  // Pythonism: Toplevel document no-effect statement
       }
       if (tok.type != kIdentifier) {
-        ErrAt(tok) << "Expected identifier, got " << tok.text << "\n";
+        ErrAt(tok) << "Expected identifier\n";
         return statement_list;
       }
 
@@ -42,7 +53,7 @@ class Parser {
         statement_list->Append(node_arena_, ParseFunCall(tok));
         break;
       default:
-        ErrAt(after_id) << "expected '(' or '=', got " << after_id.text << "\n";
+        ErrAt(after_id) << "expected `(` or `=`\n";
         return statement_list;
       }
     }
@@ -73,7 +84,8 @@ class Parser {
         scanner_->Next();
         upcoming = scanner_->Peek();
       } else if (upcoming.type != end_tok) {
-        ErrAt(scanner_->Next()) << "Expected `,` or close " << end_tok << "\n";
+        ErrAt(scanner_->Next())
+          << "Expected `,` or closing `" << end_tok << "`\n";
         return result;
       }
     }
@@ -146,7 +158,7 @@ class Parser {
   IntScalar *ParseIntFromToken(Token t) {
     IntScalar *scalar = IntScalar::FromLiteral(node_arena_, t.text);
     if (!scalar) {
-      ErrAt(t) << "Error parsing int literal " << t.text << "\n";
+      ErrAt(t) << "Error parsing int literal\n";
     }
     return scalar;
   }
@@ -158,42 +170,57 @@ class Parser {
     case kStringLiteral:
       lhs = StringScalar::FromLiteral(node_arena_, p.text);
       break;
-    case kNumberLiteral: lhs = ParseIntFromToken(p); break;
-    default: ErrAt(p) << "Expected literal in map key\n"; return nullptr;
+    case kNumberLiteral:  //
+      lhs = ParseIntFromToken(p);
+      break;
+    default:  //
+      ErrAt(p) << "Expected literal value as map key\n";
+      return nullptr;
     }
 
     p = scanner_->Next();
     if (p.type != ':') {
-      ErrAt(p) << "Expected ':' in map-tuple\n";
+      ErrAt(p) << "Expected `:` in map-tuple\n";
       return nullptr;
     }
     return Make<BinOpNode>(lhs, ParseExpression(), ':');
   }
 
   std::ostream &ErrAt(Token t) {
-    std::cerr << filename_ << ":" << scanner_->GetPos(t.text) << "'" << t.text
-              << "' ";
+    err_out_ << filename_ << ":" << scanner_->GetPos(t.text) << "'" << t.text
+             << "' ";
     error_ = true;
     last_token_ = t;
-    return std::cerr;
+    return err_out_;
   }
 
   // Error token or kEof
-  Token lastToken() { return last_token_; }
+  Token lastToken() const { return last_token_; }
+  bool parse_error() const { return error_; }
 
-  // Convenience constructor in place
+  // Convenience factory creating in our Arena, forwarding to constructor.
   template <typename T, class... U>
   T *Make(U &&...args) {
     return node_arena_->New<T>(std::forward<U>(args)...);
   }
 
  private:
-  const char *filename_;
   Scanner *const scanner_;
   Arena *const node_arena_;
+  const char *filename_;
+  std::ostream &err_out_;
+  List *previous_parse_result_ = nullptr;
   bool error_ = false;
   Token last_token_;
 };
+
+Parser::Parser(Scanner *token_source, Arena *allocator,
+               const char *info_filename, std::ostream &err_out)
+    : impl_(new Impl(token_source, allocator, info_filename, err_out)) {}
+
+List *Parser::parse() { return impl_->parse(); }
+bool Parser::parse_error() const { return impl_->parse_error(); }
+Token Parser::lastToken() const { return impl_->lastToken(); }
 
 std::optional<std::string> ReadFileToString(const char *filename) {
   std::ifstream is(filename, std::ifstream::binary);
@@ -229,7 +256,7 @@ int main(int argc, char *argv[]) {
     }
     ++file_count;
     Scanner scanner(*content);
-    Parser parser(filename, &scanner, &arena);
+    Parser parser(&scanner, &arena, filename, std::cerr);
     List *const statements = parser.parse();
     if (statements) {
       std::cerr << "------- file " << filename << "\n";
@@ -237,8 +264,8 @@ int main(int argc, char *argv[]) {
       statements->Accept(&printer);
       std::cout << "\n";
     }
-    const Token last = parser.lastToken();
-    if (last.type != kEof) {
+    if (parser.parse_error()) {
+      const Token last = parser.lastToken();
       std::cout << filename << ":" << scanner.GetPos(last.text)
                 << " FAILED AT '" << last.text << "' ----------------- \n";
       ++file_error_count;

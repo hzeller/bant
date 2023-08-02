@@ -1,6 +1,6 @@
 /* -*- c++ -*- */
-#ifndef PARSER_H
-#define PARSER_H
+#ifndef BANT_AST_H
+#define BANT_AST_H
 
 #include <cassert>
 #include <cstdint>
@@ -105,21 +105,19 @@ class BinOpNode : public BinNode {
 class List : public Node {
  public:
   enum Type { kList, kMap, kTuple };
-  // To keep allocation simple, this is just a plain linked list.
-  class Element : public BinNode {
-   public:
-    Element(Node *value) : BinNode(value, nullptr) {}
-    Element *next() { return static_cast<Element *>(right_); }
-    void SetNext(Element *e) { right_ = e; }
-    void Accept(Visitor *) final { assert(0); }  // Never called.
+  // To keep allocation in arena simple, this is just a plain linked list.
+  struct Element {
+    Node *node;
+    struct Element *next;
   };
 
   Element *first() { return first_; }
 
   void Append(Arena *arena, Node *value) {
-    Element *element = arena->New<Element>(value);
+    Element *element = arena->New<Element>();
+    element->node = value;
     if (!first_) first_ = element;
-    if (last_) last_->SetNext(element);
+    if (last_) last_->next = element;
     last_ = element;
   }
 
@@ -138,7 +136,7 @@ class List : public Node {
 // Simple assignment: the only allowed lvalue is an identifier.
 class Assignment : public BinNode {
  public:
-  StringScalar *identifier() { return static_cast<StringScalar *>(left_); }
+  Identifier *identifier() { return static_cast<Identifier *>(left_); }
   Node *value() { return right_; }
 
   void Accept(Visitor *v) final;
@@ -170,8 +168,8 @@ class Visitor {
   virtual void VisitAssignment(Assignment *) = 0;
   virtual void VisitFunCall(FunCall *) = 0;
   virtual void VisitList(List *) = 0;
-
   virtual void VisitBinOpNode(BinOpNode *) = 0;
+
   virtual void VisitScalar(Scalar *) = 0;          // Leaf.
   virtual void VisitIdentifier(Identifier *) = 0;  // Leaf.
 };
@@ -185,8 +183,8 @@ class BaseVisitor : public Visitor {
     if (f->right()) f->right()->Accept(this);
   }
   void VisitList(List *l) override {
-    for (List::Element *e = l->first(); e; e = e->next()) {
-      if (e->left()) e->left()->Accept(this);
+    for (List::Element *e = l->first(); e; e = e->next) {
+      if (e->node) e->node->Accept(this);
     }
   }
   void VisitBinOpNode(BinOpNode *b) override {
@@ -220,4 +218,4 @@ inline void BinOpNode::Accept(Visitor *v) { v->VisitBinOpNode(this); }
 inline void Scalar::Accept(Visitor *v) { v->VisitScalar(this); }
 inline void Identifier::Accept(Visitor *v) { v->VisitIdentifier(this); }
 
-#endif  // PARSER_H
+#endif  // BANT_AST_H

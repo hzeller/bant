@@ -1,5 +1,5 @@
-#ifndef SCANNER_H
-#define SCANNER_H
+#ifndef BANT_SCANNER_H
+#define BANT_SCANNER_H
 
 #include <optional>
 #include <ostream>
@@ -82,4 +82,4 @@ class Scanner {
   using LineMap = std::vector<Iterator>;
   LineMap line_map_;
 };
-#endif  // SCANNER_H
+#endif  // BANT_SCANNER_H

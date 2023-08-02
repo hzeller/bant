@@ -1,6 +1,6 @@
 /* -*- c++ -*- */
-#ifndef ARENA_H
-#define ARENA_H
+#ifndef BANT_ARENA_H
+#define BANT_ARENA_H
 
 #include <cstddef>
 #include <iostream>
@@ -28,8 +28,7 @@ class Arena {
   // Convenience constructor in place
   template <typename T, class... U>
   T *New(U &&...args) {
-    const size_t size = sizeof(T);
-    return new (Alloc(size)) T(std::forward<U>(args)...);
+    return new (Alloc(sizeof(T))) T(std::forward<U>(args)...);
   }
 
   ~Arena() {
@@ -45,4 +44,4 @@ class Arena {
   size_t total_allocations_ = 0;
 };
 
-#endif  // ARENA_H
+#endif  // BANT_ARENA_H

@@ -21,14 +21,14 @@ StringScalar *StringScalar::FromLiteral(Arena *arena,
 }
 
 void PrintVisitor::VisitAssignment(Assignment *a) {
-  out_ << a->identifier()->AsString() << " = ";
+  out_ << a->identifier()->id() << " = ";
   BaseVisitor::VisitAssignment(a);
 }
 
 void PrintVisitor::VisitFunCall(FunCall *f) {
   out_ << f->identifier()->id();
   BaseVisitor::VisitFunCall(f);
-  out_ << "\n";
+  out_ << "\n" << std::string(indent_, ' ');
 }
 
 void PrintVisitor::VisitList(List *l) {
@@ -38,13 +38,13 @@ void PrintVisitor::VisitList(List *l) {
   case List::Type::kTuple: out_ << "("; break;
   }
   indent_ += 2;
-  for (List::Element *e = l->first(); e; e = e->next()) {
-    if (e->left()) {
-      e->left()->Accept(this);
+  for (List::Element *e = l->first(); e; e = e->next) {
+    if (e->node) {
+      e->node->Accept(this);
     } else {
       out_ << "NIL";
     }
-    if (e->next()) out_ << ",\n" << std::string(indent_, ' ');
+    if (e->next) out_ << ",\n" << std::string(indent_, ' ');
   }
   indent_ -= 2;
   switch (l->type()) {

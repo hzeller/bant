@@ -114,7 +114,7 @@ Token Scanner::Next() {
   case '+':
   case '-':
   case '.':
-    result = {.type = (TokenType)*pos_, .text = {pos_, 1}};
+    result = {/*.type =*/(TokenType)*pos_, /*.text =*/{pos_, 1}};
     ++pos_;
     break;
 
