@@ -29,6 +29,11 @@ std::ostream &operator<<(std::ostream &o, TokenType t) {
   return o;
 }
 
+std::ostream &operator<<(std::ostream &o, const Token t) {
+  o << t.type << "('" << t.text << "')";
+  return o;
+}
+
 Scanner::Scanner(std::string_view content)
     : content_(content), pos_(content_.begin()) {
   line_map_.push_back(pos_);

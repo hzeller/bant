@@ -26,7 +26,7 @@ int main(int argc, char *argv[]) {
   int file_count = 0;
   int file_error_count = 0;
 
-  Arena arena(5 << 20);
+  Arena arena(1 << 16);
   for (int i = 1; i < argc; ++i) {
     const char *const filename = argv[i];
     std::optional<std::string> content = ReadFileToString(filename);

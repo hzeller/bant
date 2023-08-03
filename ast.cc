@@ -38,13 +38,15 @@ void PrintVisitor::VisitList(List *l) {
   case List::Type::kTuple: out_ << "("; break;
   }
   indent_ += 2;
-  for (List::Element *e = l->first(); e; e = e->next) {
-    if (e->node) {
-      e->node->Accept(this);
+  bool is_first = false;
+  for (Node *node : *l) {
+    if (node) {
+      node->Accept(this);
     } else {
       out_ << "NIL";
     }
-    if (e->next) out_ << ",\n" << std::string(indent_, ' ');
+    if (!is_first) out_ << ",\n" << std::string(indent_, ' ');
+    is_first = false;
   }
   indent_ -= 2;
   switch (l->type()) {

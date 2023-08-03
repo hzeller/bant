@@ -2,45 +2,58 @@
 #ifndef BANT_ARENA_H
 #define BANT_ARENA_H
 
+#include <algorithm>
 #include <cstddef>
+#include <deque>
 #include <iostream>
+#include <memory>
 #include <utility>
 
 // Arena: Provide allocation of memory that can be deallocated at once.
-// Fast, but does not call any destructors.
+// Fast, but does not call any destructors of the objects contained.
 class Arena {
  public:
-  Arena(int max_size)
-      : buffer_(new char[max_size]), end_(buffer_ + max_size), pos_(buffer_) {}
+  explicit Arena(int block_size) : block_size_(block_size) {}
 
-  char *Alloc(size_t size) {
-    total_allocations_++;
-    char *start = pos_;
-    if (pos_ + size > end_) {
-      // TODO: just add more blocks.
-      std::cerr << "Allocation exhausted. New block alloc not implmented yet\n";
-      return nullptr;
+  void *Alloc(size_t size) {
+    if (buffer_ == nullptr || size > (size_t)(end_ - pos_)) {
+      NewBlock(std::max(size, block_size_));  // max: allow oversized allocs
     }
+    total_allocations_++;
+    total_bytes_ += size;
+    char *start = pos_;
     pos_ += size;
     return start;
   }
 
-  // Convenience constructor in place
+  // Convenience allocation calling T constructor in place
   template <typename T, class... U>
   T *New(U &&...args) {
     return new (Alloc(sizeof(T))) T(std::forward<U>(args)...);
   }
 
   ~Arena() {
-    std::cerr << "Arena: " << total_allocations_ << " allocations with "
-              << (pos_ - buffer_) << " bytes.\n";
-    delete[] buffer_;
+    std::cerr << "Arena: " << total_allocations_ << " allocations "
+              << "in " << blocks_.size() << " blocks; " << total_bytes_
+              << " bytes.\n";
   }
 
  private:
-  char *const buffer_;
-  const char *const end_;
-  char *pos_;
+  // Allocate new block, updates current block.
+  void NewBlock(size_t request) {
+    buffer_ = blocks_.emplace_back(new char[request]).get();
+    end_ = buffer_ + request;
+    pos_ = buffer_;
+  }
+
+  const size_t block_size_;
+  std::deque<std::unique_ptr<char[]>> blocks_;
+
+  char *buffer_ = nullptr;
+  const char *end_ = nullptr;
+  char *pos_ = nullptr;
+
+  size_t total_bytes_ = 0;
   size_t total_allocations_ = 0;
 };
 

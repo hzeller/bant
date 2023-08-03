@@ -7,6 +7,7 @@
 #include <string>
 #include <string_view>
 
+#include "arena-container.h"
 #include "arena.h"
 
 class Visitor;
@@ -105,32 +106,21 @@ class BinOpNode : public BinNode {
 class List : public Node {
  public:
   enum Type { kList, kMap, kTuple };
-  // To keep allocation in arena simple, this is just a plain linked list.
-  struct Element {
-    Node *node;
-    struct Element *next;
-  };
 
-  Element *first() { return first_; }
-
-  void Append(Arena *arena, Node *value) {
-    Element *element = arena->New<Element>();
-    element->node = value;
-    if (!first_) first_ = element;
-    if (last_) last_->next = element;
-    last_ = element;
-  }
+  void Append(Arena *arena, Node *value) { list_.Append(value, arena); }
 
   void Accept(Visitor *v) override;
   Type type() { return type_; }
+
+  ArenaDeque<Node *>::const_iterator begin() const { return list_.begin(); }
+  ArenaDeque<Node *>::const_iterator end() const { return list_.end(); }
 
  private:
   friend class Arena;
   List(Type t) : type_(t) {}
 
   const Type type_;
-  Element *first_ = nullptr;
-  Element *last_ = nullptr;
+  ArenaDeque<Node *> list_;
 };
 
 // Simple assignment: the only allowed lvalue is an identifier.
@@ -183,8 +173,8 @@ class BaseVisitor : public Visitor {
     if (f->right()) f->right()->Accept(this);
   }
   void VisitList(List *l) override {
-    for (List::Element *e = l->first(); e; e = e->next) {
-      if (e->node) e->node->Accept(this);
+    for (Node *node : *l) {
+      if (node) node->Accept(this);
     }
   }
   void VisitBinOpNode(BinOpNode *b) override {

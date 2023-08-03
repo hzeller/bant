@@ -29,7 +29,7 @@ cc_library(
 
 cc_library(
     name = "memory",
-    hdrs = ["arena.h"],
+    hdrs = ["arena.h", "arena-container.h"],
 )
 
 cc_test(
@@ -37,6 +37,15 @@ cc_test(
     srcs = [ "scanner_test.cc" ],
     deps = [
         ":parser",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "arena-container_test",
+    srcs = [ "arena-container_test.cc" ],
+    deps = [
+        ":memory",
         "@com_google_googletest//:gtest_main",
     ],
 )

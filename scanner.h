@@ -36,6 +36,8 @@ struct Token {
   std::string_view text;  // Referring to original content.
 };
 
+std::ostream &operator<<(std::ostream &o, Token t);
+
 // Zero-based line and column.
 struct Pos {
   int line;
