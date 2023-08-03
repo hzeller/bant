@@ -4,10 +4,10 @@
 
 TEST(ArenaDeque, SimpleOps) {
   Arena a(1024);
-  ArenaDeque<int, 11> container;
+  ArenaDeque<int, 3, 96> container;  // deliberately funky min..max
 
   // Make sure that multiple crossings of block-boundaries work well.
-  for (int i = 0; i < 42; ++i) {
+  for (int i = 0; i < 300; ++i) {
     container.Append(i, &a);
     int count = 0;
     for (int value : container) {
