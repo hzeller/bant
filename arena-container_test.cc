@@ -1,6 +1,6 @@
 #include "arena-container.h"
 
-#include <gtest/gtest.h>
+#include "gtest/gtest.h"
 
 TEST(ArenaDeque, SimpleOps) {
   Arena a(1024);
