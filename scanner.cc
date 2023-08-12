@@ -73,10 +73,24 @@ Token Scanner::HandleIdentifierOrInvalid() {
 }
 
 Token Scanner::HandleString() {
+  bool triple_quote = false;
   const Iterator start = pos_;
   pos_++;
-  while (pos_ < content_.end() && *pos_ != '"') {
-    ++pos_;  // TODO: handle escaped quote
+  if (pos_ + 1 < content_.end() && *pos_ == '"' && *(pos_ + 1) == '"') {
+    triple_quote = true;
+    pos_ += 2;
+  }
+  int close_quote_count = triple_quote ? 3 : 1;
+  bool last_was_escape = false;
+  while (pos_ < content_.end()) {
+    if (*pos_ == '"' && !last_was_escape) {
+      --close_quote_count;
+      if (close_quote_count == 0) break;
+    } else {
+      close_quote_count = triple_quote ? 3 : 1;
+    }
+    last_was_escape = (*pos_ == '\\');
+    ++pos_;
   }
   if (pos_ >= content_.end()) {
     return {TokenType::kError, {start, (size_t)(pos_ - start)}};

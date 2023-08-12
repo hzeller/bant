@@ -24,3 +24,24 @@ TEST(ScannerTest, NumberString) {
   EXPECT_EQ(s.Next(), Token({TokenType::kStringLiteral, "\"hello world\""}));
   EXPECT_EQ(s.Next(), Token({TokenType::kEof, ""}));
 }
+
+TEST(ScannerTest, StringLiteral) {
+  {
+    Scanner s(R"("hello world")");
+    EXPECT_EQ(s.Next(), Token({TokenType::kStringLiteral, R"("hello world")"}));
+    EXPECT_EQ(s.Next(), Token({TokenType::kEof, ""}));
+  }
+  {
+    Scanner s(R"("hello \" world")");
+    EXPECT_EQ(s.Next(),
+              Token({TokenType::kStringLiteral, R"("hello \" world")"}));
+    EXPECT_EQ(s.Next(), Token({TokenType::kEof, ""}));
+  }
+
+  {  // long string literals
+    Scanner s(R"("""hello "" world""")");
+    EXPECT_EQ(s.Next(),
+              Token({TokenType::kStringLiteral, R"("""hello "" world""")"}));
+    EXPECT_EQ(s.Next(), Token({TokenType::kEof, ""}));
+  }
+}
