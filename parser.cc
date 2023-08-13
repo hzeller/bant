@@ -129,7 +129,7 @@ class Parser::Impl {
   Node *ParseExpression() {
     Node *n;
     if (scanner_->Peek().type == '(') {
-      n = ParseParenExpression();
+      n = ParseParenExpressionOrTuple();
     } else {
       n = ParseValue();
     }
@@ -144,15 +144,34 @@ class Parser::Impl {
     }
   }
 
-  Node *ParseParenExpression() {
+  Node *ParseParenExpressionOrTuple() {
     Token p = scanner_->Next();
     assert(p.type == '(');  // We have only be called if this is true.
     Node *exp = ParseExpression();
-    p = scanner_->Next();
-    if (p.type != ')') {
-      ErrAt(p) << "Expected close parenthesis\n";
+    p = scanner_->Peek();
+    if (p.type == ')') {
+      scanner_->Next();
+      return exp;
     }
-    return exp;
+
+    // After the first comma we expect this to be a tuple
+    List *tuple = Make<List>(List::kTuple);
+    tuple->Append(node_arena_, exp);
+
+    for (;;) {
+      Token separator = scanner_->Next();
+      if (separator.type == ')') break;
+      if (separator.type != ',') {
+        ErrAt(separator) << "',' expected as tuple separator.\n";
+        break;
+      }
+      if (scanner_->Peek().type == ')') {
+        scanner_->Next();  // closing comma at end.
+        break;
+      }
+      tuple->Append(node_arena_, ParseExpression());
+    }
+    return tuple;
   }
 
   IntScalar *ParseIntFromToken(Token t) {

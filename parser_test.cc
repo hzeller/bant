@@ -63,9 +63,42 @@ class ParserTest : public testing::Test {
   Arena arena_;
 };
 
+TEST_F(ParserTest, ParenthizedExpressions) {
+  Node *const expected = List({
+    Assign("foo", Op('+', Str("a"), Str("b"))),
+    Assign("bar", Op('+', Str("a"), Str("b"))),
+    Assign("baz", Op('+', Str("a"), Str("b"))),
+  });
+
+  EXPECT_EQ(Print(expected), Print(Parse(R"(
+foo = "a" + "b"
+bar = ("a" + "b")
+baz = (((("a" + "b"))))
+)")));
+}
+
+TEST_F(ParserTest, TupleExpressions) {
+  Node *const expected = List({
+      Assign("foo", Tuple({Str("a"), Str("b"), Str("c")})),
+      Assign("bar", Tuple({Str("a"), Str("b")})),
+      Assign("baz", Tuple({Str("a")})),
+      Assign("qux", Str("a")),
+      Assign("buz", Tuple({Str("a")})),  // like baz
+    });
+
+  EXPECT_EQ(Print(expected), Print(Parse(R"(
+foo = ("a", "b", "c")
+bar = ("a", "b")
+baz = ("a",)    # Comma diffentiates between paren-expr and tuple
+qux = ("a")     # ... this is just a parenthized expression
+buz = (("a",))  # parenthized expression that contains a single tuple.
+)")));
+}
+
 TEST_F(ParserTest, ParseFunctionCall) {
-  Node *const expected = List(  //
-    {Call("foo", Tuple({Str("x"), Str("y")}))});
+  Node *const expected = List({
+    Call("foo", Tuple({Str("x"), Str("y")})),
+  });
 
   EXPECT_EQ(Print(expected), Print(Parse(R"(
 foo("x", """y""")  # Triple quoted-string should look like regular one.
