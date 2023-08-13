@@ -4,6 +4,7 @@
 
 #include <cassert>
 #include <cstdint>
+#include <ostream>
 #include <string>
 #include <string_view>
 
@@ -200,6 +201,8 @@ class PrintVisitor : public BaseVisitor {
   int indent_ = 0;
   std::ostream &out_;
 };
+
+std::ostream &operator<<(std::ostream &o, Node *n);
 
 inline void Assignment::Accept(Visitor *v) { v->VisitAssignment(this); }
 inline void FunCall::Accept(Visitor *v) { v->VisitFunCall(this); }

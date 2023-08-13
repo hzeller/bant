@@ -44,4 +44,14 @@ TEST(ScannerTest, StringLiteral) {
               Token({TokenType::kStringLiteral, R"("""hello "" world""")"}));
     EXPECT_EQ(s.Next(), Token({TokenType::kEof, ""}));
   }
+  {
+    Scanner s(R"("""""")");
+    EXPECT_EQ(s.Next(), Token({TokenType::kStringLiteral, R"("""""")"}));
+    EXPECT_EQ(s.Next(), Token({TokenType::kEof, ""}));
+  }
+  {
+    Scanner s(R"(""""")");
+    EXPECT_EQ(s.Next(), Token({TokenType::kError, R"(""""")"}));
+    EXPECT_EQ(s.Next(), Token({TokenType::kEof, ""}));
+  }
 }

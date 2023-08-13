@@ -42,6 +42,15 @@ cc_test(
 )
 
 cc_test(
+    name = "parser_test",
+    srcs = [ "parser_test.cc" ],
+    deps = [
+        ":parser",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+cc_test(
     name = "arena-container_test",
     srcs = [ "arena-container_test.cc" ],
     deps = [

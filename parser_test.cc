@@ -1,0 +1,73 @@
+#include "parser.h"
+
+#include <gtest/gtest.h>
+
+#include <initializer_list>
+#include <sstream>
+#include <string_view>
+#include <utility>
+
+#include "arena.h"
+#include "ast.h"
+
+class ParserTest : public testing::Test {
+ protected:
+  ParserTest() : arena_(4096) {}
+
+  ::List *Parse(std::string_view text) {
+    Scanner scanner(text);
+    Parser parser(&scanner, &arena_, "<text>", std::cerr);
+    return parser.parse();
+  }
+
+  // Some helpers to build ASTs to compre
+  StringScalar *Str(std::string_view s) { return arena_.New<StringScalar>(s); }
+  Identifier *Id(std::string_view i) { return arena_.New<Identifier>(i); }
+  BinOpNode *Op(char op, Node *a, Node *b) {
+    return arena_.New<BinOpNode>(a, b, op);
+  }
+  Assignment *Assign(std::string_view id, Node *b) {
+    return arena_.New<Assignment>(Id(id), b);
+  }
+  FunCall *Call(std::string_view id, ::List *args) {
+    return arena_.New<::FunCall>(Id(id), args);
+  }
+
+  ::List *List(std::initializer_list<Node *> elements) {
+    ::List *result = arena_.New<::List>(List::Type::kList);
+    for (Node *n : elements) result->Append(&arena_, n);
+    return result;
+  }
+
+  ::List *Tuple(std::initializer_list<Node *> elements) {
+    ::List *result = arena_.New<::List>(List::Type::kTuple);
+    for (Node *n : elements) result->Append(&arena_, n);
+    return result;
+  }
+  ::List *Map(
+    std::initializer_list<std::pair<std::string_view, Node *>> elements) {
+    ::List *result = arena_.New<::List>(List::Type::kMap);
+    for (const auto &n : elements) {
+      result->Append(&arena_, Op(':', Str(n.first), n.second));
+    }
+    return result;
+  }
+
+  std::string Print(Node *n) {
+    std::stringstream s;
+    s << n;
+    return s.str();
+  }
+
+ private:
+  Arena arena_;
+};
+
+TEST_F(ParserTest, ParseFunctionCall) {
+  Node *const expected = List(  //
+    {Call("foo", Tuple({Str("x"), Str("y")}))});
+
+  EXPECT_EQ(Print(expected), Print(Parse(R"(
+foo("x", """y""")  # Triple quoted-string should look like regular one.
+)")));
+}
