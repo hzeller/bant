@@ -16,7 +16,7 @@ class Arena {
   explicit Arena(int block_size) : block_size_(block_size) {}
 
   void *Alloc(size_t size) {
-    if (buffer_ == nullptr || size > (size_t)(end_ - pos_)) {
+    if (pos_ == nullptr || size > (size_t)(end_ - pos_)) {
       NewBlock(std::max(size, block_size_));  // max: allow oversized allocs
     }
     total_allocations_++;
@@ -41,15 +41,14 @@ class Arena {
  private:
   // Allocate new block, updates current block.
   void NewBlock(size_t request) {
-    buffer_ = blocks_.emplace_back(new char[request]).get();
-    end_ = buffer_ + request;
-    pos_ = buffer_;
+    char *buffer = blocks_.emplace_back(new char[request]).get();
+    end_ = buffer + request;
+    pos_ = buffer;
   }
 
   const size_t block_size_;
   std::deque<std::unique_ptr<char[]>> blocks_;
 
-  char *buffer_ = nullptr;
   const char *end_ = nullptr;
   char *pos_ = nullptr;
 
