@@ -26,6 +26,8 @@ class ArenaDeque {
   struct BlockSizeTracker;
 
  public:
+  using value_type = T;
+
   ArenaDeque() : current_(&top_) {}
 
   T &Append(T value, Arena *arena) {
