@@ -23,6 +23,8 @@ std::ostream &operator<<(std::ostream &o, TokenType t) {
   case TokenType::kIdentifier: o << "ident"; break;
   case TokenType::kStringLiteral: o << "string"; break;
   case TokenType::kNumberLiteral: o << "number"; break;
+  case TokenType::kFor: o << "for"; break;
+  case TokenType::kIn: o << "in"; break;
   case TokenType::kError: o << "<<ERROR>>"; break;
   case TokenType::kEof: o << "<<EOF>>"; break;
   }
@@ -59,7 +61,7 @@ static bool IsIdentifierChar(char c) {
   return isdigit(c) || isalpha(c) || c == '_';
 }
 
-Token Scanner::HandleIdentifierOrInvalid() {
+Token Scanner::HandleIdentifierKeywordOrInvalid() {
   const Iterator start = pos_;
   // Digit already ruled out at this point as first character.
   if (!IsIdentifierChar(*start)) {
@@ -69,7 +71,12 @@ Token Scanner::HandleIdentifierOrInvalid() {
   while (pos_ < content_.end() && IsIdentifierChar(*pos_)) {
     ++pos_;
   }
-  return {TokenType::kIdentifier, {start, (size_t)(pos_ - start)}};
+  const std::string_view text{start, (size_t)(pos_ - start)};
+
+  // Keywords, anything else will be an identifier.
+  if (text == "in") return {TokenType::kIn, text};
+  if (text == "for") return {TokenType::kFor, text};
+  return {TokenType::kIdentifier, text};
 }
 
 Token Scanner::HandleString() {
@@ -150,7 +157,7 @@ Token Scanner::Next() {
 
   case '"': result = HandleString(); break;
 
-  default: result = HandleIdentifierOrInvalid(); break;
+  default: result = HandleIdentifierKeywordOrInvalid(); break;
   }
   return result;
 }

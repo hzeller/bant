@@ -98,9 +98,12 @@ buz = (("a",))  # parenthized expression that contains a single tuple.
 TEST_F(ParserTest, ParseFunctionCall) {
   Node *const expected = List({
     Call("foo", Tuple({Str("x"), Str("y")})),
+    List({Call("bar", Tuple({Str("a")}))}),
   });
 
+  // Also testing fancy string literal.
   EXPECT_EQ(Print(expected), Print(Parse(R"(
 foo("x", """y""")  # Triple quoted-string should look like regular one.
+[bar("a")]         # function call result as a value inside a list
 )")));
 }

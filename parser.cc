@@ -37,6 +37,13 @@ class Parser::Impl {
       if (tok.type == kStringLiteral) {
         continue;  // Pythonism: Toplevel document no-effect statement
       }
+
+      if (tok.type == '[') {
+        statement_list->Append(node_arena_, ParseArrayOrListComprehension());
+        continue;
+      }
+
+      // No other toplevel parts expected for now
       if (tok.type != kIdentifier) {
         ErrAt(tok) << "Expected identifier\n";
         return statement_list;
@@ -68,14 +75,13 @@ class Parser::Impl {
   FunCall *ParseFunCall(Token identifier) {
     // opening '(' already consumed.
     List *args = ParseList(
-      List::Type::kTuple, [&]() { return ValueOrAssignment(); },
+      Make<List>(List::Type::kTuple), [&]() { return ValueOrAssignment(); },
       TokenType::kCloseParen);
     return Make<FunCall>(Make<Identifier>(identifier.text), args);
   }
 
-  List *ParseList(List::Type type, const std::function<Node *()> &element_parse,
+  List *ParseList(List *result, const std::function<Node *()> &element_parse,
                   TokenType end_tok) {
-    List *result = Make<List>(type);
     Token upcoming = scanner_->Peek();
     while (upcoming.type != end_tok) {
       result->Append(node_arena_, element_parse());
@@ -115,14 +121,14 @@ class Parser::Impl {
       }
       return Make<Identifier>(t.text);
     case TokenType::kOpenSquare:
-      return ParseList(
-        List::Type::kList, [&]() { return ParseExpression(); },
-        TokenType::kCloseSquare);
+      return ParseArrayOrListComprehension();
     case TokenType::kOpenBrace:
       return ParseList(
-        List::Type::kMap, [&]() { return ParseMapTuple(); },
+        Make<List>(List::Type::kMap), [&]() { return ParseMapTuple(); },
         TokenType::kCloseBrace);
-    default: ErrAt(t) << "Expected value of sorts\n"; return nullptr;
+    default:  //
+      ErrAt(t) << "Expected value of sorts\n";
+      return nullptr;
     }
   }
 
@@ -203,6 +209,43 @@ class Parser::Impl {
       return nullptr;
     }
     return Make<BinOpNode>(lhs, ParseExpression(), ':');
+  }
+
+  Node *ParseArrayOrListComprehension() {
+    Token upcoming = scanner_->Peek();
+    if (upcoming.type == ']') {
+      scanner_->Next();
+      return Make<List>(List::Type::kList);  // empty list.
+    }
+    Node *first_expression = ParseExpression();
+    if (!first_expression) return nullptr;
+    switch (scanner_->Peek().type) {
+    case TokenType::kFor:
+      return ParseListComprehension(first_expression);
+    case TokenType::kComma:
+      scanner_->Next();
+      break;
+    case TokenType::kCloseSquare:
+      // perfectly reasonable
+      break;
+    default:
+      ErrAt(scanner_->Peek())
+        << "Expected `,`, `for`, or `]`, got " << scanner_->Peek().type << "\n";
+      break;
+    }
+    // Alright at this point we know that we have a regular list and the
+    // first expression was part of it.
+    List *result = Make<List>(List::Type::kList);
+    result->Append(node_arena_, first_expression);
+    return ParseList(result, [&]() { return ParseExpression(); },
+                     TokenType::kCloseSquare);
+  }
+
+  Node *ParseListComprehension(Node *start_expression) {
+    // start_expression `for` ident[,ident...] `in` expression.
+    // start_expression already paresed, `for` still in scanner.
+    ErrAt(scanner_->Peek()) << "Can't deal with list comprehension yet.\n";
+    return nullptr;  // not yet.
   }
 
   std::ostream &ErrAt(Token t) {

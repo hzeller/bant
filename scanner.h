@@ -24,6 +24,8 @@ enum TokenType : int {
   kIdentifier = 256,
   kStringLiteral,
   kNumberLiteral,
+  kFor,
+  kIn,
 
   kError,  // Unexpected token.
   kEof,
@@ -76,7 +78,7 @@ class Scanner {
 
   Token HandleNumber();
   Token HandleString();
-  Token HandleIdentifierOrInvalid();
+  Token HandleIdentifierKeywordOrInvalid();
 
   const std::string_view content_;
   Iterator pos_;
