@@ -124,6 +124,22 @@ class List : public Node {
   ArenaDeque<Node *> list_;
 };
 
+class ListComprehension : public Node {
+ public:
+  ListComprehension(List *pattern, List *variable_list, Node *source)
+      : pattern_(pattern), variable_list_(variable_list), source_(source) {}
+  List *pattern() { return pattern_; }
+  List *variable_list() { return variable_list_; }
+  Node *source() { return source_; }
+
+  void Accept(Visitor *v) override;
+
+ private:
+  List *pattern_;
+  List *variable_list_;
+  Node *source_;
+};
+
 // Simple assignment: the only allowed lvalue is an identifier.
 class Assignment : public BinNode {
  public:
@@ -160,9 +176,22 @@ class Visitor {
   virtual void VisitFunCall(FunCall *) = 0;
   virtual void VisitList(List *) = 0;
   virtual void VisitBinOpNode(BinOpNode *) = 0;
+  virtual void VisitListComprehension(ListComprehension *) = 0;
 
   virtual void VisitScalar(Scalar *) = 0;          // Leaf.
   virtual void VisitIdentifier(Identifier *) = 0;  // Leaf.
+};
+
+class AbstractVisitor : public Visitor {
+ public:
+  void VisitAssignment(Assignment *) override {}
+  void VisitFunCall(FunCall *) override {}
+  void VisitList(List *) override {}
+  void VisitBinOpNode(BinOpNode *) override {}
+  void VisitListComprehension(ListComprehension *) override {}
+
+  void VisitScalar(Scalar *) override {}
+  void VisitIdentifier(Identifier *) override {}
 };
 
 class BaseVisitor : public Visitor {
@@ -182,6 +211,12 @@ class BaseVisitor : public Visitor {
     if (b->left()) b->left()->Accept(this);
     if (b->right()) b->right()->Accept(this);
   }
+  void VisitListComprehension(ListComprehension *lh) override {
+    lh->pattern()->Accept(this);
+    lh->variable_list()->Accept(this);
+    lh->source()->Accept(this);
+  }
+
   void VisitScalar(Scalar *) override {}          // Leaf
   void VisitIdentifier(Identifier *) override {}  // Leaf
 };
@@ -194,6 +229,8 @@ class PrintVisitor : public BaseVisitor {
   void VisitList(List *l) override;
 
   void VisitBinOpNode(BinOpNode *b) override;
+  void VisitListComprehension(ListComprehension *lh) override;
+
   void VisitScalar(Scalar *s) override;
   void VisitIdentifier(Identifier *i) override;
 
@@ -208,6 +245,9 @@ inline void Assignment::Accept(Visitor *v) { v->VisitAssignment(this); }
 inline void FunCall::Accept(Visitor *v) { v->VisitFunCall(this); }
 inline void List::Accept(Visitor *v) { v->VisitList(this); }
 inline void BinOpNode::Accept(Visitor *v) { v->VisitBinOpNode(this); }
+inline void ListComprehension::Accept(Visitor *v) {
+  v->VisitListComprehension(this);
+}
 inline void Scalar::Accept(Visitor *v) { v->VisitScalar(this); }
 inline void Identifier::Accept(Visitor *v) { v->VisitIdentifier(this); }
 

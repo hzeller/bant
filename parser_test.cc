@@ -79,12 +79,11 @@ baz = (((("a" + "b"))))
 
 TEST_F(ParserTest, TupleExpressions) {
   Node *const expected = List({
-      Assign("foo", Tuple({Str("a"), Str("b"), Str("c")})),
-      Assign("bar", Tuple({Str("a"), Str("b")})),
-      Assign("baz", Tuple({Str("a")})),
-      Assign("qux", Str("a")),
-      Assign("buz", Tuple({Str("a")})),  // like baz
-    });
+    Assign("foo", Tuple({Str("a"), Str("b"), Str("c")})),
+    Assign("bar", Tuple({Str("a"), Str("b")})),
+    Assign("baz", Tuple({Str("a")})), Assign("qux", Str("a")),
+    Assign("buz", Tuple({Str("a")})),  // like baz
+  });
 
   EXPECT_EQ(Print(expected), Print(Parse(R"(
 foo = ("a", "b", "c")

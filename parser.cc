@@ -11,6 +11,20 @@
 #include "ast.h"
 #include "scanner.h"
 
+static List *IsTuple(Node *node) {
+  bool is_tuple = false;
+  class IsTuplePredicate : public AbstractVisitor {
+   public:
+    explicit IsTuplePredicate(bool *out) : is_tuple_(out) {}
+    void VisitList(List *list) override {
+      *is_tuple_ = list->type() == List::kTuple;
+    }
+    bool *is_tuple_;
+  } predicate(&is_tuple);
+  node->Accept(&predicate);
+  return is_tuple ? reinterpret_cast<List *>(node) : nullptr;
+}
+
 // Simple recursive descent parser. As Parser::Impl to not clobber the header
 // file with all the parse methods needed for each production.
 class Parser::Impl {
@@ -120,8 +134,7 @@ class Parser::Impl {
         return ParseFunCall(t);
       }
       return Make<Identifier>(t.text);
-    case TokenType::kOpenSquare:
-      return ParseArrayOrListComprehension();
+    case TokenType::kOpenSquare: return ParseArrayOrListComprehension();
     case TokenType::kOpenBrace:
       return ParseList(
         Make<List>(List::Type::kMap), [&]() { return ParseMapTuple(); },
@@ -220,11 +233,8 @@ class Parser::Impl {
     Node *first_expression = ParseExpression();
     if (!first_expression) return nullptr;
     switch (scanner_->Peek().type) {
-    case TokenType::kFor:
-      return ParseListComprehension(first_expression);
-    case TokenType::kComma:
-      scanner_->Next();
-      break;
+    case TokenType::kFor: return ParseListComprehension(first_expression);
+    case TokenType::kComma: scanner_->Next(); break;
     case TokenType::kCloseSquare:
       // perfectly reasonable
       break;
@@ -237,15 +247,39 @@ class Parser::Impl {
     // first expression was part of it.
     List *result = Make<List>(List::Type::kList);
     result->Append(node_arena_, first_expression);
-    return ParseList(result, [&]() { return ParseExpression(); },
-                     TokenType::kCloseSquare);
+    return ParseList(
+      result, [&]() { return ParseExpression(); }, TokenType::kCloseSquare);
   }
 
   Node *ParseListComprehension(Node *start_expression) {
     // start_expression `for` ident[,ident...] `in` expression.
     // start_expression already paresed, `for` still in scanner.
-    ErrAt(scanner_->Peek()) << "Can't deal with list comprehension yet.\n";
-    return nullptr;  // not yet.
+    List *pattern_tuple = IsTuple(start_expression);
+    if (!pattern_tuple) {
+      ErrAt(scanner_->Peek())
+        << "Expected the expression in front of 'for' to be a tuple\n";
+      return nullptr;
+    }
+    assert(scanner_->Next().type == TokenType::kFor);  // precondition.
+    // maybe just parse Identifiers ?
+    List *exp_list = ParseList(
+      Make<List>(List::Type::kList), [&]() { return ParseExpression(); },
+      TokenType::kIn);
+    if (scanner_->Peek().type != '[') {
+      ErrAt(scanner_->Peek())
+        << "Expected opening '[' after 'in' in list comprehension";
+      return nullptr;
+    }
+    scanner_->Next();
+    Node *source = ParseArrayOrListComprehension();
+    Node *lh = Make<ListComprehension>(pattern_tuple, exp_list, source);
+    if (scanner_->Peek().type != ']') {
+      ErrAt(scanner_->Peek())
+        << "Expected closing ']' at end of list comprehension\n";
+      return nullptr;
+    }
+    scanner_->Next();
+    return lh;
   }
 
   std::ostream &ErrAt(Token t) {

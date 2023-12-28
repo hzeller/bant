@@ -68,6 +68,16 @@ void PrintVisitor::VisitBinOpNode(BinOpNode *b) {
   if (b->right()) b->right()->Accept(this);
 }
 
+void PrintVisitor::VisitListComprehension(ListComprehension *lh) {
+  out_ << "[ # list comprehension\n";
+  lh->pattern()->Accept(this);
+  out_ << "\nfor ";
+  lh->variable_list()->Accept(this);
+  out_ << "\nin ";
+  lh->source()->Accept(this);
+  out_ << "\n]";
+}
+
 void PrintVisitor::VisitScalar(Scalar *s) {
   if (s->type() == Scalar::kInt) {
     out_ << s->AsInt();
