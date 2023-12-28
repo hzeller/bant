@@ -53,6 +53,11 @@ class ParserTest : public testing::Test {
     return result;
   }
 
+  ::ListComprehension *ListComprehension(::List *pattern, ::List *vars,
+                                         ::Node *source) {
+    return arena_.New<::ListComprehension>(pattern, vars, source);
+  }
+
   std::string Print(Node *n) {
     std::stringstream s;
     s << n;
@@ -104,5 +109,18 @@ TEST_F(ParserTest, ParseFunctionCall) {
   EXPECT_EQ(Print(expected), Print(Parse(R"(
 foo("x", """y""")  # Triple quoted-string should look like regular one.
 [bar("a")]         # function call result as a value inside a list
+)")));
+}
+
+TEST_F(ParserTest, ParseListComprehension) {
+  Node *const expected = List({ListComprehension(
+    Tuple({Op('+', Str("foo"), Id("i"))}), List({Id("i")}),  //
+    List({Str("a"), Str("b"), Str("c")}))});
+
+  EXPECT_EQ(Print(expected), Print(Parse(R"(
+  [
+     ("foo" + i,)
+     for i in ["a", "b", "c"]
+  ]
 )")));
 }
