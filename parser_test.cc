@@ -95,12 +95,14 @@ funcall("Some {} str".format("baz"))
 TEST_F(ParserTest, ParenthizedExpressions) {
   Node *const expected = List({
     Assign("foo", Op('+', Str("a"), Str("b"))),
+    Assign("fmt", Op('%', Str("a%s"), Str("b"))),
     Assign("bar", Op('+', Str("a"), Str("b"))),
     Assign("baz", Op('+', Str("a"), Str("b"))),
   });
 
   EXPECT_EQ(Print(expected), Print(Parse(R"(
 foo = "a" + "b"
+fmt = "a%s" % "b"
 bar = ("a" + "b")
 baz = (((("a" + "b"))))
 )")));

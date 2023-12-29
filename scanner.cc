@@ -18,7 +18,8 @@ std::ostream &operator<<(std::ostream &o, TokenType t) {
   case '=':
   case '+':
   case '-':
-  case '.': o << (char)t; break;
+  case '.':
+  case '%': o << (char)t; break;
 
   case TokenType::kIdentifier: o << "ident"; break;
   case TokenType::kStringLiteral: o << "string"; break;
@@ -140,6 +141,7 @@ Token Scanner::Next() {
   case '+':
   case '-':
   case '.':
+  case '%':
     result = {/*.type =*/(TokenType)*pos_, /*.text =*/{pos_, 1}};
     ++pos_;
     break;

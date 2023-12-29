@@ -147,7 +147,9 @@ class Parser::Impl {
     if (n == nullptr) return n;
 
     const Token upcoming = scanner_->Peek();
-    if (upcoming.type == '+' || upcoming.type == '-' || upcoming.type == '.') {
+    if (upcoming.type == '+' || upcoming.type == '-' ||  // Arith
+        upcoming.type == '.' ||                          // scoped invocation
+        upcoming.type == '%') {                          // format expr.
       Token op = scanner_->Next();
       return Make<BinOpNode>(n, ParseExpression(), op.type);
     } else {

@@ -20,6 +20,7 @@ enum TokenType : int {
   kPlus = '+',
   kMinus = '-',
   kDot = '.',
+  kPercent = '%',
 
   kIdentifier = 256,
   kStringLiteral,
