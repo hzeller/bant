@@ -11,20 +11,6 @@
 #include "ast.h"
 #include "scanner.h"
 
-static List *IsTuple(Node *node) {
-  bool is_tuple = false;
-  class IsTuplePredicate : public AbstractVisitor {
-   public:
-    explicit IsTuplePredicate(bool *out) : is_tuple_(out) {}
-    void VisitList(List *list) override {
-      *is_tuple_ = list->type() == List::kTuple;
-    }
-    bool *is_tuple_;
-  } predicate(&is_tuple);
-  node->Accept(&predicate);
-  return is_tuple ? reinterpret_cast<List *>(node) : nullptr;
-}
-
 // Simple recursive descent parser. As Parser::Impl to not clobber the header
 // file with all the parse methods needed for each production.
 class Parser::Impl {

@@ -183,18 +183,6 @@ class Visitor {
   virtual void VisitIdentifier(Identifier *) = 0;  // Leaf.
 };
 
-class AbstractVisitor : public Visitor {
- public:
-  void VisitAssignment(Assignment *) override {}
-  void VisitFunCall(FunCall *) override {}
-  void VisitList(List *) override {}
-  void VisitBinOpNode(BinOpNode *) override {}
-  void VisitListComprehension(ListComprehension *) override {}
-
-  void VisitScalar(Scalar *) override {}
-  void VisitIdentifier(Identifier *) override {}
-};
-
 class BaseVisitor : public Visitor {
  public:
   void VisitAssignment(Assignment *a) override {

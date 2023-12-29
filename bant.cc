@@ -94,7 +94,7 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  fprintf(stderr, "Scanned %d files; %d file with issues.\n", file_count,
+  fprintf(stderr, "Parsed %d files; %d file with issues.\n", file_count,
           file_error_count);
 
   return file_error_count;
