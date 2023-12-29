@@ -27,14 +27,26 @@ TEST(ScannerTest, NumberString) {
 
 TEST(ScannerTest, StringLiteral) {
   {
-    Scanner s(R"("hello world")");
-    EXPECT_EQ(s.Next(), Token({TokenType::kStringLiteral, R"("hello world")"}));
+    Scanner s(R"("double")");
+    EXPECT_EQ(s.Next(), Token({TokenType::kStringLiteral, R"("double")"}));
     EXPECT_EQ(s.Next(), Token({TokenType::kEof, ""}));
   }
   {
-    Scanner s(R"("hello \" world")");
+    Scanner s(R"('single')");
+    EXPECT_EQ(s.Next(), Token({TokenType::kStringLiteral, R"('single')"}));
+    EXPECT_EQ(s.Next(), Token({TokenType::kEof, ""}));
+  }
+  {
+    Scanner s(R"("hello \" ' world")");
     EXPECT_EQ(s.Next(),
-              Token({TokenType::kStringLiteral, R"("hello \" world")"}));
+              Token({TokenType::kStringLiteral, R"("hello \" ' world")"}));
+    EXPECT_EQ(s.Next(), Token({TokenType::kEof, ""}));
+  }
+
+    {
+    Scanner s(R"('hello " \' world')");
+    EXPECT_EQ(s.Next(),
+              Token({TokenType::kStringLiteral, R"('hello " \' world')"}));
     EXPECT_EQ(s.Next(), Token({TokenType::kEof, ""}));
   }
 

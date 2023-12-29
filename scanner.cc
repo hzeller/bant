@@ -83,15 +83,16 @@ Token Scanner::HandleIdentifierKeywordOrInvalid() {
 Token Scanner::HandleString() {
   bool triple_quote = false;
   const Iterator start = pos_;
+  const char str_quote = *pos_;
   pos_++;
-  if (pos_ + 1 < content_.end() && *pos_ == '"' && *(pos_ + 1) == '"') {
+  if (pos_ + 1 < content_.end() && *pos_ == str_quote && *(pos_ + 1) == str_quote) {
     triple_quote = true;
     pos_ += 2;
   }
   int close_quote_count = triple_quote ? 3 : 1;
   bool last_was_escape = false;
   while (pos_ < content_.end()) {
-    if (*pos_ == '"' && !last_was_escape) {
+    if (*pos_ == str_quote && !last_was_escape) {
       --close_quote_count;
       if (close_quote_count == 0) break;
     } else {
@@ -157,7 +158,10 @@ Token Scanner::Next() {
   case '8':
   case '9': result = HandleNumber(); break;
 
-  case '"': result = HandleString(); break;
+  case '"':
+  case '\'':
+    result = HandleString();
+    break;
 
   default: result = HandleIdentifierKeywordOrInvalid(); break;
   }
