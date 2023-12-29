@@ -43,6 +43,7 @@ class ArenaDeque {
     T &location = current_->value[next_block_pos_];
     ++next_block_pos_;
     location = value;
+    ++size_;
     return location;
   }
 
@@ -57,6 +58,8 @@ class ArenaDeque {
     }
     return access_block->value[pos];
   }
+
+  size_t size() const { return size_; }
 
   class const_iterator {
    public:
@@ -96,6 +99,7 @@ class ArenaDeque {
   }
 
  private:
+  size_t size_ = 0;
   Block top_;  // first block allocated with class
   Block *current_;
   uint16_t next_block_pos_ = 0;

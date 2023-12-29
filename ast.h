@@ -91,7 +91,7 @@ class BinNode : public Node {
   Node *right_;
 };
 
-// Few binops currently: '+', '-', ':' (mapping op).
+// Few binops currently: '+', '-', ':' (mapping op), '.' (scoped call)
 class BinOpNode : public BinNode {
  public:
   void Accept(Visitor *v) override;
@@ -112,6 +112,7 @@ class List : public Node {
 
   void Accept(Visitor *v) override;
   Type type() { return type_; }
+  size_t size() const { return list_.size(); }
 
   ArenaDeque<Node *>::const_iterator begin() const { return list_.begin(); }
   ArenaDeque<Node *>::const_iterator end() const { return list_.end(); }
@@ -126,16 +127,16 @@ class List : public Node {
 
 class ListComprehension : public Node {
  public:
-  ListComprehension(List *pattern, List *variable_list, Node *source)
+  ListComprehension(Node *pattern, List *variable_list, Node *source)
       : pattern_(pattern), variable_list_(variable_list), source_(source) {}
-  List *pattern() { return pattern_; }
+  Node *pattern() { return pattern_; }
   List *variable_list() { return variable_list_; }
   Node *source() { return source_; }
 
   void Accept(Visitor *v) override;
 
  private:
-  List *pattern_;
+  Node *pattern_;
   List *variable_list_;
   Node *source_;
 };

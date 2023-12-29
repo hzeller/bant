@@ -37,6 +37,7 @@ class Parser::Impl {
         err_out_(err_out) {}
 
   // Parse file. If there is an error, return at least partial tree.
+  // A file is a list of data structures or identifiers.
   List *parse() {
     if (previous_parse_result_) return previous_parse_result_;
 
@@ -73,6 +74,11 @@ class Parser::Impl {
       case TokenType::kOpenParen:
         statement_list->Append(node_arena_, ParseFunCall(tok));
         break;
+      case TokenType::kDot:
+        statement_list->Append(
+          node_arena_,
+          Make<BinOpNode>(Make<Identifier>(tok.text), ParseExpression(), '.'));
+        break;
       default:
         ErrAt(after_id) << "expected `(` or `=`\n";
         return statement_list;
@@ -89,8 +95,8 @@ class Parser::Impl {
   FunCall *ParseFunCall(Token identifier) {
     // opening '(' already consumed.
     List *args = ParseList(
-      Make<List>(List::Type::kTuple), [&]() { return ValueOrAssignment(); },
-      TokenType::kCloseParen);
+      Make<List>(List::Type::kTuple),
+      [&]() { return ExpressionOrAssignment(); }, TokenType::kCloseParen);
     return Make<FunCall>(Make<Identifier>(identifier.text), args);
   }
 
@@ -113,8 +119,8 @@ class Parser::Impl {
     return result;
   }
 
-  Node *ValueOrAssignment() {
-    Node *value = ParseValue();
+  Node *ExpressionOrAssignment() {
+    Node *value = ParseExpression();
     if (value->is_identifier() && scanner_->Peek().type == '=') {
       scanner_->Next();
       return ParseAssignmentRhs(static_cast<Identifier *>(value));
@@ -155,7 +161,7 @@ class Parser::Impl {
     if (n == nullptr) return n;
 
     const Token upcoming = scanner_->Peek();
-    if (upcoming.type == '+' || upcoming.type == '-') {
+    if (upcoming.type == '+' || upcoming.type == '-' || upcoming.type == '.') {
       Token op = scanner_->Next();
       return Make<BinOpNode>(n, ParseExpression(), op.type);
     } else {
@@ -254,25 +260,13 @@ class Parser::Impl {
   Node *ParseListComprehension(Node *start_expression) {
     // start_expression `for` ident[,ident...] `in` expression.
     // start_expression already paresed, `for` still in scanner.
-    List *pattern_tuple = IsTuple(start_expression);
-    if (!pattern_tuple) {
-      ErrAt(scanner_->Peek())
-        << "Expected the expression in front of 'for' to be a tuple\n";
-      return nullptr;
-    }
     assert(scanner_->Next().type == TokenType::kFor);  // precondition.
     // maybe just parse Identifiers ?
     List *exp_list = ParseList(
       Make<List>(List::Type::kList), [&]() { return ParseExpression(); },
       TokenType::kIn);
-    if (scanner_->Peek().type != '[') {
-      ErrAt(scanner_->Peek())
-        << "Expected opening '[' after 'in' in list comprehension";
-      return nullptr;
-    }
-    scanner_->Next();
-    Node *source = ParseArrayOrListComprehension();
-    Node *lh = Make<ListComprehension>(pattern_tuple, exp_list, source);
+    Node *source = ParseExpression();
+    Node *lh = Make<ListComprehension>(start_expression, exp_list, source);
     if (scanner_->Peek().type != ']') {
       ErrAt(scanner_->Peek())
         << "Expected closing ']' at end of list comprehension\n";

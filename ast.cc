@@ -38,23 +38,31 @@ void PrintVisitor::VisitFunCall(FunCall *f) {
 }
 
 void PrintVisitor::VisitList(List *l) {
+  static constexpr int kIndentSpaces = 4;
   switch (l->type()) {
   case List::Type::kList: out_ << "["; break;
   case List::Type::kMap: out_ << "{"; break;
   case List::Type::kTuple: out_ << "("; break;
   }
-  indent_ += 2;
-  bool is_first = false;
+  const bool needs_multiline = (l->size() > 1);
+  if (needs_multiline) out_ << "\n";
+  indent_ += kIndentSpaces;
+  bool is_first = true;
   for (Node *node : *l) {
+    if (!is_first) out_ << ",\n";
+    if (needs_multiline) out_ << std::string(indent_, ' ');
     if (node) {
       node->Accept(this);
     } else {
       out_ << "NIL";
     }
-    if (!is_first) out_ << ",\n" << std::string(indent_, ' ');
     is_first = false;
   }
-  indent_ -= 2;
+  indent_ -= kIndentSpaces;
+  if (needs_multiline) {
+    out_ << "\n" << std::string(indent_, ' ');
+  }
+
   switch (l->type()) {
   case List::Type::kList: out_ << "]"; break;
   case List::Type::kMap: out_ << "}"; break;
@@ -69,11 +77,11 @@ void PrintVisitor::VisitBinOpNode(BinOpNode *b) {
 }
 
 void PrintVisitor::VisitListComprehension(ListComprehension *lh) {
-  out_ << "[ # list comprehension\n";
+  out_ << "[\n";
   lh->pattern()->Accept(this);
-  out_ << "\nfor ";
+  out_ << "\n" << std::string(indent_, ' ') << "for ";
   lh->variable_list()->Accept(this);
-  out_ << "\nin ";
+  out_ << "\n" << std::string(indent_, ' ') << "in ";
   lh->source()->Accept(this);
   out_ << "\n]";
 }

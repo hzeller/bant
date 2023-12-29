@@ -68,6 +68,30 @@ class ParserTest : public testing::Test {
   Arena arena_;
 };
 
+TEST_F(ParserTest, FunctionCalls) {
+  Node *const expected = List({
+    Call("foo", Tuple({Str("foo"), Id("k")})),
+    Op('.', Id("nested"), Call("bar", Tuple({Str("baz"), Id("m")}))),
+  });
+
+  EXPECT_EQ(Print(expected), Print(Parse(R"(
+foo("foo", k)
+nested.bar("baz", m)
+)")));
+}
+
+// A typical Pythonism.
+TEST_F(ParserTest, CallOnString) {
+  Node *const expected = List({
+    Call("funcall", Tuple({Op('.', Str("Some {} str"),
+                              Call("format", Tuple({Str("baz")})))})),
+  });
+
+  EXPECT_EQ(Print(expected), Print(Parse(R"(
+funcall("Some {} str".format("baz"))
+)")));
+}
+
 TEST_F(ParserTest, ParenthizedExpressions) {
   Node *const expected = List({
     Assign("foo", Op('+', Str("a"), Str("b"))),
