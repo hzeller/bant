@@ -114,7 +114,7 @@ class Parser::Impl {
     return value;
   }
 
-  Node *ParseValue() {
+  Node *ParseValue(bool can_be_optional) {
     Token t = scanner_->Next();
     switch (t.type) {
     case TokenType::kStringLiteral:
@@ -132,17 +132,19 @@ class Parser::Impl {
         Make<List>(List::Type::kMap), [&]() { return ParseMapTuple(); },
         TokenType::kCloseBrace);
     default:  //
-      ErrAt(t) << "Expected value of sorts\n";
+      if (!can_be_optional) {
+        ErrAt(t) << "Expected value of sorts\n";
+      }
       return nullptr;
     }
   }
 
-  Node *ParseExpression() {
+  Node *ParseExpression(bool can_be_optional = false) {
     Node *n;
     if (scanner_->Peek().type == '(') {
       n = ParseParenExpressionOrTuple();
     } else {
-      n = ParseValue();
+      n = ParseValue(can_be_optional);
     }
     if (n == nullptr) return n;
 
@@ -160,15 +162,18 @@ class Parser::Impl {
   Node *ParseParenExpressionOrTuple() {
     Token p = scanner_->Next();
     assert(p.type == '(');  // We have only be called if this is true.
-    Node *exp = ParseExpression();
+    Node *const exp = ParseExpression(true);  // null if this is an empty tuple
     p = scanner_->Peek();
-    if (p.type == ')') {
+    if (exp && p.type == ')') {
       scanner_->Next();
       return exp;
     }
 
     // After the first comma we expect this to be a tuple
     List *tuple = Make<List>(List::kTuple);
+    if (!exp) {
+      return tuple;
+    }
     tuple->Append(node_arena_, exp);
 
     for (;;) {

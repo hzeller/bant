@@ -108,8 +108,19 @@ baz = (((("a" + "b"))))
 )")));
 }
 
+TEST_F(ParserTest, EmptyTuple) {
+  Node *const expected = List({
+      Assign("empty", Tuple({})),
+  });
+
+  EXPECT_EQ(Print(expected), Print(Parse(R"(
+empty = ()
+)")));
+}
+
 TEST_F(ParserTest, TupleExpressions) {
   Node *const expected = List({
+    Assign("empty", Tuple({})),
     Assign("foo", Tuple({Str("a"), Str("b"), Str("c")})),
     Assign("bar", Tuple({Str("a"), Str("b")})),
     Assign("baz", Tuple({Str("a")})), Assign("qux", Str("a")),
@@ -117,6 +128,7 @@ TEST_F(ParserTest, TupleExpressions) {
   });
 
   EXPECT_EQ(Print(expected), Print(Parse(R"(
+empty = ()
 foo = ("a", "b", "c")
 bar = ("a", "b")
 baz = ("a",)    # Comma diffentiates between paren-expr and tuple
