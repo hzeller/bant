@@ -27,6 +27,8 @@ enum TokenType : int {
   kNumberLiteral,
   kFor,
   kIn,
+  kIf,
+  kElse,
 
   kError,  // Unexpected token.
   kEof,

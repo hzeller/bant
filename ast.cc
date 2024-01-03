@@ -86,6 +86,16 @@ void PrintVisitor::VisitListComprehension(ListComprehension *lh) {
   out_ << "\n]";
 }
 
+void PrintVisitor::VisitTernary(Ternary *t) {
+  t->positive()->Accept(this);
+  out_ << " if ";
+  t->condition()->Accept(this);
+  if (t->negative()) {
+    out_ << " else ";
+    t->negative()->Accept(this);
+  }
+}
+
 void PrintVisitor::VisitScalar(Scalar *s) {
   if (s->type() == Scalar::kInt) {
     out_ << s->AsInt();

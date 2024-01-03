@@ -26,6 +26,8 @@ std::ostream &operator<<(std::ostream &o, TokenType t) {
   case TokenType::kNumberLiteral: o << "number"; break;
   case TokenType::kFor: o << "for"; break;
   case TokenType::kIn: o << "in"; break;
+  case TokenType::kIf: o << "if"; break;
+  case TokenType::kElse: o << "else"; break;
   case TokenType::kError: o << "<<ERROR>>"; break;
   case TokenType::kEof: o << "<<EOF>>"; break;
   }
@@ -77,6 +79,9 @@ Token Scanner::HandleIdentifierKeywordOrInvalid() {
   // Keywords, anything else will be an identifier.
   if (text == "in") return {TokenType::kIn, text};
   if (text == "for") return {TokenType::kFor, text};
+  if (text == "if") return {TokenType::kIf, text};
+  if (text == "else") return {TokenType::kElse, text};
+
   return {TokenType::kIdentifier, text};
 }
 

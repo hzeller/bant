@@ -141,6 +141,23 @@ class ListComprehension : public Node {
   Node *source_;
 };
 
+class Ternary : public Node {
+public:
+  Ternary(Node *condition, Node *positive, Node *negative)
+    : condition_(condition), positive_(positive), negative_(negative) {}
+
+  Node *condition() { return condition_; }
+  Node *positive() { return positive_; }
+  Node *negative() { return negative_; }
+
+  void Accept(Visitor *v) override;
+
+private:
+  Node *condition_;
+  Node *positive_;
+  Node *negative_;
+};
+
 // Simple assignment: the only allowed lvalue is an identifier.
 class Assignment : public BinNode {
  public:
@@ -178,6 +195,7 @@ class Visitor {
   virtual void VisitList(List *) = 0;
   virtual void VisitBinOpNode(BinOpNode *) = 0;
   virtual void VisitListComprehension(ListComprehension *) = 0;
+  virtual void VisitTernary(Ternary *t) = 0;
 
   virtual void VisitScalar(Scalar *) = 0;          // Leaf.
   virtual void VisitIdentifier(Identifier *) = 0;  // Leaf.
@@ -205,6 +223,11 @@ class BaseVisitor : public Visitor {
     lh->variable_list()->Accept(this);
     lh->source()->Accept(this);
   }
+  void VisitTernary(Ternary *t) override {
+    t->condition()->Accept(this);
+    t->positive()->Accept(this);
+    t->negative()->Accept(this);
+  }
 
   void VisitScalar(Scalar *) override {}          // Leaf
   void VisitIdentifier(Identifier *) override {}  // Leaf
@@ -219,6 +242,7 @@ class PrintVisitor : public BaseVisitor {
 
   void VisitBinOpNode(BinOpNode *b) override;
   void VisitListComprehension(ListComprehension *lh) override;
+  void VisitTernary(Ternary *t) override;
 
   void VisitScalar(Scalar *s) override;
   void VisitIdentifier(Identifier *i) override;
@@ -237,6 +261,7 @@ inline void BinOpNode::Accept(Visitor *v) { v->VisitBinOpNode(this); }
 inline void ListComprehension::Accept(Visitor *v) {
   v->VisitListComprehension(this);
 }
+inline void Ternary::Accept(Visitor *v) { v->VisitTernary(this); }
 inline void Scalar::Accept(Visitor *v) { v->VisitScalar(this); }
 inline void Identifier::Accept(Visitor *v) { v->VisitIdentifier(this); }
 

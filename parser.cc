@@ -139,6 +139,19 @@ class Parser::Impl {
     }
   }
 
+  Node *ParseIfElse(Node *if_branch) {
+    Token op = scanner_->Next();
+    assert(op.type == TokenType::kIf);  // expected this at this point.
+    Node *condition = ParseExpression();
+    Node *else_branch = nullptr;
+    op = scanner_->Peek();
+    if (op.type == TokenType::kElse) {
+      scanner_->Next();
+      else_branch = ParseExpression();
+    }
+    return Make<Ternary>(condition, if_branch, else_branch);
+  }
+
   Node *ParseExpression(bool can_be_optional = false) {
     Node *n;
     if (scanner_->Peek().type == '(') {
@@ -149,6 +162,10 @@ class Parser::Impl {
     if (n == nullptr) return n;
 
     const Token upcoming = scanner_->Peek();
+    if (upcoming.type == TokenType::kIf) {
+      return ParseIfElse(n);
+    }
+
     if (upcoming.type == '+' || upcoming.type == '-' ||  // Arith
         upcoming.type == '.' ||                          // scoped invocation
         upcoming.type == '%') {                          // format expr.

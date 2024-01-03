@@ -72,11 +72,13 @@ TEST_F(ParserTest, FunctionCalls) {
   Node *const expected = List({
     Call("foo", Tuple({Str("foo"), Id("k")})),
     Op('.', Id("nested"), Call("bar", Tuple({Str("baz"), Id("m")}))),
+    Call("baz", Tuple({})),
   });
 
   EXPECT_EQ(Print(expected), Print(Parse(R"(
 foo("foo", k)
 nested.bar("baz", m)
+baz()
 )")));
 }
 
@@ -161,4 +163,10 @@ TEST_F(ParserTest, ParseListComprehension) {
      for i in ["a", "b", "c"]
   ]
 )")));
+}
+
+
+TEST_F(ParserTest, ParseTernary) {
+  Node *n = Parse("[foo() if a + b else baz()]");
+  EXPECT_EQ(Print(n), "[[foo()\n         if a + b else baz()\n        ]]");
 }
