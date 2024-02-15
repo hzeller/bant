@@ -1,5 +1,6 @@
 #include <unistd.h>
 
+#include <chrono>
 #include <filesystem>
 #include <fstream>
 #include <functional>
@@ -59,14 +60,17 @@ struct FileContent {
 };
 
 struct ParsedProject {
-  Arena arena{1<<16};
+  Arena arena{1 << 16};
   int file_count = 0;
   int error_count = 0;
   std::map<std::string, FileContent> file_to_ast;
+  int parse_duration_usec;
 };
 
 ParsedProject ParseBuildFiles(const std::vector<fs::path> &build_files) {
   ParsedProject result;
+
+  const auto start_time = std::chrono::system_clock::now();
 
   for (const fs::path &build_file : build_files) {
     const std::string filename = build_file.u8string();
@@ -84,7 +88,7 @@ ParsedProject ParseBuildFiles(const std::vector<fs::path> &build_files) {
       std::cerr << "Already seen " << filename << "\n";
       continue;
     }
-    FileContent& parse_result = inserted.first->second;
+    FileContent &parse_result = inserted.first->second;
 
     Scanner scanner(parse_result.content);
     std::stringstream error_collect;
@@ -97,11 +101,17 @@ ParsedProject ParseBuildFiles(const std::vector<fs::path> &build_files) {
     }
   }
 
+  // fill FYI field.
+  const auto end_time = std::chrono::system_clock::now();
+  result.parse_duration_usec =
+    std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time)
+      .count();
+
   return result;
 }
 
 void PrintProject(const ParsedProject &project) {
-  for (const auto& [filename, parse_result] : project.file_to_ast) {
+  for (const auto &[filename, parse_result] : project.file_to_ast) {
     std::cerr << "------- file " << filename << "\n";
     std::cerr << parse_result.errors;
     if (!parse_result.ast) continue;
@@ -132,7 +142,8 @@ int main(int argc, char *argv[]) {
 
   if (print_parsed) PrintProject(parsed);
 
-  fprintf(stderr, "Parsed %d files; %d file with issues.\n", parsed.file_count,
+  fprintf(stderr, "Parsed %d files in %.3fms; %d file with issues.\n",
+          parsed.file_count, parsed.parse_duration_usec / 1000.0,
           parsed.error_count);
 
   return parsed.error_count;

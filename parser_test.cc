@@ -112,7 +112,7 @@ baz = (((("a" + "b"))))
 
 TEST_F(ParserTest, EmptyTuple) {
   Node *const expected = List({
-      Assign("empty", Tuple({})),
+    Assign("empty", Tuple({})),
   });
 
   EXPECT_EQ(Print(expected), Print(Parse(R"(
@@ -164,7 +164,6 @@ TEST_F(ParserTest, ParseListComprehension) {
   ]
 )")));
 }
-
 
 TEST_F(ParserTest, ParseTernary) {
   Node *n = Parse("[foo() if a + b else baz()]");

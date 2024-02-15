@@ -142,9 +142,9 @@ class ListComprehension : public Node {
 };
 
 class Ternary : public Node {
-public:
+ public:
   Ternary(Node *condition, Node *positive, Node *negative)
-    : condition_(condition), positive_(positive), negative_(negative) {}
+      : condition_(condition), positive_(positive), negative_(negative) {}
 
   Node *condition() { return condition_; }
   Node *positive() { return positive_; }
@@ -152,7 +152,7 @@ public:
 
   void Accept(Visitor *v) override;
 
-private:
+ private:
   Node *condition_;
   Node *positive_;
   Node *negative_;

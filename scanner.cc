@@ -90,7 +90,8 @@ Token Scanner::HandleString() {
   const Iterator start = pos_;
   const char str_quote = *pos_;
   pos_++;
-  if (pos_ + 1 < content_.end() && *pos_ == str_quote && *(pos_ + 1) == str_quote) {
+  if (pos_ + 1 < content_.end() && *pos_ == str_quote &&
+      *(pos_ + 1) == str_quote) {
     triple_quote = true;
     pos_ += 2;
   }
@@ -164,9 +165,7 @@ Token Scanner::Next() {
   case '9': result = HandleNumber(); break;
 
   case '"':
-  case '\'':
-    result = HandleString();
-    break;
+  case '\'': result = HandleString(); break;
 
   default: result = HandleIdentifierKeywordOrInvalid(); break;
   }

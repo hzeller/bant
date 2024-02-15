@@ -43,7 +43,7 @@ TEST(ScannerTest, StringLiteral) {
     EXPECT_EQ(s.Next(), Token({TokenType::kEof, ""}));
   }
 
-    {
+  {
     Scanner s(R"('hello " \' world')");
     EXPECT_EQ(s.Next(),
               Token({TokenType::kStringLiteral, R"('hello " \' world')"}));

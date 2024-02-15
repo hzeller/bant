@@ -9,3 +9,8 @@ AllowShortCaseLabelsOnASingleLine: true
 AlignConsecutiveBitFields: true
 AlignConsecutiveMacros: true
 IndentCaseLabels: false
+
+# Pointers/references always right-hugging.
+DerivePointerAlignment: false
+PointerAlignment: Right
+ReferenceAlignment: Right
