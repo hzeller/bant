@@ -14,6 +14,8 @@
 class Arena {
  public:
   explicit Arena(int block_size) : block_size_(block_size) {}
+  Arena(Arena &&) = default;
+  Arena(const Arena &) = delete;
 
   void *Alloc(size_t size) {
     if (pos_ == nullptr || size > (size_t)(end_ - pos_)) {

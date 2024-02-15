@@ -3,6 +3,7 @@
 #include <filesystem>
 #include <fstream>
 #include <functional>
+#include <map>
 #include <optional>
 #include <vector>
 
@@ -26,7 +27,7 @@ std::optional<std::string> ReadFileToString(const std::string &filename) {
 static int usage(const char *prog) {
   fprintf(stderr, "Usage: [options] %s <filename> [<filename>...]\n", prog);
   fprintf(stderr, R"(Options
-	-C<directory>  : base directory
+	-C<directory>  : project base directory
 	-p             : print parse tree
 	-h             : this help
 )");
@@ -50,6 +51,66 @@ void CollectFilesRecursive(const fs::path &dir, bool follow_symlink_dirs,
   }
 }
 
+struct FileContent {
+  FileContent(std::string &&c) : content(std::move(c)) {}
+  std::string content;  // AST refers to this
+  List *ast;
+  std::string errors;
+};
+
+struct ParsedProject {
+  Arena arena{1<<16};
+  int file_count = 0;
+  int error_count = 0;
+  std::map<std::string, FileContent> file_to_ast;
+};
+
+ParsedProject ParseBuildFiles(const std::vector<fs::path> &build_files) {
+  ParsedProject result;
+
+  for (const fs::path &build_file : build_files) {
+    const std::string filename = build_file.u8string();
+    std::optional<std::string> content = ReadFileToString(filename);
+    if (!content.has_value()) {
+      std::cerr << "Could not read " << filename << "\n";
+      ++result.error_count;
+      continue;
+    }
+    ++result.file_count;
+
+    auto inserted =
+      result.file_to_ast.emplace(filename, FileContent(std::move(*content)));
+    if (!inserted.second) {
+      std::cerr << "Already seen " << filename << "\n";
+      continue;
+    }
+    FileContent& parse_result = inserted.first->second;
+
+    Scanner scanner(parse_result.content);
+    std::stringstream error_collect;
+    Parser parser(&scanner, &result.arena, filename.c_str(), error_collect);
+    parse_result.ast = parser.parse();
+    parse_result.errors = error_collect.str();
+    if (parser.parse_error()) {
+      std::cerr << error_collect.str();
+      ++result.error_count;
+    }
+  }
+
+  return result;
+}
+
+void PrintProject(const ParsedProject &project) {
+  for (const auto& [filename, parse_result] : project.file_to_ast) {
+    std::cerr << "------- file " << filename << "\n";
+    std::cerr << parse_result.errors;
+    if (!parse_result.ast) continue;
+    PrintVisitor printer(std::cout);
+    parse_result.ast->Accept(&printer);
+    std::cout << "\n";
+  }
+}
+
 int main(int argc, char *argv[]) {
   bool print_parsed = false;
   int opt;
@@ -67,35 +128,12 @@ int main(int argc, char *argv[]) {
     return basename == "BUILD" || basename == "BUILD.bazel";
   });
 
-  int file_count = 0;
-  int file_error_count = 0;
+  ParsedProject parsed = ParseBuildFiles(build_files);
 
-  Arena arena(1 << 16);
-  for (const fs::path &build_file : build_files) {
-    const std::string filename = build_file.u8string();
-    std::optional<std::string> content = ReadFileToString(filename);
-    if (!content.has_value()) {
-      std::cerr << "Could not read " << filename << "\n";
-      ++file_error_count;
-      continue;
-    }
-    ++file_count;
-    Scanner scanner(*content);
-    Parser parser(&scanner, &arena, filename.c_str(), std::cerr);
-    List *const statements = parser.parse();
-    if (print_parsed && statements) {
-      std::cerr << "------- file " << filename << "\n";
-      PrintVisitor printer(std::cout);
-      statements->Accept(&printer);
-      std::cout << "\n";
-    }
-    if (parser.parse_error()) {
-      ++file_error_count;
-    }
-  }
+  if (print_parsed) PrintProject(parsed);
 
-  fprintf(stderr, "Parsed %d files; %d file with issues.\n", file_count,
-          file_error_count);
+  fprintf(stderr, "Parsed %d files; %d file with issues.\n", parsed.file_count,
+          parsed.error_count);
 
-  return file_error_count;
+  return parsed.error_count;
 }

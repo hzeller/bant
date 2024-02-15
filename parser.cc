@@ -255,8 +255,8 @@ class Parser::Impl {
       // perfectly reasonable
       break;
     default:
-      ErrAt(scanner_->Peek())
-        << "Expected `,`, `for`, or `]`, got " << scanner_->Peek().type << "\n";
+      ErrAt(scanner_->Peek()) << "Expected '.' 'for', or ']', got '"
+                              << scanner_->Peek().type << "\n";
       break;
     }
     // Alright at this point we know that we have a regular list and the
