@@ -154,12 +154,13 @@ foo("x", """y""")  # Triple quoted-string should look like regular one.
 
 TEST_F(ParserTest, ParseListComprehension) {
   Node *const expected = List({ListComprehension(
-    Tuple({Op('+', Str("foo"), Id("i"))}), List({Id("i")}),  //
-    List({Str("a"), Str("b"), Str("c")}))});
+    Tuple({Op('+', Str("foo"), Id("i"))}),    // apply these expressions
+    List({Id("i")}),                          // with this list of variables
+    List({Str("a"), Str("b"), Str("c")}))});  // over this content
 
   EXPECT_EQ(Print(expected), Print(Parse(R"(
   [
-     ("foo" + i,)
+     ("foo" + i,)  # Comma helps identify this as tuple expression
      for i in ["a", "b", "c"]
   ]
 )")));

@@ -1,5 +1,6 @@
 // next steps
-//  triple-string.
+//  - triple-string.
+//  - list comprehension can have multiple 'for' in sequence
 
 #include "parser.h"
 
@@ -10,6 +11,28 @@
 
 #include "ast.h"
 #include "scanner.h"
+
+// Set to 1 to get a parse tree trace.
+#if 0
+static int sNodeNum = 0;
+static int sIndent = 0;
+class NestingLogger {
+public:
+  NestingLogger(const char *fun, const Token &tok) {
+    ++sNodeNum;
+    ++sIndent;
+    std::cerr << sNodeNum << std::string(2 * sIndent, '.') << fun
+              << " " << tok << "\n";
+  }
+  ~NestingLogger() {
+    --sIndent;
+  }
+};
+
+#define LOG_ENTER() NestingLogger _log(__FUNCTION__, scanner_->Peek())
+#else
+#define LOG_ENTER()
+#endif
 
 // Simple recursive descent parser. As Parser::Impl to not clobber the header
 // file with all the parse methods needed for each production.
@@ -25,6 +48,7 @@ class Parser::Impl {
   // Parse file. If there is an error, return at least partial tree.
   // A file is a list of data structures or identifiers.
   List *parse() {
+    LOG_ENTER();
     if (previous_parse_result_) return previous_parse_result_;
 
     List *statement_list = Make<List>(List::Type::kList);
@@ -74,11 +98,13 @@ class Parser::Impl {
   }
 
   Assignment *ParseAssignmentRhs(Identifier *id) {
+    LOG_ENTER();
     // '=' already consumed
     return Make<Assignment>(id, ParseExpression());
   }
 
   FunCall *ParseFunCall(Token identifier) {
+    LOG_ENTER();
     // opening '(' already consumed.
     List *args = ParseList(
       Make<List>(List::Type::kTuple),
@@ -88,6 +114,7 @@ class Parser::Impl {
 
   List *ParseList(List *result, const std::function<Node *()> &element_parse,
                   TokenType end_tok) {
+    LOG_ENTER();
     Token upcoming = scanner_->Peek();
     while (upcoming.type != end_tok) {
       result->Append(node_arena_, element_parse());
@@ -106,6 +133,7 @@ class Parser::Impl {
   }
 
   Node *ExpressionOrAssignment() {
+    LOG_ENTER();
     Node *value = ParseExpression();
     if (value->is_identifier() && scanner_->Peek().type == '=') {
       scanner_->Next();
@@ -115,6 +143,7 @@ class Parser::Impl {
   }
 
   Node *ParseValue(bool can_be_optional) {
+    LOG_ENTER();
     Token t = scanner_->Next();
     switch (t.type) {
     case TokenType::kStringLiteral:
@@ -135,11 +164,13 @@ class Parser::Impl {
       if (!can_be_optional) {
         ErrAt(t) << "Expected value of sorts\n";
       }
+      std::cerr << "Value of sorts\n";
       return nullptr;
     }
   }
 
   Node *ParseIfElse(Node *if_branch) {
+    LOG_ENTER();
     Token op = scanner_->Next();
     assert(op.type == TokenType::kIf);  // expected this at this point.
     Node *condition = ParseExpression();
@@ -153,6 +184,7 @@ class Parser::Impl {
   }
 
   Node *ParseExpression(bool can_be_optional = false) {
+    LOG_ENTER();
     Node *n;
     if (scanner_->Peek().type == '(') {
       n = ParseParenExpressionOrTuple();
@@ -177,6 +209,7 @@ class Parser::Impl {
   }
 
   Node *ParseParenExpressionOrTuple() {
+    LOG_ENTER();
     Token p = scanner_->Next();
     assert(p.type == '(');  // We have only be called if this is true.
     Node *const exp = ParseExpression(true);  // null if this is an empty tuple
@@ -210,6 +243,7 @@ class Parser::Impl {
   }
 
   IntScalar *ParseIntFromToken(Token t) {
+    LOG_ENTER();
     IntScalar *scalar = IntScalar::FromLiteral(node_arena_, t.text);
     if (!scalar) {
       ErrAt(t) << "Error parsing int literal\n";
@@ -218,6 +252,7 @@ class Parser::Impl {
   }
 
   BinOpNode *ParseMapTuple() {
+    LOG_ENTER();
     Token p = scanner_->Next();
     Node *lhs;
     switch (p.type) {
@@ -241,6 +276,7 @@ class Parser::Impl {
   }
 
   Node *ParseArrayOrListComprehension() {
+    LOG_ENTER();
     Token upcoming = scanner_->Peek();
     if (upcoming.type == ']') {
       scanner_->Next();
@@ -268,10 +304,12 @@ class Parser::Impl {
   }
 
   Node *ParseListComprehension(Node *start_expression) {
+    LOG_ENTER();
     // start_expression `for` ident[,ident...] `in` expression.
-    // start_expression already paresed, `for` still in scanner.
-    assert(scanner_->Next().type == TokenType::kFor);  // precondition.
-    // maybe just parse Identifiers ?
+    // start_expression already parsed, `for` still in scanner; extract that:
+    scanner_->Next();
+
+    // TODO: Here we parsed expressions; maybe just parse Identifiers ?
     List *exp_list = ParseList(
       Make<List>(List::Type::kList), [&]() { return ParseExpression(); },
       TokenType::kIn);

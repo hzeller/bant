@@ -60,11 +60,13 @@ struct FileContent {
 };
 
 struct ParsedProject {
-  Arena arena{1 << 16};
+  // Some stats.
   int file_count = 0;
   int error_count = 0;
+  int parse_duration_usec = 0;
+
+  Arena arena{1 << 16};
   std::map<std::string, FileContent> file_to_ast;
-  int parse_duration_usec;
 };
 
 ParsedProject ParseBuildFiles(const std::vector<fs::path> &build_files) {
