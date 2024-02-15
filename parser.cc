@@ -164,7 +164,6 @@ class Parser::Impl {
       if (!can_be_optional) {
         ErrAt(t) << "Expected value of sorts\n";
       }
-      std::cerr << "Value of sorts\n";
       return nullptr;
     }
   }
@@ -290,10 +289,7 @@ class Parser::Impl {
     case TokenType::kCloseSquare:
       // perfectly reasonable
       break;
-    default:
-      ErrAt(scanner_->Peek())
-        << "Expected '.' 'for', or ']', got '" << scanner_->Peek().type << "\n";
-      break;
+    default: ErrAt(scanner_->Peek()) << "Expected `for`, `]`, or `,`'\n"; break;
     }
     // Alright at this point we know that we have a regular list and the
     // first expression was part of it.
