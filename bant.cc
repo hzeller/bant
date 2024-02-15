@@ -32,6 +32,7 @@ static int usage(const char *prog) {
 	-C<directory>  : project base directory
 	-L             : follow directories that are symbolic links (many!)
 	-p             : print parse tree
+	-e             : print only parse trees of files with parse errors
 	-h             : this help
 )");
   return 1;
@@ -124,8 +125,11 @@ ParsedProject ParseBuildFiles(const std::vector<fs::path> &build_files) {
   return result;
 }
 
-void PrintProject(const ParsedProject &project) {
+void PrintProject(const ParsedProject &project, bool only_files_with_errors) {
   for (const auto &[filename, parse_result] : project.file_to_ast) {
+    if (only_files_with_errors && parse_result.errors.empty()) {
+      continue;
+    }
     std::cerr << "------- file " << filename << "\n";
     std::cerr << parse_result.errors;
     if (!parse_result.ast) continue;
@@ -138,11 +142,13 @@ void PrintProject(const ParsedProject &project) {
 int main(int argc, char *argv[]) {
   bool print_parsed = false;
   bool follow_symbolic_links = false;
+  bool print_only_errors = false;
   int opt;
-  while ((opt = getopt(argc, argv, "C:pL")) != -1) {
+  while ((opt = getopt(argc, argv, "C:peL")) != -1) {
     switch (opt) {
     case 'C': std::filesystem::current_path(optarg); break;
     case 'p': print_parsed = true; break;
+    case 'e': print_only_errors = true; break;
     case 'L': follow_symbolic_links = true; break;
     default: return usage(argv[0]);
     }
@@ -157,7 +163,9 @@ int main(int argc, char *argv[]) {
 
   ParsedProject parsed = ParseBuildFiles(build_files);
 
-  if (print_parsed) PrintProject(parsed);
+  if (print_parsed || print_only_errors) {
+    PrintProject(parsed, print_only_errors);
+  }
 
   fprintf(stderr,
           "Parsed %d files with %ld bytes in %.3fms (%.2f MB/sec); "

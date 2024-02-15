@@ -70,7 +70,7 @@ class Parser::Impl {
 
       // No other toplevel parts expected for now
       if (tok.type != kIdentifier) {
-        ErrAt(tok) << "Expected identifier\n";
+        ErrAt(tok) << "expected identifier\n";
         return statement_list;
       }
 
@@ -124,7 +124,7 @@ class Parser::Impl {
         upcoming = scanner_->Peek();
       } else if (upcoming.type != end_tok) {
         ErrAt(scanner_->Next())
-          << "Expected `,` or closing `" << end_tok << "`\n";
+          << "expected `,` or closing `" << end_tok << "`\n";
         return result;
       }
     }
@@ -162,7 +162,7 @@ class Parser::Impl {
         TokenType::kCloseBrace);
     default:  //
       if (!can_be_optional) {
-        ErrAt(t) << "Expected value of sorts\n";
+        ErrAt(t) << "expected value of sorts\n";
       }
       return nullptr;
     }
@@ -229,7 +229,7 @@ class Parser::Impl {
       Token separator = scanner_->Next();
       if (separator.type == ')') break;
       if (separator.type != ',') {
-        ErrAt(separator) << "',' expected as tuple separator.\n";
+        ErrAt(separator) << "expected `,` as tuple separator.\n";
         break;
       }
       if (scanner_->Peek().type == ')') {
@@ -262,13 +262,13 @@ class Parser::Impl {
       lhs = ParseIntFromToken(p);
       break;
     default:  //
-      ErrAt(p) << "Expected literal value as map key\n";
+      ErrAt(p) << "expected literal value as map key\n";
       return nullptr;
     }
 
     p = scanner_->Next();
     if (p.type != ':') {
-      ErrAt(p) << "Expected `:` in map-tuple\n";
+      ErrAt(p) << "expected `:` in map-tuple\n";
       return nullptr;
     }
     return Make<BinOpNode>(lhs, ParseExpression(), ':');
@@ -289,7 +289,7 @@ class Parser::Impl {
     case TokenType::kCloseSquare:
       // perfectly reasonable
       break;
-    default: ErrAt(scanner_->Peek()) << "Expected `for`, `]`, or `,`'\n"; break;
+    default: ErrAt(scanner_->Peek()) << "expected `for`, `]`, or `,`'\n"; break;
     }
     // Alright at this point we know that we have a regular list and the
     // first expression was part of it.
@@ -313,7 +313,7 @@ class Parser::Impl {
     Node *lh = Make<ListComprehension>(start_expression, exp_list, source);
     if (scanner_->Peek().type != ']') {
       ErrAt(scanner_->Peek())
-        << "Expected closing ']' at end of list comprehension\n";
+        << "expected closing ']' at end of list comprehension\n";
       return nullptr;
     }
     scanner_->Next();
@@ -321,8 +321,8 @@ class Parser::Impl {
   }
 
   std::ostream &ErrAt(Token t) {
-    err_out_ << filename_ << ":" << scanner_->GetPos(t.text) << "'" << t.text
-             << "' ";
+    err_out_ << filename_ << ":" << scanner_->GetPos(t.text) << " '" << t.text
+             << "': ";
     error_ = true;
     last_token_ = t;
     return err_out_;
