@@ -12,6 +12,9 @@
 #include "arena.h"
 
 class Visitor;
+class Identifier;
+class Scalar;
+class List;
 
 // Constructors are not public, only accessible via Arena. Use Arena::New()
 // for all nodes.
@@ -23,16 +26,17 @@ class Node {
   virtual ~Node() = default;
   virtual void Accept(Visitor *v) = 0;
 
-  virtual bool is_identifier() const { return false; }
-  virtual bool is_scalar() const { return false; }
-  virtual bool is_list() const { return false; }
+  // Poor man's RTTI (also: cheaper). Return non-null if of that type.
+  virtual Identifier* CastAsIdentifier() { return nullptr; }
+  virtual Scalar* CastAsScalar() { return nullptr; }
+  virtual List *CastAsList() { return nullptr; }
 };
 
 class Scalar : public Node {
  public:
   enum ScalarType { kInt, kString };
 
-  bool is_scalar() const final { return true; }
+  Scalar* CastAsScalar() final { return this; }
   virtual std::string_view AsString() { return ""; }
   virtual int64_t AsInt() { return 0; }
 
@@ -72,7 +76,7 @@ class Identifier : public Node {
  public:
   const std::string_view id() const { return id_; }
   void Accept(Visitor *v) override;
-  bool is_identifier() const final { return true; }
+  Identifier* CastAsIdentifier() final { return this; }
 
  private:
   friend class Arena;
@@ -112,7 +116,7 @@ class List : public Node {
  public:
   enum Type { kList, kMap, kTuple };
 
-  bool is_list() const final { return true; }
+  List *CastAsList() final { return this; }
   void Append(Arena *arena, Node *value) { list_.Append(value, arena); }
 
   void Accept(Visitor *v) override;

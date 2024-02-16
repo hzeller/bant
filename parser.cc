@@ -135,9 +135,10 @@ class Parser::Impl {
   Node *ExpressionOrAssignment() {
     LOG_ENTER();
     Node *value = ParseExpression();
-    if (value->is_identifier() && scanner_->Peek().type == '=') {
+    Token upcoming = scanner_->Peek();
+    if (auto *id = value->CastAsIdentifier(); id && upcoming.type == '=') {
       scanner_->Next();
-      return ParseAssignmentRhs(static_cast<Identifier *>(value));
+      return ParseAssignmentRhs(id);
     }
     return value;
   }

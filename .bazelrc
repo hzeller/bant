@@ -1,4 +1,6 @@
-common --cxxopt=-std=c++17 --host_cxxopt=-std=c++17 --cxxopt=-Wall --cxxopt=-Wextra --cxxopt=-Werror --cxxopt=-pedantic
+common --cxxopt=-std=c++17 --host_cxxopt=-std=c++17
+common --cxxopt=-Wall --cxxopt=-Wextra --cxxopt=-Werror --cxxopt=-pedantic
+common --cxxopt=-fno-exceptions --cxxopt=-fno-rtti
 
 # Address sanitizer settings.
 build:asan --strip=never
