@@ -22,13 +22,17 @@ class Node {
  public:
   virtual ~Node() = default;
   virtual void Accept(Visitor *v) = 0;
+
   virtual bool is_identifier() const { return false; }
+  virtual bool is_scalar() const { return false; }
+  virtual bool is_list() const { return false; }
 };
 
 class Scalar : public Node {
  public:
   enum ScalarType { kInt, kString };
 
+  bool is_scalar() const final { return true; }
   virtual std::string_view AsString() { return ""; }
   virtual int64_t AsInt() { return 0; }
 
@@ -108,6 +112,7 @@ class List : public Node {
  public:
   enum Type { kList, kMap, kTuple };
 
+  bool is_list() const final { return true; }
   void Append(Arena *arena, Node *value) { list_.Append(value, arena); }
 
   void Accept(Visitor *v) override;
@@ -199,34 +204,38 @@ class Visitor {
 
   virtual void VisitScalar(Scalar *) = 0;          // Leaf.
   virtual void VisitIdentifier(Identifier *) = 0;  // Leaf.
+
+  // Utility function: if node exists, walk.
+  inline void WalkNonNull(Node *node) { if (node) node->Accept(this); }
 };
+
 
 class BaseVisitor : public Visitor {
  public:
   void VisitAssignment(Assignment *a) override {
-    if (a->right()) a->right()->Accept(this);
+    WalkNonNull(a->right());
   }
   void VisitFunCall(FunCall *f) override {
-    if (f->right()) f->right()->Accept(this);
+    WalkNonNull(f->right());
   }
   void VisitList(List *l) override {
     for (Node *node : *l) {
-      if (node) node->Accept(this);
+      WalkNonNull(node);
     }
   }
   void VisitBinOpNode(BinOpNode *b) override {
-    if (b->left()) b->left()->Accept(this);
-    if (b->right()) b->right()->Accept(this);
+    WalkNonNull(b->left());
+    WalkNonNull(b->right());
   }
   void VisitListComprehension(ListComprehension *lh) override {
-    lh->pattern()->Accept(this);
-    lh->variable_list()->Accept(this);
-    lh->source()->Accept(this);
+    WalkNonNull(lh->pattern());
+    WalkNonNull(lh->variable_list());
+    WalkNonNull(lh->source());
   }
   void VisitTernary(Ternary *t) override {
-    t->condition()->Accept(this);
-    t->positive()->Accept(this);
-    t->negative()->Accept(this);
+    WalkNonNull(t->condition());
+    WalkNonNull(t->positive());
+    WalkNonNull(t->negative());
   }
 
   void VisitScalar(Scalar *) override {}          // Leaf

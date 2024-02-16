@@ -71,25 +71,25 @@ void PrintVisitor::VisitList(List *l) {
 }
 
 void PrintVisitor::VisitBinOpNode(BinOpNode *b) {
-  if (b->left()) b->left()->Accept(this);
+  WalkNonNull(b->left());
   out_ << " " << b->op() << " ";
-  if (b->right()) b->right()->Accept(this);
+  WalkNonNull(b->right());
 }
 
 void PrintVisitor::VisitListComprehension(ListComprehension *lh) {
   out_ << "[\n";
-  lh->pattern()->Accept(this);
+  WalkNonNull(lh->pattern());
   out_ << "\n" << std::string(indent_, ' ') << "for ";
-  lh->variable_list()->Accept(this);
+  WalkNonNull(lh->variable_list());
   out_ << "\n" << std::string(indent_, ' ') << "in ";
-  lh->source()->Accept(this);
+  WalkNonNull(lh->source());
   out_ << "\n]";
 }
 
 void PrintVisitor::VisitTernary(Ternary *t) {
-  t->positive()->Accept(this);
+  WalkNonNull(t->positive());
   out_ << " if ";
-  t->condition()->Accept(this);
+  WalkNonNull(t->condition());
   if (t->negative()) {
     out_ << " else ";
     t->negative()->Accept(this);
@@ -107,7 +107,11 @@ void PrintVisitor::VisitScalar(Scalar *s) {
 void PrintVisitor::VisitIdentifier(Identifier *i) { out_ << i->id(); }
 
 std::ostream &operator<<(std::ostream &o, Node *n) {
-  PrintVisitor out(o);
-  n->Accept(&out);
+  if (n) {
+    PrintVisitor out(o);
+    n->Accept(&out);
+  } else {
+    o << "NIL";
+  }
   return o;
 }
