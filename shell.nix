@@ -17,7 +17,7 @@ bant_used_stdenv.mkDerivation {
       #pkg-config
       #gtest
 
-      clang-tools_14    # clang-format, clang-tidy
+      clang-tools_17    # clang-format, clang-tidy
       bazel-buildtools  # buildifier
     ];
 }
