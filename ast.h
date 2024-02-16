@@ -27,8 +27,8 @@ class Node {
   virtual void Accept(Visitor *v) = 0;
 
   // Poor man's RTTI (also: cheaper). Return non-null if of that type.
-  virtual Identifier* CastAsIdentifier() { return nullptr; }
-  virtual Scalar* CastAsScalar() { return nullptr; }
+  virtual Identifier *CastAsIdentifier() { return nullptr; }
+  virtual Scalar *CastAsScalar() { return nullptr; }
   virtual List *CastAsList() { return nullptr; }
 };
 
@@ -36,7 +36,7 @@ class Scalar : public Node {
  public:
   enum ScalarType { kInt, kString };
 
-  Scalar* CastAsScalar() final { return this; }
+  Scalar *CastAsScalar() final { return this; }
   virtual std::string_view AsString() { return ""; }
   virtual int64_t AsInt() { return 0; }
 
@@ -76,7 +76,7 @@ class Identifier : public Node {
  public:
   const std::string_view id() const { return id_; }
   void Accept(Visitor *v) override;
-  Identifier* CastAsIdentifier() final { return this; }
+  Identifier *CastAsIdentifier() final { return this; }
 
  private:
   friend class Arena;
@@ -210,18 +210,15 @@ class Visitor {
   virtual void VisitIdentifier(Identifier *) = 0;  // Leaf.
 
   // Utility function: if node exists, walk.
-  inline void WalkNonNull(Node *node) { if (node) node->Accept(this); }
+  inline void WalkNonNull(Node *node) {
+    if (node) node->Accept(this);
+  }
 };
-
 
 class BaseVisitor : public Visitor {
  public:
-  void VisitAssignment(Assignment *a) override {
-    WalkNonNull(a->right());
-  }
-  void VisitFunCall(FunCall *f) override {
-    WalkNonNull(f->right());
-  }
+  void VisitAssignment(Assignment *a) override { WalkNonNull(a->right()); }
+  void VisitFunCall(FunCall *f) override { WalkNonNull(f->right()); }
   void VisitList(List *l) override {
     for (Node *node : *l) {
       WalkNonNull(node);

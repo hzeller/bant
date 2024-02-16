@@ -35,9 +35,11 @@ class Arena {
   }
 
   ~Arena() {
-    std::cerr << "Arena: " << total_allocations_ << " allocations "
-              << "in " << blocks_.size() << " blocks; " << total_bytes_
-              << " bytes.\n";
+    if (verbose_) {
+      std::cerr << "Arena: " << total_allocations_ << " allocations "
+                << "in " << blocks_.size() << " blocks; " << total_bytes_
+                << " bytes.\n";
+    }
   }
 
  private:
@@ -54,6 +56,7 @@ class Arena {
   const char *end_ = nullptr;
   char *pos_ = nullptr;
 
+  bool verbose_ = false;
   size_t total_bytes_ = 0;
   size_t total_allocations_ = 0;
 };
