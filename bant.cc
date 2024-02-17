@@ -23,7 +23,8 @@
 #include "tool-header-providers.h"
 
 static int usage(const char *prog) {
-  fprintf(stderr, "Copyright (c) 2024 Henner Zeller. "
+  fprintf(stderr,
+          "Copyright (c) 2024 Henner Zeller. "
           "This program is free software; license GPL 2.0.\n");
   fprintf(stderr, "Usage: %s [options]\n", prog);
   fprintf(stderr, R"(Options

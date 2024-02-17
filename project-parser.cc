@@ -17,56 +17,18 @@
 
 #include "project-parser.h"
 
-#include <cstddef>
 #include <filesystem>
-#include <fstream>
-#include <functional>
 #include <optional>
 #include <string>
 #include <vector>
 
+#include "file-utils.h"
 #include "parser.h"
 
 namespace fs = std::filesystem;
 
 namespace bant {
 namespace {
-std::optional<std::string> ReadFileToString(const fs::path &filename) {
-  std::ifstream is(filename, std::ifstream::binary);
-  if (!is.good()) return std::nullopt;
-  std::string result;
-  char buffer[4096];
-  for (;;) {
-    is.read(buffer, sizeof(buffer));
-    result.append(buffer, is.gcount());
-    if (!is.good()) break;
-  }
-  return result;
-}
-
-// Collect files found recursively and store in "paths".
-// Uses predicate "include_dir_p" to check if directory should be walked,
-// and "include_file_p" if file should be included.
-// Returns number of files looked at.
-using PathAccept = std::function<bool(const fs::path &)>;
-size_t CollectFilesRecursive(const fs::path &dir, std::vector<fs::path> *paths,
-                             const PathAccept &want_dir_p,
-                             const PathAccept &want_file_p) {
-  std::error_code err;
-  if (!fs::is_directory(dir, err) || err.value() != 0) return 0;
-  if (!want_dir_p(dir)) return 0;
-
-  size_t count = 0;
-  for (const fs::directory_entry &e : fs::directory_iterator(dir)) {
-    ++count;
-    if (e.is_directory()) {
-      count += CollectFilesRecursive(e.path(), paths, want_dir_p, want_file_p);
-    } else if (want_file_p(e.path())) {
-      paths->emplace_back(e.path());
-    }
-  }
-  return count;
-}
 
 // Given a BUILD, BUILD.bazel filename, return the bare project path with
 // no prefix or suffix.
@@ -141,7 +103,7 @@ ParsedProject ParsedProject::FromFilesystem(bool include_external) {
   std::vector<fs::path> build_files;
   const auto start_time = std::chrono::system_clock::now();
 
-  const PathAccept relevant_build_file_predicate = [](const fs::path &file) {
+  const auto relevant_build_file_predicate = [](const fs::path &file) {
     const auto &basename = file.filename();
     return basename == "BUILD" || basename == "BUILD.bazel";
   };
@@ -153,10 +115,10 @@ ParsedProject ParsedProject::FromFilesystem(bool include_external) {
   };
 
   // TODO: implement some curry solution
-  const PathAccept dir_with_symlink = [&dir_predicate](const fs::path &dir) {
+  const auto dir_with_symlink = [&dir_predicate](const fs::path &dir) {
     return dir_predicate(true, dir);
   };
-  const PathAccept dir_without_symlink = [&dir_predicate](const fs::path &dir) {
+  const auto dir_without_symlink = [&dir_predicate](const fs::path &dir) {
     return dir_predicate(false, dir);
   };
 

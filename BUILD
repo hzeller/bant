@@ -33,7 +33,10 @@ cc_library(
     name = "project-parser",
     srcs = ["project-parser.cc"],
     hdrs = ["project-parser.h"],
-    deps = [":parser"],
+    deps = [
+        ":file-utils",
+        ":parser",
+    ],
 )
 
 cc_library(
@@ -52,6 +55,12 @@ cc_library(
         "arena.h",
         "arena-container.h",
     ],
+)
+
+cc_library(
+    name = "file-utils",
+    srcs = ["file-utils.cc"],
+    hdrs = ["file-utils.h"],
 )
 
 cc_test(
