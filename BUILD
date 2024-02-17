@@ -36,6 +36,7 @@ cc_library(
     deps = [
         ":file-utils",
         ":parser",
+        ":types-bazel",
     ],
 )
 
@@ -46,6 +47,14 @@ cc_library(
     deps = [
         ":parser",
         ":project-parser",
+        ":types-bazel",
+    ],
+)
+
+cc_library(
+    name = "types-bazel",
+    hdrs = [
+        "types-bazel.h",
     ],
 )
 

@@ -33,7 +33,7 @@ namespace {
 // Given a BUILD, BUILD.bazel filename, return the bare project path with
 // no prefix or suffix.
 // ./foo/bar/baz/BUILD.bazel turns into foo/bar/baz
-std::string_view TargetPathFromBuileFile(std::string_view file) {
+std::string_view TargetPathFromBuildFile(std::string_view file) {
   file = file.substr(0, file.find_last_of('/'));  // Remove BUILD-file
   while (!file.empty() && (file[0] == '.' || file[0] == '/')) {
     file.remove_prefix(1);
@@ -71,13 +71,11 @@ static void ParseBuildFiles(const std::vector<fs::path> &build_files,
       project_extract.remove_prefix(external_prefix.size());
       auto end_of_external_name = project_extract.find_first_of('/');
       auto external_project = project_extract.substr(0, end_of_external_name);
-      parse_result.project =
-        std::string("@").append(external_project).append("//");
-      parse_result.rel_path =
-        TargetPathFromBuileFile(project_extract.substr(end_of_external_name));
+      parse_result.package.project = std::string("@").append(external_project);
+      parse_result.package.path =
+        TargetPathFromBuildFile(project_extract.substr(end_of_external_name));
     } else {
-      parse_result.project = "//";
-      parse_result.rel_path = TargetPathFromBuileFile(filename);
+      parse_result.package.path = TargetPathFromBuildFile(filename);
     }
 
     Scanner scanner(parse_result.content);
@@ -157,7 +155,7 @@ void PrintProject(std::ostream &out, std::ostream &info_out,
     info_out << "------- file " << filename << "\n";
     info_out << file_content.errors;
     if (!file_content.ast) continue;
-    out << file_content.project << file_content.rel_path << " = ";
+    out << file_content.package.ToString() << " = ";
     PrintVisitor(out).WalkNonNull(file_content.ast);
     out << "\n";
   }

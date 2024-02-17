@@ -18,13 +18,12 @@
 #ifndef BANT_PROJECT_PARDER_
 #define BANT_PROJECT_PARDER_
 
-#include <filesystem>
 #include <map>
 #include <ostream>
 #include <string>
-#include <vector>
 
 #include "ast.h"
+#include "types-bazel.h"
 
 namespace bant {
 struct FileContent {
@@ -32,11 +31,10 @@ struct FileContent {
   FileContent(FileContent &&) = default;
   FileContent(const FileContent &) = delete;
 
-  std::string project;   // Something like '//' or `@foo_bar//`
-  std::string rel_path;  // path within that foo/bar/baz
-  std::string content;   // AST string_views refer to this, don't change alloc
-  List *ast;             // parsed AST. Content owned by arena in ParsedProject
-  std::string errors;    // List of errors if observed (todo: make actual list)
+  BazelPackage package;
+  std::string content;  // AST string_views refer to this, don't change alloc
+  List *ast;            // parsed AST. Content owned by arena in ParsedProject
+  std::string errors;   // List of errors if observed (todo: make actual list)
 };
 
 struct ParsedProject {

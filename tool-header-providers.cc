@@ -22,6 +22,7 @@
 
 #include "ast.h"
 #include "project-parser.h"
+#include "types-bazel.h"
 
 namespace bant {
 namespace {
@@ -86,25 +87,31 @@ static void FindCCLibraryHeaders(Node *ast, const FindCallback &cb) {
 }
 }  // namespace
 
-using HeaderToLibMap = std::map<std::string, std::string>;
-HeaderToLibMap ExtractHeaderToLibMapping(const ParsedProject &project) {
-  HeaderToLibMap result;
+HeaderToTargetMap ExtractHeaderToLibMapping(const ParsedProject &project) {
+  HeaderToTargetMap result;
   for (const auto &[filename, file_content] : project.file_to_ast) {
     if (!file_content.ast) continue;
-    FindCCLibraryHeaders(file_content.ast, [&result, &file_content](
-                                             std::string_view lib_name,
-                                             std::string_view header) {
-      std::string header_fqn = file_content.rel_path;
-      if (!header_fqn.empty()) header_fqn.append("/");
-      header_fqn.append(header);
-      std::string lib_fqn = file_content.project + file_content.rel_path;
-      // If the library name is the same as the directory name, this is just
-      // the default name.
-      if (!file_content.rel_path.ends_with(std::string("/").append(lib_name))) {
-        lib_fqn.append(":").append(lib_name);
-      }
-      result[header_fqn] = lib_fqn;
-    });
+    FindCCLibraryHeaders(
+      file_content.ast, [&result, &file_content](std::string_view lib_name,
+                                                 std::string_view header) {
+        std::string header_fqn = file_content.package.path;
+        if (!header_fqn.empty()) header_fqn.append("/");
+        header_fqn.append(header);
+        BazelTarget target(file_content.package, lib_name);
+        const auto &inserted = result.insert({header_fqn, target});
+        if (!inserted.second && target != inserted.first->second) {
+          // TODO: differentiate between info-log (external projects) and
+          // error-log (current project, as these are actionable).
+          // For now: just report errors.
+          const bool is_error = file_content.package.project.empty();
+          if (is_error) {
+            // TODO: Get file-position from header stringview.
+            std::cerr << "Header '" << header_fqn << "' defined twice: by '"
+                      << target.ToString() << "', and '"
+                      << inserted.first->second.ToString() << "'\n";
+          }
+        }
+      });
   }
   return result;
 }
@@ -116,7 +123,7 @@ void PrintLibraryHeaders(FILE *out, const ParsedProject &project) {
     longest = std::max(longest, (int)header.length());
   }
   for (const auto &[header, lib] : header_to_lib) {
-    fprintf(out, "%*s\t%s\n", -longest, header.c_str(), lib.c_str());
+    fprintf(out, "%*s\t%s\n", -longest, header.c_str(), lib.ToString().c_str());
   }
 }
 }  // namespace bant
