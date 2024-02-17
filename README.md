@@ -4,18 +4,20 @@ bant - Bazel Navigation Tool
 Some personal tool to read bazel files. Quick-and-dirty hack for my projects.
 Probably not useful for anyone else.
 
-Goal: Reading bazel-like BUILD files and doing useful things with content.
-Non-Goal: parse full starlark.
+ * Goal: Reading bazel-like BUILD files and doing useful things with content.
+ * Non-Goal: parse full starlark.
 
 WIP.
 
-Current status:
+### Current status
+
  * Parses most of simple BUILD.bazel files and builds an AST (but issues
    if more Python-like functionality is used)
  * Given a directory with a bazel project, parses all BUILD files including
    the external ones that bazel had extracted in `bazel-${project}/external/`
 
-Next steps:
+### Next steps
+
   * Provide DWYU 'depend on what you use' feature: look at headers that
     sources include and suggest targets that provide these headers to depend
     on.
