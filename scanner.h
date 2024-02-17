@@ -1,11 +1,10 @@
-#ifndef BANT_SCANNER_H
-#define BANT_SCANNER_H
+#pragma once
 
-#include <optional>
 #include <ostream>
 #include <string_view>
 #include <vector>
 
+namespace bant {
 enum TokenType : int {
   // As-is tokens
   kOpenParen = '(',
@@ -44,13 +43,13 @@ struct Token {
 std::ostream &operator<<(std::ostream &o, Token t);
 
 // Zero-based line and column.
-struct Pos {
+struct FilePosition {
   int line;
   int col;
 };
 
 // Print line and column; one-based for easier human consumption.
-std::ostream &operator<<(std::ostream &o, Pos p);
+std::ostream &operator<<(std::ostream &o, FilePosition p);
 
 class Scanner {
  public:
@@ -69,24 +68,25 @@ class Scanner {
 
   // Return position of given text that needs to be within content of
   // tokens already seen.
-  Pos GetPos(std::string_view text) const;
+  FilePosition GetPos(std::string_view text) const;
 
  private:
-  using Iterator = std::string_view::const_iterator;
+  using ContentPointer = std::string_view::const_iterator;
 
   // Go back to token t so that it will be returned on Next().
   void RewindToBefore(Token t) { pos_ = t.text.begin(); }
 
-  Iterator SkipSpace();
+  ContentPointer SkipSpace();
 
   Token HandleNumber();
   Token HandleString();
   Token HandleIdentifierKeywordOrInvalid();
 
+  // Externally owned content.
   const std::string_view content_;
-  Iterator pos_;
+  ContentPointer pos_;
+
   // Contains position at the beginning of each line.
-  using LineMap = std::vector<Iterator>;
-  LineMap line_map_;
+  std::vector<ContentPointer> line_map_;
 };
-#endif  // BANT_SCANNER_H
+}  // namespace bant

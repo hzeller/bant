@@ -1,5 +1,4 @@
-#ifndef BANT_PARSER_H
-#define BANT_PARSER_H
+#pragma once
 
 #include <iostream>
 #include <memory>
@@ -8,6 +7,7 @@
 #include "ast.h"
 #include "scanner.h"
 
+namespace bant {
 class Parser {
  public:
   // Create a Parser for bazel-like files, reading tokens from "token_source".
@@ -35,4 +35,4 @@ class Parser {
   class Impl;
   const std::unique_ptr<Impl> impl_;
 };
-#endif  // BANT_PARSER_H
+}  // namespace bant

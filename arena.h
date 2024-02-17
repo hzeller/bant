@@ -1,6 +1,5 @@
 /* -*- c++ -*- */
-#ifndef BANT_ARENA_H
-#define BANT_ARENA_H
+#pragma once
 
 #include <algorithm>
 #include <cstddef>
@@ -9,6 +8,7 @@
 #include <memory>
 #include <utility>
 
+namespace bant {
 // Arena: Provide allocation of memory that can be deallocated at once.
 // Fast, but does not call any destructors of the objects contained.
 class Arena {
@@ -60,5 +60,4 @@ class Arena {
   size_t total_bytes_ = 0;
   size_t total_allocations_ = 0;
 };
-
-#endif  // BANT_ARENA_H
+}  // namespace bant

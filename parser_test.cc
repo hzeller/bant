@@ -10,11 +10,12 @@
 #include "arena.h"
 #include "ast.h"
 
+namespace bant {
 class ParserTest : public testing::Test {
  protected:
   ParserTest() : arena_(4096) {}
 
-  ::List *Parse(std::string_view text) {
+  bant::List *Parse(std::string_view text) {
     Scanner scanner(text);
     Parser parser(&scanner, &arena_, "<text>", std::cerr);
     return parser.parse();
@@ -29,33 +30,33 @@ class ParserTest : public testing::Test {
   Assignment *Assign(std::string_view id, Node *b) {
     return arena_.New<Assignment>(Id(id), b);
   }
-  FunCall *Call(std::string_view id, ::List *args) {
-    return arena_.New<::FunCall>(Id(id), args);
+  FunCall *Call(std::string_view id, List *args) {
+    return arena_.New<FunCall>(Id(id), args);
   }
 
-  ::List *List(std::initializer_list<Node *> elements) {
-    ::List *result = arena_.New<::List>(List::Type::kList);
+  bant::List *List(std::initializer_list<Node *> elements) {
+    bant::List *result = arena_.New<bant::List>(List::Type::kList);
     for (Node *n : elements) result->Append(&arena_, n);
     return result;
   }
 
-  ::List *Tuple(std::initializer_list<Node *> elements) {
-    ::List *result = arena_.New<::List>(List::Type::kTuple);
+  bant::List *Tuple(std::initializer_list<Node *> elements) {
+    bant::List *result = arena_.New<bant::List>(bant::List::Type::kTuple);
     for (Node *n : elements) result->Append(&arena_, n);
     return result;
   }
-  ::List *Map(
+  bant::List *Map(
     std::initializer_list<std::pair<std::string_view, Node *>> elements) {
-    ::List *result = arena_.New<::List>(List::Type::kMap);
+    bant::List *result = arena_.New<bant::List>(List::Type::kMap);
     for (const auto &n : elements) {
       result->Append(&arena_, Op(':', Str(n.first), n.second));
     }
     return result;
   }
 
-  ::ListComprehension *ListComprehension(::List *pattern, ::List *vars,
-                                         ::Node *source) {
-    return arena_.New<::ListComprehension>(pattern, vars, source);
+  bant::ListComprehension *ListComprehension(bant::List *pattern,
+                                             bant::List *vars, Node *source) {
+    return arena_.New<bant::ListComprehension>(pattern, vars, source);
   }
 
   std::string Print(Node *n) {
@@ -170,3 +171,4 @@ TEST_F(ParserTest, ParseTernary) {
   Node *n = Parse("[foo() if a + b else baz()]");
   EXPECT_EQ(Print(n), "[[foo()\n         if a + b else baz()\n        ]]");
 }
+}  // namespace bant

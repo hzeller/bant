@@ -1,6 +1,5 @@
 /* -*- c++ -*- */
-#ifndef BANT_AST_H
-#define BANT_AST_H
+#pragma once
 
 #include <cassert>
 #include <cstdint>
@@ -11,6 +10,7 @@
 #include "arena-container.h"
 #include "arena.h"
 
+namespace bant {
 class Visitor;
 class Identifier;
 class Scalar;
@@ -276,4 +276,4 @@ inline void Ternary::Accept(Visitor *v) { v->VisitTernary(this); }
 inline void Scalar::Accept(Visitor *v) { v->VisitScalar(this); }
 inline void Identifier::Accept(Visitor *v) { v->VisitIdentifier(this); }
 
-#endif  // BANT_AST_H
+}  // namespace bant

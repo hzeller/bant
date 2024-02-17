@@ -2,6 +2,7 @@
 
 #include "gtest/gtest.h"
 
+namespace bant {
 TEST(ArenaDeque, SimpleOps) {
   Arena a(1024);
   ArenaDeque<int, 3, 96> container;  // deliberately funky min..max
@@ -20,3 +21,4 @@ TEST(ArenaDeque, SimpleOps) {
     }
   }
 }
+}  // namespace bant

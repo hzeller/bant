@@ -3,6 +3,7 @@
 #include <charconv>
 #include <ostream>
 
+namespace bant {
 IntScalar *IntScalar::FromLiteral(Arena *arena, std::string_view literal) {
   int64_t val = 0;
   auto result = std::from_chars(literal.begin(), literal.end(), val);
@@ -114,3 +115,4 @@ std::ostream &operator<<(std::ostream &o, Node *n) {
   }
   return o;
 }
+}  // namespace bant

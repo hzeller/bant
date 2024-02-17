@@ -1,11 +1,13 @@
 // -*- c++ -*-
 // Containers that can store in an arena.
+#pragma once
 
 #include <cassert>
 #include <cstdint>
 
 #include "arena.h"
 
+namespace bant {
 // Expected to be allocated in itself in an Arena.
 //
 // This allows to append new values and iterate through them. No removal
@@ -116,3 +118,4 @@ class ArenaDeque {
   };
   BlockSizeTracker block_size_;
 };
+}  // namespace bant

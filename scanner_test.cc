@@ -2,6 +2,7 @@
 
 #include <gtest/gtest.h>
 
+namespace bant {
 inline bool operator==(const Token &a, const Token &b) {
   return a.type == b.type && a.text == b.text;
 }
@@ -67,3 +68,4 @@ TEST(ScannerTest, StringLiteral) {
     EXPECT_EQ(s.Next(), Token({TokenType::kEof, ""}));
   }
 }
+}  // namespace bant

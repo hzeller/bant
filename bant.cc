@@ -10,8 +10,6 @@
 
 namespace fs = std::filesystem;
 
-using namespace bant;
-
 static int usage(const char *prog) {
   fprintf(stderr, "Usage: [options] %s <filename> [<filename>...]\n", prog);
   fprintf(stderr, R"(Options
@@ -24,24 +22,24 @@ static int usage(const char *prog) {
   return 1;
 }
 
-// Collect files found recursively and store in "paths". Use predicate
-// "include_p" to test if file should be included in list.
-// Returns number of files it looked at.
-using FileAccept = std::function<bool(const fs::path &)>;
-size_t CollectFilesRecursive(const fs::path &dir, bool follow_symlink_dirs,
-                             std::vector<fs::path> *paths,
-                             const FileAccept &include_p) {
+// Collect files found recursively and store in "paths".
+// Uses predicate "include_dir_p" to check if directory should be walked,
+// and "include_file_p" if file should be included.
+// Returns number of files looked at.
+using PathAccept = std::function<bool(const fs::path &)>;
+size_t CollectFilesRecursive(const fs::path &dir, std::vector<fs::path> *paths,
+                             const PathAccept &want_dir_p,
+                             const PathAccept &want_file_p) {
   std::error_code err;
   if (!fs::is_directory(dir, err) || err.value() != 0) return 0;
-  if (!follow_symlink_dirs && fs::is_symlink(dir, err)) return 0;
+  if (!want_dir_p(dir)) return 0;
 
   size_t count = 0;
   for (const fs::directory_entry &e : fs::directory_iterator(dir)) {
     ++count;
     if (e.is_directory()) {
-      count +=
-        CollectFilesRecursive(e.path(), follow_symlink_dirs, paths, include_p);
-    } else if (include_p(e.path())) {
+      count += CollectFilesRecursive(e.path(), paths, want_dir_p, want_file_p);
+    } else if (want_file_p(e.path())) {
       paths->emplace_back(e.path());
     }
   }
@@ -78,19 +76,25 @@ int main(int argc, char *argv[]) {
 
   std::vector<fs::path> build_files;
   const size_t search_count = CollectFilesRecursive(
-    ".", follow_symbolic_links, &build_files, [](const fs::path &file) {
+    ".", &build_files,
+    [follow_symbolic_links](const fs::path &dir) {
+      if (!follow_symbolic_links && fs::is_symlink(dir)) return false;
+      if (dir.filename() == ".git") return false;  // lots of irrelevant stuff
+      return true;
+    },
+    [](const fs::path &file) {
       const auto &basename = file.filename();
       return basename == "BUILD" || basename == "BUILD.bazel";
     });
 
-  ParsedProject parsed = ParseBuildFiles(build_files);
+  bant::ParsedProject parsed = bant::ParseBuildFiles(build_files);
 
   if (print_parsed || print_only_errors) {
-    PrintProject(std::cout, std::cerr, parsed, print_only_errors);
+    bant::PrintProject(std::cout, std::cerr, parsed, print_only_errors);
   }
 
   if (print_library_headers) {
-    PrintLibraryHeaders(stdout, parsed);
+    bant::PrintLibraryHeaders(stdout, parsed);
   }
 
   if (verbose) {

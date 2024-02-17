@@ -34,6 +34,7 @@ public:
 #define LOG_ENTER()
 #endif
 
+namespace bant {
 // Simple recursive descent parser. As Parser::Impl to not clobber the header
 // file with all the parse methods needed for each production.
 class Parser::Impl {
@@ -357,3 +358,4 @@ Parser::~Parser() {}
 List *Parser::parse() { return impl_->parse(); }
 bool Parser::parse_error() const { return impl_->parse_error(); }
 Token Parser::lastToken() const { return impl_->lastToken(); }
+}  // namespace bant

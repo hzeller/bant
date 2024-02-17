@@ -1,10 +1,10 @@
-
 #include "scanner.h"
 
 #include <algorithm>
 #include <cassert>
 #include <string_view>
 
+namespace bant {
 std::ostream &operator<<(std::ostream &o, TokenType t) {
   switch (t) {
   case '(':
@@ -44,7 +44,7 @@ Scanner::Scanner(std::string_view content)
   line_map_.push_back(pos_);
 }
 
-Scanner::Iterator Scanner::SkipSpace() {
+Scanner::ContentPointer Scanner::SkipSpace() {
   bool in_comment = false;
   while (pos_ < content_.end() &&
          (isspace(*pos_) || *pos_ == '#' || in_comment)) {
@@ -65,7 +65,7 @@ static bool IsIdentifierChar(char c) {
 }
 
 Token Scanner::HandleIdentifierKeywordOrInvalid() {
-  const Iterator start = pos_;
+  const ContentPointer start = pos_;
   // Digit already ruled out at this point as first character.
   if (!IsIdentifierChar(*start)) {
     ++pos_;
@@ -87,7 +87,7 @@ Token Scanner::HandleIdentifierKeywordOrInvalid() {
 
 Token Scanner::HandleString() {
   bool triple_quote = false;
-  const Iterator start = pos_;
+  const ContentPointer start = pos_;
   const char str_quote = *pos_;
   pos_++;
   if (pos_ + 1 < content_.end() && *pos_ == str_quote &&
@@ -115,7 +115,7 @@ Token Scanner::HandleString() {
 }
 
 Token Scanner::HandleNumber() {
-  const Iterator start = pos_;
+  const ContentPointer start = pos_;
   bool dot_seen = false;
   ++pos_;
   while (pos_ < content_.end() && (isdigit(*pos_) || *pos_ == '.')) {
@@ -172,21 +172,22 @@ Token Scanner::Next() {
   return result;
 }
 
-std::ostream &operator<<(std::ostream &o, Pos p) {
+std::ostream &operator<<(std::ostream &o, FilePosition p) {
   o << (p.line + 1) << ":" << (p.col + 1) << ":";
   return o;
 }
 
-Pos Scanner::GetPos(std::string_view text) const {
+FilePosition Scanner::GetPos(std::string_view text) const {
   if (text.begin() < content_.begin() || text.end() > content_.end()) {
     return {0, 0};
   }
-  LineMap::const_iterator start =
+  auto start =
     std::upper_bound(line_map_.begin(), line_map_.end(), text.begin());
   assert(start - line_map_.begin() > 0);
   --start;
-  Pos result;
+  FilePosition result;
   result.line = start - line_map_.begin();
   result.col = text.begin() - *start;
   return result;
 }
+}  // namespace bant
