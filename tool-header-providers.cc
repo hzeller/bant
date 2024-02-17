@@ -107,7 +107,7 @@ void PrintLibraryHeaders(FILE *out, const ParsedProject &project) {
     longest = std::max(longest, (int)header.length());
   }
   for (const auto &[header, lib] : header_to_lib) {
-    fprintf(out, "%*s\t%s\n", -longest - 1, header.c_str(), lib.c_str());
+    fprintf(out, "%*s\t%s\n", -longest, header.c_str(), lib.c_str());
   }
 }
 }  // namespace bant

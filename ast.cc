@@ -51,9 +51,7 @@ void PrintVisitor::VisitList(List *l) {
   for (Node *node : *l) {
     if (!is_first) out_ << ",\n";
     if (needs_multiline) out_ << std::string(indent_, ' ');
-    if (node) {
-      node->Accept(this);
-    } else {
+    if (!WalkNonNull(node)) {
       out_ << "NIL";
     }
     is_first = false;
@@ -72,7 +70,11 @@ void PrintVisitor::VisitList(List *l) {
 
 void PrintVisitor::VisitBinOpNode(BinOpNode *b) {
   WalkNonNull(b->left());
-  out_ << " " << b->op() << " ";
+  if (b->op() == '.') {
+    out_ << b->op();  // No spacing around dot operator.
+  } else {
+    out_ << " " << b->op() << " ";
+  }
   WalkNonNull(b->right());
 }
 
@@ -107,10 +109,7 @@ void PrintVisitor::VisitScalar(Scalar *s) {
 void PrintVisitor::VisitIdentifier(Identifier *i) { out_ << i->id(); }
 
 std::ostream &operator<<(std::ostream &o, Node *n) {
-  if (n) {
-    PrintVisitor out(o);
-    n->Accept(&out);
-  } else {
+  if (!PrintVisitor(o).WalkNonNull(n)) {
     o << "NIL";
   }
   return o;

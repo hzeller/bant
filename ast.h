@@ -209,9 +209,10 @@ class Visitor {
   virtual void VisitScalar(Scalar *) = 0;          // Leaf.
   virtual void VisitIdentifier(Identifier *) = 0;  // Leaf.
 
-  // Utility function: if node exists, walk.
-  inline void WalkNonNull(Node *node) {
+  // Utility function: if node exists, walk and return 'true'.
+  inline bool WalkNonNull(Node *node) {
     if (node) node->Accept(this);
+    return node;
   }
 };
 
