@@ -64,38 +64,30 @@ class LibraryHeaderFinder : public BaseVisitor {
   const FindCallback &found_cb_;
 };
 
-// Given a BUILD, BUILD.bazel filename, return the bare project path with
-// no prefix or suffix.
-// ./foo/bar/baz/BUILD.bazel turns into foo/bar/baz
-static std::string_view TargetPathFromBuileFile(std::string_view file) {
-  file = file.substr(0, file.find_last_of('/'));  // Remove BUILD-file
-  while (!file.empty() && (file[0] == '.' || file[0] == '/')) {
-    file.remove_prefix(1);
-  }
-  return file;
-}
-
 static void FindCCLibraryHeaders(Node *ast, const FindCallback &cb) {
   LibraryHeaderFinder(cb).WalkNonNull(ast);
 }
 }  // namespace
 
-using HeaderToTargetMap = std::map<std::string, std::string>;
-HeaderToTargetMap ExtractHeaderToLibMapping(const ParsedProject &project) {
-  HeaderToTargetMap result;
-  for (const auto &[filename, parse_result] : project.file_to_ast) {
-    const std::string_view target_basename(TargetPathFromBuileFile(filename));
-    if (!parse_result.ast) continue;
-    FindCCLibraryHeaders(parse_result.ast,
-                         [target_basename, &result](std::string_view name,
-                                                    std::string_view header) {
-                           std::string header_fqn(target_basename);
-                           std::string lib_fqn(target_basename);
-                           if (!target_basename.empty()) header_fqn.append("/");
-                           header_fqn.append(header);
-                           lib_fqn.append(":").append(name);
-                           result[header_fqn] = lib_fqn;
-                         });
+using HeaderToLibMap = std::map<std::string, std::string>;
+HeaderToLibMap ExtractHeaderToLibMapping(const ParsedProject &project) {
+  HeaderToLibMap result;
+  for (const auto &[filename, file_content] : project.file_to_ast) {
+    if (!file_content.ast) continue;
+    FindCCLibraryHeaders(file_content.ast, [&result, &file_content](
+                                             std::string_view lib_name,
+                                             std::string_view header) {
+      std::string header_fqn = file_content.rel_path;
+      if (!header_fqn.empty()) header_fqn.append("/");
+      header_fqn.append(header);
+      std::string lib_fqn = file_content.project + file_content.rel_path;
+      // If the library name is the same as the directory name, this is just
+      // the default name.
+      if (!file_content.rel_path.ends_with(std::string("/").append(lib_name))) {
+        lib_fqn.append(":").append(lib_name);
+      }
+      result[header_fqn] = lib_fqn;
+    });
   }
   return result;
 }
