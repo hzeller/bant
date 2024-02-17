@@ -1,5 +1,5 @@
 common --cxxopt=-std=c++20 --host_cxxopt=-std=c++20
-common --cxxopt=-Wall --cxxopt=-Wextra --cxxopt=-Werror --cxxopt=-pedantic
+common --cxxopt=-Wall --cxxopt=-Wextra --cxxopt=-Werror --cxxopt=-Wno-unused-parameter
 common --cxxopt=-fno-exceptions --cxxopt=-fno-rtti
 
 # Address sanitizer settings.

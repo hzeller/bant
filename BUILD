@@ -52,6 +52,25 @@ cc_library(
 )
 
 cc_library(
+    name = "tool-dwyu",
+    srcs = ["tool-dwyu.cc"],
+    hdrs = ["tool-dwyu.h"],
+    deps = [
+        "@com_googlesource_code_re2//:re2",
+    ],
+)
+
+cc_test(
+    name = "tool-dwyu_test",
+    srcs = ["tool-dwyu_test.cc"],
+    deps = [
+        ":tool-dwyu",
+        "@com_google_googletest//:gtest",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+cc_library(
     name = "types-bazel",
     hdrs = [
         "types-bazel.h",
@@ -77,6 +96,7 @@ cc_test(
     srcs = ["scanner_test.cc"],
     deps = [
         ":parser",
+        "@com_google_googletest//:gtest",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -86,6 +106,7 @@ cc_test(
     srcs = ["parser_test.cc"],
     deps = [
         ":parser",
+        "@com_google_googletest//:gtest",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -95,6 +116,7 @@ cc_test(
     srcs = ["arena-container_test.cc"],
     deps = [
         ":memory",
+        "@com_google_googletest//:gtest",
         "@com_google_googletest//:gtest_main",
     ],
 )
