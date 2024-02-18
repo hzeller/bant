@@ -27,9 +27,11 @@ TEST(DWYUTest, HeaderFilesAreExtracted) {
   constexpr std::string_view kTestContent = R"(
 /* some random text */
 #include "simple.h"
+#include <should_not_be_extracted>
 #include "foo/bar/baz.h"
+#include    "w/space.h"  // even broken spacing should work
 )";
   std::vector<std::string> headers = ExtractCCHeaders(kTestContent);
-  EXPECT_THAT(headers, ElementsAre("simple.h", "foo/bar/baz.h"));
+  EXPECT_THAT(headers, ElementsAre("simple.h", "foo/bar/baz.h", "w/space.h"));
 }
 }  // namespace bant

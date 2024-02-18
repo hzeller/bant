@@ -21,7 +21,7 @@
 
 namespace bant {
 std::vector<std::string> ExtractCCHeaders(std::string_view content) {
-  static const LazyRE2 kIncMatch{R"/(#include "([0-9a-zA-Z_/-]+\.h)")/"};
+  static const LazyRE2 kIncMatch{R"/(#include\s+"([0-9a-zA-Z_/-]+\.h)")/"};
 
   std::vector<std::string> result;
   std::string header_path;
