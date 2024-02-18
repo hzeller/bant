@@ -1,16 +1,16 @@
 // bant - Bazel Navigation Tool
 // Copyright (C) 2024 Henner Zeller <h.zeller@acm.org>
-
+//
 // This program is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation; either version 2 of the License, or
 // (at your option) any later version.
-
+//
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
-
+//
 // You should have received a copy of the GNU General Public License along
 // with this program; if not, write to the Free Software Foundation, Inc.,
 // 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
@@ -21,7 +21,6 @@
 #include <cassert>
 #include <cstdint>
 #include <ostream>
-#include <string>
 #include <string_view>
 
 #include "arena-container.h"
@@ -53,11 +52,12 @@ class Scalar : public Node {
  public:
   enum ScalarType { kInt, kString };
 
-  Scalar *CastAsScalar() final { return this; }
-  virtual std::string_view AsString() { return ""; }
-  virtual int64_t AsInt() { return 0; }
+  virtual std::string_view AsString() const { return ""; }
+  virtual int64_t AsInt() const { return 0; }
 
   void Accept(Visitor *v) override;
+  Scalar *CastAsScalar() final { return this; }
+
   virtual ScalarType type() = 0;
 };
 
@@ -65,7 +65,9 @@ class StringScalar : public Scalar {
  public:
   static StringScalar *FromLiteral(Arena *arena, std::string_view literal);
 
-  std::string_view AsString() final { return value_; }
+  // Note: quotes around are removed, but potential escaping internally is
+  // preserved in this view: it points to the original range in the file.
+  std::string_view AsString() const final { return value_; }
   ScalarType type() final { return kString; }
 
  private:
@@ -79,7 +81,7 @@ class IntScalar : public Scalar {
  public:
   static IntScalar *FromLiteral(Arena *arena, std::string_view literal);
 
-  int64_t AsInt() final { return value_; }
+  int64_t AsInt() const final { return value_; }
   ScalarType type() final { return kInt; }
 
  private:
@@ -92,6 +94,7 @@ class IntScalar : public Scalar {
 class Identifier : public Node {
  public:
   std::string_view id() const { return id_; }
+
   void Accept(Visitor *v) override;
   Identifier *CastAsIdentifier() final { return this; }
 
@@ -133,15 +136,15 @@ class List : public Node {
  public:
   enum Type { kList, kMap, kTuple };
 
-  List *CastAsList() final { return this; }
-  void Append(Arena *arena, Node *value) { list_.Append(value, arena); }
-
-  void Accept(Visitor *v) override;
-  Type type() { return type_; }
+  Type type() const { return type_; }
   size_t size() const { return list_.size(); }
 
+  void Append(Arena *arena, Node *value) { list_.Append(value, arena); }
   ArenaDeque<Node *>::const_iterator begin() const { return list_.begin(); }
   ArenaDeque<Node *>::const_iterator end() const { return list_.end(); }
+
+  void Accept(Visitor *v) override;
+  List *CastAsList() final { return this; }
 
  private:
   friend class Arena;
@@ -155,6 +158,7 @@ class ListComprehension : public Node {
  public:
   ListComprehension(Node *pattern, List *variable_list, Node *source)
       : pattern_(pattern), variable_list_(variable_list), source_(source) {}
+
   Node *pattern() { return pattern_; }
   List *variable_list() { return variable_list_; }
   Node *source() { return source_; }
@@ -233,6 +237,7 @@ class Visitor {
   }
 };
 
+// Simple implementation: recursively walk the whole AST.
 class BaseVisitor : public Visitor {
  public:
   void VisitAssignment(Assignment *a) override { WalkNonNull(a->right()); }

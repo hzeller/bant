@@ -1,7 +1,10 @@
-bant - Bazel Navigation Tool
-============================
+bant - Build Analysis and Navigation Tool
+=========================================
 
-Some personal tool to read bazel files. Quick-and-dirty hack for my projects.
+Quick-and-dirty hack for my personal projects that use bazel. Extracting a list
+of targets; finding which headers belong to them etc. for easy scripting with
+`awk` etc.
+
 Probably not useful for anyone else.
 
  * Goal: Reading bazel-like BUILD files and doing useful things with content.
@@ -16,13 +19,13 @@ WIP.
  * Given a directory with a bazel project, parses all BUILD files including
    the external ones that bazel had extracted in `bazel-${project}/external/`
 
-### Next steps
+### Nice-to-have TODO
 
   * Provide DWYU 'depend on what you use' feature: look at headers that
     sources include and suggest targets that provide these headers to depend
     on.
-  * variable-expand and const-evaluate expressions.
-  * provide a path query language to extract in a way that the output
+  * variable-expand and const-evaluate expressions to flatten the info.
+  * Maybe a path query language to extract in a way that the output
     then can be used for scripting.
 
 Synopsis:
