@@ -32,8 +32,8 @@ http_archive(
 
 http_archive(
     name = "com_googlesource_code_re2",
-    patches = [ "//bazel:re2.patch" ],
-    patch_args = [ "-p1" ],
+    patch_args = ["-p1"],
+    patches = ["//bazel:re2.patch"],
     sha256 = "cd191a311b84fcf37310e5cd876845b4bf5aee76fdd755008eef3b6478ce07bb",
     strip_prefix = "re2-2024-02-01",
     urls = ["https://github.com/google/re2/archive/refs/tags/2024-02-01.tar.gz"],

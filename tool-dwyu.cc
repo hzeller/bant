@@ -17,6 +17,10 @@
 
 #include "tool-dwyu.h"
 
+#include <string>
+#include <string_view>
+#include <vector>
+
 #include "re2/re2.h"
 
 namespace bant {
