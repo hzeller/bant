@@ -22,6 +22,7 @@
 #include <string>
 #include <vector>
 
+#include "absl/strings/str_cat.h"
 #include "file-utils.h"
 #include "parser.h"
 
@@ -129,8 +130,8 @@ ParsedProject ParsedProject::FromFilesystem(bool include_external) {
 
   // All the external files (TODO: properly do this with fs::path)
   const std::string project_dir_name = fs::current_path().filename().string();
-  const std::string external_base = "./bazel-" + project_dir_name;
-  const std::string external_name = external_base + "/external";
+  const std::string external_base = absl::StrCat("./bazel-", project_dir_name);
+  const std::string external_name = absl::StrCat(external_base, "/external");
   if (include_external) {
     result.files_searched +=
       CollectFilesRecursive(external_name, build_files, dir_with_symlink,
@@ -142,7 +143,7 @@ ParsedProject ParsedProject::FromFilesystem(bool include_external) {
     std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time)
       .count();
 
-  ParseBuildFiles(build_files, external_name + "/", &result);
+  ParseBuildFiles(build_files, absl::StrCat(external_name, "/"), &result);
   return result;
 }
 

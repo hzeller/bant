@@ -21,6 +21,8 @@
 #include <string>
 #include <string_view>
 
+#include "absl/strings/str_cat.h"
+
 // Something like //foo/bar or @baz//foo/bar
 struct BazelPackage {
   BazelPackage() = default;
@@ -30,7 +32,7 @@ struct BazelPackage {
   std::string project;  // either empty, or something like @foo_bar_baz
   std::string path;     // path relative to project w/o leading/trailing '/'
 
-  std::string ToString() const { return project + "//" + path; }
+  std::string ToString() const { return absl::StrCat(project, "//", path); }
 
   // Return the last path element (or empty string)
   std::string_view LastElement() const {
@@ -55,12 +57,13 @@ struct BazelTarget {
     if (package.LastElement() == target_name) {
       return package.ToString();  // target==package -> compact representation.
     }
-    return package.ToString() + ":" + target_name;
+    return absl::StrCat(package.ToString(), ":", target_name);
   }
 
   // More compact printing of a path if
   std::string ToStringRelativeTo(const BazelPackage &other_package) const {
-    return (other_package == package) ? ":" + target_name : ToString();
+    return (other_package == package) ? absl::StrCat(":", target_name)
+                                      : ToString();
   }
 
   bool operator==(const BazelTarget &) const = default;

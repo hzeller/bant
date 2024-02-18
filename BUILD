@@ -69,6 +69,7 @@ cc_library(
         ":file-utils",
         ":parser",
         ":types-bazel",
+        "@com_google_absl//absl/strings",
     ],
 )
 
@@ -106,6 +107,9 @@ cc_library(
     name = "types-bazel",
     hdrs = [
         "types-bazel.h",
+    ],
+    deps = [
+        "@com_google_absl//absl/strings",
     ],
 )
 
