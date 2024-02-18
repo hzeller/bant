@@ -18,8 +18,8 @@
 #ifndef BANT_PARSER_H_
 #define BANT_PARSER_H_
 
-#include <iostream>
 #include <memory>
+#include <ostream>
 
 #include "arena.h"
 #include "ast.h"
