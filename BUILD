@@ -1,4 +1,9 @@
 # -*- python -*-
+
+package(
+    features = ["layering_check"],
+)
+
 cc_binary(
     name = "bant",
     srcs = [
@@ -45,6 +50,7 @@ cc_test(
     name = "parser_test",
     srcs = ["parser_test.cc"],
     deps = [
+        ":memory",
         ":parser",
         "@com_google_googletest//:gtest",
         "@com_google_googletest//:gtest_main",
