@@ -16,15 +16,15 @@ cc_library(
     name = "parser",
     srcs = [
         "ast.cc",
+        "linecolumn-map.cc",
         "parser.cc",
         "scanner.cc",
-        "linecolumn-map.cc"
     ],
     hdrs = [
         "ast.h",
+        "linecolumn-map.h",
         "parser.h",
         "scanner.h",
-        "linecolumn-map.h"
     ],
     deps = [
         ":memory",
@@ -121,6 +121,9 @@ cc_library(
     name = "file-utils",
     srcs = ["file-utils.cc"],
     hdrs = ["file-utils.h"],
+    deps = [
+        "@com_google_absl//absl/strings",
+    ],
 )
 
 cc_test(

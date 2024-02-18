@@ -1,6 +1,6 @@
-common --cxxopt=-std=c++20 --host_cxxopt=-std=c++20
-common --cxxopt=-Wall --cxxopt=-Wextra --cxxopt=-Werror --cxxopt=-Wno-unused-parameter
-common --cxxopt=-fno-exceptions --cxxopt=-fno-rtti
+build --cxxopt=-std=c++20 --host_cxxopt=-std=c++20
+build --cxxopt=-Wall --cxxopt=-Wextra --cxxopt=-Werror --cxxopt=-Wno-unused-parameter
+build --cxxopt=-fno-exceptions --cxxopt=-fno-rtti
 
 # Address sanitizer settings.
 build:asan --strip=never

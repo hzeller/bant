@@ -48,3 +48,11 @@ Usage examples
  bant -x   # read bazel project, but don't parse referenced external projects
  bant -H   # Only useful command so far: for each header, print defining lib
 ```
+
+### Development
+
+To get a useful compilation database for `clangd` to be happy, run first
+
+```
+scripts/make-compilation-db.sh
+```

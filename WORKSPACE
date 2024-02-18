@@ -36,3 +36,15 @@ http_archive(
     strip_prefix = "re2-2024-02-01",
     urls = ["https://github.com/google/re2/archive/refs/tags/2024-02-01.tar.gz"],
 )
+
+# 2024-02-06. Compilation database
+http_archive(
+    name = "rules_compdb",
+    sha256 = "70232adda61e89a4192be43b4719d35316ed7159466d0ab4f3da0ecb1fbf00b2",
+    strip_prefix = "bazel-compilation-database-fa872dd80742b3dccd79a711f52f286cbde33676",
+    urls = ["https://github.com/grailbio/bazel-compilation-database/archive/fa872dd80742b3dccd79a711f52f286cbde33676.tar.gz"],
+)
+
+load("@rules_compdb//:deps.bzl", "rules_compdb_deps")
+
+rules_compdb_deps()
