@@ -18,14 +18,46 @@ cc_library(
         "ast.cc",
         "parser.cc",
         "scanner.cc",
+        "linecolumn-map.cc"
     ],
     hdrs = [
         "ast.h",
         "parser.h",
         "scanner.h",
+        "linecolumn-map.h"
     ],
     deps = [
         ":memory",
+    ],
+)
+
+cc_test(
+    name = "scanner_test",
+    srcs = ["scanner_test.cc"],
+    deps = [
+        ":parser",
+        "@com_google_googletest//:gtest",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "parser_test",
+    srcs = ["parser_test.cc"],
+    deps = [
+        ":parser",
+        "@com_google_googletest//:gtest",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "linecolumn-map_test",
+    srcs = ["linecolumn-map_test.cc"],
+    deps = [
+        ":parser",
+        "@com_google_googletest//:gtest",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -89,26 +121,6 @@ cc_library(
     name = "file-utils",
     srcs = ["file-utils.cc"],
     hdrs = ["file-utils.h"],
-)
-
-cc_test(
-    name = "scanner_test",
-    srcs = ["scanner_test.cc"],
-    deps = [
-        ":parser",
-        "@com_google_googletest//:gtest",
-        "@com_google_googletest//:gtest_main",
-    ],
-)
-
-cc_test(
-    name = "parser_test",
-    srcs = ["parser_test.cc"],
-    deps = [
-        ":parser",
-        "@com_google_googletest//:gtest",
-        "@com_google_googletest//:gtest_main",
-    ],
 )
 
 cc_test(

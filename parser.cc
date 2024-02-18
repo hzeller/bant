@@ -340,8 +340,8 @@ class Parser::Impl {
   }
 
   std::ostream &ErrAt(Token t) {
-    err_out_ << filename_ << ":" << scanner_->GetPos(t.text) << " '" << t.text
-             << "': ";
+    err_out_ << filename_ << ":" << scanner_->line_col().GetRange(t.text)
+             << " got '" << t.text << "'; ";
     error_ = true;
     last_token_ = t;
     return err_out_;

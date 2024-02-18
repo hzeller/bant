@@ -17,9 +17,10 @@
 
 #include "scanner.h"
 
-#include <algorithm>
 #include <cassert>
 #include <string_view>
+
+#include "linecolumn-map.h"
 
 namespace bant {
 std::ostream &operator<<(std::ostream &o, TokenType t) {
@@ -56,9 +57,11 @@ std::ostream &operator<<(std::ostream &o, const Token t) {
   return o;
 }
 
-Scanner::Scanner(std::string_view content)
-    : content_(content), pos_(content_.begin()) {
-  line_map_.push_back(pos_);
+Scanner::Scanner(std::string_view content, LineColumnMap *line_map)
+    : content_(content), pos_(content_.begin()), line_map_(line_map) {
+  assert(line_map_ != nullptr);
+  assert(line_map_->empty());  // Already used ?
+  line_map_->PushNewline(pos_);
 }
 
 Scanner::ContentPointer Scanner::SkipSpace() {
@@ -69,7 +72,7 @@ Scanner::ContentPointer Scanner::SkipSpace() {
       in_comment = true;
     }
     if (*pos_ == '\n') {
-      line_map_.push_back(pos_ + 1);
+      line_map_->PushNewline(pos_ + 1);
       in_comment = false;
     }
     pos_++;
@@ -186,25 +189,6 @@ Token Scanner::Next() {
 
   default: result = HandleIdentifierKeywordOrInvalid(); break;
   }
-  return result;
-}
-
-std::ostream &operator<<(std::ostream &o, FilePosition p) {
-  o << (p.line + 1) << ":" << (p.col + 1) << ":";
-  return o;
-}
-
-FilePosition Scanner::GetPos(std::string_view text) const {
-  if (text.begin() < content_.begin() || text.end() > content_.end()) {
-    return {0, 0};
-  }
-  auto start =
-    std::upper_bound(line_map_.begin(), line_map_.end(), text.begin());
-  assert(start - line_map_.begin() > 0);
-  --start;
-  FilePosition result;
-  result.line = start - line_map_.begin();
-  result.col = text.begin() - *start;
   return result;
 }
 }  // namespace bant

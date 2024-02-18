@@ -17,8 +17,6 @@
 
 #include "parser.h"
 
-#include <gtest/gtest.h>
-
 #include <initializer_list>
 #include <sstream>
 #include <string_view>
@@ -26,6 +24,7 @@
 
 #include "arena.h"
 #include "ast.h"
+#include "gtest/gtest.h"
 
 namespace bant {
 class ParserTest : public testing::Test {
@@ -33,7 +32,8 @@ class ParserTest : public testing::Test {
   ParserTest() : arena_(4096) {}
 
   bant::List *Parse(std::string_view text) {
-    Scanner scanner(text);
+    LineColumnMap lc;
+    Scanner scanner(text, &lc);
     Parser parser(&scanner, &arena_, "<text>", std::cerr);
     return parser.parse();
   }

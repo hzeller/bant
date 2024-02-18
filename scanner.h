@@ -22,6 +22,8 @@
 #include <string_view>
 #include <vector>
 
+#include "linecolumn-map.h"
+
 namespace bant {
 enum TokenType : int {
   // As-is tokens
@@ -60,18 +62,15 @@ struct Token {
 
 std::ostream &operator<<(std::ostream &o, Token t);
 
-// Zero-based line and column.
-struct FilePosition {
-  int line;
-  int col;
-};
-
-// Print line and column; one-based for easier human consumption.
-std::ostream &operator<<(std::ostream &o, FilePosition p);
-
 class Scanner {
  public:
-  explicit Scanner(std::string_view content);
+  // A scanner reading tokens from "content", updating "line_map".
+  // It will update the line_map with all newlines it encounters; does not
+  // take ownership of the LineColumnMap, so it can later be used any
+  // time to determine the position of a Token extractedf from the file.
+  // All tokens returned by the Scanner are substrings from the larger
+  // content; this keeps correspondence with the original.
+  Scanner(std::string_view content, LineColumnMap *line_map);
 
   // Return next token.
   Token Next();
@@ -82,11 +81,7 @@ class Scanner {
     return t;
   }
 
-  size_t lines() const { return line_map_.size(); }
-
-  // Return position of given text that needs to be within content of
-  // tokens already seen.
-  FilePosition GetPos(std::string_view text) const;
+  const LineColumnMap &line_col() const { return *line_map_; }
 
  private:
   using ContentPointer = std::string_view::const_iterator;
@@ -104,8 +99,8 @@ class Scanner {
   const std::string_view content_;
   ContentPointer pos_;
 
-  // Contains position at the beginning of each line.
-  std::vector<ContentPointer> line_map_;
+  // Not owned.
+  LineColumnMap *const line_map_;
 };
 }  // namespace bant
 #endif  // BANT_SCANNER_H_

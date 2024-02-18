@@ -23,6 +23,7 @@
 #include <string>
 
 #include "ast.h"
+#include "linecolumn-map.h"
 #include "types-bazel.h"
 
 namespace bant {
@@ -33,8 +34,9 @@ struct FileContent {
 
   BazelPackage package;
   std::string content;  // AST string_views refer to this, don't change alloc
-  List *ast;            // parsed AST. Content owned by arena in ParsedProject
-  std::string errors;   // List of errors if observed (todo: make actual list)
+  LineColumnMap line_columns;  // To recover line/column information from Tokens
+  List *ast;           // parsed AST. Content owned by arena in ParsedProject
+  std::string errors;  // List of errors if observed (todo: make actual list)
 };
 
 struct ParsedProject {
