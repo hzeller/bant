@@ -1,3 +1,4 @@
+build --cxxopt=-xc++      --host_cxxopt=-xc++
 build --cxxopt=-std=c++20 --host_cxxopt=-std=c++20
 build --cxxopt=-Wall --cxxopt=-Wextra --cxxopt=-Werror --cxxopt=-Wno-unused-parameter
 build --cxxopt=-fno-exceptions --cxxopt=-fno-rtti

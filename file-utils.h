@@ -36,7 +36,7 @@ std::optional<std::string> ReadFileToString(
 // and "include_file_p" if file should be included.
 // Returns number of files looked at.
 size_t CollectFilesRecursive(
-  const std::filesystem::path &dir, std::vector<std::filesystem::path> *paths,
+  const std::filesystem::path &dir, std::vector<std::filesystem::path> &paths,
   const std::function<bool(const std::filesystem::path &)> &want_dir_p,
   const std::function<bool(const std::filesystem::path &)> &want_file_p);
 }  // namespace bant

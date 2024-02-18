@@ -57,7 +57,7 @@ class Scalar : public Node {
   virtual std::string_view AsString() { return ""; }
   virtual int64_t AsInt() { return 0; }
 
-  virtual void Accept(Visitor *v);
+  void Accept(Visitor *v) override;
   virtual ScalarType type() = 0;
 };
 
@@ -70,7 +70,7 @@ class StringScalar : public Scalar {
 
  private:
   friend class Arena;
-  StringScalar(std::string_view value) : value_(value) {}
+  explicit StringScalar(std::string_view value) : value_(value) {}
 
   std::string_view value_;
 };
@@ -79,19 +79,19 @@ class IntScalar : public Scalar {
  public:
   static IntScalar *FromLiteral(Arena *arena, std::string_view literal);
 
-  virtual int64_t AsInt() { return value_; }
+  int64_t AsInt() final { return value_; }
   ScalarType type() final { return kInt; }
 
  private:
   friend class Arena;
-  IntScalar(int64_t value) : value_(value) {}
+  explicit IntScalar(int64_t value) : value_(value) {}
 
   int64_t value_;
 };
 
 class Identifier : public Node {
  public:
-  const std::string_view id() const { return id_; }
+  std::string_view id() const { return id_; }
   void Accept(Visitor *v) override;
   Identifier *CastAsIdentifier() final { return this; }
 
@@ -100,7 +100,7 @@ class Identifier : public Node {
 
   // Needs to be owned outside. Typically the region in the
   // original file, that way it allows us report file location.
-  Identifier(std::string_view id) : id_(id) {}
+  explicit Identifier(std::string_view id) : id_(id) {}
 
   std::string_view id_;
 };
@@ -145,7 +145,7 @@ class List : public Node {
 
  private:
   friend class Arena;
-  List(Type t) : type_(t) {}
+  explicit List(Type t) : type_(t) {}
 
   const Type type_;
   ArenaDeque<Node *> list_;
@@ -263,7 +263,7 @@ class BaseVisitor : public Visitor {
 
 class PrintVisitor : public BaseVisitor {
  public:
-  PrintVisitor(std::ostream &out) : out_(out) {}
+  explicit PrintVisitor(std::ostream &out) : out_(out) {}
   void VisitAssignment(Assignment *a) override;
   void VisitFunCall(FunCall *f) override;
   void VisitList(List *l) override;

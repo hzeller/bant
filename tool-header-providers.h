@@ -18,8 +18,7 @@
 #ifndef BANT_TOOL_HEADER_PROVIDER_
 #define BANT_TOOL_HEADER_PROVIDER_
 
-#include <stdio.h>
-
+#include <cstdio>
 #include <map>
 #include <string>
 

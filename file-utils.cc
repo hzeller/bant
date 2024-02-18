@@ -51,7 +51,7 @@ std::optional<std::string> ReadFileToString(const fs::path &filename) {
 // However, we still map every file back to a fs::path, so maybe there is
 // more to be gained.
 size_t CollectFilesRecursive(
-  const fs::path &dir, std::vector<fs::path> *paths,
+  const fs::path &dir, std::vector<fs::path> &paths,
   const std::function<bool(const std::filesystem::path &)> &want_dir_p,
   const std::function<bool(const std::filesystem::path &)> &want_file_p) {
   size_t count = 0;
@@ -64,8 +64,9 @@ size_t CollectFilesRecursive(
     DIR *dir = opendir(current_dir.c_str());
     if (!dir) continue;
     while (dirent *entry = readdir(dir)) {
-      if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
+      if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
         continue;
+      }
       ++count;
       std::string full_path = absl::StrCat(current_dir, "/", entry->d_name);
       fs::path file_or_dir(full_path);
@@ -77,7 +78,7 @@ size_t CollectFilesRecursive(
         }
       } else {
         if (want_file_p(file_or_dir)) {
-          paths->emplace_back(file_or_dir);
+          paths.emplace_back(file_or_dir);
         }
       }
     }

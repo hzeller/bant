@@ -221,9 +221,9 @@ class Parser::Impl {
         upcoming.type == '%') {                          // format expr.
       Token op = scanner_->Next();
       return Make<BinOpNode>(n, ParseExpression(), op.type);
-    } else {
-      return n;
     }
+
+    return n;
   }
 
   Node *ParseParenExpressionOrTuple() {
@@ -370,7 +370,7 @@ class Parser::Impl {
 Parser::Parser(Scanner *token_source, Arena *allocator,
                const char *info_filename, std::ostream &err_out)
     : impl_(new Impl(token_source, allocator, info_filename, err_out)) {}
-Parser::~Parser() {}
+Parser::~Parser() = default;
 
 List *Parser::parse() { return impl_->parse(); }
 bool Parser::parse_error() const { return impl_->parse_error(); }

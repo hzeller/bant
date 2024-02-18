@@ -28,8 +28,8 @@
 
 namespace bant {
 struct FileContent {
-  FileContent(std::string &&c) : content(std::move(c)) {}
-  FileContent(FileContent &&) = default;
+  explicit FileContent(std::string &&c) : content(std::move(c)) {}
+  FileContent(FileContent &&) noexcept = default;
   FileContent(const FileContent &) = delete;
 
   BazelPackage package;
@@ -43,10 +43,10 @@ struct ParsedProject {
   // Parse project from the current directory. Looks for any
   // BUILD and BUILD.bazel files for the main project '//' as well as
   // all bazel-${projectname}/external/* sub-projects.
-  static ParsedProject FromFilesystem(bool include_subprojects);
+  static ParsedProject FromFilesystem(bool include_external);
 
   ParsedProject() = default;
-  ParsedProject(ParsedProject &&) = default;
+  ParsedProject(ParsedProject &&) noexcept = default;
   ParsedProject(const ParsedProject &) = delete;
 
   // Some stats.

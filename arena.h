@@ -31,7 +31,7 @@ namespace bant {
 class Arena {
  public:
   explicit Arena(int block_size) : block_size_(block_size) {}
-  Arena(Arena &&) = default;
+  Arena(Arena &&) noexcept = default;
   Arena(const Arena &) = delete;
 
   void *Alloc(size_t size) {

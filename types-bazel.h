@@ -54,9 +54,8 @@ struct BazelTarget {
   std::string ToString() const {
     if (package.LastElement() == target_name) {
       return package.ToString();  // target==package -> compact representation.
-    } else {
-      return package.ToString() + ":" + target_name;
     }
+    return package.ToString() + ":" + target_name;
   }
 
   // More compact printing of a path if

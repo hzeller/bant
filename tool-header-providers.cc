@@ -51,7 +51,7 @@ class LibraryHeaderFinder : public BaseVisitor {
     }
   }
 
-  void VisitAssignment(Assignment *a) {
+  void VisitAssignment(Assignment *a) final {
     if (!current_.is_relevant) return;  // can prune walk here
     if (!a->identifier() || !a->value()) return;
     const std::string_view lhs = a->identifier()->id();

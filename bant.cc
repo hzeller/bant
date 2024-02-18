@@ -66,7 +66,10 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  using namespace bant;
+  using bant::ParsedProject;
+  using bant::PrintLibraryHeaders;
+  using bant::PrintProject;
+
   const ParsedProject project = ParsedProject::FromFilesystem(include_external);
 
   if (print_parsed || print_only_errors) {

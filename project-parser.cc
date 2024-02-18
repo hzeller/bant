@@ -123,7 +123,7 @@ ParsedProject ParsedProject::FromFilesystem(bool include_external) {
   ParsedProject result;
   // File in the general project
   result.files_searched =
-    CollectFilesRecursive(".", &build_files,
+    CollectFilesRecursive(".", build_files,
                           dir_without_symlink,  // bazel symlink tree: ignore
                           relevant_build_file_predicate);
 
@@ -133,7 +133,7 @@ ParsedProject ParsedProject::FromFilesystem(bool include_external) {
   const std::string external_name = external_base + "/external";
   if (include_external) {
     result.files_searched +=
-      CollectFilesRecursive(external_name, &build_files, dir_with_symlink,
+      CollectFilesRecursive(external_name, build_files, dir_with_symlink,
                             relevant_build_file_predicate);
   }
 
