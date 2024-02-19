@@ -164,7 +164,9 @@ class Parser::Impl {
     Token t = scanner_->Next();
     switch (t.type) {
     case TokenType::kStringLiteral:
-      return StringScalar::FromLiteral(node_arena_, t.text);
+    case TokenType::kRawStringLiteral:
+      return StringScalar::FromLiteral(node_arena_, t.text,
+                                       t.type == TokenType::kRawStringLiteral);
     case TokenType::kNumberLiteral: return ParseIntFromToken(t);
     case TokenType::kIdentifier:
       if (scanner_->Peek().type == '(') {

@@ -95,4 +95,20 @@ TEST(ScannerTest, StringLiteral) {
     EXPECT_EQ(s.Next(), Token({TokenType::kEof, ""}));
   }
 }
+
+TEST(ScannerTest, RawStringLiteral) {
+  {
+    LineColumnMap lc;
+    Scanner s("r'foo'", &lc);
+    EXPECT_EQ(s.Next(), Token({TokenType::kRawStringLiteral, "'foo'"}));
+    EXPECT_EQ(s.Next(), Token({TokenType::kEof, ""}));
+  }
+  {
+    LineColumnMap lc;
+    Scanner s("r''", &lc);
+    EXPECT_EQ(s.Next(), Token({TokenType::kRawStringLiteral, "''"}));
+    EXPECT_EQ(s.Next(), Token({TokenType::kEof, ""}));
+  }
+}
+
 }  // namespace bant

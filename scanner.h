@@ -41,8 +41,11 @@ enum TokenType : int {
   kPercent = '%',
 
   kIdentifier = 256,
+
   kStringLiteral,
+  kRawStringLiteral,
   kNumberLiteral,
+
   kFor,
   kIn,
   kIf,
@@ -74,9 +77,10 @@ class Scanner {
   // Return next token.
   Token Next();
 
-  Token Peek() {
+  Token Peek() { // TODO: since we Peek() alot, we re-lex tokens multiple times
+    ContentPointer pos_before = pos_;
     Token t = Next();
-    RewindToBefore(t);
+    pos_ = pos_before;
     return t;
   }
 
@@ -85,14 +89,11 @@ class Scanner {
  private:
   using ContentPointer = std::string_view::const_iterator;
 
-  // Go back to token t so that it will be returned on Next().
-  void RewindToBefore(Token t) { pos_ = t.text.begin(); }
-
   ContentPointer SkipSpace();
 
   Token HandleNumber();
-  Token HandleString();
-  Token HandleIdentifierKeywordOrInvalid();
+  Token HandleString(TokenType str_token);  // regular or raw
+  Token HandleIdentifierKeywordRawStringOrInvalid();
 
   // Externally owned content.
   const std::string_view content_;

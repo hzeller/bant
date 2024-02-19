@@ -41,6 +41,7 @@ std::ostream &operator<<(std::ostream &o, TokenType t) {
 
   case TokenType::kIdentifier: o << "ident"; break;
   case TokenType::kStringLiteral: o << "string"; break;
+  case TokenType::kRawStringLiteral: o << "rawstring"; break;
   case TokenType::kNumberLiteral: o << "number"; break;
   case TokenType::kFor: o << "for"; break;
   case TokenType::kIn: o << "in"; break;
@@ -84,8 +85,18 @@ static bool IsIdentifierChar(char c) {
   return isdigit(c) || isalpha(c) || c == '_';
 }
 
-Token Scanner::HandleIdentifierKeywordOrInvalid() {
+Token Scanner::HandleIdentifierKeywordRawStringOrInvalid() {
   const ContentPointer start = pos_;
+
+  // Raw string literals r"foo" start out looking like an identifier,
+  // but the following quote gives it away.
+  if ((content_.end() - start) > 2 && //
+      (start[0] == 'r' || start[0] == 'R') && //
+      (start[1] == '"' || start[1] == '\'')) {
+    ++pos_;
+    return HandleString(TokenType::kRawStringLiteral);
+  }
+
   // Digit already ruled out at this point as first character.
   if (!IsIdentifierChar(*start)) {
     ++pos_;
@@ -105,7 +116,7 @@ Token Scanner::HandleIdentifierKeywordOrInvalid() {
   return {TokenType::kIdentifier, text};
 }
 
-Token Scanner::HandleString() {
+Token Scanner::HandleString(TokenType str_token) {
   bool triple_quote = false;
   const ContentPointer start = pos_;
   const char str_quote = *pos_;
@@ -131,7 +142,7 @@ Token Scanner::HandleString() {
     return {TokenType::kError, {start, (size_t)(pos_ - start)}};
   }
   ++pos_;
-  return {TokenType::kStringLiteral, {start, (size_t)(pos_ - start)}};
+  return {str_token, {start, (size_t)(pos_ - start)}};
 }
 
 Token Scanner::HandleNumber() {
@@ -185,9 +196,9 @@ Token Scanner::Next() {
   case '9': result = HandleNumber(); break;
 
   case '"':
-  case '\'': result = HandleString(); break;
+  case '\'': result = HandleString(TokenType::kStringLiteral); break;
 
-  default: result = HandleIdentifierKeywordOrInvalid(); break;
+  default: result = HandleIdentifierKeywordRawStringOrInvalid(); break;
   }
   return result;
 }

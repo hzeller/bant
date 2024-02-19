@@ -63,18 +63,26 @@ class Scalar : public Node {
 
 class StringScalar : public Scalar {
  public:
-  static StringScalar *FromLiteral(Arena *arena, std::string_view literal);
+  static StringScalar *FromLiteral(Arena *arena, std::string_view literal,
+                                   bool is_raw = false);
 
   // Note: quotes around are removed, but potential escaping internally is
-  // preserved in this view: it points to the original range in the file.
+  // preserved in this view and points to the original span in the file.
+  // Depending on is_raw(), the consumer can make unescape decisions.
   std::string_view AsString() const final { return value_; }
+
+  // This is a raw string, i.e. all escape characters shall not be interpreted.
+  bool is_raw() const { return is_raw_; }
+
   ScalarType type() final { return kString; }
 
  private:
   friend class Arena;
-  explicit StringScalar(std::string_view value) : value_(value) {}
+  StringScalar(std::string_view value, bool is_raw)
+      : value_(value), is_raw_(is_raw) {}
 
   std::string_view value_;
+  bool is_raw_;
 };
 
 class IntScalar : public Scalar {

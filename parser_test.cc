@@ -39,7 +39,9 @@ class ParserTest : public testing::Test {
   }
 
   // Some helpers to build ASTs to compre
-  StringScalar *Str(std::string_view s) { return arena_.New<StringScalar>(s); }
+  StringScalar *Str(std::string_view s, bool raw = false) {
+    return arena_.New<StringScalar>(s, raw);
+  }
   Identifier *Id(std::string_view i) { return arena_.New<Identifier>(i); }
   BinOpNode *Op(char op, Node *a, Node *b) {
     return arena_.New<BinOpNode>(a, b, op);
@@ -85,6 +87,17 @@ class ParserTest : public testing::Test {
  private:
   Arena arena_;
 };
+
+TEST_F(ParserTest, Assignments) {
+  Node *const expected = List({
+      Assign("foo", Str("regular_string")),
+      Assign("bar", Str("raw_string", true)),
+    });
+  EXPECT_EQ(Print(expected), Print(Parse(R"(
+foo = "regular_string"
+bar = r"raw_string"
+)")));
+}
 
 TEST_F(ParserTest, FunctionCalls) {
   Node *const expected = List({

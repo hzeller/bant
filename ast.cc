@@ -31,7 +31,8 @@ IntScalar *IntScalar::FromLiteral(Arena *arena, std::string_view literal) {
 }
 
 StringScalar *StringScalar::FromLiteral(Arena *arena,
-                                        std::string_view literal) {
+                                        std::string_view literal,
+                                        bool is_raw) {
   if (literal.length() >= 6 && literal.substr(0, 3) == "\"\"\"") {
     literal = literal.substr(3);
     literal.remove_suffix(3);
@@ -44,7 +45,7 @@ StringScalar *StringScalar::FromLiteral(Arena *arena,
   // using it might need to unescape it.
   // Within the Scalar, we keep the original string_view so that it is possible
   // to report location using the LineColumnMap.
-  return arena->New<StringScalar>(literal);
+  return arena->New<StringScalar>(literal, is_raw);
 }
 
 void PrintVisitor::VisitAssignment(Assignment *a) {
@@ -123,7 +124,13 @@ void PrintVisitor::VisitScalar(Scalar *s) {
   if (s->type() == Scalar::kInt) {
     out_ << s->AsInt();
   } else {
-    out_ << "\"" << s->AsString() << "\"";
+    const StringScalar *str = static_cast<StringScalar *>(s);
+    if (str->is_raw()) out_ << "r";
+    // Minimal-effort quote char choosing. TODO: look if escaped
+    const bool has_any_double_quote =
+      str->AsString().find_first_of('"') != std::string_view::npos;
+    const char quote_char = has_any_double_quote ? '\'' : '"';
+    out_ << quote_char << str->AsString() << quote_char;
   }
 }
 
