@@ -280,8 +280,11 @@ class Parser::Impl {
     case kNumberLiteral:  //
       lhs = ParseIntFromToken(p);
       break;
+    case kIdentifier:
+      lhs = Make<Identifier>(p.text);
+      break;
     default:  //
-      ErrAt(p) << "expected literal value as map key\n";
+      ErrAt(p) << "expected literal value or identifier as map key\n";
       return nullptr;
     }
 

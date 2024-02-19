@@ -42,6 +42,9 @@ class ParserTest : public testing::Test {
   StringScalar *Str(std::string_view s, bool raw = false) {
     return arena_.New<StringScalar>(s, raw);
   }
+  IntScalar *Int(int num) {
+    return arena_.New<IntScalar>(num);
+  }
   Identifier *Id(std::string_view i) { return arena_.New<Identifier>(i); }
   BinOpNode *Op(char op, Node *a, Node *b) {
     return arena_.New<BinOpNode>(a, b, op);
@@ -65,10 +68,10 @@ class ParserTest : public testing::Test {
     return result;
   }
   bant::List *Map(
-    std::initializer_list<std::pair<std::string_view, Node *>> elements) {
+    std::initializer_list<std::pair<Node *, Node *>> elements) {
     bant::List *result = arena_.New<bant::List>(List::Type::kMap);
     for (const auto &n : elements) {
-      result->Append(&arena_, Op(':', Str(n.first), n.second));
+      result->Append(&arena_, Op(':', n.first, n.second));
     }
     return result;
   }
@@ -96,20 +99,6 @@ TEST_F(ParserTest, Assignments) {
   EXPECT_EQ(Print(expected), Print(Parse(R"(
 foo = "regular_string"
 bar = r"raw_string"
-)")));
-}
-
-TEST_F(ParserTest, FunctionCalls) {
-  Node *const expected = List({
-    Call("foo", Tuple({Str("foo"), Id("k")})),
-    Op('.', Id("nested"), Call("bar", Tuple({Str("baz"), Id("m")}))),
-    Call("baz", Tuple({})),
-  });
-
-  EXPECT_EQ(Print(expected), Print(Parse(R"(
-foo("foo", k)
-nested.bar("baz", m)
-baz()
 )")));
 }
 
@@ -167,6 +156,33 @@ bar = ("a", "b")
 baz = ("a",)    # Comma diffentiates between paren-expr and tuple
 qux = ("a")     # ... this is just a parenthized expression
 buz = (("a",))  # parenthized expression that contains a single tuple.
+)")));
+}
+
+TEST_F(ParserTest, MapAssign) {
+  Node *const expected = List({
+      Assign("str_map", Map({ { Str("orange"), Str("fruit") } })),
+      Assign("num_map", Map({ { Str("answer"), Int(42) } })),
+      Assign("id_map", Map({ { Id("SOME_IDENTIFIER"), Id("ANOTHER_ID") }}))
+    });
+  EXPECT_EQ(Print(expected), Print(Parse(R"(
+str_map = { "orange" : "fruit" }
+num_map = { "answer" : 42 }
+id_map = { SOME_IDENTIFIER : ANOTHER_ID }
+)")));
+}
+
+TEST_F(ParserTest, SimpleFunctionCalls) {
+  Node *const expected = List({
+    Call("foo", Tuple({Str("foo"), Id("k")})),
+    Op('.', Id("nested"), Call("bar", Tuple({Str("baz"), Id("m")}))),
+    Call("baz", Tuple({})),
+  });
+
+  EXPECT_EQ(Print(expected), Print(Parse(R"(
+foo("foo", k)
+nested.bar("baz", m)
+baz()
 )")));
 }
 
