@@ -90,8 +90,8 @@ Token Scanner::HandleIdentifierKeywordRawStringOrInvalid() {
 
   // Raw string literals r"foo" start out looking like an identifier,
   // but the following quote gives it away.
-  if ((content_.end() - start) > 2 && //
-      (start[0] == 'r' || start[0] == 'R') && //
+  if ((content_.end() - start) > 2 &&          //
+      (start[0] == 'r' || start[0] == 'R') &&  //
       (start[1] == '"' || start[1] == '\'')) {
     ++pos_;
     return HandleString(TokenType::kRawStringLiteral);

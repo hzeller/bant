@@ -42,9 +42,7 @@ class ParserTest : public testing::Test {
   StringScalar *Str(std::string_view s, bool raw = false) {
     return arena_.New<StringScalar>(s, raw);
   }
-  IntScalar *Int(int num) {
-    return arena_.New<IntScalar>(num);
-  }
+  IntScalar *Int(int num) { return arena_.New<IntScalar>(num); }
   Identifier *Id(std::string_view i) { return arena_.New<Identifier>(i); }
   BinOpNode *Op(char op, Node *a, Node *b) {
     return arena_.New<BinOpNode>(a, b, op);
@@ -67,8 +65,7 @@ class ParserTest : public testing::Test {
     for (Node *n : elements) result->Append(&arena_, n);
     return result;
   }
-  bant::List *Map(
-    std::initializer_list<std::pair<Node *, Node *>> elements) {
+  bant::List *Map(std::initializer_list<std::pair<Node *, Node *>> elements) {
     bant::List *result = arena_.New<bant::List>(List::Type::kMap);
     for (const auto &n : elements) {
       result->Append(&arena_, Op(':', n.first, n.second));
@@ -93,9 +90,9 @@ class ParserTest : public testing::Test {
 
 TEST_F(ParserTest, Assignments) {
   Node *const expected = List({
-      Assign("foo", Str("regular_string")),
-      Assign("bar", Str("raw_string", true)),
-    });
+    Assign("foo", Str("regular_string")),
+    Assign("bar", Str("raw_string", true)),
+  });
   EXPECT_EQ(Print(expected), Print(Parse(R"(
 foo = "regular_string"
 bar = r"raw_string"
@@ -160,11 +157,10 @@ buz = (("a",))  # parenthized expression that contains a single tuple.
 }
 
 TEST_F(ParserTest, MapAssign) {
-  Node *const expected = List({
-      Assign("str_map", Map({ { Str("orange"), Str("fruit") } })),
-      Assign("num_map", Map({ { Str("answer"), Int(42) } })),
-      Assign("id_map", Map({ { Id("SOME_IDENTIFIER"), Id("ANOTHER_ID") }}))
-    });
+  Node *const expected =
+    List({Assign("str_map", Map({{Str("orange"), Str("fruit")}})),
+          Assign("num_map", Map({{Str("answer"), Int(42)}})),
+          Assign("id_map", Map({{Id("SOME_IDENTIFIER"), Id("ANOTHER_ID")}}))});
   EXPECT_EQ(Print(expected), Print(Parse(R"(
 str_map = { "orange" : "fruit" }
 num_map = { "answer" : 42 }

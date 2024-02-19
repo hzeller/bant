@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
 #include "file-utils.h"
 #include "parser.h"
 
@@ -44,9 +45,10 @@ std::string_view TargetPathFromBuildFile(std::string_view file) {
 
 static void ParseBuildFiles(const std::vector<fs::path> &build_files,
                             const std::string &external_prefix,
-                            ParsedProject *result) {
+                            std::ostream &error_out, ParsedProject *result) {
   const auto start_time = std::chrono::system_clock::now();
 
+  size_t bytes_processed = 0;
   for (const fs::path &build_file : build_files) {
     std::optional<std::string> content = ReadFileToString(build_file);
     if (!content.has_value()) {
@@ -64,8 +66,8 @@ static void ParseBuildFiles(const std::vector<fs::path> &build_files,
     }
 
     FileContent &parse_result = inserted.first->second;
-    ++result->build_file_count;
-    result->total_content_size += parse_result.content.size();
+    ++result->parse_stat.count;
+    bytes_processed += parse_result.content.size();
 
     if (filename.starts_with(external_prefix)) {
       std::string_view project_extract(filename);
@@ -85,20 +87,44 @@ static void ParseBuildFiles(const std::vector<fs::path> &build_files,
     parse_result.ast = parser.parse();
     parse_result.errors = error_collect.str();
     if (parser.parse_error()) {
-      std::cerr << error_collect.str();
+      error_out << error_collect.str();
       ++result->error_count;
     }
   }
 
+  if (bytes_processed > 0) {
+    result->parse_stat.bytes_processed = bytes_processed;
+  }
+
   // fill FYI field.
   const auto end_time = std::chrono::system_clock::now();
-  result->parse_duration_usec =
+  result->parse_stat.duration_usec =
     std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time)
       .count();
 }
+
+// Assemble a path that points to the symbolik link bazel generates for
+// the external location.
+// TODO: properly do this with fs::path
+static std::string ExternalProjectDir() {
+  const std::string project_dir_name = fs::current_path().filename().string();
+  const std::string external_base = absl::StrCat("./bazel-", project_dir_name);
+  return absl::StrCat(external_base, "/external");
+}
 }  // namespace
 
-ParsedProject ParsedProject::FromFilesystem(bool include_external) {
+std::string Stat::ToString(std::string_view thing_name) const {
+  if (bytes_processed.has_value()) {
+    const float megabyte_per_sec = 1.0f * *bytes_processed / duration_usec;
+    return absl::StrFormat("%d %s with %.2f KiB in %.3fms (%.2f MB/sec)", count,
+                           thing_name, *bytes_processed / 1024,
+                           duration_usec / 1000.0, megabyte_per_sec);
+  }
+  return absl::StrFormat("%d %s in %.3fms", count, thing_name,
+                         duration_usec / 1000.0);
+}
+
+std::vector<fs::path> CollectBuildFiles(bool include_external, Stat &stats) {
   std::vector<fs::path> build_files;
   const auto start_time = std::chrono::system_clock::now();
 
@@ -123,27 +149,33 @@ ParsedProject ParsedProject::FromFilesystem(bool include_external) {
 
   ParsedProject result;
   // File in the general project
-  result.files_searched =
+  stats.count =
     CollectFilesRecursive(".", build_files,
                           dir_without_symlink,  // bazel symlink tree: ignore
                           relevant_build_file_predicate);
 
-  // All the external files (TODO: properly do this with fs::path)
-  const std::string project_dir_name = fs::current_path().filename().string();
-  const std::string external_base = absl::StrCat("./bazel-", project_dir_name);
-  const std::string external_name = absl::StrCat(external_base, "/external");
+  const std::string external_name = ExternalProjectDir();
   if (include_external) {
-    result.files_searched +=
+    stats.count +=
       CollectFilesRecursive(external_name, build_files, dir_with_symlink,
                             relevant_build_file_predicate);
   }
 
   const auto end_time = std::chrono::system_clock::now();
-  result.file_walk_duration_usec =
+  stats.duration_usec =
     std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time)
       .count();
+  return build_files;
+}
 
-  ParseBuildFiles(build_files, absl::StrCat(external_name, "/"), &result);
+ParsedProject ParsedProject::FromFilesystem(bool include_external,
+                                            std::ostream &error_out) {
+  ParsedProject result;
+  auto build_files =
+    CollectBuildFiles(include_external, result.file_collect_stat);
+  const std::string external_name = ExternalProjectDir();
+  ParseBuildFiles(build_files, absl::StrCat(external_name, "/"), error_out,
+                  &result);
   return result;
 }
 

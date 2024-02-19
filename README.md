@@ -34,12 +34,20 @@ Synopsis:
 $ bazel-bin/bant -h
 Usage: bazel-bin/bant [options]
 Options
-        -C<directory>  : Project base directory (default: current dir)
+        -C<directory>  : Project base directory (default: current dir = '.')
         -x             : Do not read BUILD files of eXternal projects.
-        -p             : Print parse tree.
-        -E             : Print only parse trees of files with parse errors.
+                         (i.e. only read the files in the direct project)
         -v             : Verbose; print some stats.
         -h             : This help.
+
+Commands:
+        (no-flag)      : Just parse BUILD files of project, emit parse errors.
+                         Parse is primary objective, errors go to stdout.
+                         Other commands below with different main output
+                         emit errors to stderr.
+        -L             : List all the build files found in project
+        -P             : Print parse tree (-e : only files with parse errors)
+        -H             : Print table header files -> targets that define them.
 ```
 
 Usage examples
@@ -48,8 +56,10 @@ Usage examples
  bant -pv      # reads bazel project in current dir, print AST and some stats
  bant -E       # read project, print AST of files that couldn't be parsed
  bant -C ~/src/verible -v  # read bazel project in given directory; print stats
- bant -x   # read bazel project, but don't parse referenced external projects
- bant -H   # Only useful command so far: for each header, print defining lib
+ bant -x      # read bazel project, but don't parse referenced external projects
+ bant -L      # List all the build files including the referenced external
+ bant -Lx     # Only list build files in this project.
+ bant -H      # Only useful command so far: for each header, print defining lib
 ```
 
 ### Development

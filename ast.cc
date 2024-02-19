@@ -30,8 +30,7 @@ IntScalar *IntScalar::FromLiteral(Arena *arena, std::string_view literal) {
   return arena->New<IntScalar>(val);
 }
 
-StringScalar *StringScalar::FromLiteral(Arena *arena,
-                                        std::string_view literal,
+StringScalar *StringScalar::FromLiteral(Arena *arena, std::string_view literal,
                                         bool is_raw) {
   if (literal.length() >= 6 && literal.substr(0, 3) == "\"\"\"") {
     literal = literal.substr(3);

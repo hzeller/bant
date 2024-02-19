@@ -18,9 +18,12 @@
 #ifndef BANT_PROJECT_PARDER_
 #define BANT_PROJECT_PARDER_
 
+#include <filesystem>
 #include <map>
+#include <optional>
 #include <ostream>
 #include <string>
+#include <vector>
 
 #include "ast.h"
 #include "linecolumn-map.h"
@@ -39,29 +42,40 @@ struct FileContent {
   std::string errors;  // List of errors if observed (todo: make actual list)
 };
 
+struct Stat {
+  int count = 0;
+  int duration_usec = 0;
+  std::optional<size_t> bytes_processed;
+
+  // Print readable string with "thing_name" used to describe the count.
+  std::string ToString(std::string_view thing_name) const;
+};
+
 struct ParsedProject {
   // Parse project from the current directory. Looks for any
   // BUILD and BUILD.bazel files for the main project '//' as well as
   // all bazel-${projectname}/external/* sub-projects.
-  static ParsedProject FromFilesystem(bool include_external);
+  static ParsedProject FromFilesystem(bool include_external,
+                                      std::ostream &error_out);
 
   ParsedProject() = default;
   ParsedProject(ParsedProject &&) noexcept = default;
   ParsedProject(const ParsedProject &) = delete;
 
   // Some stats.
-  int files_searched = 0;
+  Stat file_collect_stat;
+  Stat parse_stat;
 
-  int build_file_count = 0;
   int error_count = 0;
-  size_t total_content_size = 0;
-
-  int file_walk_duration_usec = 0;
-  int parse_duration_usec = 0;
 
   Arena arena{1 << 16};
   std::map<std::string, FileContent> file_to_ast;
 };
+
+// Conveenience function to just collect all the BUILD files. Update "stats"
+// with total files searched and total time.
+std::vector<std::filesystem::path> CollectBuildFiles(bool include_external,
+                                                     Stat &stats);
 
 // Convenience function to print a fully parsed project, recreated from the
 // AST.

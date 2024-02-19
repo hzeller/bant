@@ -280,7 +280,7 @@ class Parser::Impl {
     case kNumberLiteral:  //
       lhs = ParseIntFromToken(p);
       break;
-    case kIdentifier:
+    case kIdentifier:  //
       lhs = Make<Identifier>(p.text);
       break;
     default:  //

@@ -28,25 +28,38 @@ static int usage(const char *prog) {
           "This program is free software; license GPL 2.0.\n");
   fprintf(stderr, "Usage: %s [options]\n", prog);
   fprintf(stderr, R"(Options
-	-C<directory>  : Project base directory (default: current dir)
+	-C<directory>  : Project base directory (default: current dir = '.')
 	-x             : Do not read BUILD files of eXternal projects.
-	-p             : Print parse tree.
-	-E             : Print only parse trees of files with parse errors.
+	                 (i.e. only read the files in the direct project)
 	-v             : Verbose; print some stats.
 	-h             : This help.
+
+Commands:
+	(no-flag)      : Just parse BUILD files of project, emit parse errors.
+	                 Parse is primary objective, errors go to stdout.
+	                 Other commands below with different main output
+	                 emit errors to stderr.
+	-L             : List all the build files found in project
+	-P             : Print parse tree (-e : only files with parse errors)
+	-H             : Print table header files -> targets that define them.
 )");
   return 1;
 }
 
 int main(int argc, char *argv[]) {
   bool verbose = false;
-  bool print_parsed = false;
   bool print_only_errors = false;
-  bool print_library_headers = false;
   bool include_external = true;
 
+  enum class Command {
+    kNone,
+    kPrint,
+    kLibraryHeaders,
+    kListBazelFiles,
+  } cmd = Command::kNone;
+
   int opt;
-  while ((opt = getopt(argc, argv, "hC:pEHvx")) != -1) {
+  while ((opt = getopt(argc, argv, "hC:vxPeHL")) != -1) {
     switch (opt) {
     case 'C': {
       std::error_code err;
@@ -57,39 +70,59 @@ int main(int argc, char *argv[]) {
       }
       break;
     }
-    case 'p': print_parsed = true; break;
-    case 'E': print_only_errors = true; break;
-    case 'x': include_external = false; break;
-    case 'H': print_library_headers = true; break;
+    case 'x':
+      include_external = false;
+      break;
+
+      // TODO: instead of flags, these sub-commands should be given as string
+    case 'P': cmd = Command::kPrint; break;
+    case 'e': print_only_errors = true; break;  // command should handle
+
+    case 'H': cmd = Command::kLibraryHeaders; break;
+    case 'L': cmd = Command::kListBazelFiles; break;
     case 'v': verbose = true; break;
     default: return usage(argv[0]);
     }
   }
 
+  std::ostream &primary_output = std::cout;  // TODO: could also be -o
+  std::ostream &info_output = std::cerr;
+
+  if (cmd == Command::kListBazelFiles) {  // This one does not parse project
+    bant::Stat stats;
+    auto build_files = bant::CollectBuildFiles(include_external, stats);
+    for (const auto &file : build_files) {
+      primary_output << file.string() << "\n";
+    }
+    if (verbose) {
+      info_output << "Walked through " << stats.ToString("files/dirs") << "\n";
+    }
+    return 0;
+  }
+
+  // Rest of the commands need to parse the project.
   using bant::ParsedProject;
   using bant::PrintLibraryHeaders;
   using bant::PrintProject;
 
-  const ParsedProject project = ParsedProject::FromFilesystem(include_external);
+  const ParsedProject project = ParsedProject::FromFilesystem(
+    include_external, cmd == Command::kNone ? primary_output : info_output);
 
-  if (print_parsed || print_only_errors) {
-    PrintProject(std::cout, std::cerr, project, print_only_errors);
-  }
-
-  if (print_library_headers) {
-    PrintLibraryHeaders(stdout, project);
+  switch (cmd) {
+  case Command::kPrint:
+    PrintProject(primary_output, info_output, project, print_only_errors);
+    break;
+  case Command::kLibraryHeaders: PrintLibraryHeaders(stdout, project); break;
+  case Command::kListBazelFiles:  // already handled
+  case Command::kNone:;           // nop
   }
 
   if (verbose) {
-    fprintf(stderr,
-            "Walked through %d files/dirs in %.3fms to collect BUILD files.\n"
-            "Parsed %d BUILD files with %.2f KiB in %.3fms (%.2f MB/sec); "
-            "%d of them with issues.\n",
-            project.files_searched, project.file_walk_duration_usec / 1000.0,
-            project.build_file_count, project.total_content_size / 1024.0,
-            project.parse_duration_usec / 1000.0,
-            1.0f * project.total_content_size / project.parse_duration_usec,
-            project.error_count);
+    info_output << "Walked through "
+                << project.file_collect_stat.ToString("files/dirs")
+                << " to collect BUILD files.\n"
+                << "Parsed " << project.parse_stat.ToString("BUILD files")
+                << "; " << project.error_count << " with issues\n";
   }
 
   return project.error_count;
