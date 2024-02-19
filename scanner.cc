@@ -136,6 +136,9 @@ Token Scanner::HandleString(TokenType str_token) {
       close_quote_count = triple_quote ? 3 : 1;
     }
     last_was_escape = (*pos_ == '\\');
+    if (*pos_ == '\n') {
+      line_map_->PushNewline(pos_ + 1);
+    }
     ++pos_;
   }
   if (pos_ >= content_.end()) {
