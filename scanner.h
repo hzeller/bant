@@ -77,11 +77,12 @@ class Scanner {
   // Return next token.
   Token Next();
 
-  Token Peek() { // TODO: since we Peek() alot, we re-lex tokens multiple times
-    ContentPointer pos_before = pos_;
-    Token t = Next();
-    pos_ = pos_before;
-    return t;
+  Token Peek() {
+    if (!has_upcoming_) {
+      upcoming_ = Next();
+      has_upcoming_ = true;
+    }
+    return upcoming_;
   }
 
   const LineColumnMap &line_col() const { return *line_map_; }
@@ -98,6 +99,10 @@ class Scanner {
   // Externally owned content.
   const std::string_view content_;
   ContentPointer pos_;
+
+  // If we got a token from peeking, this is it.
+  Token upcoming_;
+  bool has_upcoming_ = false;
 
   // Not owned.
   LineColumnMap *const line_map_;

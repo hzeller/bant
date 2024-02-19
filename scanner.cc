@@ -162,6 +162,12 @@ Token Scanner::HandleNumber() {
 }
 
 Token Scanner::Next() {
+  if (has_upcoming_) {
+    // We were already called in Peek(). Flush that token.
+    has_upcoming_ = false;
+    return upcoming_;
+  }
+
   if (SkipSpace() == content_.end()) {
     return {TokenType::kEof, {content_.end(), 0}};
   }
