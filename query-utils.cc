@@ -1,0 +1,91 @@
+// bant - Bazel Navigation Tool
+// Copyright (C) 2024 Henner Zeller <h.zeller@acm.org>
+//
+// This program is free software; you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation; either version 2 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License along
+// with this program; if not, write to the Free Software Foundation, Inc.,
+// 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
+
+#include "query-utils.h"
+
+#include <initializer_list>
+
+#include "absl/container/flat_hash_set.h"
+#include "ast.h"
+
+namespace bant {
+namespace query {
+namespace {
+// TODO: these of course need to be configurable. Ideally with a simple
+// path query language.
+class TargetFinder : public BaseVisitor {
+ public:
+  TargetFinder(std::initializer_list<std::string_view> rules_of_interest,
+               const TargetFindCallback &cb)
+      : of_interest_(rules_of_interest), found_cb_(cb) {}
+
+  void VisitFunCall(FunCall *f) final {
+    if (in_relevant_call_) {
+      return BaseVisitor::VisitFunCall(f);  // Nesting.
+    }
+    in_relevant_call_ = of_interest_.contains(f->identifier()->id());
+    if (!in_relevant_call_) return;  // Nothing interesting beyond here.
+    current_ = {};
+    current_.rule = f->identifier()->id();
+    for (Node *element : *f->argument()) {
+      WalkNonNull(element);
+    }
+    InformCaller();
+    in_relevant_call_ = false;
+  }
+
+  void VisitAssignment(Assignment *a) final {
+    if (!in_relevant_call_) return;  // can prune walk here
+    if (!a->identifier() || !a->value()) return;
+    const std::string_view lhs = a->identifier()->id();
+    if (Scalar *scalar = a->value()->CastAsScalar(); scalar && lhs == "name") {
+      current_.name = scalar->AsString();
+    } else if (List *list = a->value()->CastAsList()) {
+      if (lhs == "hdrs") {
+        current_.hdrs_list = list;
+      } else if (lhs == "srcs") {
+        current_.srcs_list = list;
+      } else if (lhs == "deps") {
+        current_.deps_list = list;
+      }
+    }
+  }
+
+ private:
+  void InformCaller() {
+    if (current_.name.empty()) return;
+    found_cb_(current_);
+  }
+
+  bool in_relevant_call_ = false;
+
+  // TODO: this assumes library call being a toplevel function; might need
+  // stack here if nested (maybe in tuples after for-expansion?)
+  TargetParameters current_;
+
+  const absl::flat_hash_set<std::string_view> of_interest_;
+  const TargetFindCallback &found_cb_;
+};
+}  // namespace
+
+void FindTargets(Node *ast,
+                 std::initializer_list<std::string_view> rules_of_interest,
+                 const TargetFindCallback &cb) {
+  TargetFinder(rules_of_interest, cb).WalkNonNull(ast);
+}
+}  // namespace query
+}  // namespace bant

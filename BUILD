@@ -87,7 +87,18 @@ cc_library(
     deps = [
         ":parser",
         ":project-parser",
+        ":query-utils",
         ":types-bazel",
+    ],
+)
+
+cc_library(
+    name = "query-utils",
+    srcs = ["query-utils.cc"],
+    hdrs = ["query-utils.h"],
+    deps = [
+        ":parser",
+        "@com_google_absl//absl/container:flat_hash_set",
     ],
 )
 

@@ -58,8 +58,8 @@ static void ParseBuildFiles(const std::vector<fs::path> &build_files,
     }
 
     const std::string filename = build_file.string();
-    auto inserted =
-      result->file_to_ast.emplace(filename, FileContent(std::move(*content)));
+    auto inserted = result->file_to_ast.emplace(
+      filename, FileContent(filename, std::move(*content)));
     if (!inserted.second) {
       std::cerr << "Already seen " << filename << "\n";
       continue;

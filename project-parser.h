@@ -31,13 +31,17 @@
 
 namespace bant {
 struct FileContent {
-  explicit FileContent(std::string &&c) : content(std::move(c)) {}
+  explicit FileContent(std::string_view filename, std::string &&c)
+      : filename(filename), content(std::move(c)) {}
   FileContent(FileContent &&) noexcept = default;
   FileContent(const FileContent &) = delete;
 
-  BazelPackage package;
+  // TODO: maybe combine filename, content and line_columns
+  std::string filename;
   std::string content;  // AST string_views refer to this, don't change alloc
   LineColumnMap line_columns;  // To recover line/column information from Tokens
+
+  BazelPackage package;
   List *ast;           // parsed AST. Content owned by arena in ParsedProject
   std::string errors;  // List of errors if observed (todo: make actual list)
 };

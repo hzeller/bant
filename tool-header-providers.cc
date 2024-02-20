@@ -22,68 +22,26 @@
 
 #include "ast.h"
 #include "project-parser.h"
+#include "query-utils.h"
 #include "types-bazel.h"
 
 namespace bant {
 namespace {
-// TODO: these of course need to be configurable. Ideally with a simple
-// path query language.
-using FindCallback =
+// Find cc_library and call callback for each header file it exports.
+using FindHeaderCallback =
   std::function<void(std::string_view library_name, std::string_view header)>;
-class LibraryHeaderFinder : public BaseVisitor {
- public:
-  explicit LibraryHeaderFinder(const FindCallback &cb) : found_cb_(cb) {}
-
-  void VisitFunCall(FunCall *f) final {
-    current_.Reset(f->identifier()->id() == "cc_library");
-    if (!current_.is_relevant) return;  // Nothing interesting beyond here.
-    for (Node *element : *f->argument()) {
-      WalkNonNull(element);
-    }
-    if (!current_.name.empty() && current_.header_list) {
-      for (Node *header : *current_.header_list) {
-        Scalar *scalar = header->CastAsScalar();
-        if (!scalar) continue;
-        std::string_view header_file = scalar->AsString();
-        if (header_file.empty()) continue;
-        found_cb_(current_.name, header_file);
-      }
-    }
-  }
-
-  void VisitAssignment(Assignment *a) final {
-    if (!current_.is_relevant) return;  // can prune walk here
-    if (!a->identifier() || !a->value()) return;
-    const std::string_view lhs = a->identifier()->id();
-    if (Scalar *scalar = a->value()->CastAsScalar(); scalar && lhs == "name") {
-      current_.name = scalar->AsString();
-    } else if (List *list = a->value()->CastAsList(); list && lhs == "hdrs") {
-      current_.header_list = list;
-    }
-  }
-
- private:
-  struct CollectResult {
-    void Reset(bool relevant) {
-      is_relevant = relevant;
-      name = "";
-      header_list = nullptr;
-    }
-
-    bool is_relevant = false;
-    std::string_view name;
-    List *header_list;
-  };
-
-  // TODO: this assumes library call being a toplevel function; might need
-  // stack here for more sophisticated searches.
-  CollectResult current_;
-
-  const FindCallback &found_cb_;
-};
-
-static void FindCCLibraryHeaders(Node *ast, const FindCallback &cb) {
-  LibraryHeaderFinder(cb).WalkNonNull(ast);
+static void FindCCLibraryHeaders(Node *ast, const FindHeaderCallback &cb) {
+  query::FindTargets(ast, {"cc_library"},
+                     [&cb](const query::TargetParameters &params) {
+                       if (!params.hdrs_list) return;
+                       for (Node *header : *params.hdrs_list) {
+                         Scalar *scalar = header->CastAsScalar();
+                         if (!scalar) continue;
+                         std::string_view header_file = scalar->AsString();
+                         if (header_file.empty()) continue;
+                         cb(params.name, header_file);
+                       }
+                     });
 }
 }  // namespace
 
@@ -97,6 +55,7 @@ HeaderToTargetMap ExtractHeaderToLibMapping(const ParsedProject &project) {
         std::string header_fqn = file_content.package.path;
         if (!header_fqn.empty()) header_fqn.append("/");
         header_fqn.append(header);
+
         BazelTarget target(file_content.package, lib_name);
         const auto &inserted = result.insert({header_fqn, target});
         if (!inserted.second && target != inserted.first->second) {
@@ -105,10 +64,13 @@ HeaderToTargetMap ExtractHeaderToLibMapping(const ParsedProject &project) {
           // For now: just report errors.
           const bool is_error = file_content.package.project.empty();
           if (is_error) {
-            // TODO: Get file-position from header stringview.
-            std::cerr << "Header '" << header_fqn << "' defined twice: by '"
-                      << target.ToString() << "', and '"
-                      << inserted.first->second.ToString() << "'\n";
+            // TODO: Get file-position from other target which might be
+            // in a different file.
+            std::cerr << file_content.filename << ":"
+                      << file_content.line_columns.GetRange(header)
+                      << " Header '" << header_fqn << "' in "
+                      << target.ToString() << " already provided by "
+                      << inserted.first->second.ToString() << "\n";
           }
         }
       });
