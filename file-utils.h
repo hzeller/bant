@@ -32,8 +32,8 @@ std::optional<std::string> ReadFileToString(
   const std::filesystem::path &filename);
 
 // Collect files found recursively and store in "paths".
-// Uses predicate "include_dir_p" to check if directory should be entered, and
-// "include_file_p" if file should be included; if so, it is added to "paths".
+// Uses predicate "want_dir_p" to check if directory should be entered, and
+// "want_file_p" if file should be included; if so, it is added to "paths".
 //
 // Returns number of files looked at.
 size_t CollectFilesRecursive(
