@@ -18,56 +18,73 @@
 #ifndef BANT_TYPES_BAZEL_
 #define BANT_TYPES_BAZEL_
 
+#include <optional>
+#include <ostream>
 #include <string>
 #include <string_view>
+#include <tuple>
 
-#include "absl/strings/str_cat.h"
-
+namespace bant {
 // Something like //foo/bar or @baz//foo/bar
 struct BazelPackage {
   BazelPackage() = default;
   BazelPackage(std::string_view project, std::string_view path)
       : project(project), path(path) {}
 
+  // Parse and create package if possible.
+  static std::optional<BazelPackage> ParseFrom(std::string_view str);
+
   std::string project;  // either empty, or something like @foo_bar_baz
   std::string path;     // path relative to project w/o leading/trailing '/'
 
-  std::string ToString() const { return absl::StrCat(project, "//", path); }
+  std::string ToString() const;  // @project//package/path
+
+  // Assemble filename relative to the path.
+  std::string QualifiedFile(std::string_view relative_file) const;
 
   // Return the last path element (or empty string)
-  std::string_view LastElement() const {
-    auto pos = path.find_last_of(',');
-    if (pos == std::string::npos) return "";
-    return std::string_view(path).substr(pos + 1);
-  }
+  std::string_view LastElement() const;
 
+  auto operator<=>(const BazelPackage &o) const {
+    return std::tie(project, path) <=> std::tie(o.project, o.path);
+  }
+  bool operator<(const BazelPackage &) const = default;
   bool operator==(const BazelPackage &) const = default;
   bool operator!=(const BazelPackage &) const = default;
 };
+
+inline std::ostream &operator<<(std::ostream &o, const BazelPackage &p) {
+  return o << p.ToString();
+}
 
 struct BazelTarget {
   BazelTarget() = default;
   BazelTarget(BazelPackage package, std::string_view target)
       : package(std::move(package)), target_name(target) {}
 
+  static std::optional<BazelTarget> ParseFrom(std::string_view str,
+                                              const BazelPackage &context);
   BazelPackage package;
   std::string target_name;  // e.g. a library
 
-  std::string ToString() const {
-    if (package.LastElement() == target_name) {
-      return package.ToString();  // target==package -> compact representation.
-    }
-    return absl::StrCat(package.ToString(), ":", target_name);
-  }
+  std::string ToString() const;
 
-  // More compact printing of a path if
-  std::string ToStringRelativeTo(const BazelPackage &other_package) const {
-    return (other_package == package) ? absl::StrCat(":", target_name)
-                                      : ToString();
-  }
+  // More compact printing of a path if we are already in that path.
+  std::string ToStringRelativeTo(const BazelPackage &other_package) const;
 
+  auto operator<=>(const BazelTarget &o) const {
+    return std::tie(package, target_name) <=>
+           std::tie(o.package, o.target_name);
+  }
+  bool operator<(const BazelTarget &) const = default;
   bool operator==(const BazelTarget &) const = default;
   bool operator!=(const BazelTarget &) const = default;
 };
+
+inline std::ostream &operator<<(std::ostream &o, const BazelTarget &t) {
+  return o << t.ToString();
+}
+
+}  // namespace bant
 
 #endif  // BANT_TYPES_BAZEL_
