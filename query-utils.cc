@@ -52,8 +52,14 @@ class TargetFinder : public BaseVisitor {
     if (!in_relevant_call_) return;  // can prune walk here
     if (!a->identifier() || !a->value()) return;
     const std::string_view lhs = a->identifier()->id();
-    if (Scalar *scalar = a->value()->CastAsScalar(); scalar && lhs == "name") {
-      current_.name = scalar->AsString();
+    if (Scalar *scalar = a->value()->CastAsScalar(); scalar) {
+      if (lhs == "name") {
+        current_.name = scalar->AsString();
+      } else if (lhs == "alwayslink") {
+        // Even if the follwing was given as 'True' constant, the constant
+        // expression eval will have flattened that to a scalar.
+        current_.alwayslink = scalar->AsInt();
+      }
     } else if (List *list = a->value()->CastAsList()) {
       if (lhs == "hdrs") {
         current_.hdrs_list = list;

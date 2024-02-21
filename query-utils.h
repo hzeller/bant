@@ -33,6 +33,7 @@ struct TargetParameters {
   List *srcs_list = nullptr;
   List *hdrs_list = nullptr;
   List *deps_list = nullptr;
+  bool alwayslink = false;
 };
 
 // Callback of a query.

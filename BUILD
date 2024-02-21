@@ -10,9 +10,9 @@ cc_binary(
         "bant.cc",
     ],
     deps = [
-        ":memory",
         ":parser",
         ":project-parser",
+        ":tool-dwyu",
         ":tool-header-providers",
     ],
 )
@@ -107,6 +107,12 @@ cc_library(
     srcs = ["tool-dwyu.cc"],
     hdrs = ["tool-dwyu.h"],
     deps = [
+        ":file-utils",
+        ":project-parser",
+        ":query-utils",
+        ":tool-header-providers",
+        ":types-bazel",
+        "@com_google_absl//absl/strings",
         "@com_googlesource_code_re2//:re2",
     ],
 )

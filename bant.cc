@@ -19,7 +19,9 @@
 
 #include <filesystem>
 
+#include "ast.h"
 #include "project-parser.h"
+#include "tool-dwyu.h"
 #include "tool-header-providers.h"
 
 static int usage(const char *prog) {
@@ -42,6 +44,7 @@ Commands:
 	-L             : List all the build files found in project
 	-P             : Print parse tree (-e : only files with parse errors)
 	-H             : Print table header files -> targets that define them.
+	-D             : Declare What You Use suggestions (not useful yet)
 )");
   return 1;
 }
@@ -56,10 +59,11 @@ int main(int argc, char *argv[]) {
     kPrint,
     kLibraryHeaders,
     kListBazelFiles,
+    kDependencyEdits,
   } cmd = Command::kNone;
 
   int opt;
-  while ((opt = getopt(argc, argv, "hC:vxPeHL")) != -1) {
+  while ((opt = getopt(argc, argv, "hC:vxPeHLD")) != -1) {
     switch (opt) {
     case 'C': {
       std::error_code err;
@@ -80,6 +84,7 @@ int main(int argc, char *argv[]) {
 
     case 'H': cmd = Command::kLibraryHeaders; break;
     case 'L': cmd = Command::kListBazelFiles; break;
+    case 'D': cmd = Command::kDependencyEdits; break;
     case 'v': verbose = true; break;
     default: return usage(argv[0]);
     }
@@ -112,7 +117,12 @@ int main(int argc, char *argv[]) {
   case Command::kPrint:
     PrintProject(primary_output, info_output, project, print_only_errors);
     break;
-  case Command::kLibraryHeaders: PrintLibraryHeaders(stdout, project); break;
+  case Command::kLibraryHeaders:  //
+    PrintLibraryHeaders(stdout, project);
+    break;
+  case Command::kDependencyEdits:
+    PrintDependencyEdits(project, primary_output);
+    break;
   case Command::kListBazelFiles:  // already handled
   case Command::kNone:;           // nop
   }

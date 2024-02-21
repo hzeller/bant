@@ -23,15 +23,22 @@
 using ::testing::ElementsAre;
 
 namespace bant {
+// TODO: need some bant-nolint to not stumble upon the following includes :)
 TEST(DWYUTest, HeaderFilesAreExtracted) {
   constexpr std::string_view kTestContent = R"(
-/* some random text */
-#include "simple.h"
+/* some ignored text */
+#include "CaSe-dash_underscore.h"
 #include <should_not_be_extracted>
-#include "foo/bar/baz.h"
-#include    "w/space.h"  // even broken spacing should work
+// #include "also-not-extracted.h"
+   #include "but-this.h"
+#include "with/suffix.hh"      // other ..
+#include "with/suffix.inc"     // .. common suffices
+#include    "w/space.h"        // even strange spacing should work
+#include /* foo */ "this-is-silly.h"  // Some things are too far :)
 )";
-  std::vector<std::string> headers = ExtractCCHeaders(kTestContent);
-  EXPECT_THAT(headers, ElementsAre("simple.h", "foo/bar/baz.h", "w/space.h"));
+  std::vector<std::string> headers = ExtractCCIncludes(kTestContent);
+  EXPECT_THAT(headers,
+              ElementsAre("CaSe-dash_underscore.h", "but-this.h",
+                          "with/suffix.hh", "with/suffix.inc", "w/space.h"));
 }
 }  // namespace bant

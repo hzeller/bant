@@ -18,15 +18,21 @@
 #ifndef BANT_TOOL_DWYU_
 #define BANT_TOOL_DWYU_
 
+#include <ostream>
 #include <string>
 #include <string_view>
 #include <vector>
+
+#include "project-parser.h"
 
 namespace bant {
 
 // Extract #include project headers (the ones with the quotes not angle
 // brackts) from given file. Best effort: may result empty vector.
-std::vector<std::string> ExtractCCHeaders(std::string_view content);
+std::vector<std::string> ExtractCCIncludes(std::string_view content);
+
+// Look through the sources mentioned in the file
+void PrintDependencyEdits(const ParsedProject &project, std::ostream &out);
 
 }  // namespace bant
 

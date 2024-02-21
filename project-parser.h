@@ -30,7 +30,7 @@
 #include "types-bazel.h"
 
 namespace bant {
-struct FileContent {
+struct FileContent {  // TODO: rename. ParsedBuildFile ?
   explicit FileContent(std::string_view filename, std::string &&c)
       : filename(filename), content(std::move(c)) {}
   FileContent(FileContent &&) noexcept = default;

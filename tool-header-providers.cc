@@ -52,9 +52,7 @@ HeaderToTargetMap ExtractHeaderToLibMapping(const ParsedProject &project) {
     FindCCLibraryHeaders(
       file_content.ast, [&result, &file_content](std::string_view lib_name,
                                                  std::string_view header) {
-        std::string header_fqn = file_content.package.path;
-        if (!header_fqn.empty()) header_fqn.append("/");
-        header_fqn.append(header);
+        std::string header_fqn = file_content.package.QualifiedFile(header);
 
         BazelTarget target(file_content.package, lib_name);
         const auto &inserted = result.insert({header_fqn, target});
