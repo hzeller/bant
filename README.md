@@ -14,16 +14,21 @@ WIP.
 
 ### Current status
 
- * Parses most of simple BUILD.bazel files and builds an AST (but issues
-   if more Python-like functionality is used)
+ * Parses most of simple BUILD.bazel files and builds an AST (but can't parse
+   more Python-specific functionality is used). Lists/Tuples/Function calls
+   mostly.
  * Given a directory with a bazel project, parses all BUILD files including
-   the external ones that bazel had extracted in `bazel-${project}/external/`
+   the external ones that bazel had extracted in `bazel-${project}/external/`,
+   report parse errors (typically because)
+ * `-H` command: for each header exported with `hdrs = [...]` in libraries,
+   report which library that is (two columns, easy to `grep` or `awk` over).
+ * `-D` grep all include files used in sources and libraries, determine which
+   libraries defined them and emit [buildozer] commands to 'add' or 'remove'
+   dependencies. If unclear if a library can be removed, it is conservatively
+   _not_ suggested for removal. 'Depend on What You Use' DWYU.
 
-### Nice-to-have TODO
+### Nice-to-have/next steps/TODO
 
-  * Provide DWYU 'depend on what you use' feature: look at headers that
-    sources include and suggest targets that provide these headers to depend
-    on.
   * variable-expand and const-evaluate expressions to flatten the info.
   * Maybe a path query language to extract in a way that the output
     then can be used for scripting.
@@ -37,6 +42,7 @@ Options
         -C<directory>  : Project base directory (default: current dir = '.')
         -x             : Do not read BUILD files of eXternal projects.
                          (i.e. only read the files in the direct project)
+        -q             : Quiet: don't print info messages to stderr.
         -v             : Verbose; print some stats.
         -h             : This help.
 
@@ -44,10 +50,11 @@ Commands:
         (no-flag)      : Just parse BUILD files of project, emit parse errors.
                          Parse is primary objective, errors go to stdout.
                          Other commands below with different main output
-                         emit errors to stderr.
+                         emit errors to info stream (stderr or none if -q)
         -L             : List all the build files found in project
         -P             : Print parse tree (-e : only files with parse errors)
         -H             : Print table header files -> targets that define them.
+        -D             : Declare What You Use suggestions (not useful yet)
 ```
 
 Usage examples
@@ -59,7 +66,8 @@ Usage examples
  bant -x      # read bazel project, but don't parse referenced external projects
  bant -L      # List all the build files including the referenced external
  bant -Lx     # Only list build files in this project.
- bant -H      # Only useful command so far: for each header, print defining lib
+ bant -H      # for each header, print defining lib
+ bant -D      # Look which headers are used and suggest add/remove dependencies
 ```
 
 ### Development

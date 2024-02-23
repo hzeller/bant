@@ -27,8 +27,6 @@
 
 #define BANT_GTEST_HACK 1
 
-#include "absl/strings/str_cat.h"
-
 namespace bant {
 namespace {
 // Find cc_library and call callback for each header file it exports.
@@ -57,7 +55,8 @@ static void FindCCLibraryHeaders(Node *ast, const FindHeaderCallback &cb) {
 }
 }  // namespace
 
-HeaderToTargetMap ExtractHeaderToLibMapping(const ParsedProject &project) {
+HeaderToTargetMap ExtractHeaderToLibMapping(const ParsedProject &project,
+                                            std::ostream &info_out) {
   HeaderToTargetMap result;
 
 #ifdef BANT_GTEST_HACK
@@ -71,35 +70,34 @@ HeaderToTargetMap ExtractHeaderToLibMapping(const ParsedProject &project) {
 
   for (const auto &[filename, file_content] : project.file_to_ast) {
     if (!file_content.ast) continue;
-    FindCCLibraryHeaders(
-      file_content.ast, [&result, &file_content](std::string_view lib_name,
-                                                 std::string_view header) {
-        std::string header_fqn = file_content.package.QualifiedFile(header);
+    FindCCLibraryHeaders(file_content.ast, [&](std::string_view lib_name,
+                                               std::string_view header) {
+      std::string header_fqn = file_content.package.QualifiedFile(header);
 
-        BazelTarget target(file_content.package, lib_name);
-        const auto &inserted = result.insert({header_fqn, target});
-        if (!inserted.second && target != inserted.first->second) {
-          // TODO: differentiate between info-log (external projects) and
-          // error-log (current project, as these are actionable).
-          // For now: just report errors.
-          const bool is_error = file_content.package.project.empty();
-          if (is_error) {
-            // TODO: Get file-position from other target which might be
-            // in a different file.
-            std::cerr << file_content.filename << ":"
-                      << file_content.line_columns.GetRange(header)
-                      << " Header '" << header_fqn << "' in "
-                      << target.ToString() << " already provided by "
-                      << inserted.first->second.ToString() << "\n";
-          }
+      BazelTarget target(file_content.package, lib_name);
+      const auto &inserted = result.insert({header_fqn, target});
+      if (!inserted.second && target != inserted.first->second) {
+        // TODO: differentiate between info-log (external projects) and
+        // error-log (current project, as these are actionable).
+        // For now: just report errors.
+        const bool is_error = file_content.package.project.empty();
+        if (is_error) {
+          // TODO: Get file-position from other target which might be
+          // in a different file.
+          info_out << file_content.filename << ":"
+                   << file_content.line_columns.GetRange(header) << " Header '"
+                   << header_fqn << "' in " << target.ToString()
+                   << " already provided by "
+                   << inserted.first->second.ToString() << "\n";
         }
-      });
+      }
+    });
   }
   return result;
 }
 
 void PrintLibraryHeaders(FILE *out, const ParsedProject &project) {
-  const auto header_to_lib = ExtractHeaderToLibMapping(project);
+  const auto header_to_lib = ExtractHeaderToLibMapping(project, std::cerr);
   int longest = 0;
   for (const auto &[header, _] : header_to_lib) {
     longest = std::max(longest, (int)header.length());

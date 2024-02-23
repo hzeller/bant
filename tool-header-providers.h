@@ -29,7 +29,8 @@ namespace bant {
 // Givent the "project", creates a mapping of all headers that are exported by
 // cc_library() targets to their respective targets.
 using HeaderToTargetMap = std::map<std::string, BazelTarget>;
-HeaderToTargetMap ExtractHeaderToLibMapping(const ParsedProject &project);
+HeaderToTargetMap ExtractHeaderToLibMapping(const ParsedProject &project,
+                                            std::ostream &info_out);
 
 // Pretty print headers and targets in two columns.
 // (Uses stdio FILE currently, because printf() is so much easier than ostream)

@@ -18,8 +18,8 @@
 #include <unistd.h>
 
 #include <filesystem>
+#include <iostream>
 
-#include "ast.h"
 #include "project-parser.h"
 #include "tool-dwyu.h"
 #include "tool-header-providers.h"
@@ -33,6 +33,7 @@ static int usage(const char *prog) {
 	-C<directory>  : Project base directory (default: current dir = '.')
 	-x             : Do not read BUILD files of eXternal projects.
 	                 (i.e. only read the files in the direct project)
+	-q             : Quiet: don't print info messages to stderr.
 	-v             : Verbose; print some stats.
 	-h             : This help.
 
@@ -40,7 +41,7 @@ Commands:
 	(no-flag)      : Just parse BUILD files of project, emit parse errors.
 	                 Parse is primary objective, errors go to stdout.
 	                 Other commands below with different main output
-	                 emit errors to stderr.
+	                 emit errors to info stream (stderr or none if -q)
 	-L             : List all the build files found in project
 	-P             : Print parse tree (-e : only files with parse errors)
 	-H             : Print table header files -> targets that define them.
@@ -50,6 +51,16 @@ Commands:
 }
 
 int main(int argc, char *argv[]) {
+  // '/dev/null' :)
+  class NullBuf : public std::streambuf {
+    std::streamsize xsputn(const char *s, std::streamsize n) final { return n; }
+    int overflow(int c) final { return c; }
+  } null_buf;
+  std::ostream devnull{&null_buf};
+
+  std::ostream *primary_output = &std::cout;  // TODO: could also be -o
+  std::ostream *info_output = &std::cerr;
+
   bool verbose = false;
   bool print_only_errors = false;
   bool include_external = true;
@@ -63,7 +74,7 @@ int main(int argc, char *argv[]) {
   } cmd = Command::kNone;
 
   int opt;
-  while ((opt = getopt(argc, argv, "hC:vxPeHLD")) != -1) {
+  while ((opt = getopt(argc, argv, "hC:vxPeHLDq")) != -1) {
     switch (opt) {
     case 'C': {
       std::error_code err;
@@ -74,6 +85,9 @@ int main(int argc, char *argv[]) {
       }
       break;
     }
+    case 'q':
+      info_output = &devnull;
+      break;
     case 'x':
       include_external = false;
       break;
@@ -90,17 +104,14 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  std::ostream &primary_output = std::cout;  // TODO: could also be -o
-  std::ostream &info_output = std::cerr;
-
   if (cmd == Command::kListBazelFiles) {  // This one does not parse project
     bant::Stat stats;
     auto build_files = bant::CollectBuildFiles(include_external, stats);
     for (const auto &file : build_files) {
-      primary_output << file.string() << "\n";
+      *primary_output << file.string() << "\n";
     }
     if (verbose) {
-      info_output << "Walked through " << stats.ToString("files/dirs") << "\n";
+      *info_output << "Walked through " << stats.ToString("files/dirs") << "\n";
     }
     return 0;
   }
@@ -111,28 +122,30 @@ int main(int argc, char *argv[]) {
   using bant::PrintProject;
 
   const ParsedProject project = ParsedProject::FromFilesystem(
-    include_external, cmd == Command::kNone ? primary_output : info_output);
+    include_external, cmd == Command::kNone ? *primary_output : *info_output);
 
   switch (cmd) {
   case Command::kPrint:
-    PrintProject(primary_output, info_output, project, print_only_errors);
+    PrintProject(*primary_output, *info_output, project, print_only_errors);
     break;
   case Command::kLibraryHeaders:  //
     PrintLibraryHeaders(stdout, project);
     break;
   case Command::kDependencyEdits:
-    PrintDependencyEdits(project, primary_output);
+    PrintDependencyEdits(project, *primary_output, *info_output);
     break;
   case Command::kListBazelFiles:  // already handled
   case Command::kNone:;           // nop
   }
 
   if (verbose) {
-    info_output << "Walked through "
-                << project.file_collect_stat.ToString("files/dirs")
-                << " to collect BUILD files.\n"
-                << "Parsed " << project.parse_stat.ToString("BUILD files")
-                << "; " << project.error_count << " with issues\n";
+    // If verbose explicitly chosen, we want to print this even if -q.
+    // So not to info_output, but std::cerr
+    std::cerr << "Walked through "
+              << project.file_collect_stat.ToString("files/dirs")
+              << " to collect BUILD files.\n"
+              << "Parsed " << project.parse_stat.ToString("BUILD files")
+              << "; " << project.error_count << " with issues\n";
   }
 
   return project.error_count;

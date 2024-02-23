@@ -32,7 +32,8 @@ namespace bant {
 std::vector<std::string> ExtractCCIncludes(std::string_view content);
 
 // Look through the sources mentioned in the file
-void PrintDependencyEdits(const ParsedProject &project, std::ostream &out);
+void PrintDependencyEdits(const ParsedProject &project,
+                          std::ostream &out, std::ostream &info_out);
 
 }  // namespace bant
 

@@ -18,21 +18,26 @@ cc_binary(
 )
 
 cc_library(
+    name = "linecolumn-map",
+    srcs = [ "linecolumn-map.cc"],
+    hdrs = [ "linecolumn-map.h"],
+)
+
+cc_library(
     name = "parser",
     srcs = [
         "ast.cc",
-        "linecolumn-map.cc",
         "parser.cc",
         "scanner.cc",
     ],
     hdrs = [
         "ast.h",
-        "linecolumn-map.h",
         "parser.h",
         "scanner.h",
     ],
     deps = [
         ":memory",
+        ":linecolumn-map",
     ],
 )
 

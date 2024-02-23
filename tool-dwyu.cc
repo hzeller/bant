@@ -41,7 +41,6 @@
 #include "types-bazel.h"
 
 // #define ADD_UNKNOWN_SOURCE_MESSAGE
-#define BUILDOZER
 
 // gtest_main should never be considered removable. However, depending on
 // if tests were compiled before, we might not even see it in
@@ -64,11 +63,13 @@ namespace {
 std::set<BazelTarget> TargetsForIncludes(
   const BazelTarget &target_self, const FileContent &context,
   const std::vector<std::string_view> &sources,
-  const HeaderToTargetMap &header2dep,  //
-  bool *all_headers_accounted_for, std::ostream &out) {
-  std::set<BazelTarget> targets_needed;
+  const HeaderToTargetMap &header2dep, bool *all_headers_accounted_for,
+  std::ostream &info_out) {
+  std::set<BazelTarget> result;
   for (std::string_view s : sources) {
     const std::string source_file = context.package.QualifiedFile(s);
+
+    // File could be in multiple locations, primary or generated. Use first.
     std::optional<std::string> src_content;
     for (std::string_view search_path : kSourceLocations) {
       src_content = ReadFileToString(absl::StrCat(search_path, source_file));
@@ -78,9 +79,9 @@ std::set<BazelTarget> TargetsForIncludes(
       // Nothing we can do about this for now. These are probably
       // coming from some generated sources. TODO: check 'out's from genrules
       // Since we don't know what they include, influences remove confidences.
-      std::cerr << context.filename << ":" << context.line_columns.GetRange(s)
-                << " Can not read '" << source_file << "' referenced in "
-                << target_self.ToString() << " Probably generated ?\n";
+      info_out << context.filename << ":" << context.line_columns.GetRange(s)
+               << " Can not read '" << source_file << "' referenced in "
+               << target_self.ToString() << " Probably generated ?\n";
       *all_headers_accounted_for = false;
       continue;
     }
@@ -92,18 +93,18 @@ std::set<BazelTarget> TargetsForIncludes(
         // There is a header we don't know where it is coming from.
         // Need to be careful with remove suggestion.
 #ifdef ADD_UNKNOWN_SOURCE_MESSAGE
-        std::cerr << context.filename << ":" << context.line_columns.GetRange(s)
-                  << " '" << source_file << "' has #include \"" << header
-                  << "\" - not sure where from.\n";
+        info_out << context.filename << ":" << context.line_columns.GetRange(s)
+                 << " '" << source_file << "' has #include \"" << header
+                 << "\" - not sure where from.\n";
 #endif
         *all_headers_accounted_for = false;
         continue;
       }
       if (found->second == target_self) continue;
-      targets_needed.insert(found->second);
+      result.insert(found->second);
     }
   }
-  return targets_needed;
+  return result;
 }
 
 // We can only confidently remove a target if we actually know about its
@@ -144,8 +145,11 @@ std::vector<std::string> ExtractCCIncludes(std::string_view content) {
   return result;
 }
 
-void PrintDependencyEdits(const ParsedProject &project, std::ostream &out) {
-  const HeaderToTargetMap header2dep = ExtractHeaderToLibMapping(project);
+void PrintDependencyEdits(const ParsedProject &project,
+                          std::ostream &out,
+                          std::ostream &info_out) {
+  const HeaderToTargetMap header2dep = ExtractHeaderToLibMapping(project,
+                                                                 info_out);
   const std::set<BazelTarget> known_libs = ExtractKnownLibraries(project);
 
   using query::TargetParameters;
@@ -170,38 +174,31 @@ void PrintDependencyEdits(const ParsedProject &project, std::ostream &out) {
         auto targets_needed = TargetsForIncludes(*self, parsed_package,      //
                                                  sources, header2dep,        //
                                                  &confident_suggest_remove,  //
-                                                 out);
+                                                 info_out);
 
         // Check all the dependencies build target requested, but doesnt't need.
         std::vector<std::string_view> deps;
         query::ExtractStringList(target.deps_list, deps);
         for (std::string_view dependency_target : deps) {
           if (!BazelTarget::LooksWellformed(dependency_target)) {
-            out << parsed_package.filename << ":"
-                << parsed_package.line_columns.GetRange(dependency_target)
-                << " target \"" << dependency_target
-                << "\": no '// or ':' prefix. Consider canonicalizing.\n";
+            info_out << parsed_package.filename << ":"
+                     << parsed_package.line_columns.GetRange(dependency_target)
+                     << " target \"" << dependency_target
+                     << "\": no '// or ':' prefix. Consider canonicalizing.\n";
           }
           auto requested_target = BazelTarget::ParseFrom(dependency_target,  //
                                                          current_package);
           if (!requested_target.has_value()) {
-            out << parsed_package.filename << ":"
-                << parsed_package.line_columns.GetRange(dependency_target)
-                << " Invalid target name '" << dependency_target << "'\n";
+            info_out << parsed_package.filename << ":"
+                     << parsed_package.line_columns.GetRange(dependency_target)
+                     << " Invalid target name '" << dependency_target << "'\n";
             continue;
           }
           size_t requested_was_needed = targets_needed.erase(*requested_target);
           if (!requested_was_needed && confident_suggest_remove &&
               known_libs.contains(*requested_target)) {
-#ifdef BUILDOZER
             out << "buildozer 'remove deps " << dependency_target << "' "
                 << *self << "\n";
-#else
-            out << parsed_package.filename << ":"
-                << parsed_package.line_columns.GetRange(dependency_target)
-                << " REMOVE: '" << *requested_target << " in :" << target.name
-                << "\n";
-#endif
           }
         }
 
@@ -211,20 +208,10 @@ void PrintDependencyEdits(const ParsedProject &project, std::ostream &out) {
       // List, but we don't have that directly. So we look for the first
       // dependency if there is any and use that as position. Or the
       // target itself.
-#ifndef BUILDOZER
-        auto insert_reference = !deps.empty() ? deps[0] : target.name;
-        auto add_loc = parsed_package.line_columns.GetRange(insert_reference);
-#endif
         for (const BazelTarget &need_add : targets_needed) {
-#ifdef BUILDOZER
           out << "buildozer 'add deps "
               << need_add.ToStringRelativeTo(current_package) << "' " << *self
               << "\n";
-#else
-          out << parsed_package.filename << ":" << add_loc << " ADD...: '"
-              << need_add.ToStringRelativeTo(current_package)
-              << "' in :" << target.name << "\n";
-#endif
         }
       });
   }
