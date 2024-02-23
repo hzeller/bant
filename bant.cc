@@ -45,7 +45,7 @@ Commands:
 	-L             : List all the build files found in project
 	-P             : Print parse tree (-e : only files with parse errors)
 	-H             : Print table header files -> targets that define them.
-	-D             : Declare What You Use suggestions (not useful yet)
+	-D             : DWYU: Depend on What You Use (emit buildozer edits)
 )");
   return 1;
 }
