@@ -27,23 +27,33 @@
 
 #define BANT_GTEST_HACK 1
 
+#include "absl/strings/str_cat.h"
+
 namespace bant {
 namespace {
 // Find cc_library and call callback for each header file it exports.
 using FindHeaderCallback =
   std::function<void(std::string_view library_name, std::string_view header)>;
 static void FindCCLibraryHeaders(Node *ast, const FindHeaderCallback &cb) {
-  query::FindTargets(ast, {"cc_library"},
-                     [&cb](const query::TargetParameters &params) {
-                       if (!params.hdrs_list) return;
-                       for (Node *header : *params.hdrs_list) {
-                         Scalar *scalar = header->CastAsScalar();
-                         if (!scalar) continue;
-                         std::string_view header_file = scalar->AsString();
-                         if (header_file.empty()) continue;
-                         cb(params.name, header_file);
-                       }
-                     });
+  query::FindTargets(
+    ast, {"cc_library"}, [&cb](const query::TargetParameters &params) {
+      std::vector<std::string_view> incdirs;
+      query::ExtractStringList(params.includes_list, incdirs);
+      std::vector<std::string_view> headers;
+      query::ExtractStringList(params.hdrs_list, headers);
+
+      for (std::string_view header_file : headers) {
+        cb(params.name, header_file);
+        // Could also show up under shorter path with -I
+        for (std::string_view dir : incdirs) {
+          std::string prefix(dir);
+          if (!prefix.ends_with('/')) prefix.append("/");
+          if (header_file.starts_with(prefix)) {
+            cb(params.name, header_file.substr(prefix.length()));
+          }
+        }
+      }
+    });
 }
 }  // namespace
 

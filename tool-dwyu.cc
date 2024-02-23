@@ -16,7 +16,6 @@
 // 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 
 // TODO:
-//   - remove prefix include path (e.g. jsonhpp)
 //   - some want find includes yet because they are the result of a glob()
 //     operation, e.g. gtest/gtest.h.
 //   - Don't add things that are not visible (e.g. absl vlog_is_on)
@@ -56,20 +55,12 @@ static constexpr std::string_view kSourceLocations[] = {
 
 namespace bant {
 namespace {
-// TODO: this might be a useful utiltiy function to lift out.
-void ExtractList(List *list, std::vector<std::string_view> &append_to) {
-  if (list == nullptr) return;
-  for (Node *n : *list) {
-    Scalar *scalar = n->CastAsScalar();
-    if (!scalar) continue;
-    if (std::string_view str = scalar->AsString(); !str.empty()) {
-      append_to.push_back(str);
-    }
-  }
-}
-
 // Given the sources, grep for headers it uses and resolve thir defining
 // dependency targets.
+// Report in "all_headers_accounted_for", that we found
+// a library for each of the headers we have seen.
+// This is important as only then we can confidently suggest removals in that
+// target.
 std::set<BazelTarget> TargetsForIncludes(
   const BazelTarget &target_self, const FileContent &context,
   const std::vector<std::string_view> &sources,
@@ -174,8 +165,8 @@ void PrintDependencyEdits(const ParsedProject &project, std::ostream &out) {
 
         bool confident_suggest_remove = true;
         std::vector<std::string_view> sources;
-        ExtractList(target.srcs_list, sources);
-        ExtractList(target.hdrs_list, sources);
+        query::ExtractStringList(target.srcs_list, sources);
+        query::ExtractStringList(target.hdrs_list, sources);
         auto targets_needed = TargetsForIncludes(*self, parsed_package,      //
                                                  sources, header2dep,        //
                                                  &confident_suggest_remove,  //
@@ -183,7 +174,7 @@ void PrintDependencyEdits(const ParsedProject &project, std::ostream &out) {
 
         // Check all the dependencies build target requested, but doesnt't need.
         std::vector<std::string_view> deps;
-        ExtractList(target.deps_list, deps);
+        query::ExtractStringList(target.deps_list, deps);
         for (std::string_view dependency_target : deps) {
           if (!BazelTarget::LooksWellformed(dependency_target)) {
             out << parsed_package.filename << ":"

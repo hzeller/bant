@@ -67,7 +67,10 @@ class TargetFinder : public BaseVisitor {
         current_.srcs_list = list;
       } else if (lhs == "deps") {
         current_.deps_list = list;
+      } else if (lhs == "includes") {
+        current_.includes_list = list;
       }
+
     }
   }
 
@@ -100,5 +103,17 @@ void FindTargets(Node *ast,
                  const TargetFindCallback &cb) {
   TargetFinder(rules_of_interest, cb).WalkNonNull(ast);
 }
+
+void ExtractStringList(List *list, std::vector<std::string_view> &append_to) {
+  if (list == nullptr) return;
+  for (Node *n : *list) {
+    Scalar *scalar = n->CastAsScalar();
+    if (!scalar) continue;
+    if (std::string_view str = scalar->AsString(); !str.empty()) {
+      append_to.push_back(str);
+    }
+  }
+}
+
 }  // namespace query
 }  // namespace bant
