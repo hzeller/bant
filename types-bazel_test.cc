@@ -66,12 +66,17 @@ TEST(TypesBazel, PrintPackage) {
 TEST(TypesBazel, ParseTarget) {
   BazelPackage context("", "foo/bar");
   {
-    auto t = BazelTarget::ParseFrom("nodelimiter", context);
-    EXPECT_FALSE(t.has_value());
+    auto t = BazelTarget::ParseFrom(":target", context);
+    ASSERT_TRUE(t.has_value());
+    EXPECT_EQ(t->package, context);
+    EXPECT_EQ(t->target_name, "target");
   }
 
   {
-    auto t = BazelTarget::ParseFrom(":target", context);
+    EXPECT_FALSE(BazelTarget::LooksWellformed("target"));
+
+    // Not well-formed, but we'll still parse it.
+    auto t = BazelTarget::ParseFrom("target", context);
     ASSERT_TRUE(t.has_value());
     EXPECT_EQ(t->package, context);
     EXPECT_EQ(t->target_name, "target");

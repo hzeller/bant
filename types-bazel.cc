@@ -55,15 +55,18 @@ std::string_view BazelPackage::LastElement() const {
   std::string_view package;
   std::string_view target;
   switch (parts.size()) {
-  case 1: {  // i.e. //absl/strings to be interpreted as //absl/strings:strings
+  case 1: {
     package = parts[0];
     auto last_slash = package.find_last_of('/');
     if (last_slash != std::string_view::npos) {
+      // //absl/strings to be interpreted as //absl/strings:strings
       target = package.substr(last_slash + 1);
     } else if (!package.empty() && package[0] == '@') {
-      target = package.substr(1);  // we just have a toplevel, e.g. @jsonhpp
+      // we just have a toplevel, e.g. @jsonhpp
+      target = package.substr(1);
     } else {
-      return std::nullopt;
+      package = "";   // Package without delimiter or package.
+      target = str;
     }
     break;
   }
@@ -72,7 +75,8 @@ std::string_view BazelPackage::LastElement() const {
     target = parts[1];
     break;
   }
-  default: return std::nullopt;
+  default: //
+    return std::nullopt;
   }
   if (package.empty()) {
     return BazelTarget(context, target);
@@ -82,6 +86,10 @@ std::string_view BazelPackage::LastElement() const {
     return std::nullopt;
   }
   return BazelTarget(package_part.value(), target);
+}
+
+/*static*/ bool BazelTarget::LooksWellformed(std::string_view str) {
+  return str.starts_with(":") || str.starts_with("//") || str.starts_with("@");
 }
 
 std::string BazelTarget::ToString() const {

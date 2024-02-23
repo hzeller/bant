@@ -62,8 +62,15 @@ struct BazelTarget {
   BazelTarget(BazelPackage package, std::string_view target)
       : package(std::move(package)), target_name(target) {}
 
+  // Parse target from string. Both forms //foo/bar:baz and :baz are
+  // supported. The latter case is canonicalized by adding the context package.
   static std::optional<BazelTarget> ParseFrom(std::string_view str,
                                               const BazelPackage &context);
+
+  // Simple litmus test checking if this looks like a //-style or :-style
+  // target.
+  static bool LooksWellformed(std::string_view str);
+
   BazelPackage package;
   std::string target_name;  // e.g. a library
 

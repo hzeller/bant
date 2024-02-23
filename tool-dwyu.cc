@@ -185,6 +185,12 @@ void PrintDependencyEdits(const ParsedProject &project, std::ostream &out) {
         std::vector<std::string_view> deps;
         ExtractList(target.deps_list, deps);
         for (std::string_view dependency_target : deps) {
+          if (!BazelTarget::LooksWellformed(dependency_target)) {
+            out << parsed_package.filename << ":"
+                << parsed_package.line_columns.GetRange(dependency_target)
+                << " target \"" << dependency_target
+                << "\": no '// or ':' prefix. Consider canonicalizing.\n";
+          }
           auto requested_target = BazelTarget::ParseFrom(dependency_target,  //
                                                          current_package);
           if (!requested_target.has_value()) {
