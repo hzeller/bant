@@ -65,7 +65,7 @@ std::string_view BazelPackage::LastElement() const {
       // we just have a toplevel, e.g. @jsonhpp
       target = package.substr(1);
     } else {
-      package = "";   // Package without delimiter or package.
+      package = "";  // Package without delimiter or package.
       target = str;
     }
     break;
@@ -75,7 +75,7 @@ std::string_view BazelPackage::LastElement() const {
     target = parts[1];
     break;
   }
-  default: //
+  default:  //
     return std::nullopt;
   }
   if (package.empty()) {

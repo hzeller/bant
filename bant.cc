@@ -85,7 +85,7 @@ int main(int argc, char *argv[]) {
       }
       break;
     }
-    case 'q':
+    case 'q':  //
       info_output = &devnull;
       break;
     case 'x':
@@ -144,8 +144,8 @@ int main(int argc, char *argv[]) {
     std::cerr << "Walked through "
               << project.file_collect_stat.ToString("files/dirs")
               << " to collect BUILD files.\n"
-              << "Parsed " << project.parse_stat.ToString("BUILD files")
-              << "; " << project.error_count << " with issues\n";
+              << "Parsed " << project.parse_stat.ToString("BUILD files") << "; "
+              << project.error_count << " with issues\n";
   }
 
   return project.error_count;

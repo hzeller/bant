@@ -70,7 +70,6 @@ class TargetFinder : public BaseVisitor {
       } else if (lhs == "includes") {
         current_.includes_list = list;
       }
-
     }
   }
 

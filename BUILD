@@ -10,7 +10,6 @@ cc_binary(
         "bant.cc",
     ],
     deps = [
-        ":parser",
         ":project-parser",
         ":tool-dwyu",
         ":tool-header-providers",
@@ -19,8 +18,8 @@ cc_binary(
 
 cc_library(
     name = "linecolumn-map",
-    srcs = [ "linecolumn-map.cc"],
-    hdrs = [ "linecolumn-map.h"],
+    srcs = ["linecolumn-map.cc"],
+    hdrs = ["linecolumn-map.h"],
 )
 
 cc_library(
@@ -36,8 +35,8 @@ cc_library(
         "scanner.h",
     ],
     deps = [
-        ":memory",
         ":linecolumn-map",
+        ":memory",
     ],
 )
 
@@ -66,7 +65,7 @@ cc_test(
     name = "linecolumn-map_test",
     srcs = ["linecolumn-map_test.cc"],
     deps = [
-        ":parser",
+        ":linecolumn-map",
         "@com_google_googletest//:gtest",
         "@com_google_googletest//:gtest_main",
     ],
@@ -78,6 +77,7 @@ cc_library(
     hdrs = ["project-parser.h"],
     deps = [
         ":file-utils",
+        ":linecolumn-map",
         ":parser",
         ":types-bazel",
         "@com_google_absl//absl/strings",

@@ -145,11 +145,10 @@ std::vector<std::string> ExtractCCIncludes(std::string_view content) {
   return result;
 }
 
-void PrintDependencyEdits(const ParsedProject &project,
-                          std::ostream &out,
+void PrintDependencyEdits(const ParsedProject &project, std::ostream &out,
                           std::ostream &info_out) {
-  const HeaderToTargetMap header2dep = ExtractHeaderToLibMapping(project,
-                                                                 info_out);
+  const HeaderToTargetMap header2dep =
+    ExtractHeaderToLibMapping(project, info_out);
   const std::set<BazelTarget> known_libs = ExtractKnownLibraries(project);
 
   using query::TargetParameters;
@@ -202,12 +201,12 @@ void PrintDependencyEdits(const ParsedProject &project,
           }
         }
 
-      // Now, if there is still something in the 'needs'-set, suggest adding.
+        // Now, if there is still something in the 'needs'-set, suggest adding.
 
-      // We need to suggest where to add. Maybe simply at the begin of the
-      // List, but we don't have that directly. So we look for the first
-      // dependency if there is any and use that as position. Or the
-      // target itself.
+        // We need to suggest where to add. Maybe simply at the begin of the
+        // List, but we don't have that directly. So we look for the first
+        // dependency if there is any and use that as position. Or the
+        // target itself.
         for (const BazelTarget &need_add : targets_needed) {
           out << "buildozer 'add deps "
               << need_add.ToStringRelativeTo(current_package) << "' " << *self
