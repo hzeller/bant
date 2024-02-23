@@ -44,6 +44,11 @@
 // #define ADD_UNKNOWN_SOURCE_MESSAGE
 #define BUILDOZER
 
+// gtest_main should never be considered removable. However, depending on
+// if tests were compiled before, we might not even see it in
+// bazel-${project}/external. Figure out where to get a stable list of externals
+#define BANT_GTEST_HACK 1
+
 // Looking for source files directly in the source tree, but if not found
 // in the various locations generated files could be.
 static constexpr std::string_view kSourceLocations[] = {
@@ -97,7 +102,7 @@ std::set<BazelTarget> TargetsForIncludes(
         // Need to be careful with remove suggestion.
 #ifdef ADD_UNKNOWN_SOURCE_MESSAGE
         std::cerr << context.filename << ":" << context.line_columns.GetRange(s)
-                  << " '" << source_file << "'has #include \"" << header
+                  << " '" << source_file << "' has #include \"" << header
                   << "\" - not sure where from.\n";
 #endif
         *all_headers_accounted_for = false;
@@ -110,17 +115,19 @@ std::set<BazelTarget> TargetsForIncludes(
   return targets_needed;
 }
 
-// We need to exclude alwayslink libraries from remove suggestions.
-// Until we have a full dependency graph we can walk, gather this info manually.
-std::set<BazelTarget> ExtractAlwaysLinkLibs(const ParsedProject &project) {
+// We can only confidently remove a target if we actually know about its
+// existence in the project. If not, be cautious.
+std::set<BazelTarget> ExtractKnownLibraries(const ParsedProject &project) {
   std::set<BazelTarget> result;
   using query::TargetParameters;
   for (const auto &[_, parsed_package] : project.file_to_ast) {
     const BazelPackage &current_package = parsed_package.package;
     query::FindTargets(parsed_package.ast, {"cc_library"},  //
                        [&](const TargetParameters &target) {
-                         if (!target.alwayslink) {
-                           return;  // only interested in alwayslink
+                         if (target.alwayslink) {
+                           // Don't include always-link targets: this makes
+                           // sure they are not accidentally removed.
+                           return;
                          }
                          auto self = BazelTarget::ParseFrom(
                            absl::StrCat(":", target.name), current_package);
@@ -148,7 +155,8 @@ std::vector<std::string> ExtractCCIncludes(std::string_view content) {
 
 void PrintDependencyEdits(const ParsedProject &project, std::ostream &out) {
   const HeaderToTargetMap header2dep = ExtractHeaderToLibMapping(project);
-  const std::set<BazelTarget> alwaylink_libs = ExtractAlwaysLinkLibs(project);
+  const std::set<BazelTarget> known_libs = ExtractKnownLibraries(project);
+
   using query::TargetParameters;
   for (const auto &[_, parsed_package] : project.file_to_ast) {
     if (!parsed_package.package.project.empty()) {
@@ -187,7 +195,7 @@ void PrintDependencyEdits(const ParsedProject &project, std::ostream &out) {
           }
           size_t requested_was_needed = targets_needed.erase(*requested_target);
           if (!requested_was_needed && confident_suggest_remove &&
-              !alwaylink_libs.contains(*requested_target)) {
+              known_libs.contains(*requested_target)) {
 #ifdef BUILDOZER
             out << "buildozer 'remove deps " << dependency_target << "' "
                 << *self << "\n";

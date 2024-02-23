@@ -25,6 +25,8 @@
 #include "query-utils.h"
 #include "types-bazel.h"
 
+#define BANT_GTEST_HACK 1
+
 namespace bant {
 namespace {
 // Find cc_library and call callback for each header file it exports.
@@ -47,6 +49,16 @@ static void FindCCLibraryHeaders(Node *ast, const FindHeaderCallback &cb) {
 
 HeaderToTargetMap ExtractHeaderToLibMapping(const ParsedProject &project) {
   HeaderToTargetMap result;
+
+#ifdef BANT_GTEST_HACK
+  // gtest hack (can't glob the headers yet, so manually add these)
+  BazelTarget test_target;
+  test_target.package = *BazelPackage::ParseFrom("@com_google_googletest//");
+  test_target.target_name = "gtest";
+  result["gtest/gtest.h"] = test_target;
+  result["gmock/gmock.h"] = test_target;
+#endif
+
   for (const auto &[filename, file_content] : project.file_to_ast) {
     if (!file_content.ast) continue;
     FindCCLibraryHeaders(
