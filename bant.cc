@@ -116,10 +116,12 @@ int main(int argc, char *argv[]) {
     return 0;
   }
 
+  bant::Stat deps_stat;
+
   // Rest of the commands need to parse the project.
   auto &parse_err_out = cmd == Command::kNone ? *primary_output : *info_output;
-  const bant::ParsedProject project = bant::ParsedProject::FromFilesystem(
-    include_external, parse_err_out);
+  const bant::ParsedProject project =
+    bant::ParsedProject::FromFilesystem(include_external, parse_err_out);
 
   switch (cmd) {
   case Command::kPrint:
@@ -130,7 +132,8 @@ int main(int argc, char *argv[]) {
     bant::PrintLibraryHeaders(stdout, project);
     break;
   case Command::kDependencyEdits:
-    bant::EmitBuildozerDWYUEdits(project, *primary_output, *info_output);
+    bant::CreateDependencyEdits(project, deps_stat, *info_output,
+                                bant::CreateBuildozerPrinter(*primary_output));
     break;
   case Command::kListBazelFiles:  // already handled
   case Command::kNone:;           // nop (implicitly done by parsing)
@@ -143,7 +146,11 @@ int main(int argc, char *argv[]) {
               << project.file_collect_stat.ToString("files/dirs")
               << " to collect BUILD files.\n"
               << "Parsed " << project.parse_stat.ToString("BUILD files") << "; "
-              << project.error_count << " with issues\n";
+              << project.error_count << " with parse issues.\n";
+    if (cmd == Command::kDependencyEdits) {
+      std::cerr << "Grep'd " << deps_stat.ToString("sources")
+                << " to extract includes and create dependency edits.\n";
+    }
   }
 
   return project.error_count;

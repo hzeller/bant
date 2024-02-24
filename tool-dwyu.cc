@@ -33,6 +33,7 @@
 #include <vector>
 
 #include "absl/strings/str_cat.h"
+#include "absl/time/clock.h"
 #include "file-utils.h"
 #include "project-parser.h"
 #include "query-utils.h"
@@ -59,7 +60,8 @@ std::set<BazelTarget> TargetsForIncludes(
   const BazelTarget &target_self, const ParsedBuildFile &context,
   const std::vector<std::string_view> &sources,
   const HeaderToTargetMap &header2dep, bool *all_headers_accounted_for,
-  std::ostream &info_out) {
+  Stat &stats, std::ostream &info_out) {
+  size_t total_size = 0;
   std::set<BazelTarget> result;
   for (std::string_view s : sources) {
     const std::string source_file = context.package.QualifiedFile(s);
@@ -81,6 +83,8 @@ std::set<BazelTarget> TargetsForIncludes(
       continue;
     }
 
+    ++stats.count;
+    total_size += src_content->size();
     auto headers = ExtractCCIncludes(*src_content);
     for (const std::string &header : headers) {
       auto found = header2dep.find(header);
@@ -98,6 +102,12 @@ std::set<BazelTarget> TargetsForIncludes(
       if (found->second == target_self) continue;
       result.insert(found->second);
     }
+  }
+
+  if (stats.bytes_processed.has_value()) {
+    stats.bytes_processed = *stats.bytes_processed + total_size;
+  } else {
+    stats.bytes_processed = total_size;
   }
   return result;
 }
@@ -140,13 +150,14 @@ std::vector<std::string> ExtractCCIncludes(std::string_view content) {
   return result;
 }
 
-void CreateDependencyEdits(const ParsedProject &project,
+void CreateDependencyEdits(const ParsedProject &project, Stat &stats,
                            std::ostream &info_out,
                            const EditCallback &emit_deps_edit) {
   const HeaderToTargetMap header2dep =
     ExtractHeaderToLibMapping(project, info_out);
   const std::set<BazelTarget> known_libs = ExtractKnownLibraries(project);
 
+  const absl::Time start_time = absl::Now();
   using query::TargetParameters;
   for (const auto &[_, parsed_package] : project.file_to_ast) {
     if (!parsed_package.package.project.empty()) {
@@ -171,7 +182,7 @@ void CreateDependencyEdits(const ParsedProject &project,
         auto deps_needed = TargetsForIncludes(*self, parsed_package,   //
                                               sources, header2dep,     //
                                               &all_header_deps_known,  //
-                                              info_out);
+                                              stats, info_out);
 
         // Check all the dependencies that the build target requested and
         // verify we actually need them. If not: remove.
@@ -214,38 +225,39 @@ void CreateDependencyEdits(const ParsedProject &project,
           if (!requested_was_needed) {
             emit_deps_edit(EditRequest::kRemove, *self, dependency_target, "");
           } else if (needs_repair) {
-            emit_deps_edit(EditRequest::kRename, *self, dependency_target,
-                      requested_target->ToStringRelativeTo(current_package));
+            emit_deps_edit(
+              EditRequest::kRename, *self, dependency_target,
+              requested_target->ToStringRelativeTo(current_package));
           }
         }
 
         // Now, if there is still something we need, add them.
         for (const BazelTarget &need_add : deps_needed) {
           emit_deps_edit(EditRequest::kAdd, *self, "",
-                    need_add.ToStringRelativeTo(current_package));
+                         need_add.ToStringRelativeTo(current_package));
         }
       });
   }
+  const absl::Time end_time = absl::Now();
+  stats.duration = end_time - start_time;
 }
 
-void EmitBuildozerDWYUEdits(const ParsedProject &project, std::ostream &out,
-                            std::ostream &info_out) {
-  CreateDependencyEdits(
-    project, info_out,
-    [&](EditRequest edit, const BazelTarget &target, std::string_view before,
-        std::string_view after) {
-      switch (edit) {
-      case EditRequest::kRemove:
-        out << "buildozer 'remove deps " << before << "' " << target << "\n";
-        break;
-      case EditRequest::kAdd:
-        out << "buildozer 'add deps " << after << "' " << target << "\n";
-        break;
-      case EditRequest::kRename:
-        out << "buildozer 'replace deps " << before << " " << after << "' "
-            << target << "\n";
-        break;
-      }
-    });
+EditCallback CreateBuildozerPrinter(std::ostream &out) {
+  return [&out](EditRequest edit, const BazelTarget &target,
+                std::string_view before, std::string_view after) {
+    switch (edit) {
+    case EditRequest::kRemove:
+      out << "buildozer 'remove deps " << before << "' " << target << "\n";
+      break;
+    case EditRequest::kAdd:
+      out << "buildozer 'add deps " << after << "' " << target << "\n";
+      break;
+    case EditRequest::kRename:
+      out << "buildozer 'replace deps " << before << " " << after << "' "
+          << target << "\n";
+      break;
+    }
+  };
 }
+
 }  // namespace bant

@@ -25,6 +25,7 @@
 #include <string>
 #include <vector>
 
+#include "absl/time/time.h"
 #include "ast.h"
 #include "linecolumn-map.h"
 #include "types-bazel.h"
@@ -46,9 +47,10 @@ struct ParsedBuildFile {
   std::string errors;  // List of errors if observed (todo: make actual list)
 };
 
+// TODO: this should probably be in a separate header
 struct Stat {
   int count = 0;
-  int duration_usec = 0;
+  absl::Duration duration;
   std::optional<size_t> bytes_processed;
 
   // Print readable string with "thing_name" used to describe the count.

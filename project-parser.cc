@@ -24,6 +24,8 @@
 
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
+#include "absl/time/clock.h"
+#include "absl/time/time.h"
 #include "file-utils.h"
 #include "parser.h"
 
@@ -46,7 +48,7 @@ std::string_view TargetPathFromBuildFile(std::string_view file) {
 static void ParseBuildFiles(const std::vector<fs::path> &build_files,
                             const std::string &external_prefix,
                             std::ostream &error_out, ParsedProject *result) {
-  const auto start_time = std::chrono::system_clock::now();
+  const absl::Time start_time = absl::Now();
 
   size_t bytes_processed = 0;
   for (const fs::path &build_file : build_files) {
@@ -97,10 +99,8 @@ static void ParseBuildFiles(const std::vector<fs::path> &build_files,
   }
 
   // fill FYI field.
-  const auto end_time = std::chrono::system_clock::now();
-  result->parse_stat.duration_usec =
-    std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time)
-      .count();
+  const absl::Time end_time = absl::Now();
+  result->parse_stat.duration = end_time - start_time;
 }
 
 // Assemble a path that points to the symbolik link bazel generates for
@@ -114,6 +114,7 @@ static std::string ExternalProjectDir() {
 }  // namespace
 
 std::string Stat::ToString(std::string_view thing_name) const {
+  const int64_t duration_usec = absl::ToInt64Microseconds(duration);
   if (bytes_processed.has_value()) {
     const float megabyte_per_sec = 1.0f * *bytes_processed / duration_usec;
     return absl::StrFormat("%d %s with %.2f KiB in %.3fms (%.2f MB/sec)", count,
@@ -126,7 +127,7 @@ std::string Stat::ToString(std::string_view thing_name) const {
 
 std::vector<fs::path> CollectBuildFiles(bool include_external, Stat &stats) {
   std::vector<fs::path> build_files;
-  const auto start_time = std::chrono::system_clock::now();
+  const absl::Time start_time = absl::Now();
 
   const auto relevant_build_file_predicate = [](const fs::path &file) {
     const auto &basename = file.filename();
@@ -161,10 +162,9 @@ std::vector<fs::path> CollectBuildFiles(bool include_external, Stat &stats) {
                             relevant_build_file_predicate);
   }
 
-  const auto end_time = std::chrono::system_clock::now();
-  stats.duration_usec =
-    std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time)
-      .count();
+  const absl::Time end_time = absl::Now();
+  stats.duration = end_time - start_time;
+
   return build_files;
 }
 

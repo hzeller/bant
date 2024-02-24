@@ -41,21 +41,19 @@ enum class EditRequest {
 };
 
 // Request kRemove will have "before" set, kAdd "after, and kRename both.
-using EditCallback = std::function<void(EditRequest,
-                                        const BazelTarget &target,
-                                        std::string_view before,
-                                        std::string_view after)>;
+using EditCallback =
+  std::function<void(EditRequest, const BazelTarget &target,
+                     std::string_view before, std::string_view after)>;
 
 // Look through the sources mentioned in the file, check what they include
 // and determine what dependencies need to be added/remove.
 // Also, if there are some simple corrections that can be made emit these.
-void CreateDependencyEdits(const ParsedProject &project,
+void CreateDependencyEdits(const ParsedProject &project, Stat &stats,
                            std::ostream &info_out,
                            const EditCallback &emit_deps_edit);
 
-
-void EmitBuildozerDWYUEdits(const ParsedProject &project, std::ostream &out,
-                            std::ostream &info_out);
+// Create an EditCallback function that writes "buildozer" edits to out.
+EditCallback CreateBuildozerPrinter(std::ostream &out);
 
 }  // namespace bant
 

@@ -82,6 +82,7 @@ cc_library(
         ":types-bazel",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:str_format",
+        "@com_google_absl//absl/time",
     ],
 )
 
@@ -118,6 +119,7 @@ cc_library(
         ":tool-header-providers",
         ":types-bazel",
         "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/time",
         "@com_googlesource_code_re2//:re2",
     ],
 )
