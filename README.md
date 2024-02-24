@@ -17,9 +17,9 @@ Early Stages. WIP.
  * Parses most of simple BUILD/BUILD.bazel files and builds an AST of the
    Lists/Tuples/Function-calls (=build rules) involved for inspection and
    writing tools for (Use `-P` or `-Pe` for inspection).
-   Can't parse more Python-specific functionality, missing mostly right now:
-   array/string slice operators. Goal is to be best effort and fast, no full
-   Starlark parsing intented.
+   Can't parse more Python-specific functionality yet, missing mostly right
+   now: array/string slice operators and more intricate list-comprehensions.
+   Goal is to be best effort and fast, no full Starlark parsing intented.
  * Given a directory with a bazel project, parses all BUILD files including
    the external ones that bazel had extracted in `bazel-${project}/external/`,
    report parse errors. Note, build your project first fully with `bazel`,

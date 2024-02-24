@@ -29,22 +29,22 @@ TEST(TypesBazel, ParsePackage) {
   {
     auto p = BazelPackage::ParseFrom("@foo");
     ASSERT_TRUE(p.has_value());
-    EXPECT_EQ(p->project, "@foo");
-    EXPECT_TRUE(p->path.empty());
+    EXPECT_EQ(p->project, "@foo");  // NOLINT(*-unchecked-optional-access)
+    EXPECT_TRUE(p->path.empty());   // NOLINT(*-unchecked-optional-access)
   }
 
   {
     auto p = BazelPackage::ParseFrom("//foo/bar");
     ASSERT_TRUE(p.has_value());
-    EXPECT_TRUE(p->project.empty());
-    EXPECT_EQ(p->path, "foo/bar");
+    EXPECT_TRUE(p->project.empty());  // NOLINT(*-unchecked-optional-access)
+    EXPECT_EQ(p->path, "foo/bar");    // NOLINT(*-unchecked-optional-access)
   }
 
   {
     auto p = BazelPackage::ParseFrom("//foo/bar:targetignored");
     ASSERT_TRUE(p.has_value());
-    EXPECT_TRUE(p->project.empty());
-    EXPECT_EQ(p->path, "foo/bar");
+    EXPECT_TRUE(p->project.empty());  // NOLINT(*-unchecked-optional-access)
+    EXPECT_EQ(p->path, "foo/bar");    // NOLINT(*-unchecked-optional-access)
   }
 }
 

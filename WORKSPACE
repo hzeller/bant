@@ -25,9 +25,9 @@ load("@bazel_skylib//:workspace.bzl", "bazel_skylib_workspace")
 # absl needed by RE2
 http_archive(
     name = "com_google_absl",
-    sha256 = "338420448b140f0dfd1a1ea3c3ce71b3bc172071f24f4d9a57d59b45037da440",
-    strip_prefix = "abseil-cpp-20240116.0",
-    urls = ["https://github.com/abseil/abseil-cpp/archive/refs/tags/20240116.0.tar.gz"],
+    sha256 = "3c743204df78366ad2eaf236d6631d83f6bc928d1705dd0000b872e53b73dc6a",
+    strip_prefix = "abseil-cpp-20240116.1",
+    urls = ["https://github.com/abseil/abseil-cpp/archive/refs/tags/20240116.1.tar.gz"],
 )
 
 http_archive(

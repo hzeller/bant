@@ -62,7 +62,8 @@ HeaderToTargetMap ExtractHeaderToLibMapping(const ParsedProject &project,
 #ifdef BANT_GTEST_HACK
   // gtest hack (can't glob the headers yet, so manually add these)
   BazelTarget test_target;
-  test_target.package = *BazelPackage::ParseFrom("@com_google_googletest//");
+  test_target.package =
+    *BazelPackage::ParseFrom("@com_google_googletest//");  // NOLINT
   test_target.target_name = "gtest";
   result["gtest/gtest.h"] = test_target;
   result["gmock/gmock.h"] = test_target;

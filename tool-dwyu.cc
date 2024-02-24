@@ -42,11 +42,6 @@
 
 // #define ADD_UNKNOWN_SOURCE_MESSAGE
 
-// gtest_main should never be considered removable. However, depending on
-// if tests were compiled before, we might not even see it in
-// bazel-${project}/external. Figure out where to get a stable list of externals
-#define BANT_GTEST_HACK 1
-
 // Looking for source files directly in the source tree, but if not found
 // in the various locations generated files could be.
 static constexpr std::string_view kSourceLocations[] = {
@@ -54,14 +49,14 @@ static constexpr std::string_view kSourceLocations[] = {
 
 namespace bant {
 namespace {
-// Given the sources, grep for headers it uses and resolve thir defining
+// Given the sources, grep for headers it uses and resolve their defining
 // dependency targets.
 // Report in "all_headers_accounted_for", that we found
 // a library for each of the headers we have seen.
 // This is important as only then we can confidently suggest removals in that
 // target.
 std::set<BazelTarget> TargetsForIncludes(
-  const BazelTarget &target_self, const FileContent &context,
+  const BazelTarget &target_self, const ParsedBuildFile &context,
   const std::vector<std::string_view> &sources,
   const HeaderToTargetMap &header2dep, bool *all_headers_accounted_for,
   std::ostream &info_out) {
@@ -202,11 +197,6 @@ void PrintDependencyEdits(const ParsedProject &project, std::ostream &out,
         }
 
         // Now, if there is still something in the 'needs'-set, suggest adding.
-
-        // We need to suggest where to add. Maybe simply at the begin of the
-        // List, but we don't have that directly. So we look for the first
-        // dependency if there is any and use that as position. Or the
-        // target itself.
         for (const BazelTarget &need_add : targets_needed) {
           out << "buildozer 'add deps "
               << need_add.ToStringRelativeTo(current_package) << "' " << *self

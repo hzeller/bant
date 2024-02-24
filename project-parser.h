@@ -30,11 +30,11 @@
 #include "types-bazel.h"
 
 namespace bant {
-struct FileContent {  // TODO: rename. ParsedBuildFile ?
-  explicit FileContent(std::string_view filename, std::string &&c)
+struct ParsedBuildFile {
+  explicit ParsedBuildFile(std::string_view filename, std::string &&c)
       : filename(filename), content(std::move(c)) {}
-  FileContent(FileContent &&) noexcept = default;
-  FileContent(const FileContent &) = delete;
+  ParsedBuildFile(ParsedBuildFile &&) noexcept = default;
+  ParsedBuildFile(const ParsedBuildFile &) = delete;
 
   // TODO: maybe combine filename, content and line_columns
   std::string filename;
@@ -73,7 +73,7 @@ struct ParsedProject {
   int error_count = 0;
 
   Arena arena{1 << 16};
-  std::map<std::string, FileContent> file_to_ast;
+  std::map<std::string, ParsedBuildFile> file_to_ast;
 };
 
 // Conveenience function to just collect all the BUILD files. Update "stats"

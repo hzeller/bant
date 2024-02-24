@@ -13,6 +13,6 @@ bant_used_stdenv.mkDerivation {
 
       clang-tools_17    # clang-format, clang-tidy
       python39          # make-compilation-db.sh needs that
-      bazel-buildtools  # buildifier
+      bazel-buildtools  # buildifier, buildozer
     ];
 }
