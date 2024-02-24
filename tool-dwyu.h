@@ -18,12 +18,14 @@
 #ifndef BANT_TOOL_DWYU_
 #define BANT_TOOL_DWYU_
 
+#include <functional>
 #include <ostream>
 #include <string>
 #include <string_view>
 #include <vector>
 
 #include "project-parser.h"
+#include "types-bazel.h"
 
 namespace bant {
 
@@ -31,9 +33,29 @@ namespace bant {
 // brackts) from given file. Best effort: may result empty vector.
 std::vector<std::string> ExtractCCIncludes(std::string_view content);
 
-// Look through the sources mentioned in the file
-void PrintDependencyEdits(const ParsedProject &project, std::ostream &out,
-                          std::ostream &info_out);
+// Edit operations on tagets.
+enum class EditRequest {
+  kRemove,
+  kAdd,
+  kRename,
+};
+
+// Request kRemove will have "before" set, kAdd "after, and kRename both.
+using EditCallback = std::function<void(EditRequest,
+                                        const BazelTarget &target,
+                                        std::string_view before,
+                                        std::string_view after)>;
+
+// Look through the sources mentioned in the file, check what they include
+// and determine what dependencies need to be added/remove.
+// Also, if there are some simple corrections that can be made emit these.
+void CreateDependencyEdits(const ParsedProject &project,
+                           std::ostream &info_out,
+                           const EditCallback &emit_deps_edit);
+
+
+void EmitBuildozerDWYUEdits(const ParsedProject &project, std::ostream &out,
+                            std::ostream &info_out);
 
 }  // namespace bant
 

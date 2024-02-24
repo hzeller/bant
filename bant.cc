@@ -117,25 +117,23 @@ int main(int argc, char *argv[]) {
   }
 
   // Rest of the commands need to parse the project.
-  using bant::ParsedProject;
-  using bant::PrintLibraryHeaders;
-  using bant::PrintProject;
-
-  const ParsedProject project = ParsedProject::FromFilesystem(
-    include_external, cmd == Command::kNone ? *primary_output : *info_output);
+  auto &parse_err_out = cmd == Command::kNone ? *primary_output : *info_output;
+  const bant::ParsedProject project = bant::ParsedProject::FromFilesystem(
+    include_external, parse_err_out);
 
   switch (cmd) {
   case Command::kPrint:
-    PrintProject(*primary_output, *info_output, project, print_only_errors);
+    bant::PrintProject(*primary_output, *info_output, project,
+                       print_only_errors);
     break;
   case Command::kLibraryHeaders:  //
-    PrintLibraryHeaders(stdout, project);
+    bant::PrintLibraryHeaders(stdout, project);
     break;
   case Command::kDependencyEdits:
-    PrintDependencyEdits(project, *primary_output, *info_output);
+    bant::EmitBuildozerDWYUEdits(project, *primary_output, *info_output);
     break;
   case Command::kListBazelFiles:  // already handled
-  case Command::kNone:;           // nop
+  case Command::kNone:;           // nop (implicitly done by parsing)
   }
 
   if (verbose) {
