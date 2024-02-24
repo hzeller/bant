@@ -37,6 +37,7 @@ cc_library(
     deps = [
         ":linecolumn-map",
         ":memory",
+        "@com_google_absl//absl/strings",
     ],
 )
 

@@ -21,6 +21,7 @@
 #include <string_view>
 
 #include "linecolumn-map.h"
+#include "absl/strings/ascii.h"
 
 namespace bant {
 std::ostream &operator<<(std::ostream &o, TokenType t) {
@@ -65,24 +66,22 @@ Scanner::Scanner(std::string_view content, LineColumnMap *line_map)
   line_map_->PushNewline(pos_);
 }
 
-Scanner::ContentPointer Scanner::SkipSpace() {
-  bool in_comment = false;
-  while (pos_ < content_.end() &&
-         (isspace(*pos_) || *pos_ == '#' || in_comment)) {
-    if (*pos_ == '#') {
-      in_comment = true;
+inline Scanner::ContentPointer Scanner::SkipSpace() {
+  for (;;) {
+    while (pos_ < content_.end() && absl::ascii_isspace(*pos_)) {
+      ++pos_;
     }
-    if (*pos_ == '\n') {
-      line_map_->PushNewline(pos_ + 1);
-      in_comment = false;
+    if (*pos_ != '#') break;
+    // In comment now. Skip.
+    while (pos_ < content_.end() && *pos_ != '\n') {
+      ++pos_;
     }
-    pos_++;
   }
   return pos_;
 }
 
 static bool IsIdentifierChar(char c) {
-  return isdigit(c) || isalpha(c) || c == '_';
+  return absl::ascii_isdigit(c) || absl::ascii_isalpha(c) || c == '_';
 }
 
 Token Scanner::HandleIdentifierKeywordRawStringOrInvalid() {

@@ -90,7 +90,7 @@ class Scanner {
  private:
   using ContentPointer = std::string_view::const_iterator;
 
-  ContentPointer SkipSpace();
+  inline ContentPointer SkipSpace();
 
   Token HandleNumber();
   Token HandleString(TokenType str_token);  // regular or raw
