@@ -65,15 +65,16 @@ Scanner::Scanner(std::string_view content, LineColumnMap &line_map)
 }
 
 inline Scanner::ContentPointer Scanner::SkipSpace() {
-  for (;;) {
-    while (pos_ < content_.end() && absl::ascii_isspace(*pos_)) {
-      ++pos_;
+  bool in_comment = false;
+  while (pos_ < content_.end() &&
+         (absl::ascii_isspace(*pos_) || *pos_ == '#' || in_comment)) {
+    if (*pos_ == '#') {
+      in_comment = true;
+    } else if (*pos_ == '\n') {
+      line_map_.PushNewline(pos_ + 1);
+      in_comment = false;
     }
-    if (*pos_ != '#') break;
-    // In comment now. Skip.
-    while (pos_ < content_.end() && *pos_ != '\n') {
-      ++pos_;
-    }
+    pos_++;
   }
   return pos_;
 }
