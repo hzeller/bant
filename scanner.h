@@ -43,7 +43,6 @@ enum TokenType : int {
   kIdentifier = 256,
 
   kStringLiteral,
-  kRawStringLiteral,
   kNumberLiteral,
 
   kFor,
@@ -72,7 +71,7 @@ class Scanner {
   // time to determine the position of a Token extractedf from the file.
   // All tokens returned by the Scanner are substrings from the larger
   // content; this keeps correspondence with the original.
-  Scanner(std::string_view content, LineColumnMap *line_map);
+  Scanner(std::string_view content, LineColumnMap &line_map);
 
   // Return next token.
   Token Next();
@@ -85,7 +84,7 @@ class Scanner {
     return upcoming_;
   }
 
-  const LineColumnMap &line_col() const { return *line_map_; }
+  const LineColumnMap &line_col() const { return line_map_; }
 
  private:
   using ContentPointer = std::string_view::const_iterator;
@@ -93,7 +92,7 @@ class Scanner {
   inline ContentPointer SkipSpace();
 
   Token HandleNumber();
-  Token HandleString(TokenType str_token);  // regular or raw
+  Token HandleString();
   Token HandleIdentifierKeywordRawStringOrInvalid();
 
   // Externally owned content.
@@ -104,8 +103,7 @@ class Scanner {
   Token upcoming_;
   bool has_upcoming_ = false;
 
-  // Not owned.
-  LineColumnMap *const line_map_;
+  LineColumnMap &line_map_;
 };
 }  // namespace bant
 #endif  // BANT_SCANNER_H_

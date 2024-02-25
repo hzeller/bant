@@ -83,7 +83,7 @@ static void ParseBuildFiles(const std::vector<fs::path> &build_files,
       parse_result.package.path = TargetPathFromBuildFile(filename);
     }
 
-    Scanner scanner(parse_result.content, &parse_result.line_columns);
+    Scanner scanner(parse_result.content, parse_result.line_columns);
     std::stringstream error_collect;
     Parser parser(&scanner, &result->arena, filename.c_str(), error_collect);
     parse_result.ast = parser.parse();

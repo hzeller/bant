@@ -33,14 +33,14 @@ class ParserTest : public testing::Test {
 
   bant::List *Parse(std::string_view text) {
     LineColumnMap lc;
-    Scanner scanner(text, &lc);
+    Scanner scanner(text, lc);
     Parser parser(&scanner, &arena_, "<text>", std::cerr);
     return parser.parse();
   }
 
   // Some helpers to build ASTs to compre
-  StringScalar *Str(std::string_view s, bool raw = false) {
-    return arena_.New<StringScalar>(s, raw);
+  StringScalar *Str(std::string_view s, bool triple = false, bool raw = false) {
+    return arena_.New<StringScalar>(s, triple, raw);
   }
   IntScalar *Int(int num) { return arena_.New<IntScalar>(num); }
   Identifier *Id(std::string_view i) { return arena_.New<Identifier>(i); }
@@ -90,12 +90,16 @@ class ParserTest : public testing::Test {
 
 TEST_F(ParserTest, Assignments) {
   Node *const expected = List({
-    Assign("foo", Str("regular_string")),
-    Assign("bar", Str("raw_string", true)),
+    Assign("foo", Str("regular_string", false, false)),
+    Assign("bar", Str("raw_string", false, true)),
+    Assign("baz", Str("triple quoted", true, false)),
+    Assign("quux", Str("raw triple quoted", true, true)),
   });
   EXPECT_EQ(Print(expected), Print(Parse(R"(
 foo = "regular_string"
 bar = r"raw_string"
+baz = """triple quoted"""
+quux = R"""raw triple quoted"""
 )")));
 }
 
@@ -184,7 +188,7 @@ baz()
 
 TEST_F(ParserTest, ParseFunctionCall) {
   Node *const expected = List({
-    Call("foo", Tuple({Str("x"), Str("y")})),
+    Call("foo", Tuple({Str("x"), Str("y", true)})),
     List({Call("bar", Tuple({Str("a")}))}),
   });
 

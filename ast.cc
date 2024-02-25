@@ -30,9 +30,16 @@ IntScalar *IntScalar::FromLiteral(Arena *arena, std::string_view literal) {
   return arena->New<IntScalar>(val);
 }
 
-StringScalar *StringScalar::FromLiteral(Arena *arena, std::string_view literal,
-                                        bool is_raw) {
+StringScalar *StringScalar::FromLiteral(Arena *arena,
+                                        std::string_view literal) {
+  bool is_raw = false;
+  bool is_triple_quoted = false;
+  if (literal[0] == 'r' || literal[0] == 'R') {
+    is_raw = true;
+    literal.remove_prefix(1);
+  }
   if (literal.length() >= 6 && literal.substr(0, 3) == "\"\"\"") {
+    is_triple_quoted = true;
     literal = literal.substr(3);
     literal.remove_suffix(3);
   } else {
@@ -44,7 +51,7 @@ StringScalar *StringScalar::FromLiteral(Arena *arena, std::string_view literal,
   // using it might need to unescape it.
   // Within the Scalar, we keep the original string_view so that it is possible
   // to report location using the LineColumnMap.
-  return arena->New<StringScalar>(literal, is_raw);
+  return arena->New<StringScalar>(literal, is_triple_quoted, is_raw);
 }
 
 void PrintVisitor::VisitAssignment(Assignment *a) {
@@ -129,7 +136,9 @@ void PrintVisitor::VisitScalar(Scalar *s) {
     const bool has_any_double_quote =
       str->AsString().find_first_of('"') != std::string_view::npos;
     const char quote_char = has_any_double_quote ? '\'' : '"';
+    if (str->is_triple_quoted()) out_ << quote_char << quote_char;
     out_ << quote_char << str->AsString() << quote_char;
+    if (str->is_triple_quoted()) out_ << quote_char << quote_char;
   }
 }
 

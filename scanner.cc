@@ -20,8 +20,8 @@
 #include <cassert>
 #include <string_view>
 
-#include "linecolumn-map.h"
 #include "absl/strings/ascii.h"
+#include "linecolumn-map.h"
 
 namespace bant {
 std::ostream &operator<<(std::ostream &o, TokenType t) {
@@ -42,7 +42,6 @@ std::ostream &operator<<(std::ostream &o, TokenType t) {
 
   case TokenType::kIdentifier: o << "ident"; break;
   case TokenType::kStringLiteral: o << "string"; break;
-  case TokenType::kRawStringLiteral: o << "rawstring"; break;
   case TokenType::kNumberLiteral: o << "number"; break;
   case TokenType::kFor: o << "for"; break;
   case TokenType::kIn: o << "in"; break;
@@ -59,11 +58,10 @@ std::ostream &operator<<(std::ostream &o, const Token t) {
   return o;
 }
 
-Scanner::Scanner(std::string_view content, LineColumnMap *line_map)
+Scanner::Scanner(std::string_view content, LineColumnMap &line_map)
     : content_(content), pos_(content_.begin()), line_map_(line_map) {
-  assert(line_map_ != nullptr);
-  assert(line_map_->empty());  // Already used ?
-  line_map_->PushNewline(pos_);
+  assert(line_map_.empty());  // Already used ?
+  line_map_.PushNewline(pos_);
 }
 
 inline Scanner::ContentPointer Scanner::SkipSpace() {
@@ -92,8 +90,7 @@ Token Scanner::HandleIdentifierKeywordRawStringOrInvalid() {
   if ((content_.end() - start) > 2 &&          //
       (start[0] == 'r' || start[0] == 'R') &&  //
       (start[1] == '"' || start[1] == '\'')) {
-    ++pos_;
-    return HandleString(TokenType::kRawStringLiteral);
+    return HandleString();
   }
 
   // Digit already ruled out at this point as first character.
@@ -115,9 +112,12 @@ Token Scanner::HandleIdentifierKeywordRawStringOrInvalid() {
   return {TokenType::kIdentifier, text};
 }
 
-Token Scanner::HandleString(TokenType str_token) {
+Token Scanner::HandleString() {
   bool triple_quote = false;
   const ContentPointer start = pos_;
+  if (*pos_ == 'r' || *pos_ == 'R') {
+    ++pos_;
+  }
   const char str_quote = *pos_;
   pos_++;
   if (pos_ + 1 < content_.end() && *pos_ == str_quote &&
@@ -136,7 +136,7 @@ Token Scanner::HandleString(TokenType str_token) {
     }
     last_was_escape = (*pos_ == '\\');
     if (*pos_ == '\n') {
-      line_map_->PushNewline(pos_ + 1);
+      line_map_.PushNewline(pos_ + 1);
     }
     ++pos_;
   }
@@ -144,7 +144,7 @@ Token Scanner::HandleString(TokenType str_token) {
     return {TokenType::kError, {start, (size_t)(pos_ - start)}};
   }
   ++pos_;
-  return {str_token, {start, (size_t)(pos_ - start)}};
+  return {kStringLiteral, {start, (size_t)(pos_ - start)}};
 }
 
 Token Scanner::HandleNumber() {
@@ -204,7 +204,7 @@ Token Scanner::Next() {
   case '9': result = HandleNumber(); break;
 
   case '"':
-  case '\'': result = HandleString(TokenType::kStringLiteral); break;
+  case '\'': result = HandleString(); break;
 
   default: result = HandleIdentifierKeywordRawStringOrInvalid(); break;
   }
