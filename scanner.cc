@@ -32,17 +32,26 @@ std::ostream &operator<<(std::ostream &o, TokenType t) {
   case '}':
   case '[':
   case ']':
+  case '>':
+  case '<':
   case ':':
   case ',':
   case '=':
   case '+':
   case '-':
+  case '*':
+  case '/':
   case '.':
   case '%': o << (char)t; break;
 
+  case TokenType::kEqualityComparison: o << "=="; break;
+  case TokenType::kNotEqual: o << "!="; break;
+  case TokenType::kLessEqual: o << "<="; break;
+  case TokenType::kGreaterEqual: o << ">="; break;
   case TokenType::kIdentifier: o << "ident"; break;
   case TokenType::kStringLiteral: o << "string"; break;
   case TokenType::kNumberLiteral: o << "number"; break;
+  case TokenType::kNot: o << "not"; break;
   case TokenType::kFor: o << "for"; break;
   case TokenType::kIn: o << "in"; break;
   case TokenType::kIf: o << "if"; break;
@@ -105,6 +114,7 @@ Token Scanner::HandleIdentifierKeywordRawStringOrInvalid() {
   const std::string_view text{start, (size_t)(pos_ - start)};
 
   // Keywords, anything else will be an identifier.
+  if (text == "not") return {TokenType::kNot, text};
   if (text == "in") return {TokenType::kIn, text};
   if (text == "for") return {TokenType::kFor, text};
   if (text == "if") return {TokenType::kIf, text};
@@ -164,6 +174,24 @@ Token Scanner::HandleNumber() {
   return {TokenType::kNumberLiteral, {start, (size_t)(pos_ - start)}};
 }
 
+Token Scanner::HandleAssignOrRelational() {
+  const ContentPointer start = pos_;
+  int type = *pos_++;
+  if (pos_ < content_.end() && *pos_ == '=') {
+    type += 256, ++pos_;
+  }
+  return {static_cast<TokenType>(type), {start, (size_t)(pos_ - start)}};
+}
+
+Token Scanner::HandleNotOrNotEquals() {
+  const ContentPointer start = pos_;
+  int type = *pos_++;
+  if (pos_ < content_.end() && *pos_ == '=') {
+    type += 256, ++pos_;
+  }
+  return {static_cast<TokenType>(type), {start, (size_t)(pos_ - start)}};
+}
+
 Token Scanner::Next() {
   if (has_upcoming_) {
     // We were already called in Peek(). Flush that token.
@@ -184,14 +212,21 @@ Token Scanner::Next() {
   case ']':
   case ',':
   case ':':
-  case '=':
   case '+':
   case '-':
+  case '*':
+  case '/':
   case '.':
   case '%':
     result = {/*.type =*/(TokenType)*pos_, /*.text =*/{pos_, 1}};
     ++pos_;
     break;
+
+  case '!': result = HandleNotOrNotEquals(); break;
+
+  case '<':
+  case '>':
+  case '=': result = HandleAssignOrRelational(); break;
 
   case '0':
   case '1':

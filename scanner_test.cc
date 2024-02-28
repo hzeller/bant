@@ -38,6 +38,52 @@ TEST(ScannerTest, UnknownToken) {
   EXPECT_EQ(s.Next().type, TokenType::kEof);
 }
 
+TEST(ScannerTest, SimpleTokens) {
+  struct TestCase {
+    std::string_view input_text;
+    TokenType expected;
+  };
+  TestCase tests[] = {
+    {"(", TokenType::kOpenParen},
+    {")", TokenType::kCloseParen},
+    {"[", TokenType::kOpenSquare},
+    {"]", TokenType::kCloseSquare},
+    {"{", TokenType::kOpenBrace},
+    {"}", TokenType::kCloseBrace},
+    {",", TokenType::kComma},
+    {":", TokenType::kColon},
+    {"+", TokenType::kPlus},
+    {"-", TokenType::kMinus},
+    {"*", TokenType::kMultiply},
+    {"/", TokenType::kDivide},
+    {".", TokenType::kDot},
+    {"%", TokenType::kPercent},
+    {"=", TokenType::kAssign},
+    {"==", TokenType::kEqualityComparison},
+    {"!=", TokenType::kNotEqual},
+    {"<=", TokenType::kLessEqual},
+    {">=", TokenType::kGreaterEqual},
+    {">", TokenType::kGreaterThan},
+    {"<", TokenType::kLessThan},
+    // Identifiers or keywords
+    {"not", TokenType::kNot},
+    {"!", TokenType::kNot},
+    {"for", TokenType::kFor},
+    {"in", TokenType::kIn},
+    {"if", TokenType::kIf},
+    {"else", TokenType::kElse},
+    {"some_random_thing", TokenType::kIdentifier},
+  };
+  for (const TestCase &t : tests) {
+    LineColumnMap lc;
+    Scanner s(t.input_text, lc);
+    const Token tok = s.Next();
+    EXPECT_EQ(tok.type, t.expected);
+    EXPECT_EQ(tok.text, t.input_text);
+    EXPECT_EQ(s.Next().type, TokenType::kEof);
+  }
+}
+
 TEST(ScannerTest, NumberString) {
   LineColumnMap lc;
   Scanner s(R"(42 "hello world")", lc);

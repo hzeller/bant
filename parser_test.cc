@@ -45,7 +45,13 @@ class ParserTest : public testing::Test {
   IntScalar *Int(int num) { return arena_.New<IntScalar>(num); }
   Identifier *Id(std::string_view i) { return arena_.New<Identifier>(i); }
   BinOpNode *Op(char op, Node *a, Node *b) {
+    return Op(static_cast<TokenType>(op), a, b);
+  }
+  BinOpNode *Op(TokenType op, Node *a, Node *b) {
     return arena_.New<BinOpNode>(a, b, op);
+  }
+  UnaryExpr *UnaryOp(TokenType op, Node *n) {
+    return arena_.New<UnaryExpr>(op, n);
   }
   Assignment *Assign(std::string_view id, Node *b) {
     return arena_.New<Assignment>(Id(id), b);
@@ -112,6 +118,37 @@ TEST_F(ParserTest, CallOnString) {
 
   EXPECT_EQ(Print(expected), Print(Parse(R"(
 funcall("Some {} str".format("baz"))
+)")));
+}
+
+TEST_F(ParserTest, SimpleExpressions) {
+  Node *const expected = List({
+    Assign("a", Op('+', Int(40), Int(2))),
+    Assign("b", Op('/', Op('*', Int(30), Int(7)), Int(2))),
+    // note: no proper precedence yet, should be like 'e'
+    Assign("c", Op('/', Op('+', Int(30), Int(7)), Int(2))),
+    Assign("d", Op('/', Op('+', Int(30), Int(7)), Int(2))),
+    Assign("e", Op('+', Int(30), Op('/', Int(7), Int(2)))),
+    Assign("f", UnaryOp(TokenType::kMinus, Int(30))),
+    Assign("g", Op(TokenType::kEqualityComparison, Id("a"), Id("b"))),
+    Assign("h", UnaryOp(TokenType::kNot,
+                        Op(TokenType::kEqualityComparison, Id("a"), Id("b")))),
+    Assign("h1", UnaryOp(TokenType::kNot,
+                         Op(TokenType::kEqualityComparison, Id("a"), Id("b")))),
+    Assign("i", Op(TokenType::kNotEqual, Id("a"), Id("b"))),
+  });
+
+  EXPECT_EQ(Print(expected), Print(Parse(R"(
+a = 40 + 2
+b = 30 * 7 / 2
+c = 30 + 7 / 2
+d = (30 + 7) / 2
+e = 30 + (7 / 2)
+f = -30
+g = a == b
+h = not (a == b)
+h1 = !(a == b)
+i = a != b
 )")));
 }
 

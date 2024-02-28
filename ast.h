@@ -25,6 +25,7 @@
 
 #include "arena-container.h"
 #include "arena.h"
+#include "scanner.h"
 
 namespace bant {
 class Visitor;
@@ -117,6 +118,20 @@ class Identifier : public Node {
   std::string_view id_;
 };
 
+class UnaryExpr : public Node {
+ public:
+  Node *node() { return node_; }
+  TokenType op() const { return op_; }
+
+  void Accept(Visitor *v) final;
+
+ protected:
+  friend class Arena;
+  explicit UnaryExpr(TokenType op, Node *n) : node_(n), op_(op) {}
+  Node *node_;
+  const TokenType op_;
+};
+
 class BinNode : public Node {
  public:
   Node *left() { return left_; }
@@ -132,12 +147,12 @@ class BinNode : public Node {
 class BinOpNode : public BinNode {
  public:
   void Accept(Visitor *v) override;
-  char op() const { return op_; }
+  TokenType op() const { return op_; }
 
  private:
   friend class Arena;
-  BinOpNode(Node *lhs, Node *rhs, char op) : BinNode(lhs, rhs), op_(op) {}
-  const char op_;
+  BinOpNode(Node *lhs, Node *rhs, TokenType op) : BinNode(lhs, rhs), op_(op) {}
+  const TokenType op_;
 };
 
 // List, maps and tuples are all lists.
@@ -233,6 +248,7 @@ class Visitor {
   virtual void VisitFunCall(FunCall *) = 0;
   virtual void VisitList(List *) = 0;
   virtual void VisitBinOpNode(BinOpNode *) = 0;
+  virtual void VisitUnaryExpr(UnaryExpr *) = 0;
   virtual void VisitListComprehension(ListComprehension *) = 0;
   virtual void VisitTernary(Ternary *t) = 0;
 
@@ -256,6 +272,7 @@ class BaseVisitor : public Visitor {
       WalkNonNull(node);
     }
   }
+  void VisitUnaryExpr(UnaryExpr *e) override { WalkNonNull(e->node()); }
   void VisitBinOpNode(BinOpNode *b) override {
     WalkNonNull(b->left());
     WalkNonNull(b->right());
@@ -282,6 +299,7 @@ class PrintVisitor : public BaseVisitor {
   void VisitFunCall(FunCall *f) override;
   void VisitList(List *l) override;
 
+  void VisitUnaryExpr(UnaryExpr *e) override;
   void VisitBinOpNode(BinOpNode *b) override;
   void VisitListComprehension(ListComprehension *lh) override;
   void VisitTernary(Ternary *t) override;
@@ -299,6 +317,7 @@ std::ostream &operator<<(std::ostream &o, Node *n);
 inline void Assignment::Accept(Visitor *v) { v->VisitAssignment(this); }
 inline void FunCall::Accept(Visitor *v) { v->VisitFunCall(this); }
 inline void List::Accept(Visitor *v) { v->VisitList(this); }
+inline void UnaryExpr::Accept(Visitor *v) { v->VisitUnaryExpr(this); }
 inline void BinOpNode::Accept(Visitor *v) { v->VisitBinOpNode(this); }
 inline void ListComprehension::Accept(Visitor *v) {
   v->VisitListComprehension(this);

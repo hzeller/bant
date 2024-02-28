@@ -96,6 +96,12 @@ void PrintVisitor::VisitList(List *l) {
   }
 }
 
+void PrintVisitor::VisitUnaryExpr(UnaryExpr *e) {
+  out_ << e->op();
+  if (e->op() == TokenType::kNot) out_ << " ";
+  WalkNonNull(e->node());
+}
+
 void PrintVisitor::VisitBinOpNode(BinOpNode *b) {
   WalkNonNull(b->left());
   if (b->op() == '.') {

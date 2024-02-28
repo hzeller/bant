@@ -28,7 +28,6 @@ enum TokenType : int {
   // As-is tokens
   kOpenParen = '(',
   kCloseParen = ')',
-  kEquals = '=',
   kOpenSquare = '[',
   kCloseSquare = ']',
   kOpenBrace = '{',
@@ -37,10 +36,23 @@ enum TokenType : int {
   kColon = ':',
   kPlus = '+',
   kMinus = '-',
+  kMultiply = '*',
+  kDivide = '/',
   kDot = '.',
   kPercent = '%',
 
-  kIdentifier = 256,
+  kAssign = '=',
+  kLessThan = '<',
+  kGreaterThan = '>',
+  kNot = '!',
+
+  // Relational operators with two characters. Needs to be above char range
+  kEqualityComparison = '=' + 256,  // '=='
+  kNotEqual = '!' + 256,            // '!='
+  kLessEqual = '<' + 256,           // '<='
+  kGreaterEqual = '>' + 256,        // '>='
+
+  kIdentifier,
 
   kStringLiteral,
   kNumberLiteral,
@@ -94,6 +106,8 @@ class Scanner {
   Token HandleNumber();
   Token HandleString();
   Token HandleIdentifierKeywordRawStringOrInvalid();
+  Token HandleAssignOrRelational();
+  Token HandleNotOrNotEquals();
 
   // Externally owned content.
   const std::string_view content_;

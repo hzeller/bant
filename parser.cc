@@ -93,7 +93,7 @@ class Parser::Impl {
       // Got identifier, next step: either function call or assignment.
       auto after_id = scanner_->Next();
       switch (after_id.type) {
-      case TokenType::kEquals:
+      case TokenType::kAssign:
         statement_list->Append(node_arena_,
                                ParseAssignmentRhs(Make<Identifier>(tok.text)));
         break;
@@ -102,8 +102,8 @@ class Parser::Impl {
         break;
       case TokenType::kDot:
         statement_list->Append(
-          node_arena_,
-          Make<BinOpNode>(Make<Identifier>(tok.text), ParseExpression(), '.'));
+          node_arena_, Make<BinOpNode>(Make<Identifier>(tok.text),
+                                       ParseExpression(), TokenType::kDot));
         break;
       default:
         ErrAt(after_id) << "expected `(` or `=`\n";
@@ -159,7 +159,7 @@ class Parser::Impl {
     return value;
   }
 
-  Node *ParseValue(bool can_be_optional) {
+  Node *ParseValueOrIdentifier(bool can_be_optional) {
     LOG_ENTER();
     Token t = scanner_->Next();
     switch (t.type) {
@@ -202,10 +202,16 @@ class Parser::Impl {
   Node *ParseExpression(bool can_be_optional = false) {
     LOG_ENTER();
     Node *n;
-    if (scanner_->Peek().type == '(') {
-      n = ParseParenExpressionOrTuple();
-    } else {
-      n = ParseValue(can_be_optional);
+
+    switch (scanner_->Peek().type) {
+    case '-':
+    case TokenType::kNot: {
+      Token tok = scanner_->Next();
+      n = Make<UnaryExpr>(tok.type, ParseExpression(can_be_optional));
+      break;
+    }
+    case '(': n = ParseParenExpressionOrTuple(); break;
+    default: n = ParseValueOrIdentifier(can_be_optional);
     }
     if (n == nullptr) return n;
 
@@ -214,14 +220,26 @@ class Parser::Impl {
       return ParseIfElse(n);
     }
 
-    if (upcoming.type == '+' || upcoming.type == '-' ||  // Arith
-        upcoming.type == '.' ||                          // scoped invocation
-        upcoming.type == '%') {                          // format expr.
+    // TODO: properly handle precdence. Needed once we actually do
+    // expression eval. For now: just accept language.
+    switch (upcoming.type) {
+    case '+':  // Arithmeteic
+    case '-':
+    case '*':
+    case '/':
+    case TokenType::kLessThan:  // Relational
+    case TokenType::kLessEqual:
+    case TokenType::kEqualityComparison:
+    case TokenType::kGreaterEqual:
+    case TokenType::kGreaterThan:
+    case TokenType::kNotEqual:
+    case '.':    // scoped invocation
+    case '%': {  // format expr.
       Token op = scanner_->Next();
       return Make<BinOpNode>(n, ParseExpression(), op.type);
     }
-
-    return n;
+    default: return n;
+    }
   }
 
   Node *ParseParenExpressionOrTuple() {
@@ -291,7 +309,7 @@ class Parser::Impl {
       ErrAt(p) << "expected `:` in map-tuple\n";
       return nullptr;
     }
-    return Make<BinOpNode>(lhs, ParseExpression(), ':');
+    return Make<BinOpNode>(lhs, ParseExpression(), TokenType::kColon);
   }
 
   Node *ParseArrayOrListComprehension() {
