@@ -33,7 +33,7 @@ static int sNodeNum = 0;
 static int sIndent = 0;
 class NestingLogger {
 public:
-  NestingLogger(const char *fun, const Token &tok) {
+  NestingLogger(const char *fun, const bant::Token &tok) {
     ++sNodeNum;
     ++sIndent;
     std::cerr << sNodeNum << std::string(2 * sIndent, '.') << fun
@@ -161,23 +161,31 @@ class Parser::Impl {
 
   Node *ParseValueOrIdentifier(bool can_be_optional) {
     LOG_ENTER();
-    Token t = scanner_->Next();
+    Token t = scanner_->Peek();
     switch (t.type) {
     case TokenType::kStringLiteral:
+      scanner_->Next();
       return StringScalar::FromLiteral(node_arena_, t.text);
-    case TokenType::kNumberLiteral: return ParseIntFromToken(t);
+    case TokenType::kNumberLiteral:
+      scanner_->Next();
+      return ParseIntFromToken(t);
     case TokenType::kIdentifier:
+      scanner_->Next();
       if (scanner_->Peek().type == '(') {
         scanner_->Next();
         return ParseFunCall(t);
       }
       return Make<Identifier>(t.text);
-    case TokenType::kOpenSquare: return ParseArrayOrListComprehension();
+    case TokenType::kOpenSquare:
+      scanner_->Next();
+      return ParseArrayOrListComprehension();
     case TokenType::kOpenBrace:
+      scanner_->Next();
       return ParseList(
         Make<List>(List::Type::kMap), [&]() { return ParseMapTuple(); },
         TokenType::kCloseBrace);
     default:  //
+      // Leaving the token in the scanner.
       if (!can_be_optional) {
         ErrAt(t) << "expected value of sorts\n";
       }
@@ -199,6 +207,36 @@ class Parser::Impl {
     return Make<Ternary>(condition, if_branch, else_branch);
   }
 
+  Node *ParseArrayAccess() {
+    LOG_ENTER();
+    // Already seen '['
+    // array_access = expression ']'
+    //              | expression ':' expression ']'
+    Node *n = ParseExpression(/*can_be_optional=*/true);
+    const Token separator_or_end = scanner_->Next();
+    switch (separator_or_end.type) {
+    case ']': {
+      if (!n) ErrAt(separator_or_end) << "Can not have an empty array access";
+      return n;
+    }
+    case ':': {
+      Node *rhs = ParseExpression(/*can_be_optional=*/true);
+      const Token end = scanner_->Next();
+      if (end.type != ']') {
+        ErrAt(end) << "Expected closing ']' of array access\n";
+        return nullptr;
+      }
+      if (n == nullptr && rhs == nullptr) {
+        ErrAt(end)
+          << "Expected at least one valid expression before or after the ':'\n";
+        return nullptr;
+      }
+      return Make<BinOpNode>(n, rhs, TokenType::kColon);
+    }
+    default: ErrAt(separator_or_end) << "Expected ':' or ']'\n"; return nullptr;
+    }
+  }
+
   Node *ParseExpression(bool can_be_optional = false) {
     LOG_ENTER();
     Node *n;
@@ -215,30 +253,49 @@ class Parser::Impl {
     }
     if (n == nullptr) return n;
 
-    const Token upcoming = scanner_->Peek();
-    if (upcoming.type == TokenType::kIf) {
-      return ParseIfElse(n);
-    }
+    for (;;) {  // The array access is the only one who can continue.
+      const Token upcoming = scanner_->Peek();
+      if (upcoming.type == TokenType::kIf) {
+        return ParseIfElse(n);
+      }
 
-    // TODO: properly handle precdence. Needed once we actually do
-    // expression eval. For now: just accept language.
-    switch (upcoming.type) {
-    case '+':  // Arithmeteic
-    case '-':
-    case '*':
-    case '/':
-    case TokenType::kLessThan:  // Relational
-    case TokenType::kLessEqual:
-    case TokenType::kEqualityComparison:
-    case TokenType::kGreaterEqual:
-    case TokenType::kGreaterThan:
-    case TokenType::kNotEqual:
-    case '.':    // scoped invocation
-    case '%': {  // format expr.
-      Token op = scanner_->Next();
-      return Make<BinOpNode>(n, ParseExpression(), op.type);
-    }
-    default: return n;
+      // TODO: properly handle precdence. Needed once we actually do
+      // expression eval. For now: just accept language.
+      switch (upcoming.type) {
+      case '+':  // Arithmeteic
+      case '-':
+      case '*':
+      case '/':
+      case TokenType::kLessThan:  // Relational
+      case TokenType::kLessEqual:
+      case TokenType::kEqualityComparison:
+      case TokenType::kGreaterEqual:
+      case TokenType::kGreaterThan:
+      case TokenType::kNotEqual:
+      case '.':    // scoped invocation
+      case '%': {  // format expr.
+        Token op = scanner_->Next();
+        return Make<BinOpNode>(n, ParseExpression(), op.type);
+      }
+      case '[': {
+        BinOpNode *const lhs_bin = n->CastAsBinOp();
+        if (lhs_bin == nullptr && n->CastAsIdentifier() == nullptr) {
+          return n;
+        }
+        // This is a bit handwavy. Looks like we should take newlines
+        // into account for breaking an expression ?
+        if (lhs_bin != nullptr && lhs_bin->op() != '[') {
+          ErrAt(scanner_->Peek())
+            << "Expected Identifier or array access left of array access\n";
+          return nullptr;
+        }
+        Token op = scanner_->Next(); // '[' operation.
+        n = Make<BinOpNode>(n, ParseArrayAccess(), op.type);
+        // This was a suffix expression, don't return, continue
+        break;
+      }
+      default: return n;
+      }
     }
   }
 
@@ -256,6 +313,10 @@ class Parser::Impl {
     // After the first comma we expect this to be a tuple
     List *tuple = Make<List>(List::kTuple);
     if (!exp) {
+      p = scanner_->Next();
+      if (p.type != ')') {
+        ErrAt(p) << "This looks like an empty tuple, but ')' is missing\n";
+      }
       return tuple;
     }
     tuple->Append(node_arena_, exp);

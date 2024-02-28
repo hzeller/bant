@@ -32,6 +32,7 @@ class Visitor;
 class Identifier;
 class Scalar;
 class List;
+class BinOpNode;
 
 // Constructors are not public, only accessible via Arena. Use Arena::New()
 // for all nodes.
@@ -47,6 +48,7 @@ class Node {
   virtual Identifier *CastAsIdentifier() { return nullptr; }
   virtual Scalar *CastAsScalar() { return nullptr; }
   virtual List *CastAsList() { return nullptr; }
+  virtual BinOpNode *CastAsBinOp() { return nullptr; }
 };
 
 class Scalar : public Node {
@@ -143,11 +145,14 @@ class BinNode : public Node {
   Node *right_;
 };
 
-// Few binops currently: '+', '-', ':' (mapping op), '.' (scoped call)
+// Few binops currently: '+', '-', ':' (mapping op), '.' (scoped call),
+// '[' array access.
 class BinOpNode : public BinNode {
  public:
   void Accept(Visitor *v) override;
   TokenType op() const { return op_; }
+
+  BinOpNode *CastAsBinOp() final { return this; }
 
  private:
   friend class Arena;

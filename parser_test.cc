@@ -152,6 +152,35 @@ i = a != b
 )")));
 }
 
+TEST_F(ParserTest, ArrayAccess) {
+  Node *const expected = List({
+    Assign("a", Op('[', Id("x"), Int(42))),
+    Assign("b", Op('[', Id("x"), Op(':', Int(1), Int(2)))),
+    Assign("c", Op('[', Id("x"), Op(':', Int(1), nullptr))),
+    Assign("d", Op('[', Id("x"), Op(':', nullptr, Int(2)))),
+    Assign("e", Op('[', Op('[', Id("x"), Int(42)), Int(17))),
+  });
+
+  EXPECT_EQ(Print(expected), Print(Parse(R"(
+a = x[42]
+b = x[1:2]
+c = x[1:]
+d = x[:2]
+e = x[42][17]
+)")));
+}
+
+TEST_F(ParserTest, ListComprehensionAfterExpressionIsNotAnArrayAccess) {
+  Node *const expected = List({ //
+      Assign("a", Op('+', Int(42), Int(8))),
+      ListComprehension(Tuple({Id("a")}), List({Id("f")}), List({Int(27)})),
+    });
+  EXPECT_EQ(Print(expected), Print(Parse(R"(
+a = 42 + 8  # Binop followed by '[' should trigger an issue, but it works ?
+[ (a,) for f in [27]]
+)")));
+}
+
 TEST_F(ParserTest, ParenthizedExpressions) {
   Node *const expected = List({
     Assign("foo", Op('+', Str("a"), Str("b"))),
@@ -183,8 +212,9 @@ TEST_F(ParserTest, TupleExpressions) {
     Assign("empty", Tuple({})),
     Assign("foo", Tuple({Str("a"), Str("b"), Str("c")})),
     Assign("bar", Tuple({Str("a"), Str("b")})),
-    Assign("baz", Tuple({Str("a")})), Assign("qux", Str("a")),
-    Assign("buz", Tuple({Str("a")})),  // like baz
+    Assign("baz", Tuple({Str("a")})),  // Tuple with one element
+    Assign("qux", Str("a")),           // Just a parenthized expression.
+    Assign("buz", Tuple({Str("a")})),  // Parenthized tuple; otherwise like baz
   });
 
   EXPECT_EQ(Print(expected), Print(Parse(R"(

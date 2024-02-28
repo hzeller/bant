@@ -110,6 +110,9 @@ void PrintVisitor::VisitBinOpNode(BinOpNode *b) {
     out_ << " " << b->op() << " ";
   }
   WalkNonNull(b->right());
+  if (b->op() == '[') {  // Array access is a BinOp with '[' as op.
+    out_ << "]";
+  }
 }
 
 void PrintVisitor::VisitListComprehension(ListComprehension *lh) {
