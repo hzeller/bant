@@ -121,6 +121,20 @@ TEST(ScannerTest, StringLiteral) {
     EXPECT_EQ(s.Next(), Token({TokenType::kEof, ""}));
   }
 
+  {
+    LineColumnMap lc;
+    Scanner s(R"("\\")", lc);
+    EXPECT_EQ(s.Next(), Token({TokenType::kStringLiteral, R"("\\")"}));
+    EXPECT_EQ(s.Next(), Token({TokenType::kEof, ""}));
+  }
+
+  {
+    LineColumnMap lc;
+    Scanner s(R"("\\\\")", lc);
+    EXPECT_EQ(s.Next(), Token({TokenType::kStringLiteral, R"("\\\\")"}));
+    EXPECT_EQ(s.Next(), Token({TokenType::kEof, ""}));
+  }
+
   {  // long string literals
     LineColumnMap lc;
     Scanner s(R"("""hello "" world""")", lc);

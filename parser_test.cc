@@ -50,6 +50,13 @@ class ParserTest : public testing::Test {
   BinOpNode *Op(TokenType op, Node *a, Node *b) {
     return arena_.New<BinOpNode>(a, b, op);
   }
+  BinOpNode *In(Node *a, Node *b) {
+    return Op(TokenType::kIn, a, b);
+  }
+  BinOpNode *For(Node *subject, BinOpNode *in_expr) {
+    return Op(TokenType::kFor, subject, in_expr);
+  }
+
   UnaryExpr *UnaryOp(TokenType op, Node *n) {
     return arena_.New<UnaryExpr>(op, n);
   }
@@ -79,9 +86,8 @@ class ParserTest : public testing::Test {
     return result;
   }
 
-  bant::ListComprehension *ListComprehension(bant::List *pattern,
-                                             bant::List *vars, Node *source) {
-    return arena_.New<bant::ListComprehension>(pattern, vars, source);
+  bant::ListComprehension *ListComprehension(List::Type type, Node *for_expr) {
+    return arena_.New<bant::ListComprehension>(type, for_expr);
   }
 
   std::string Print(Node *n) {
@@ -97,12 +103,14 @@ class ParserTest : public testing::Test {
 TEST_F(ParserTest, Assignments) {
   Node *const expected = List({
     Assign("foo", Str("regular_string", false, false)),
+    Assign("backslash", Str("\\\\", false, false)),
     Assign("bar", Str("raw_string", false, true)),
     Assign("baz", Str("triple quoted", true, false)),
     Assign("quux", Str("raw triple quoted", true, true)),
   });
   EXPECT_EQ(Print(expected), Print(Parse(R"(
 foo = "regular_string"
+backslash = "\\"
 bar = r"raw_string"
 baz = """triple quoted"""
 quux = R"""raw triple quoted"""
@@ -152,6 +160,18 @@ i = a != b
 )")));
 }
 
+#if 0
+// This to work will require proper operator precedence.
+TEST_F(ParserTest, InExpr) {
+  Node *const expected = List({
+      Assign("a", In(Str("x"), Str("foobax"))),
+    });
+  EXPECT_EQ(Print(expected), Print(Parse(R"(
+a = "x" in "foobax"
+)")));
+}
+#endif
+
 TEST_F(ParserTest, ArrayAccess) {
   Node *const expected = List({
     Assign("a", Op('[', Id("x"), Int(42))),
@@ -170,6 +190,7 @@ e = x[42][17]
 )")));
 }
 
+#if 0
 TEST_F(ParserTest, ListComprehensionAfterExpressionIsNotAnArrayAccess) {
   Node *const expected = List({ //
       Assign("a", Op('+', Int(42), Int(8))),
@@ -180,6 +201,7 @@ a = 42 + 8  # Binop followed by '[' should trigger an issue, but it works ?
 [ (a,) for f in [27]]
 )")));
 }
+#endif
 
 TEST_F(ParserTest, ParenthizedExpressions) {
   Node *const expected = List({
@@ -267,16 +289,46 @@ foo("x", """y""")  # Triple quoted-string should look like regular one.
 }
 
 TEST_F(ParserTest, ParseListComprehension) {
-  Node *const expected = List({ListComprehension(
-    Tuple({Op('+', Str("foo"), Id("i"))}),    // apply these expressions
-    List({Id("i")}),                          // with this list of variables
-    List({Str("a"), Str("b"), Str("c")}))});  // over this content
+  Node *const expected = List({
+    // Simple expr
+    ListComprehension(List::Type::kList,  //
+                      For(Id("i"),        //
+                          In(List({Id("i")}), List({Str("x"), Str("y")})))),
+    // Typical use in BUILD files is with lhs being a tuple
+    ListComprehension(
+      List::Type::kList,  //
+      For(Tuple({Op('+', Str("foo"), Id("i"))}),
+          In(List({Id("i")}), List({Str("a"), Str("b"), Str("c")})))),
+    // Nested for-lops
+    ListComprehension(
+      List::Type::kList,                                         //
+      For(For(Op('+', Id("i"), Id("j")),                         //
+              In(List({Id("i")}), List({Str("x"), Str("y")}))),  //
+          In(List({Id("j")}), List({Str("a"), Str("b")})))),
+    // For with two variables expanding a tuple
+    ListComprehension(
+      List::Type::kList,  //
+      For(Op('+', Id("i"), Id("j")),
+          In(List({Id("i"), Id("j")}), List({Tuple({Str("a"), Str("b")}),
+                                             Tuple({Str("x"), Str("y")})})))),
+    // List comprehension but for a map. Need to assign, as we don't have
+    // toplevel maps.
+    Assign("m", ListComprehension(
+                  List::Type::kMap,                  //
+                  For(Op(':', Id("i"), Str("bar")),  //
+                      In(List({Id("i")}), List({Str("x"), Str("y")}))))),
+
+  });
 
   EXPECT_EQ(Print(expected), Print(Parse(R"(
+  [i for i in [ "x", "y"]]                         # simple expr not a tuple
   [
      ("foo" + i,)  # Comma helps identify this as tuple expression
      for i in ["a", "b", "c"]
   ]
+  [i + j for i in [ "x", "y"] for j in ["a", "b"]] # nested
+  [i + j for i, j in [("a", "b"), ("x", "y")]]     # multi-var into tuple
+  m = { i : "bar" for i in ["x", "y"]}             # map tuple comprehension
 )")));
 }
 

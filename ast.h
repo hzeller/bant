@@ -145,8 +145,13 @@ class BinNode : public Node {
   Node *right_;
 };
 
-// Few binops currently: '+', '-', ':' (mapping op), '.' (scoped call),
-// '[' array access.
+// Generally some tree element that takes two nodes
+// Arithmetic: '+', '-', '*', '/'
+// Comparison: '==', '!=', '<', '<=', '>', '>='
+// Special: ':' (mapping), '.' (scoped call),
+//          'for' (in list comprehension), 'in' (operator and in for loop)
+//          '[' Array access.
+// Operator is just the corresponding Token.
 class BinOpNode : public BinNode {
  public:
   void Accept(Visitor *v) override;
@@ -163,7 +168,7 @@ class BinOpNode : public BinNode {
 // List, maps and tuples are all lists.
 class List : public Node {
  public:
-  enum Type { kList, kMap, kTuple };
+  enum class Type { kList, kMap, kTuple };
 
   Type type() const { return type_; }
   size_t size() const { return list_.size(); }
@@ -183,21 +188,24 @@ class List : public Node {
   ArenaDeque<Node *> list_;
 };
 
+// List comprehension for the given type (not only List, but also Map or tuple)
 class ListComprehension : public Node {
  public:
-  ListComprehension(Node *pattern, List *variable_list, Node *source)
-      : pattern_(pattern), variable_list_(variable_list), source_(source) {}
-
-  Node *pattern() { return pattern_; }
-  List *variable_list() { return variable_list_; }
-  Node *source() { return source_; }
+  BinOpNode *for_node() { return for_node_; }
+  List::Type type() const { return type_; }
 
   void Accept(Visitor *v) override;
 
  private:
-  Node *pattern_;
-  List *variable_list_;
-  Node *source_;
+  friend class Arena;
+  ListComprehension(List::Type type, Node *for_node)
+      : type_(type), for_node_(for_node->CastAsBinOp()) {
+    assert(for_node_ != nullptr);
+    assert(for_node_->op() == TokenType::kFor);
+  }
+
+  List::Type type_;
+  BinOpNode *for_node_;
 };
 
 class Ternary : public Node {
@@ -283,9 +291,7 @@ class BaseVisitor : public Visitor {
     WalkNonNull(b->right());
   }
   void VisitListComprehension(ListComprehension *lh) override {
-    WalkNonNull(lh->pattern());
-    WalkNonNull(lh->variable_list());
-    WalkNonNull(lh->source());
+    WalkNonNull(lh->for_node());
   }
   void VisitTernary(Ternary *t) override {
     WalkNonNull(t->condition());

@@ -145,7 +145,8 @@ Token Scanner::HandleString() {
     } else {
       close_quote_count = triple_quote ? 3 : 1;
     }
-    last_was_escape = (*pos_ == '\\');
+    // Double \\ will cancel escape.
+    last_was_escape = (*pos_ == '\\' && !last_was_escape);
     if (*pos_ == '\n') {
       line_map_.PushNewline(pos_ + 1);
     }

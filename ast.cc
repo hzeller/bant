@@ -65,13 +65,24 @@ void PrintVisitor::VisitFunCall(FunCall *f) {
   out_ << "\n" << std::string(indent_, ' ');
 }
 
+static void PrintListTypeOpen(List::Type t, std::ostream &out) {
+  switch (t) {
+  case List::Type::kList: out << "["; break;
+  case List::Type::kMap: out << "{"; break;
+  case List::Type::kTuple: out << "("; break;
+  }
+}
+static void PrintListTypeClose(List::Type t, std::ostream &out) {
+  switch (t) {
+  case List::Type::kList: out << "]"; break;
+  case List::Type::kMap: out << "}"; break;
+  case List::Type::kTuple: out << ")"; break;
+  }
+}
+
 void PrintVisitor::VisitList(List *l) {
   static constexpr int kIndentSpaces = 4;
-  switch (l->type()) {
-  case List::Type::kList: out_ << "["; break;
-  case List::Type::kMap: out_ << "{"; break;
-  case List::Type::kTuple: out_ << "("; break;
-  }
+  PrintListTypeOpen(l->type(), out_);
   const bool needs_multiline = (l->size() > 1);
   if (needs_multiline) out_ << "\n";
   indent_ += kIndentSpaces;
@@ -88,12 +99,7 @@ void PrintVisitor::VisitList(List *l) {
   if (needs_multiline) {
     out_ << "\n" << std::string(indent_, ' ');
   }
-
-  switch (l->type()) {
-  case List::Type::kList: out_ << "]"; break;
-  case List::Type::kMap: out_ << "}"; break;
-  case List::Type::kTuple: out_ << ")"; break;
-  }
+  PrintListTypeClose(l->type(), out_);
 }
 
 void PrintVisitor::VisitUnaryExpr(UnaryExpr *e) {
@@ -116,13 +122,9 @@ void PrintVisitor::VisitBinOpNode(BinOpNode *b) {
 }
 
 void PrintVisitor::VisitListComprehension(ListComprehension *lh) {
-  out_ << "[\n";
-  WalkNonNull(lh->pattern());
-  out_ << "\n" << std::string(indent_, ' ') << "for ";
-  WalkNonNull(lh->variable_list());
-  out_ << "\n" << std::string(indent_, ' ') << "in ";
-  WalkNonNull(lh->source());
-  out_ << "\n]";
+  PrintListTypeOpen(lh->type(), out_);
+  WalkNonNull(lh->for_node());
+  PrintListTypeClose(lh->type(), out_);
 }
 
 void PrintVisitor::VisitTernary(Ternary *t) {
