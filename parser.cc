@@ -348,26 +348,11 @@ class Parser::Impl {
 
   BinOpNode *ParseMapTuple() {
     LOG_ENTER();
-    Token p = scanner_->Next();
-    Node *lhs;
-    switch (p.type) {
-    case kStringLiteral:
-      lhs = StringScalar::FromLiteral(node_arena_, p.text);
-      break;
-    case kNumberLiteral:  //
-      lhs = ParseIntFromToken(p);
-      break;
-    case kIdentifier:  //
-      lhs = Make<Identifier>(p.text);
-      break;
-    default:  //
-      ErrAt(p) << "expected literal value or identifier as map key\n";
-      return nullptr;
-    }
+    Node *lhs = ParseExpression();
 
-    p = scanner_->Next();
-    if (p.type != ':') {
-      ErrAt(p) << "expected `:` in map-tuple\n";
+    Token separator = scanner_->Next();
+    if (separator.type != ':') {
+      ErrAt(separator) << "expected `:` in map-tuple\n";
       return nullptr;
     }
     return Make<BinOpNode>(lhs, ParseExpression(), TokenType::kColon);
