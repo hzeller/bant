@@ -21,7 +21,7 @@
 #include <ostream>
 #include <string_view>
 
-#include "linecolumn-map.h"
+#include "bant/frontend/linecolumn-map.h"
 
 namespace bant {
 enum TokenType : int {

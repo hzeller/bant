@@ -45,7 +45,7 @@ Early Stages. WIP.
 Synopsis:
 
 ```
-Usage: bazel-bin/bant [options]
+Usage: bazel-bin/bant/bant [options]
 Options
         -C<directory>  : Project base directory (default: current dir = '.')
         -x             : Do not read BUILD files of eXternal projects.

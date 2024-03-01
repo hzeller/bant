@@ -26,9 +26,9 @@
 #include <vector>
 
 #include "absl/time/time.h"
-#include "ast.h"
-#include "linecolumn-map.h"
-#include "types-bazel.h"
+#include "bant/frontend/ast.h"
+#include "bant/frontend/linecolumn-map.h"
+#include "bant/types-bazel.h"
 
 namespace bant {
 struct ParsedBuildFile {

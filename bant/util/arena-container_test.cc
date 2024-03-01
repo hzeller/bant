@@ -15,30 +15,27 @@
 // with this program; if not, write to the Free Software Foundation, Inc.,
 // 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 
-#include "tool-dwyu.h"
+#include "bant/util/arena-container.h"
 
-#include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
-using ::testing::ElementsAre;
-
 namespace bant {
-// TODO: need some bant-nolint to not stumble upon the following includes :)
-TEST(DWYUTest, HeaderFilesAreExtracted) {
-  constexpr std::string_view kTestContent = R"(
-/* some ignored text */
-#include "CaSe-dash_underscore.h"
-#include <should_not_be_extracted>
-// #include "also-not-extracted.h"
-   #include "but-this.h"
-#include "with/suffix.hh"      // other ..
-#include "with/suffix.inc"     // .. common suffices
-#include    "w/space.h"        // even strange spacing should work
-#include /* foo */ "this-is-silly.h"  // Some things are too far :)
-)";
-  std::vector<std::string> headers = ExtractCCIncludes(kTestContent);
-  EXPECT_THAT(headers,
-              ElementsAre("CaSe-dash_underscore.h", "but-this.h",
-                          "with/suffix.hh", "with/suffix.inc", "w/space.h"));
+TEST(ArenaDeque, SimpleOps) {
+  Arena a(1024);
+  ArenaDeque<int, 3, 96> container;  // deliberately funky min..max
+
+  // Make sure that multiple crossings of block-boundaries work well.
+  for (int i = 0; i < 300; ++i) {
+    container.Append(i, &a);
+    int count = 0;
+    for (int value : container) {
+      EXPECT_EQ(value, count);
+      count++;
+    }
+
+    for (int j = 0; j < i; ++j) {
+      EXPECT_EQ(container[j], j);
+    }
+  }
 }
 }  // namespace bant

@@ -15,15 +15,15 @@
 // with this program; if not, write to the Free Software Foundation, Inc.,
 // 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 
-#include "tool-header-providers.h"
+#include "bant/tool/header-providers.h"
 
 #include <functional>
 #include <string_view>
 
-#include "ast.h"
-#include "project-parser.h"
-#include "query-utils.h"
-#include "types-bazel.h"
+#include "bant/frontend/ast.h"
+#include "bant/frontend/project-parser.h"
+#include "bant/types-bazel.h"
+#include "bant/util/query-utils.h"
 
 #define BANT_GTEST_HACK 1
 

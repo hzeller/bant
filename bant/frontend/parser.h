@@ -21,9 +21,9 @@
 #include <memory>
 #include <ostream>
 
-#include "arena.h"
-#include "ast.h"
-#include "scanner.h"
+#include "bant/frontend/ast.h"
+#include "bant/frontend/scanner.h"
+#include "bant/util/arena.h"
 
 namespace bant {
 class Parser {

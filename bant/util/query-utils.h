@@ -21,7 +21,7 @@
 #include <functional>
 #include <string_view>
 
-#include "ast.h"
+#include "bant/frontend/ast.h"
 
 namespace bant {
 namespace query {

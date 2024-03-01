@@ -23,9 +23,9 @@
 #include <ostream>
 #include <string_view>
 
-#include "arena-container.h"
-#include "arena.h"
-#include "scanner.h"
+#include "bant/frontend/scanner.h"
+#include "bant/util/arena-container.h"
+#include "bant/util/arena.h"
 
 namespace bant {
 class Visitor;

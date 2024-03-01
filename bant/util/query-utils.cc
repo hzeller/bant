@@ -15,12 +15,12 @@
 // with this program; if not, write to the Free Software Foundation, Inc.,
 // 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 
-#include "query-utils.h"
+#include "bant/util/query-utils.h"
 
 #include <initializer_list>
 
 #include "absl/container/flat_hash_set.h"
-#include "ast.h"
+#include "bant/frontend/ast.h"
 
 namespace bant {
 namespace query {

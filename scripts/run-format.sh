@@ -1,4 +1,4 @@
 #!/usr/bin/env bash
 
-clang-format -i *.h *.cc
-buildifier -lint=fix BUILD
+clang-format -i $(find . -name "*.h" -o -name "*.cc")
+buildifier -lint=fix $(find . -name BUILD)

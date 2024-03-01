@@ -15,7 +15,7 @@
 // with this program; if not, write to the Free Software Foundation, Inc.,
 // 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 
-#include "project-parser.h"
+#include "bant/frontend/project-parser.h"
 
 #include <filesystem>
 #include <optional>
@@ -26,8 +26,8 @@
 #include "absl/strings/str_format.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
-#include "file-utils.h"
-#include "parser.h"
+#include "bant/frontend/parser.h"
+#include "bant/util/file-utils.h"
 
 namespace fs = std::filesystem;
 

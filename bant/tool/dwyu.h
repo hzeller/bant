@@ -24,8 +24,8 @@
 #include <string_view>
 #include <vector>
 
-#include "project-parser.h"
-#include "types-bazel.h"
+#include "bant/frontend/project-parser.h"
+#include "bant/types-bazel.h"
 
 namespace bant {
 

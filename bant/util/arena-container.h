@@ -23,7 +23,7 @@
 #include <cassert>
 #include <cstdint>
 
-#include "arena.h"
+#include "bant/util/arena.h"
 
 namespace bant {
 // Expected to be allocated in itself in an Arena.

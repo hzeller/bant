@@ -15,7 +15,7 @@
 // with this program; if not, write to the Free Software Foundation, Inc.,
 // 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 
-#include "scanner.h"
+#include "bant/frontend/scanner.h"
 
 #include "gtest/gtest.h"
 

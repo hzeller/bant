@@ -15,15 +15,15 @@
 // with this program; if not, write to the Free Software Foundation, Inc.,
 // 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 
-#include "parser.h"
+#include "bant/frontend/parser.h"
 
 #include <initializer_list>
 #include <sstream>
 #include <string_view>
 #include <utility>
 
-#include "arena.h"
-#include "ast.h"
+#include "bant/frontend/ast.h"
+#include "bant/util/arena.h"
 #include "gtest/gtest.h"
 
 namespace bant {

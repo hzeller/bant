@@ -20,9 +20,9 @@
 #include <filesystem>
 #include <iostream>
 
-#include "project-parser.h"
-#include "tool-dwyu.h"
-#include "tool-header-providers.h"
+#include "bant/frontend/project-parser.h"
+#include "bant/tool/dwyu.h"
+#include "bant/tool/header-providers.h"
 
 static int usage(const char *prog) {
   fprintf(stderr,

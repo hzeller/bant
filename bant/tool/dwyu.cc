@@ -23,7 +23,7 @@
 //     proto buffers.
 //
 
-#include "tool-dwyu.h"
+#include "bant/tool/dwyu.h"
 
 #include <array>
 #include <ostream>
@@ -34,12 +34,12 @@
 
 #include "absl/strings/str_cat.h"
 #include "absl/time/clock.h"
-#include "file-utils.h"
-#include "project-parser.h"
-#include "query-utils.h"
+#include "bant/frontend/project-parser.h"
+#include "bant/tool/header-providers.h"
+#include "bant/types-bazel.h"
+#include "bant/util/file-utils.h"
+#include "bant/util/query-utils.h"
 #include "re2/re2.h"
-#include "tool-header-providers.h"
-#include "types-bazel.h"
 
 // #define ADD_UNKNOWN_SOURCE_MESSAGE
 

@@ -22,7 +22,7 @@
 #include <map>
 #include <string>
 
-#include "project-parser.h"
+#include "bant/frontend/project-parser.h"
 
 namespace bant {
 

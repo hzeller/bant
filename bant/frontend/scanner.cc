@@ -15,13 +15,13 @@
 // with this program; if not, write to the Free Software Foundation, Inc.,
 // 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 
-#include "scanner.h"
+#include "bant/frontend/scanner.h"
 
 #include <cassert>
 #include <string_view>
 
 #include "absl/strings/ascii.h"
-#include "linecolumn-map.h"
+#include "bant/frontend/linecolumn-map.h"
 
 namespace bant {
 std::ostream &operator<<(std::ostream &o, TokenType t) {

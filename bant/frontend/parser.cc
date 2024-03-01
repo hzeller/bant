@@ -19,13 +19,13 @@
 //  - triple-string.
 //  - list comprehension can have multiple 'for' in sequence
 
-#include "parser.h"
+#include "bant/frontend/parser.h"
 
 #include <functional>
 #include <iostream>
 
-#include "ast.h"
-#include "scanner.h"
+#include "bant/frontend/ast.h"
+#include "bant/frontend/scanner.h"
 
 // Set to 1 to get a parse tree trace.
 #if 0
