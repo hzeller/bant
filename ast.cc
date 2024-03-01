@@ -86,14 +86,19 @@ void PrintVisitor::VisitList(List *l) {
   const bool needs_multiline = (l->size() > 1);
   if (needs_multiline) out_ << "\n";
   indent_ += kIndentSpaces;
-  bool is_first = true;
+  int element_count = 0;
   for (Node *node : *l) {
-    if (!is_first) out_ << ",\n";
+    if (element_count > 0) out_ << ",\n";
     if (needs_multiline) out_ << std::string(indent_, ' ');
     if (!WalkNonNull(node)) {
       out_ << "NIL";
     }
-    is_first = false;
+    ++element_count;
+  }
+  // If a tuple only contains one element, then we need a final ','
+  // to disambiguate from a parenthesized expression.
+  if (l->type() == List::Type::kTuple && element_count == 1) {
+    out_ << ",";
   }
   indent_ -= kIndentSpaces;
   if (needs_multiline) {

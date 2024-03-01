@@ -295,12 +295,16 @@ class Parser::Impl {
         return Make<BinOpNode>(n, ParseExpression(), op.type);
       }
       case '[': {
+        // This is a bit handwavy. We want to disambiguate an array access
+        // from a toplevel array in the next line.
+        // The correct way would be to take statement-breaking newlines
+        // into account (Pythonism). Not doing that yet.
+        // For now: look if the lhs looks like someting an array acces
+        // would make sense.
         BinOpNode *const lhs_bin = n->CastAsBinOp();
         if (lhs_bin == nullptr && n->CastAsIdentifier() == nullptr) {
           return n;
         }
-        // This is a bit handwavy. Looks like we should take newlines
-        // into account for breaking an expression ?
         if (lhs_bin != nullptr && lhs_bin->op() != '[') {
           ErrAt(scanner_->Peek())
             << "Expected Identifier or array access left of array access\n";

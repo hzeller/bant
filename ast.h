@@ -107,7 +107,7 @@ class Identifier : public Node {
  public:
   std::string_view id() const { return id_; }
 
-  void Accept(Visitor *v) override;
+  void Accept(Visitor *v) final;
   Identifier *CastAsIdentifier() final { return this; }
 
  private:
@@ -154,7 +154,7 @@ class BinNode : public Node {
 // Operator is just the corresponding Token.
 class BinOpNode : public BinNode {
  public:
-  void Accept(Visitor *v) override;
+  void Accept(Visitor *v) final;
   TokenType op() const { return op_; }
 
   BinOpNode *CastAsBinOp() final { return this; }
@@ -177,7 +177,7 @@ class List : public Node {
   ArenaDeque<Node *>::const_iterator begin() const { return list_.begin(); }
   ArenaDeque<Node *>::const_iterator end() const { return list_.end(); }
 
-  void Accept(Visitor *v) override;
+  void Accept(Visitor *v) final;
   List *CastAsList() final { return this; }
 
  private:
@@ -191,10 +191,11 @@ class List : public Node {
 // List comprehension for the given type (not only List, but also Map or tuple)
 class ListComprehension : public Node {
  public:
+  // (FOR subject (IN variable-list-tuple iteratable))
   BinOpNode *for_node() { return for_node_; }
   List::Type type() const { return type_; }
 
-  void Accept(Visitor *v) override;
+  void Accept(Visitor *v) final;
 
  private:
   friend class Arena;
@@ -217,7 +218,7 @@ class Ternary : public Node {
   Node *positive() { return positive_; }
   Node *negative() { return negative_; }
 
-  void Accept(Visitor *v) override;
+  void Accept(Visitor *v) final;
 
  private:
   Node *condition_;

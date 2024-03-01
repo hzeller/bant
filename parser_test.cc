@@ -35,7 +35,9 @@ class ParserTest : public testing::Test {
     LineColumnMap lc;
     Scanner scanner(text, lc);
     Parser parser(&scanner, &arena_, "<text>", std::cerr);
-    return parser.parse();
+    bant::List *first_pass = parser.parse();
+    RoundTripPrintParseAgainTest(first_pass);
+    return first_pass;
   }
 
   // Some helpers to build ASTs to compre
@@ -100,6 +102,37 @@ class ParserTest : public testing::Test {
   }
 
  private:
+  // Roundtrip test.
+  // Print each element we got into a string, re-parse, re-print
+  // and make sure we get the same.
+  //
+  // Somewhat orthogonal of the parse testing we do here,
+  // but since this will run through all kinds of parsing situations,
+  // this is a good place to test that our PrintVisitor outputs something
+  // that can be parsed again to the same parse tree.
+  void RoundTripPrintParseAgainTest(bant::List *first_pass) {
+    if (!first_pass) return;
+
+    std::stringstream stringify1;
+    for (Node *n : *first_pass) {
+      stringify1 << n << "\n";
+    }
+
+    const std::string first_printed = stringify1.str();
+    LineColumnMap lc;
+    Scanner scanner(first_printed, lc);
+    Arena local_arena(4096);
+    Parser parser(&scanner, &local_arena, "<text-reprinted>", std::cerr);
+    bant::List *second_pass = parser.parse();
+
+    std::stringstream stringify2;
+    for (Node *n : *second_pass) {
+      stringify2 << n << "\n";
+    }
+
+    EXPECT_EQ(first_printed, stringify2.str());
+  }
+
   Arena arena_;
 };
 
@@ -191,19 +224,6 @@ d = x[:2]
 e = x[42][17]
 )")));
 }
-
-#if 0
-TEST_F(ParserTest, ListComprehensionAfterExpressionIsNotAnArrayAccess) {
-  Node *const expected = List({ //
-      Assign("a", Op('+', Int(42), Int(8))),
-      ListComprehension(Tuple({Id("a")}), List({Id("f")}), List({Int(27)})),
-    });
-  EXPECT_EQ(Print(expected), Print(Parse(R"(
-a = 42 + 8  # Binop followed by '[' should trigger an issue, but it works ?
-[ (a,) for f in [27]]
-)")));
-}
-#endif
 
 TEST_F(ParserTest, ParenthizedExpressions) {
   Node *const expected = List({
@@ -339,6 +359,21 @@ TEST_F(ParserTest, ParseListComprehension) {
   [i + j for i, j in [("a", "b"), ("x", "y")]]     # multi-var into tuple
   [i + j for (i, j) in [("a", "b"), ("x", "y")]]   # multi-var; var-list tuple
   m = { i : "bar" for i in ["x", "y"]}             # map tuple comprehension
+)")));
+}
+
+// Make sure we don't accidentally see an opening bracket on the next line
+// as array access in the previous one.
+TEST_F(ParserTest, ListComprehensionAfterExpressionIsNotAnArrayAccess) {
+  Node *const expected = List({ //
+      Assign("a", Op('+', Int(42), Int(8))),
+      ListComprehension(List::Type::kList,  //
+                        For(Id("f"),        //
+                            In(Tuple({Id("f")}), List({Int(27)})))),
+    });
+  EXPECT_EQ(Print(expected), Print(Parse(R"(
+a = 42 + 8
+[ f for f in [27]]
 )")));
 }
 
