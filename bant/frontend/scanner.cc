@@ -34,6 +34,7 @@ std::ostream &operator<<(std::ostream &o, TokenType t) {
   case ']':
   case '>':
   case '<':
+  case '|':
   case ':':
   case ',':
   case '=':
@@ -55,6 +56,8 @@ std::ostream &operator<<(std::ostream &o, TokenType t) {
   case TokenType::kFor: o << "for"; break;
   case TokenType::kIn: o << "in"; break;
   case TokenType::kNotIn: o << "not in"; break;
+  case TokenType::kAnd: o << "and"; break;
+  case TokenType::kOr: o << "or"; break;
   case TokenType::kIf: o << "if"; break;
   case TokenType::kElse: o << "else"; break;
   case TokenType::kError: o << "<<ERROR>>"; break;
@@ -139,6 +142,8 @@ Token Scanner::HandleIdentifierKeywordRawStringOrInvalid() {
   }
   if (text == "in") return {TokenType::kIn, text};
   if (text == "for") return {TokenType::kFor, text};
+  if (text == "and") return {TokenType::kAnd, text};
+  if (text == "or") return {TokenType::kOr, text};
   if (text == "if") return {TokenType::kIf, text};
   if (text == "else") return {TokenType::kElse, text};
 
@@ -241,6 +246,7 @@ Token Scanner::Next() {
   case '/':
   case '.':
   case '%':
+  case '|':
     result = {/*.type =*/(TokenType)*pos_, /*.text =*/{pos_, 1}};
     ++pos_;
     break;

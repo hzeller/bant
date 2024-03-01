@@ -289,6 +289,9 @@ class Parser::Impl {
       case TokenType::kNotEqual:
       case TokenType::kIn:
       case TokenType::kNotIn:
+      case TokenType::kAnd:
+      case TokenType::kOr:
+      case TokenType::kPipeOrBitwiseOr:
       case '.':    // scoped invocation
       case '%': {  // format expr.
         Token op = scanner_->Next();

@@ -40,6 +40,7 @@ enum TokenType : int {
   kDivide = '/',
   kDot = '.',
   kPercent = '%',
+  kPipeOrBitwiseOr = '|',
 
   kAssign = '=',
   kLessThan = '<',
@@ -60,6 +61,8 @@ enum TokenType : int {
   kFor,
   kIn,
   kNotIn,  // sequence of words 'not' and 'in'
+  kAnd,
+  kOr,
   kIf,
   kElse,
 
