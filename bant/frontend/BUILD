@@ -17,8 +17,8 @@ cc_test(
     srcs = ["linecolumn-map_test.cc"],
     deps = [
         ":linecolumn-map",
-        "@com_google_googletest//:gtest",
-        "@com_google_googletest//:gtest_main",
+        "@googletest//:gtest",
+        "@googletest//:gtest_main",
     ],
 )
 
@@ -46,8 +46,8 @@ cc_test(
     srcs = ["scanner_test.cc"],
     deps = [
         ":parser",
-        "@com_google_googletest//:gtest",
-        "@com_google_googletest//:gtest_main",
+        "@googletest//:gtest",
+        "@googletest//:gtest_main",
     ],
 )
 
@@ -57,8 +57,8 @@ cc_test(
     deps = [
         ":parser",
         "//bant/util:memory",
-        "@com_google_googletest//:gtest",
-        "@com_google_googletest//:gtest_main",
+        "@googletest//:gtest",
+        "@googletest//:gtest_main",
     ],
 )
 

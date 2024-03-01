@@ -29,8 +29,8 @@ cc_test(
     srcs = ["arena-container_test.cc"],
     deps = [
         ":memory",
-        "@com_google_googletest//:gtest",
-        "@com_google_googletest//:gtest_main",
+        "@googletest//:gtest",
+        "@googletest//:gtest_main",
     ],
 )
 

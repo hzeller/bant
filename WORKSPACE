@@ -4,7 +4,7 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 # Ideally, we'd get gtest from pkg-config, but for that probably need bzlmod first.
 http_archive(
-    name = "com_google_googletest",
+    name = "googletest",
     sha256 = "24564e3b712d3eb30ac9a85d92f7d720f60cc0173730ac166f27dda7fed76cb2",
     strip_prefix = "googletest-release-1.12.1",
     urls = ["https://github.com/google/googletest/archive/refs/tags/release-1.12.1.zip"],
@@ -28,7 +28,7 @@ http_archive(
 )
 
 http_archive(
-    name = "com_googlesource_code_re2",
+    name = "re2",
     sha256 = "7b2b3aa8241eac25f674e5b5b2e23d4ac4f0a8891418a2661869f736f03f57f4",
     strip_prefix = "re2-2024-03-01",
     urls = ["https://github.com/google/re2/archive/refs/tags/2024-03-01.tar.gz"],

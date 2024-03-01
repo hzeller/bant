@@ -45,7 +45,7 @@ cc_test(
     srcs = ["types-bazel_test.cc"],
     deps = [
         ":types-bazel",
-        "@com_google_googletest//:gtest",
-        "@com_google_googletest//:gtest_main",
+        "@googletest//:gtest",
+        "@googletest//:gtest_main",
     ],
 )

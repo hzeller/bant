@@ -30,7 +30,7 @@ cc_library(
         "//bant/util:query-utils",
         "@abseil-cpp//absl/strings",
         "@abseil-cpp//absl/time",
-        "@com_googlesource_code_re2//:re2",
+        "@re2//:re2",
     ],
 )
 
@@ -39,7 +39,7 @@ cc_test(
     srcs = ["dwyu_test.cc"],
     deps = [
         ":dwyu",
-        "@com_google_googletest//:gtest",
-        "@com_google_googletest//:gtest_main",
+        "@googletest//:gtest",
+        "@googletest//:gtest_main",
     ],
 )
