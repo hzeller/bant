@@ -47,24 +47,26 @@ Early Stages. WIP.
 To compile
 
 ```
-bazel build -c opt bant:bant
+bazel build -c opt //bant
 ```
 Resulting binary will be `bazel-bin/bant/bant`
 
 To install, use the installer; the `-s` option will ask for `sudo` access:
 
 ```bash
-# To some writable directory your home directory
-bazel run -c opt bant:install -- ~/bin
+# To some writable directory that does not require root access
+bazel run -c opt //bant:install -- ~/bin
 
 # For a system directory that requires root-access, call with -s option.
 # (Do _not_ run bazel with sudo.)
-bazel run -c opt bant:install -- -s /usr/local/bin
+bazel run -c opt //bant:install -- -s /usr/local/bin
 ```
 
 Synopsis:
 
 ```
+$ bazel-bin/bant/bant -h
+Copyright (c) 2024 Henner Zeller. This program is free software; license GPL 2.0.
 Usage: bazel-bin/bant/bant [options]
 Options
         -C<directory>  : Project base directory (default: current dir = '.')

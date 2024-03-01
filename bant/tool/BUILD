@@ -30,7 +30,7 @@ cc_library(
         "//bant/util:query-utils",
         "@abseil-cpp//absl/strings",
         "@abseil-cpp//absl/time",
-        "@re2//:re2",
+        "@re2",
     ],
 )
 

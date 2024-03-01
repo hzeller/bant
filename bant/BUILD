@@ -11,7 +11,7 @@ package(
 installer(
     name = "install",
     data = [
-        "//bant:bant",
+        "//bant",
     ],
 )
 
