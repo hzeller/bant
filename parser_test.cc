@@ -52,12 +52,8 @@ class ParserTest : public testing::Test {
   BinOpNode *Op(TokenType op, Node *a, Node *b) {
     return arena_.New<BinOpNode>(a, b, op);
   }
-  BinOpNode *In(Node *a, Node *b) {
-    return Op(TokenType::kIn, a, b);
-  }
-  BinOpNode *NotIn(Node *a, Node *b) {
-    return Op(TokenType::kNotIn, a, b);
-  }
+  BinOpNode *In(Node *a, Node *b) { return Op(TokenType::kIn, a, b); }
+  BinOpNode *NotIn(Node *a, Node *b) { return Op(TokenType::kNotIn, a, b); }
   BinOpNode *For(Node *subject, BinOpNode *in_expr) {
     return Op(TokenType::kFor, subject, in_expr);
   }
@@ -124,6 +120,7 @@ class ParserTest : public testing::Test {
     Arena local_arena(4096);
     Parser parser(&scanner, &local_arena, "<text-reprinted>", std::cerr);
     bant::List *second_pass = parser.parse();
+    ASSERT_TRUE(second_pass != nullptr);
 
     std::stringstream stringify2;
     for (Node *n : *second_pass) {
@@ -180,7 +177,7 @@ TEST_F(ParserTest, SimpleExpressions) {
     Assign("h1", UnaryOp(TokenType::kNot,
                          Op(TokenType::kEqualityComparison, Id("a"), Id("b")))),
     Assign("i", Op(TokenType::kNotEqual, Id("a"), Id("b"))),
-    });
+  });
 
   EXPECT_EQ(Print(expected), Print(Parse(R"(
 a = 40 + 2
@@ -198,9 +195,9 @@ i = a != b
 
 TEST_F(ParserTest, InExpr) {
   Node *const expected = List({
-      Assign("a", In(Str("x"), Str("foobax"))),
-      Assign("b", NotIn(Str("x"), Str("foobax"))),
-    });
+    Assign("a", In(Str("x"), Str("foobax"))),
+    Assign("b", NotIn(Str("x"), Str("foobax"))),
+  });
   EXPECT_EQ(Print(expected), Print(Parse(R"(
 a = "x" in "foobax"
 b = "x" not in "foobax"
@@ -323,8 +320,8 @@ TEST_F(ParserTest, ParseListComprehension) {
           In(Tuple({Id("i")}), List({Str("a"), Str("b"), Str("c")})))),
     // Nested for-lops
     ListComprehension(
-      List::Type::kList,                                         //
-      For(For(Op('+', Id("i"), Id("j")),                         //
+      List::Type::kList,                                          //
+      For(For(Op('+', Id("i"), Id("j")),                          //
               In(Tuple({Id("i")}), List({Str("x"), Str("y")}))),  //
           In(Tuple({Id("j")}), List({Str("a"), Str("b")})))),
     // For with two variables expanding a tuple
@@ -332,14 +329,14 @@ TEST_F(ParserTest, ParseListComprehension) {
       List::Type::kList,  //
       For(Op('+', Id("i"), Id("j")),
           In(Tuple({Id("i"), Id("j")}), List({Tuple({Str("a"), Str("b")}),
-                                             Tuple({Str("x"), Str("y")})})))),
+                                              Tuple({Str("x"), Str("y")})})))),
     // Exactly the same, but the variable list is given as tuple. Paresed the
     // same way.
     ListComprehension(
       List::Type::kList,  //
       For(Op('+', Id("i"), Id("j")),
           In(Tuple({Id("i"), Id("j")}), List({Tuple({Str("a"), Str("b")}),
-                                             Tuple({Str("x"), Str("y")})})))),
+                                              Tuple({Str("x"), Str("y")})})))),
     // List comprehension but for a map. Need to assign, as we don't have
     // toplevel maps.
     Assign("m", ListComprehension(
@@ -365,12 +362,13 @@ TEST_F(ParserTest, ParseListComprehension) {
 // Make sure we don't accidentally see an opening bracket on the next line
 // as array access in the previous one.
 TEST_F(ParserTest, ListComprehensionAfterExpressionIsNotAnArrayAccess) {
-  Node *const expected = List({ //
-      Assign("a", Op('+', Int(42), Int(8))),
-      ListComprehension(List::Type::kList,  //
-                        For(Id("f"),        //
-                            In(Tuple({Id("f")}), List({Int(27)})))),
-    });
+  Node *const expected = List({
+    //
+    Assign("a", Op('+', Int(42), Int(8))),
+    ListComprehension(List::Type::kList,  //
+                      For(Id("f"),        //
+                          In(Tuple({Id("f")}), List({Int(27)})))),
+  });
   EXPECT_EQ(Print(expected), Print(Parse(R"(
 a = 42 + 8
 [ f for f in [27]]

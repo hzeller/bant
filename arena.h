@@ -27,7 +27,7 @@
 
 namespace bant {
 // Arena: Provide allocation of memory that can be deallocated at once.
-// Fast, but does not call any destructors of the objects contained.
+// Fast, but does not call any destructors so content better be PODs.
 class Arena {
  public:
   explicit Arena(int block_size) : block_size_(block_size) {}
@@ -54,10 +54,14 @@ class Arena {
   ~Arena() {
     if (verbose_) {
       std::cerr << "Arena: " << total_allocations_ << " allocations "
-                << "in " << blocks_.size() << " blocks; " << total_bytes_
-                << " bytes.\n";
+                << "in " << blocks_.size() << " blocks; " << total_bytes_ / 1e6
+                << " MB.\n";
     }
   }
+
+  // Set Verbosity. 'const' to be able to set on const arenas, which is
+  // ok for the debugging purposes.
+  void SetVerbose(bool verbose) const { verbose_ = verbose; }
 
  private:
   // Allocate new block, updates current block.
@@ -73,7 +77,7 @@ class Arena {
   const char *end_ = nullptr;
   char *pos_ = nullptr;
 
-  bool verbose_ = false;
+  mutable bool verbose_ = false;
   size_t total_bytes_ = 0;
   size_t total_allocations_ = 0;
 };

@@ -148,7 +148,6 @@ std::vector<fs::path> CollectBuildFiles(bool include_external, Stat &stats) {
     return dir_predicate(false, dir);
   };
 
-  ParsedProject result;
   // File in the general project
   stats.count =
     CollectFilesRecursive(".", build_files,

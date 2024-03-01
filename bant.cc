@@ -122,6 +122,7 @@ int main(int argc, char *argv[]) {
   auto &parse_err_out = cmd == Command::kNone ? *primary_output : *info_output;
   const bant::ParsedProject project =
     bant::ParsedProject::FromFilesystem(include_external, parse_err_out);
+  project.arena.SetVerbose(verbose);
 
   switch (cmd) {
   case Command::kPrint:

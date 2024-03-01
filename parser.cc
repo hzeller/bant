@@ -426,7 +426,7 @@ class Parser::Impl {
       // On the input, the list can look like i, i, j or as tuple (i, j, k).
       // In any case, it should be follwed by 'in'.
       if (scanner_->Peek().type == '(') {  // (i, j, k) case.
-        scanner_->Next();  // Consume open tuple.
+        scanner_->Next();                  // Consume open tuple.
         var_list = ParseList(
           Make<List>(List::Type::kTuple),
           [&]() { return ParseOptionalIdentifier(); }, TokenType::kCloseParen);
