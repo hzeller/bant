@@ -1,6 +1,7 @@
 # -*- python -*-
 
 package(
+    default_applicable_licenses = ["//:license"],
     default_visibility = ["//:__subpackages__"],
     features = ["layering_check"],
 )
@@ -36,7 +37,7 @@ cc_library(
     deps = [
         ":linecolumn-map",
         "//bant/util:memory",
-        "@com_google_absl//absl/strings",
+        "@abseil-cpp//absl/strings",
     ],
 )
 
@@ -70,8 +71,8 @@ cc_library(
         ":parser",
         "//bant:types-bazel",
         "//bant/util:file-utils",
-        "@com_google_absl//absl/strings",
-        "@com_google_absl//absl/strings:str_format",
-        "@com_google_absl//absl/time",
+        "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/strings:str_format",
+        "@abseil-cpp//absl/time",
     ],
 )

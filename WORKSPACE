@@ -20,11 +20,8 @@ http_archive(
     ],
 )
 
-load("@bazel_skylib//:workspace.bzl", "bazel_skylib_workspace")
-
-# absl needed by RE2
 http_archive(
-    name = "com_google_absl",
+    name = "abseil-cpp",
     sha256 = "3c743204df78366ad2eaf236d6631d83f6bc928d1705dd0000b872e53b73dc6a",
     strip_prefix = "abseil-cpp-20240116.1",
     urls = ["https://github.com/abseil/abseil-cpp/archive/refs/tags/20240116.1.tar.gz"],
@@ -32,11 +29,9 @@ http_archive(
 
 http_archive(
     name = "com_googlesource_code_re2",
-    patch_args = ["-p1"],
-    patches = ["//bazel:re2.patch"],
-    sha256 = "cd191a311b84fcf37310e5cd876845b4bf5aee76fdd755008eef3b6478ce07bb",
-    strip_prefix = "re2-2024-02-01",
-    urls = ["https://github.com/google/re2/archive/refs/tags/2024-02-01.tar.gz"],
+    sha256 = "7b2b3aa8241eac25f674e5b5b2e23d4ac4f0a8891418a2661869f736f03f57f4",
+    strip_prefix = "re2-2024-03-01",
+    urls = ["https://github.com/google/re2/archive/refs/tags/2024-03-01.tar.gz"],
 )
 
 # 2024-02-06. Compilation database
@@ -50,3 +45,28 @@ http_archive(
 load("@rules_compdb//:deps.bzl", "rules_compdb_deps")
 
 rules_compdb_deps()
+
+# 'make install' equivalent rule 2023-02-21
+http_archive(
+    name = "com_github_google_rules_install",
+    sha256 = "aba3c1ae179beb92c1fc4502d66d7d7c648f90eb51897aa4b0ae4a76ce225eec",
+    strip_prefix = "bazel_rules_install-6001facc1a96bafed0e414a529b11c1819f0cdbe",
+    urls = ["https://github.com/google/bazel_rules_install/archive/6001facc1a96bafed0e414a529b11c1819f0cdbe.zip"],
+)
+
+load("@com_github_google_rules_install//:deps.bzl", "install_rules_dependencies")
+
+install_rules_dependencies()
+
+load("@com_github_google_rules_install//:setup.bzl", "install_rules_setup")
+
+install_rules_setup()
+
+http_archive(
+    name = "rules_license",
+    sha256 = "241b06f3097fd186ff468832150d6cc142247dc42a32aaefb56d0099895fd229",
+    urls = [
+        "https://github.com/bazelbuild/rules_license/releases/download/0.0.4/rules_license-0.0.8.tar.gz",
+        "https://mirror.bazel.build/github.com/bazelbuild/rules_license/releases/download/0.0.8/rules_license-0.0.8.tar.gz",
+    ],
+)

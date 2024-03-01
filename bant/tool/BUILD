@@ -1,6 +1,7 @@
 # -*- python -*-
 
 package(
+    default_applicable_licenses = ["//:license"],
     default_visibility = ["//bant:__pkg__"],
     features = ["layering_check"],
 )
@@ -27,8 +28,8 @@ cc_library(
         "//bant/frontend:project-parser",
         "//bant/util:file-utils",
         "//bant/util:query-utils",
-        "@com_google_absl//absl/strings",
-        "@com_google_absl//absl/time",
+        "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/time",
         "@com_googlesource_code_re2//:re2",
     ],
 )

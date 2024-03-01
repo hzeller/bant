@@ -1,8 +1,18 @@
 # -*- python -*-
 
+load("@com_github_google_rules_install//installer:def.bzl", "installer")
+
 package(
+    default_applicable_licenses = ["//:license"],
     default_visibility = ["//visibility:public"],
     features = ["layering_check"],
+)
+
+installer(
+    name = "install",
+    data = [
+        "//bant:bant",
+    ],
 )
 
 cc_binary(
@@ -26,7 +36,7 @@ cc_library(
         "types-bazel.h",
     ],
     deps = [
-        "@com_google_absl//absl/strings",
+        "@abseil-cpp//absl/strings",
     ],
 )
 

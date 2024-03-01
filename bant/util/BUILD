@@ -1,6 +1,7 @@
 # -*- python -*-
 
 package(
+    default_applicable_licenses = ["//:license"],
     default_visibility = ["//:__subpackages__"],
     features = ["layering_check"],
 )
@@ -11,7 +12,7 @@ cc_library(
     hdrs = ["query-utils.h"],
     deps = [
         "//bant/frontend:parser",
-        "@com_google_absl//absl/container:flat_hash_set",
+        "@abseil-cpp//absl/container:flat_hash_set",
     ],
 )
 
@@ -38,7 +39,7 @@ cc_library(
     srcs = ["file-utils.cc"],
     hdrs = ["file-utils.h"],
     deps = [
-        "@com_google_absl//absl/container:flat_hash_set",
-        "@com_google_absl//absl/strings",
+        "@abseil-cpp//absl/container:flat_hash_set",
+        "@abseil-cpp//absl/strings",
     ],
 )
