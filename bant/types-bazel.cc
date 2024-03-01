@@ -17,6 +17,8 @@
 
 #include "bant/types-bazel.h"
 
+#include <string_view>
+
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_split.h"
 
@@ -39,14 +41,30 @@ std::string_view BazelPackage::LastElement() const {
 /*static*/ std::optional<BazelPackage> BazelPackage::ParseFrom(
   std::string_view str) {
   auto maybe_colon = str.find_last_of(':');
-  if (maybe_colon != std::string_view::npos) {
-    str = str.substr(0, maybe_colon);
-  }
+  str = str.substr(0, maybe_colon);
+
   using absl::StrSplit;
-  std::vector<std::string_view> parts = StrSplit(str, absl::ByString("//"));
-  if (parts.size() > 2) return std::nullopt;
-  if (parts.size() == 1 && parts[0][0] != '@') return std::nullopt;
-  return BazelPackage(parts[0], parts.size() == 2 ? parts[1] : "");
+  if (str.size() < 2) return std::nullopt;
+  std::string_view project;
+  std::string_view version;
+  std::string_view path;
+  if (str[0] == '@') {
+    project = str.substr(0, str.find_first_of('/'));
+    path = str.substr(project.length());
+  } else {
+    project = "";
+    path = str;
+  }
+  while (!path.empty() && path[0] == '/') path.remove_prefix(1);
+  if (path.find("//") != std::string_view::npos) {
+    return std::nullopt;  // Something is off.
+  }
+  auto tilde_pos = project.find_first_of('~');
+  if (tilde_pos != std::string_view::npos) {  // bzlmod puts version after ~
+    version = project.substr(tilde_pos + 1);
+    project = project.substr(0, tilde_pos);
+  }
+  return BazelPackage(project, path, version);
 }
 
 /*static*/ std::optional<BazelTarget> BazelTarget::ParseFrom(

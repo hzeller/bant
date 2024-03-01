@@ -28,13 +28,15 @@ namespace bant {
 // Something like //foo/bar or @baz//foo/bar
 struct BazelPackage {
   BazelPackage() = default;
-  BazelPackage(std::string_view project, std::string_view path)
-      : project(project), path(path) {}
+  BazelPackage(std::string_view project, std::string_view path,
+               std::string_view version = "")
+      : project(project), version(version), path(path) {}
 
   // Parse and create package if possible.
   static std::optional<BazelPackage> ParseFrom(std::string_view str);
 
   std::string project;  // either empty, or something like @foo_bar_baz
+  std::string version;  // if known. Typically in bzlmod environments.
   std::string path;     // path relative to project w/o leading/trailing '/'
 
   std::string ToString() const;  // @project//package/path

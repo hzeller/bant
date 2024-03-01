@@ -61,6 +61,16 @@ bazel run -c opt //bant:install -- ~/bin
 # (Do _not_ run bazel with sudo.)
 bazel run -c opt //bant:install -- -s /usr/local/bin
 ```
+### Use
+
+Note, `bant` can only find external projects if `bazel` has set up the
+workspace, and fetched, unpacked and made visible these into
+`bazel-${yourproject}/external`.
+
+Bant never does any fetching, it just observes the existing workspace. Given
+that `bazel` adapts the visible external projecgts depending on what targets
+are used, consider a bazel command that needs all of them, e.g.
+`bazel test ...` before bant.
 
 Synopsis:
 

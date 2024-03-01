@@ -23,7 +23,9 @@ namespace bant {
 TEST(TypesBazel, ParsePackage) {
   {
     auto p = BazelPackage::ParseFrom("nodelimiter");
-    EXPECT_FALSE(p.has_value());
+    ASSERT_TRUE(p.has_value());
+    EXPECT_EQ(p->project, "");          // NOLINT(*-unchecked-optional-access)
+    EXPECT_EQ(p->path, "nodelimiter");  // NOLINT(*-unchecked-optional-access)
   }
 
   {
@@ -45,6 +47,37 @@ TEST(TypesBazel, ParsePackage) {
     ASSERT_TRUE(p.has_value());
     EXPECT_TRUE(p->project.empty());  // NOLINT(*-unchecked-optional-access)
     EXPECT_EQ(p->path, "foo/bar");    // NOLINT(*-unchecked-optional-access)
+  }
+
+  {
+    auto p = BazelPackage::ParseFrom("@foo//bar/baz");
+    ASSERT_TRUE(p.has_value());
+    EXPECT_EQ(p->project, "@foo");  // NOLINT(*-unchecked-optional-access)
+    EXPECT_EQ(p->path, "bar/baz");  // NOLINT(*-unchecked-optional-access)
+  }
+
+  {
+    auto p = BazelPackage::ParseFrom("@foo~3.14//bar/baz");
+    ASSERT_TRUE(p.has_value());
+    EXPECT_EQ(p->project, "@foo");  // NOLINT(*-unchecked-optional-access)
+    EXPECT_EQ(p->path, "bar/baz");  // NOLINT(*-unchecked-optional-access)
+    EXPECT_EQ(p->version, "3.14");  // NOLINT(*-unchecked-optional-access)
+  }
+
+  // Some not quite proper formatted
+  {
+    auto p = BazelPackage::ParseFrom("@foo/bar/baz");
+    ASSERT_TRUE(p.has_value());
+    EXPECT_EQ(p->project, "@foo");  // NOLINT(*-unchecked-optional-access)
+    EXPECT_EQ(p->path, "bar/baz");  // NOLINT(*-unchecked-optional-access)
+  }
+
+  // ... but double slashes at the wrong place goes too far
+  {
+    auto p = BazelPackage::ParseFrom("@foo/bar//baz");
+    ASSERT_FALSE(p.has_value());
+    auto q = BazelPackage::ParseFrom("@foo/bar/baz//");
+    ASSERT_FALSE(q.has_value());
   }
 }
 

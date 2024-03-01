@@ -60,13 +60,19 @@ HeaderToTargetMap ExtractHeaderToLibMapping(const ParsedProject &project,
   HeaderToTargetMap result;
 
 #ifdef BANT_GTEST_HACK
-  // gtest hack (can't glob the headers yet, so manually add these)
-  BazelTarget test_target;
-  test_target.package =
-    *BazelPackage::ParseFrom("@com_google_googletest//");  // NOLINT
-  test_target.target_name = "gtest";
-  result["gtest/gtest.h"] = test_target;
-  result["gmock/gmock.h"] = test_target;
+  // gtest hack (can't glob() the headers yet, so manually add these to
+  // the first project that looks like it is googletest...
+  for (const auto &[_, file_content] : project.file_to_ast) {
+    if (file_content.package.project.find("googletest") == std::string::npos) {
+      continue;
+    }
+    BazelTarget test_target;
+    test_target.package.project = file_content.package.project;
+    test_target.target_name = "gtest";
+    result["gtest/gtest.h"] = test_target;
+    result["gmock/gmock.h"] = test_target;
+    break;
+  }
 #endif
 
   for (const auto &[filename, file_content] : project.file_to_ast) {
@@ -94,6 +100,7 @@ HeaderToTargetMap ExtractHeaderToLibMapping(const ParsedProject &project,
       }
     });
   }
+
   return result;
 }
 

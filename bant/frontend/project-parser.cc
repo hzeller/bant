@@ -27,6 +27,7 @@
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "bant/frontend/parser.h"
+#include "bant/types-bazel.h"
 #include "bant/util/file-utils.h"
 
 namespace fs = std::filesystem;
@@ -43,6 +44,12 @@ std::string_view TargetPathFromBuildFile(std::string_view file) {
     file.remove_prefix(1);
   }
   return file;
+}
+
+// First foo/bar/baz/BUILD -> @foo//bar/baz
+std::optional<BazelPackage> PackageFromExternal(std::string_view path) {
+  path = TargetPathFromBuildFile(path);  // remove BUILD
+  return BazelPackage::ParseFrom(absl::StrCat("@", path));
 }
 
 static void ParseBuildFiles(const std::vector<fs::path> &build_files,
@@ -74,11 +81,12 @@ static void ParseBuildFiles(const std::vector<fs::path> &build_files,
     if (filename.starts_with(external_prefix)) {
       std::string_view project_extract(filename);
       project_extract.remove_prefix(external_prefix.size());
-      auto end_of_external_name = project_extract.find_first_of('/');
-      auto external_project = project_extract.substr(0, end_of_external_name);
-      parse_result.package.project = std::string("@").append(external_project);
-      parse_result.package.path =
-        TargetPathFromBuildFile(project_extract.substr(end_of_external_name));
+      auto opt_package = PackageFromExternal(project_extract);
+      if (!opt_package.has_value()) {
+        std::cerr << filename << ": Can't parse as package\n";
+        continue;
+      }
+      parse_result.package = *opt_package;
     } else {
       parse_result.package.path = TargetPathFromBuildFile(filename);
     }
