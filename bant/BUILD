@@ -42,6 +42,7 @@ cc_library(
 
 cc_test(
     name = "types-bazel_test",
+    size = "small",
     srcs = ["types-bazel_test.cc"],
     deps = [
         ":types-bazel",

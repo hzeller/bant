@@ -8,7 +8,7 @@ bant_used_stdenv.mkDerivation {
   name = "bant-build-environment";
   buildInputs = with pkgs;
     [
-      bazel_5
+      bazel_6
       jdk11
 
       clang-tools_17    # clang-format, clang-tidy

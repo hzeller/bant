@@ -14,6 +14,7 @@ cc_library(
 
 cc_test(
     name = "linecolumn-map_test",
+    size = "small",
     srcs = ["linecolumn-map_test.cc"],
     deps = [
         ":linecolumn-map",
@@ -43,6 +44,7 @@ cc_library(
 
 cc_test(
     name = "scanner_test",
+    size = "small",
     srcs = ["scanner_test.cc"],
     deps = [
         ":parser",
@@ -53,6 +55,7 @@ cc_test(
 
 cc_test(
     name = "parser_test",
+    size = "small",
     srcs = ["parser_test.cc"],
     deps = [
         ":parser",

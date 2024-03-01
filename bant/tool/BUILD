@@ -36,6 +36,7 @@ cc_library(
 
 cc_test(
     name = "dwyu_test",
+    size = "small",
     srcs = ["dwyu_test.cc"],
     deps = [
         ":dwyu",

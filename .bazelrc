@@ -1,3 +1,6 @@
+# Requires at least bazel 6
+common --enable_bzlmod
+
 build --cxxopt=-xc++      --host_cxxopt=-xc++
 build --cxxopt=-std=c++20 --host_cxxopt=-std=c++20
 build --cxxopt=-Wall --cxxopt=-Wextra --cxxopt=-Werror --cxxopt=-Wno-unused-parameter
@@ -11,3 +14,6 @@ build:asan --copt -O1
 build:asan --copt -g
 build:asan --copt -fno-omit-frame-pointer
 build:asan --linkopt -fsanitize=address
+
+# Load user-specific configuration, if any.
+try-import %workspace%/user.bazelrc

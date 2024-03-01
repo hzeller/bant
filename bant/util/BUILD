@@ -26,6 +26,7 @@ cc_library(
 
 cc_test(
     name = "arena-container_test",
+    size = "small",
     srcs = ["arena-container_test.cc"],
     deps = [
         ":memory",
