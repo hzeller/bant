@@ -38,6 +38,14 @@ TEST(ScannerTest, UnknownToken) {
   EXPECT_EQ(s.Next().type, TokenType::kEof);
 }
 
+TEST(ScannerTest, BackslashSimplySkippedAsWhitespace) {
+  LineColumnMap lc;
+  Scanner s(R"(if\else)", lc);
+  EXPECT_EQ(s.Next().type, TokenType::kIf);
+  EXPECT_EQ(s.Next().type, TokenType::kElse);
+  EXPECT_EQ(s.Next().type, TokenType::kEof);
+}
+
 TEST(ScannerTest, SimpleTokens) {
   struct TestCase {
     std::string_view input_text;

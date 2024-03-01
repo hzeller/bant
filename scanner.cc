@@ -77,7 +77,8 @@ Scanner::Scanner(std::string_view content, LineColumnMap &line_map)
 inline Scanner::ContentPointer Scanner::SkipSpace() {
   bool in_comment = false;
   while (pos_ < content_.end() &&
-         (absl::ascii_isspace(*pos_) || *pos_ == '#' || in_comment)) {
+         (absl::ascii_isspace(*pos_) || *pos_ == '\\' || *pos_ == '#' ||
+          in_comment)) {
     if (*pos_ == '#') {
       in_comment = true;
     } else if (*pos_ == '\n') {
