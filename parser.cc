@@ -155,6 +155,7 @@ class Parser::Impl {
   Node *ExpressionOrAssignment() {
     LOG_ENTER();
     Node *value = ParseExpression();
+    if (value == nullptr) return nullptr;
     Token upcoming = scanner_->Peek();
     if (auto *id = value->CastAsIdentifier(); id && upcoming.type == '=') {
       scanner_->Next();
@@ -195,6 +196,16 @@ class Parser::Impl {
       }
       return nullptr;
     }
+  }
+
+  // Parse next thing but only if it is an identifier.
+  Identifier *ParseOptionalIdentifier() {
+    LOG_ENTER();
+    if (scanner_->Peek().type == TokenType::kIdentifier) {
+      Token tok = scanner_->Next();
+      return Make<Identifier>(tok.text);
+    }
+    return nullptr;
   }
 
   Node *ParseIfElse(Node *if_branch) {
@@ -276,6 +287,8 @@ class Parser::Impl {
       case TokenType::kGreaterEqual:
       case TokenType::kGreaterThan:
       case TokenType::kNotEqual:
+      case TokenType::kIn:
+      case TokenType::kNotIn:
       case '.':    // scoped invocation
       case '%': {  // format expr.
         Token op = scanner_->Next();
@@ -362,11 +375,14 @@ class Parser::Impl {
     return Make<BinOpNode>(lhs, ParseExpression(), TokenType::kColon);
   }
 
-  // TODO: this should expand to '{' or tuple
-  // (need ParseList different close token)
   Node *ParseListOrListComprehension(List::Type type,
                                      const ListElementParse &element_parser) {
     LOG_ENTER();
+    // Opening list/tuple/map brace already parsed
+    //   close_token: -> empty list
+    //   expression close_token -> one element list
+    //   expression 'for' ... -> comprehension
+    //   expression ',' (expression+) ,? end_token
     const TokenType expected_close_token = EndTokenFor(type);
     Token upcoming = scanner_->Peek();
     if (upcoming.type == expected_close_token) {
@@ -401,9 +417,24 @@ class Parser::Impl {
   Node *ParseListFor(Node *lhs, TokenType expected_end_token) {
     while (scanner_->Peek().type == TokenType::kFor) {
       scanner_->Next();
-      List *var_list = ParseList(
-        Make<List>(List::Type::kList), [&]() { return ParseExpression(); },
-        TokenType::kIn);
+      List *var_list = nullptr;
+      // We always parse the variable list into a tuple for further processing.
+      // On the input, the list can look like i, i, j or as tuple (i, j, k).
+      // In any case, it should be follwed by 'in'.
+      if (scanner_->Peek().type == '(') {  // (i, j, k) case.
+        scanner_->Next();  // Consume open tuple.
+        var_list = ParseList(
+          Make<List>(List::Type::kTuple),
+          [&]() { return ParseOptionalIdentifier(); }, TokenType::kCloseParen);
+        Token expected_in = scanner_->Next();
+        if (expected_in.type != TokenType::kIn) {
+          ErrAt(expected_in) << "expected 'in' after variable tuple\n";
+        }
+      } else {  // i, j, k case.
+        var_list = ParseList(
+          Make<List>(List::Type::kTuple),
+          [&]() { return ParseOptionalIdentifier(); }, TokenType::kIn);
+      }
       BinOpNode *range =
         Make<BinOpNode>(var_list, ParseExpression(), TokenType::kIn);
       lhs = Make<BinOpNode>(lhs, range, TokenType::kFor);

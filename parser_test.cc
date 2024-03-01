@@ -53,6 +53,9 @@ class ParserTest : public testing::Test {
   BinOpNode *In(Node *a, Node *b) {
     return Op(TokenType::kIn, a, b);
   }
+  BinOpNode *NotIn(Node *a, Node *b) {
+    return Op(TokenType::kNotIn, a, b);
+  }
   BinOpNode *For(Node *subject, BinOpNode *in_expr) {
     return Op(TokenType::kFor, subject, in_expr);
   }
@@ -144,7 +147,7 @@ TEST_F(ParserTest, SimpleExpressions) {
     Assign("h1", UnaryOp(TokenType::kNot,
                          Op(TokenType::kEqualityComparison, Id("a"), Id("b")))),
     Assign("i", Op(TokenType::kNotEqual, Id("a"), Id("b"))),
-  });
+    });
 
   EXPECT_EQ(Print(expected), Print(Parse(R"(
 a = 40 + 2
@@ -160,17 +163,16 @@ i = a != b
 )")));
 }
 
-#if 0
-// This to work will require proper operator precedence.
 TEST_F(ParserTest, InExpr) {
   Node *const expected = List({
       Assign("a", In(Str("x"), Str("foobax"))),
+      Assign("b", NotIn(Str("x"), Str("foobax"))),
     });
   EXPECT_EQ(Print(expected), Print(Parse(R"(
 a = "x" in "foobax"
+b = "x" not in "foobax"
 )")));
 }
-#endif
 
 TEST_F(ParserTest, ArrayAccess) {
   Node *const expected = List({
@@ -293,30 +295,37 @@ TEST_F(ParserTest, ParseListComprehension) {
     // Simple expr
     ListComprehension(List::Type::kList,  //
                       For(Id("i"),        //
-                          In(List({Id("i")}), List({Str("x"), Str("y")})))),
+                          In(Tuple({Id("i")}), List({Str("x"), Str("y")})))),
     // Typical use in BUILD files is with lhs being a tuple
     ListComprehension(
       List::Type::kList,  //
       For(Tuple({Op('+', Str("foo"), Id("i"))}),
-          In(List({Id("i")}), List({Str("a"), Str("b"), Str("c")})))),
+          In(Tuple({Id("i")}), List({Str("a"), Str("b"), Str("c")})))),
     // Nested for-lops
     ListComprehension(
       List::Type::kList,                                         //
       For(For(Op('+', Id("i"), Id("j")),                         //
-              In(List({Id("i")}), List({Str("x"), Str("y")}))),  //
-          In(List({Id("j")}), List({Str("a"), Str("b")})))),
+              In(Tuple({Id("i")}), List({Str("x"), Str("y")}))),  //
+          In(Tuple({Id("j")}), List({Str("a"), Str("b")})))),
     // For with two variables expanding a tuple
     ListComprehension(
       List::Type::kList,  //
       For(Op('+', Id("i"), Id("j")),
-          In(List({Id("i"), Id("j")}), List({Tuple({Str("a"), Str("b")}),
+          In(Tuple({Id("i"), Id("j")}), List({Tuple({Str("a"), Str("b")}),
+                                             Tuple({Str("x"), Str("y")})})))),
+    // Exactly the same, but the variable list is given as tuple. Paresed the
+    // same way.
+    ListComprehension(
+      List::Type::kList,  //
+      For(Op('+', Id("i"), Id("j")),
+          In(Tuple({Id("i"), Id("j")}), List({Tuple({Str("a"), Str("b")}),
                                              Tuple({Str("x"), Str("y")})})))),
     // List comprehension but for a map. Need to assign, as we don't have
     // toplevel maps.
     Assign("m", ListComprehension(
                   List::Type::kMap,                  //
                   For(Op(':', Id("i"), Str("bar")),  //
-                      In(List({Id("i")}), List({Str("x"), Str("y")}))))),
+                      In(Tuple({Id("i")}), List({Str("x"), Str("y")}))))),
 
   });
 
@@ -328,6 +337,7 @@ TEST_F(ParserTest, ParseListComprehension) {
   ]
   [i + j for i in [ "x", "y"] for j in ["a", "b"]] # nested
   [i + j for i, j in [("a", "b"), ("x", "y")]]     # multi-var into tuple
+  [i + j for (i, j) in [("a", "b"), ("x", "y")]]   # multi-var; var-list tuple
   m = { i : "bar" for i in ["x", "y"]}             # map tuple comprehension
 )")));
 }

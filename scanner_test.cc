@@ -70,6 +70,8 @@ TEST(ScannerTest, SimpleTokens) {
     {"!", TokenType::kNot},
     {"for", TokenType::kFor},
     {"in", TokenType::kIn},
+    {"not in", TokenType::kNotIn},
+    {"not  in", TokenType::kNotIn},
     {"if", TokenType::kIf},
     {"else", TokenType::kElse},
     {"some_random_thing", TokenType::kIdentifier},
@@ -89,6 +91,18 @@ TEST(ScannerTest, NumberString) {
   Scanner s(R"(42 "hello world")", lc);
   EXPECT_EQ(s.Next(), Token({TokenType::kNumberLiteral, "42"}));
   EXPECT_EQ(s.Next(), Token({TokenType::kStringLiteral, "\"hello world\""}));
+  EXPECT_EQ(s.Next(), Token({TokenType::kEof, ""}));
+}
+
+TEST(ScannerTest, DoubleWordTokens) {
+  LineColumnMap lc;
+  Scanner s(R"(43 not in answer foo in 12)", lc);
+  EXPECT_EQ(s.Next(), Token({TokenType::kNumberLiteral, "43"}));
+  EXPECT_EQ(s.Next(), Token({TokenType::kNotIn, "not in"}));
+  EXPECT_EQ(s.Next(), Token({TokenType::kIdentifier, "answer"}));
+  EXPECT_EQ(s.Next(), Token({TokenType::kIdentifier, "foo"}));
+  EXPECT_EQ(s.Next(), Token({TokenType::kIn, "in"}));
+  EXPECT_EQ(s.Next(), Token({TokenType::kNumberLiteral, "12"}));
   EXPECT_EQ(s.Next(), Token({TokenType::kEof, ""}));
 }
 

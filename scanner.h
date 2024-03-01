@@ -59,6 +59,7 @@ enum TokenType : int {
 
   kFor,
   kIn,
+  kNotIn,  // sequence of words 'not' and 'in'
   kIf,
   kElse,
 
@@ -103,6 +104,7 @@ class Scanner {
 
   inline ContentPointer SkipSpace();
 
+  bool ConsumeOptionalIn();
   Token HandleNumber();
   Token HandleString();
   Token HandleIdentifierKeywordRawStringOrInvalid();

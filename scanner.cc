@@ -54,6 +54,7 @@ std::ostream &operator<<(std::ostream &o, TokenType t) {
   case TokenType::kNot: o << "not"; break;
   case TokenType::kFor: o << "for"; break;
   case TokenType::kIn: o << "in"; break;
+  case TokenType::kNotIn: o << "not in"; break;
   case TokenType::kIf: o << "if"; break;
   case TokenType::kElse: o << "else"; break;
   case TokenType::kError: o << "<<ERROR>>"; break;
@@ -92,6 +93,20 @@ static bool IsIdentifierChar(char c) {
   return absl::ascii_isdigit(c) || absl::ascii_isalpha(c) || c == '_';
 }
 
+// Check if the very next token would be 'in'; if so, consume up to that
+// pos_.
+bool Scanner::ConsumeOptionalIn() {
+  ContentPointer run = pos_;
+  while (run < content_.end() && absl::ascii_isspace(*run)) {
+    ++run;
+  }
+  if (content_.end() - run >= 2 && run[0] == 'i' && run[1] == 'n') {
+    pos_ = run + 2;
+    return true;
+  }
+  return false;
+}
+
 Token Scanner::HandleIdentifierKeywordRawStringOrInvalid() {
   const ContentPointer start = pos_;
 
@@ -111,10 +126,16 @@ Token Scanner::HandleIdentifierKeywordRawStringOrInvalid() {
   while (pos_ < content_.end() && IsIdentifierChar(*pos_)) {
     ++pos_;
   }
-  const std::string_view text{start, (size_t)(pos_ - start)};
+  std::string_view text{start, (size_t)(pos_ - start)};
 
   // Keywords, anything else will be an identifier.
-  if (text == "not") return {TokenType::kNot, text};
+  if (text == "not") {
+    if (ConsumeOptionalIn()) {
+      text = std::string_view(start, (size_t)(pos_ - start));
+      return {TokenType::kNotIn, text};
+    }
+    return {TokenType::kNot, text};
+  }
   if (text == "in") return {TokenType::kIn, text};
   if (text == "for") return {TokenType::kFor, text};
   if (text == "if") return {TokenType::kIf, text};
