@@ -30,7 +30,7 @@ static int usage(const char *prog) {
           "This program is free software; license GPL 2.0.\n");
   fprintf(stderr, "Usage: %s [options]\n", prog);
   fprintf(stderr, R"(Options
-	-C<directory>  : Project base directory (default: current dir = '.')
+	-C<directory>  : Change to project directory (default = '.')
 	-x             : Do not read BUILD files of eXternal projects.
 	                 (i.e. only read the files in the direct project)
 	-q             : Quiet: don't print info messages to stderr.
@@ -41,7 +41,7 @@ Commands:
 	(no-flag)      : Just parse BUILD files of project, emit parse errors.
 	                 Parse is primary objective, errors go to stdout.
 	                 Other commands below with different main output
-	                 emit errors to info stream (stderr or none if -q)
+	                 emit errors to info stream (stderr or muted with -q)
 	-L             : List all the build files found in project
 	-P             : Print parse tree (-e : only files with parse errors)
 	-H             : Print table header files -> targets that define them.
