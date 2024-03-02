@@ -48,20 +48,20 @@ std::ostream &operator<<(std::ostream &out, const LineColumnRange &r) {
   return out;
 }
 
-LineColumn LineColumnMap::GetPos(std::string_view text) const {
+LineColumn LineColumnMap::GetPos(std::string_view::const_iterator pos) const {
   auto start =
-    std::upper_bound(line_map_.begin(), line_map_.end(), text.begin());
+    std::upper_bound(line_map_.begin(), line_map_.end(), pos);
   assert(start - line_map_.begin() > 0);
   --start;
   LineColumn result;
   result.line = start - line_map_.begin();
-  result.col = text.begin() - *start;
+  result.col = pos - *start;
   return result;
 }
 
 LineColumnRange LineColumnMap::GetRange(std::string_view text) const {
   LineColumnRange result;
-  result.start = GetPos(text);
+  result.start = GetPos(text.begin());
   result.end = GetPos(text.end());
   return result;
 }

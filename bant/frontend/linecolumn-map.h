@@ -57,7 +57,7 @@ class LineColumnMap {
 
   // Return position of given text that needs to be within content of
   // tokens already seen.
-  LineColumn GetPos(std::string_view text) const;
+  LineColumn GetPos(std::string_view::const_iterator) const;
   LineColumnRange GetRange(std::string_view text) const;
 
  private:
