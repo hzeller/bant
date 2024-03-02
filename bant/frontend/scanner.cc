@@ -67,7 +67,11 @@ std::ostream &operator<<(std::ostream &o, TokenType t) {
 }
 
 std::ostream &operator<<(std::ostream &o, const Token t) {
-  o << t.type << "('" << t.text << "')";
+  if (t.type < 256) {
+    o << "('" << t.text << "')";   // Don't write as-is operators
+  } else {
+    o << t.type << "('" << t.text << "')";
+  }
   return o;
 }
 

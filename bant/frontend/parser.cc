@@ -27,17 +27,19 @@
 #include "bant/frontend/ast.h"
 #include "bant/frontend/scanner.h"
 
-// Set to 1 to get a parse tree trace.
+// Set to 1 to get a parse tree trace. Not thread safe of course.
 #if 0
 static int sNodeNum = 0;
 static int sIndent = 0;
+static bant::Scanner *sScanner = nullptr;
 class NestingLogger {
 public:
   NestingLogger(const char *fun, const bant::Token &tok) {
     ++sNodeNum;
     ++sIndent;
     std::cerr << sNodeNum << std::string(2 * sIndent, '.') << fun
-              << " " << tok << "\n";
+              << " " << tok << "@" << sScanner->line_col().GetRange(tok.text)
+              << "\n";
   }
   ~NestingLogger() {
     --sIndent;
@@ -45,8 +47,15 @@ public:
 };
 
 #define LOG_ENTER() NestingLogger _log(__FUNCTION__, scanner_->Peek())
+#define LOG_INIT(scanner)   \
+  {                         \
+    sScanner = scanner;     \
+    sNodeNum = sIndent = 0; \
+  }                         \
+  LOG_ENTER()
 #else
 #define LOG_ENTER()
+#define LOG_INIT(ignore)
 #endif
 
 namespace bant {
@@ -64,7 +73,7 @@ class Parser::Impl {
   // Parse file. If there is an error, return at least partial tree.
   // A file is a list of data structures, function calls, or assignments..
   List *parse() {
-    LOG_ENTER();
+    LOG_INIT(scanner_);
     List *const statement_list = Make<List>(List::Type::kList);
     while (!error_) {
       const Token tok = scanner_->Next();
@@ -118,21 +127,25 @@ class Parser::Impl {
     return Make<Assignment>(id, ParseExpression());
   }
 
-  FunCall *ParseFunCall(Token identifier) {
+  Node *ExpressionOrAssignment() {
     LOG_ENTER();
-    // opening '(' already consumed.
-    List *args = ParseList(
-      Make<List>(List::Type::kTuple),
-      [&]() { return ExpressionOrAssignment(); }, TokenType::kCloseParen);
-    return Make<FunCall>(Make<Identifier>(identifier.text), args);
+    Node *value = ParseExpression();
+    if (value == nullptr) return nullptr;
+    Token upcoming = scanner_->Peek();
+    if (auto *id = value->CastAsIdentifier(); id && upcoming.type == '=') {
+      scanner_->Next();
+      return ParseAssignmentRhs(id);
+    }
+    return value;
   }
 
-  // Parse expressions produced by element_parse until end_tok is reached.
-  // the end-tok is consumed.
+  // Parse expressions produced by element_parse up to and including end_tok
+  // is reached.
   using ListElementParse = std::function<Node *()>;
   List *ParseList(List *result, const ListElementParse &element_parse,
                   TokenType end_tok) {
     LOG_ENTER();
+    // Opening list-token (e.g. '[', '(', '{') already consumed.
     Token upcoming = scanner_->Peek();
     while (upcoming.type != end_tok) {
       result->Append(node_arena_, element_parse());
@@ -150,58 +163,13 @@ class Parser::Impl {
     return result;
   }
 
-  Node *ExpressionOrAssignment() {
+  FunCall *ParseFunCall(Token identifier) {
     LOG_ENTER();
-    Node *value = ParseExpression();
-    if (value == nullptr) return nullptr;
-    Token upcoming = scanner_->Peek();
-    if (auto *id = value->CastAsIdentifier(); id && upcoming.type == '=') {
-      scanner_->Next();
-      return ParseAssignmentRhs(id);
-    }
-    return value;
-  }
-
-  Node *ParseValueOrIdentifier(bool can_be_optional) {
-    LOG_ENTER();
-    const Token t = scanner_->Peek();  // can't consume yet if default hits
-    switch (t.type) {
-    case TokenType::kStringLiteral:
-      return StringScalar::FromLiteral(node_arena_, scanner_->Next().text);
-    case TokenType::kNumberLiteral:  //
-      return ParseIntFromToken(scanner_->Next());
-    case TokenType::kIdentifier:
-      scanner_->Next();
-      if (scanner_->Peek().type == '(') {
-        scanner_->Next();
-        return ParseFunCall(t);
-      }
-      return Make<Identifier>(t.text);
-    case TokenType::kOpenSquare:
-      scanner_->Next();
-      return ParseListOrListComprehension(List::Type::kList,
-                                          [&]() { return ParseExpression(); });
-    case TokenType::kOpenBrace:
-      scanner_->Next();
-      return ParseListOrListComprehension(List::Type::kMap,
-                                          [&]() { return ParseMapTuple(); });
-    default:  //
-      // Leaving the token in the scanner.
-      if (!can_be_optional) {
-        ErrAt(t) << "expected value of sorts\n";
-      }
-      return nullptr;
-    }
-  }
-
-  // Parse next thing but only if it is an identifier.
-  Identifier *ParseOptionalIdentifier() {
-    LOG_ENTER();
-    if (scanner_->Peek().type == TokenType::kIdentifier) {
-      Token tok = scanner_->Next();
-      return Make<Identifier>(tok.text);
-    }
-    return nullptr;
+    // opening '(' already consumed.
+    List *args = ParseList(
+      Make<List>(List::Type::kTuple),
+      [&]() { return ExpressionOrAssignment(); }, TokenType::kCloseParen);
+    return Make<FunCall>(Make<Identifier>(identifier.text), args);
   }
 
   Node *ParseIfElse(Node *if_branch) {
@@ -246,6 +214,38 @@ class Parser::Impl {
       return Make<BinOpNode>(n, rhs, TokenType::kColon);
     }
     default: ErrAt(separator_or_end) << "Expected ':' or ']'\n"; return nullptr;
+    }
+  }
+
+  Node *ParseValueOrIdentifier(bool can_be_optional) {
+    LOG_ENTER();
+    const Token t = scanner_->Peek();  // can't consume yet if default hits
+    switch (t.type) {
+    case TokenType::kStringLiteral:
+      return StringScalar::FromLiteral(node_arena_, scanner_->Next().text);
+    case TokenType::kNumberLiteral:  //
+      return ParseIntFromToken(scanner_->Next());
+    case TokenType::kIdentifier:
+      scanner_->Next();
+      if (scanner_->Peek().type == '(') {
+        scanner_->Next();
+        return ParseFunCall(t);
+      }
+      return Make<Identifier>(t.text);
+    case TokenType::kOpenSquare:
+      scanner_->Next();
+      return ParseListOrListComprehension(List::Type::kList,
+                                          [&]() { return ParseExpression(); });
+    case TokenType::kOpenBrace:
+      scanner_->Next();
+      return ParseListOrListComprehension(List::Type::kMap,
+                                          [&]() { return ParseMapTuple(); });
+    default:  //
+      // Leaving the token in the scanner.
+      if (!can_be_optional) {
+        ErrAt(t) << "expected value of sorts\n";
+      }
+      return nullptr;
     }
   }
 
@@ -324,8 +324,10 @@ class Parser::Impl {
     LOG_ENTER();
     // '(' seen, but not consumed yet.
     Token p = scanner_->Next();
-    assert(p.type == '(');  // We have only be called if this is true.
-    Node *const exp = ParseExpression(true);  // null if this is an empty tuple
+    assert(p.type == '(');  // Expected precondition.
+
+    // The following expression can be null if this is an empty tuple
+    Node *const exp = ParseExpression(/*can_be_optional=*/true);
     p = scanner_->Peek();
     if (exp && p.type == ')') {
       scanner_->Next();
@@ -422,39 +424,59 @@ class Parser::Impl {
     return ParseList(result, element_parser, expected_close_token);
   }
 
+  // Parse next thing but only if it is an identifier.
+  Identifier *ParseOptionalIdentifier() {
+    LOG_ENTER();
+    if (scanner_->Peek().type == TokenType::kIdentifier) {
+      Token tok = scanner_->Next();
+      return Make<Identifier>(tok.text);
+    }
+    return nullptr;
+  }
+
   // Read for-in constructs until we hit expected_end_token.
-  Node *ParseComprehensionFor(Node *lhs, TokenType expected_end_token) {
+  // Creates a left-recursive tree of 'for' BinOpNodes in which the thing
+  // to iterate over is on the left, and the variable-tuple in-expression
+  // with content on the right. Nested loops have a 'for' loop on their left.
+  BinOpNode *ParseComprehensionFor(Node *iterate_target,
+                                   TokenType expected_end_token) {
+    BinOpNode *for_tree = nullptr;
+
+    // 'for' seen, but not consumed yet.
     while (scanner_->Peek().type == TokenType::kFor) {
       scanner_->Next();
-      List *var_list = nullptr;
-      // We always parse the variable list into a tuple for further processing.
-      // On the input, the list can look like i, i, j or as tuple (i, j, k).
-      // In any case, it should be follwed by 'in'.
+      List *variable_tuple = nullptr;
+      // There can be multipole variables in the list, so they are a tuple.
+
+      // On the input, this can look like a list i, i, j or as tuple (i, j, k).
+      // We deal with these variants, but in any case, they are follwed by 'in'.
       if (scanner_->Peek().type == '(') {  // (i, j, k) case.
-        scanner_->Next();                  // Consume open tuple.
-        var_list = ParseList(
+        scanner_->Next();                  // Consume open tuple '('
+        variable_tuple = ParseList(     // .. parse until we see close ')'
           Make<List>(List::Type::kTuple),
           [&]() { return ParseOptionalIdentifier(); }, TokenType::kCloseParen);
         const Token expected_in = scanner_->Next();
         if (expected_in.type != TokenType::kIn) {
           ErrAt(expected_in) << "expected 'in' after variable tuple\n";
         }
-      } else {  // i, j, k case.
-        var_list = ParseList(
+      } else {  // i, j, k case. Here the expected list end token is 'in'
+        variable_tuple = ParseList(
           Make<List>(List::Type::kTuple),
           [&]() { return ParseOptionalIdentifier(); }, TokenType::kIn);
       }
       BinOpNode *const range =
-        Make<BinOpNode>(var_list, ParseExpression(), TokenType::kIn);
-      lhs = Make<BinOpNode>(lhs, range, TokenType::kFor);
+        Make<BinOpNode>(variable_tuple, ParseExpression(), TokenType::kIn);
+      for_tree = Make<BinOpNode>(iterate_target, range, TokenType::kFor);
+      iterate_target = for_tree;  // Nested loops.
     }
+
     const Token end_tok = scanner_->Next();
     if (end_tok.type != expected_end_token) {
       ErrAt(end_tok) << "expected " << expected_end_token
                      << " at end of comprehension\n";
       return nullptr;
     }
-    return lhs;
+    return for_tree;
   }
 
   static TokenType EndTokenFor(List::Type type) {
@@ -471,9 +493,8 @@ class Parser::Impl {
     // start_expression already parsed, 'for' seen, but not consumed.
     //
     // 'for' identifier (,identifier)* ,? 'in' expression.
-    Node *for_node = ParseComprehensionFor(start_expression, EndTokenFor(type));
-    if (for_node == nullptr) return nullptr;
-    return Make<ListComprehension>(type, for_node);
+    return Make<ListComprehension>(
+      type, ParseComprehensionFor(start_expression, EndTokenFor(type)));
   }
 
   std::ostream &ErrAt(Token t) {

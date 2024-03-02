@@ -18,7 +18,6 @@
 #ifndef BANT_AST_H_
 #define BANT_AST_H_
 
-#include <cassert>
 #include <cstdint>
 #include <ostream>
 #include <string_view>
@@ -202,11 +201,8 @@ class ListComprehension : public Node {
 
  private:
   friend class Arena;
-  ListComprehension(List::Type type, Node *for_node)
-      : type_(type), for_node_(for_node->CastAsBinOp()) {
-    assert(for_node_ != nullptr);
-    assert(for_node_->op() == TokenType::kFor);
-  }
+  ListComprehension(List::Type type, BinOpNode *for_node)
+    : type_(type), for_node_(for_node) {}
 
   List::Type type_;
   BinOpNode *for_node_;
@@ -255,9 +251,7 @@ class FunCall : public BinNode {
   friend class Arena;
   // A function call is essentially an identifier directly followed by a tuple.
   FunCall(Identifier *identifier, List *argument_list)
-      : BinNode(identifier, argument_list) {
-    assert(argument_list->type() == List::Type::kTuple);
-  }
+      : BinNode(identifier, argument_list) {}
 };
 
 class Visitor {

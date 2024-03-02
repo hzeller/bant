@@ -87,7 +87,8 @@ class ParserTest : public testing::Test {
     return result;
   }
 
-  bant::ListComprehension *ListComprehension(List::Type type, Node *for_expr) {
+  bant::ListComprehension *ListComprehension(List::Type type,
+                                             BinOpNode *for_expr) {
     return arena_.New<bant::ListComprehension>(type, for_expr);
   }
 
