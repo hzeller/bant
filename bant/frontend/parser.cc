@@ -51,10 +51,10 @@ public:
 
 namespace bant {
 // Simple recursive descent parser. As Parser::Impl to not clobber the header
-// file with all the parse methods needed for each production.
+// file with all the parse methods needed for the productions.
 class Parser::Impl {
  public:
-  Impl(Scanner *token_source, Arena *allocator, const char *info_filename,
+  Impl(Scanner *token_source, Arena *allocator, std::string_view info_filename,
        std::ostream &err_out)
       : scanner_(token_source),
         node_arena_(allocator),
@@ -62,21 +62,17 @@ class Parser::Impl {
         err_out_(err_out) {}
 
   // Parse file. If there is an error, return at least partial tree.
-  // A file is a list of data structures or identifiers.
+  // A file is a list of data structures, function calls, or assignments..
   List *parse() {
     LOG_ENTER();
-    if (previous_parse_result_) return previous_parse_result_;
-
-    List *statement_list = Make<List>(List::Type::kList);
-    previous_parse_result_ = statement_list;
+    List *const statement_list = Make<List>(List::Type::kList);
     while (!error_) {
-      auto tok = scanner_->Next();
+      const Token tok = scanner_->Next();
       if (tok.type == kEof) {
-        last_token_ = tok;
         return statement_list;
       }
       if (tok.type == kStringLiteral) {
-        continue;  // Pythonism: Toplevel document no-effect statement
+        continue;  // Pythonism: Ignoring toplevel document no-effect statement
       }
 
       if (tok.type == '[') {
@@ -87,14 +83,14 @@ class Parser::Impl {
         continue;
       }
 
-      // No other toplevel parts expected for now
+      // Any other toplevel element is expected to start with an identifier.
       if (tok.type != kIdentifier) {
         ErrAt(tok) << "expected identifier\n";
         return statement_list;
       }
 
       // Got identifier, next step: either function call or assignment.
-      auto after_id = scanner_->Next();
+      const Token after_id = scanner_->Next();
       switch (after_id.type) {
       case TokenType::kAssign:
         statement_list->Append(node_arena_,
@@ -131,6 +127,8 @@ class Parser::Impl {
     return Make<FunCall>(Make<Identifier>(identifier.text), args);
   }
 
+  // Parse expressions produced by element_parse until end_tok is reached.
+  // the end-tok is consumed.
   using ListElementParse = std::function<Node *()>;
   List *ParseList(List *result, const ListElementParse &element_parse,
                   TokenType end_tok) {
@@ -148,7 +146,7 @@ class Parser::Impl {
         return result;
       }
     }
-    scanner_->Next();  // eats end_tok
+    scanner_->Next();  // consume end_tok
     return result;
   }
 
@@ -166,14 +164,12 @@ class Parser::Impl {
 
   Node *ParseValueOrIdentifier(bool can_be_optional) {
     LOG_ENTER();
-    Token t = scanner_->Peek();
+    const Token t = scanner_->Peek();  // can't consume yet if default hits
     switch (t.type) {
     case TokenType::kStringLiteral:
-      scanner_->Next();
-      return StringScalar::FromLiteral(node_arena_, t.text);
-    case TokenType::kNumberLiteral:
-      scanner_->Next();
-      return ParseIntFromToken(t);
+      return StringScalar::FromLiteral(node_arena_, scanner_->Next().text);
+    case TokenType::kNumberLiteral:  //
+      return ParseIntFromToken(scanner_->Next());
     case TokenType::kIdentifier:
       scanner_->Next();
       if (scanner_->Peek().type == '(') {
@@ -210,21 +206,22 @@ class Parser::Impl {
 
   Node *ParseIfElse(Node *if_branch) {
     LOG_ENTER();
-    Token op = scanner_->Next();
-    assert(op.type == TokenType::kIf);  // expected this at this point.
+    // 'if' seen, but not consumed yet.
+    Token tok = scanner_->Next();
+    assert(tok.type == TokenType::kIf);  // expected this at this point.
     Node *condition = ParseExpression();
     Node *else_branch = nullptr;
-    op = scanner_->Peek();
-    if (op.type == TokenType::kElse) {
+    tok = scanner_->Peek();
+    if (tok.type == TokenType::kElse) {
       scanner_->Next();
       else_branch = ParseExpression();
     }
     return Make<Ternary>(condition, if_branch, else_branch);
   }
 
-  Node *ParseArrayAccess() {
+  Node *ParseArrayOrSliceAccess() {
     LOG_ENTER();
-    // Already seen '['
+    // '[' seen, but not consumed yet.
     // array_access = expression ']'
     //              | expression ':' expression ']'
     Node *n = ParseExpression(/*can_be_optional=*/true);
@@ -314,8 +311,8 @@ class Parser::Impl {
           return nullptr;
         }
         Token op = scanner_->Next();  // '[' operation.
-        n = Make<BinOpNode>(n, ParseArrayAccess(), op.type);
-        // This was a suffix expression, don't return, continue
+        n = Make<BinOpNode>(n, ParseArrayOrSliceAccess(), op.type);
+        // Suffix expression, maybe there is more. Don't return, continue.
         break;
       }
       default: return n;
@@ -325,6 +322,7 @@ class Parser::Impl {
 
   Node *ParseParenExpressionOrTuple() {
     LOG_ENTER();
+    // '(' seen, but not consumed yet.
     Token p = scanner_->Next();
     assert(p.type == '(');  // We have only be called if this is true.
     Node *const exp = ParseExpression(true);  // null if this is an empty tuple
@@ -374,7 +372,7 @@ class Parser::Impl {
     LOG_ENTER();
     Node *lhs = ParseExpression();
 
-    Token separator = scanner_->Next();
+    const Token separator = scanner_->Next();
     if (separator.type != ':') {
       ErrAt(separator) << "expected `:` in map-tuple\n";
       return nullptr;
@@ -382,24 +380,27 @@ class Parser::Impl {
     return Make<BinOpNode>(lhs, ParseExpression(), TokenType::kColon);
   }
 
+  // Parse list, use ListElementParse function to parse elements.
   Node *ParseListOrListComprehension(List::Type type,
                                      const ListElementParse &element_parser) {
     LOG_ENTER();
-    // Opening list/tuple/map brace already parsed
-    //   close_token: -> empty list
-    //   expression close_token -> one element list
-    //   expression 'for' ... -> comprehension
-    //   expression ',' (expression+) ,? end_token
+    // We're here when '[', '(', or '{' brace already consumed.
+    // corresponding close_token ']', ')' or '}' chosen from type.
+    // remaining_node
+    //   : close_token                                -> empty list
+    //   | expression close_token                     -> one element list
+    //   | expression 'for' list_comprehension        -> comprehension
+    //   | expression ',' (expression+) ,? end_token  -> longer list
     const TokenType expected_close_token = EndTokenFor(type);
     Token upcoming = scanner_->Peek();
     if (upcoming.type == expected_close_token) {
       scanner_->Next();
       return Make<List>(type);  // empty list/tuple/map
     }
-    Node *first_expression = element_parser();
+    Node *const first_expression = element_parser();
     if (!first_expression) return nullptr;
 
-    Token tok = scanner_->Peek();
+    const Token tok = scanner_->Peek();
     switch (tok.type) {
     case TokenType::kFor:  //
       return ParseListComprehension(type, first_expression);
@@ -421,7 +422,8 @@ class Parser::Impl {
     return ParseList(result, element_parser, expected_close_token);
   }
 
-  Node *ParseListFor(Node *lhs, TokenType expected_end_token) {
+  // Read for-in constructs until we hit expected_end_token.
+  Node *ParseComprehensionFor(Node *lhs, TokenType expected_end_token) {
     while (scanner_->Peek().type == TokenType::kFor) {
       scanner_->Next();
       List *var_list = nullptr;
@@ -433,7 +435,7 @@ class Parser::Impl {
         var_list = ParseList(
           Make<List>(List::Type::kTuple),
           [&]() { return ParseOptionalIdentifier(); }, TokenType::kCloseParen);
-        Token expected_in = scanner_->Next();
+        const Token expected_in = scanner_->Next();
         if (expected_in.type != TokenType::kIn) {
           ErrAt(expected_in) << "expected 'in' after variable tuple\n";
         }
@@ -442,11 +444,11 @@ class Parser::Impl {
           Make<List>(List::Type::kTuple),
           [&]() { return ParseOptionalIdentifier(); }, TokenType::kIn);
       }
-      BinOpNode *range =
+      BinOpNode *const range =
         Make<BinOpNode>(var_list, ParseExpression(), TokenType::kIn);
       lhs = Make<BinOpNode>(lhs, range, TokenType::kFor);
     }
-    Token end_tok = scanner_->Next();
+    const Token end_tok = scanner_->Next();
     if (end_tok.type != expected_end_token) {
       ErrAt(end_tok) << "expected " << expected_end_token
                      << " at end of comprehension\n";
@@ -466,10 +468,10 @@ class Parser::Impl {
 
   Node *ParseListComprehension(List::Type type, Node *start_expression) {
     LOG_ENTER();
-    // start_expression `for` ident[,ident...] `in` expression.
-    // start_expression already parsed, `for` still in scanner; extract that:
-
-    Node *for_node = ParseListFor(start_expression, EndTokenFor(type));
+    // start_expression already parsed, 'for' seen, but not consumed.
+    //
+    // 'for' identifier (,identifier)* ,? 'in' expression.
+    Node *for_node = ParseComprehensionFor(start_expression, EndTokenFor(type));
     if (for_node == nullptr) return nullptr;
     return Make<ListComprehension>(type, for_node);
   }
@@ -478,12 +480,9 @@ class Parser::Impl {
     err_out_ << filename_ << ":" << scanner_->line_col().GetRange(t.text)
              << " got '" << t.text << "'; ";
     error_ = true;
-    last_token_ = t;
     return err_out_;
   }
 
-  // Error token or kEof
-  Token lastToken() const { return last_token_; }
   bool parse_error() const { return error_; }
 
   // Convenience factory creating in our Arena, forwarding to constructor.
@@ -495,19 +494,16 @@ class Parser::Impl {
  private:
   Scanner *const scanner_;
   Arena *const node_arena_;
-  const char *filename_;
+  const std::string_view filename_;
   std::ostream &err_out_;
-  List *previous_parse_result_ = nullptr;
   bool error_ = false;
-  Token last_token_;
 };
 
 Parser::Parser(Scanner *token_source, Arena *allocator,
-               const char *info_filename, std::ostream &err_out)
+               std::string_view info_filename, std::ostream &err_out)
     : impl_(new Impl(token_source, allocator, info_filename, err_out)) {}
 Parser::~Parser() = default;
 
 List *Parser::parse() { return impl_->parse(); }
 bool Parser::parse_error() const { return impl_->parse_error(); }
-Token Parser::lastToken() const { return impl_->lastToken(); }
 }  // namespace bant

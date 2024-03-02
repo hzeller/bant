@@ -53,12 +53,12 @@ class Node {
 
 class Scalar : public Node {
  public:
-  enum ScalarType { kInt, kString };
+  enum class ScalarType { kInt, kString };
 
   virtual std::string_view AsString() const { return ""; }
   virtual int64_t AsInt() const { return 0; }
 
-  void Accept(Visitor *v) override;
+  void Accept(Visitor *v) final;
   Scalar *CastAsScalar() final { return this; }
 
   virtual ScalarType type() = 0;
@@ -77,7 +77,7 @@ class StringScalar : public Scalar {
   bool is_raw() const { return is_raw_; }
   bool is_triple_quoted() const { return is_triple_quoted_; }
 
-  ScalarType type() final { return kString; }
+  ScalarType type() final { return ScalarType::kString; }
 
  private:
   friend class Arena;
@@ -94,7 +94,7 @@ class IntScalar : public Scalar {
   static IntScalar *FromLiteral(Arena *arena, std::string_view literal);
 
   int64_t AsInt() const final { return value_; }
-  ScalarType type() final { return kInt; }
+  ScalarType type() final { return ScalarType::kInt; }
 
  private:
   friend class Arena;
@@ -130,6 +130,7 @@ class UnaryExpr : public Node {
  protected:
   friend class Arena;
   explicit UnaryExpr(TokenType op, Node *n) : node_(n), op_(op) {}
+
   Node *node_;
   const TokenType op_;
 };
@@ -141,6 +142,7 @@ class BinNode : public Node {
 
  protected:
   BinNode(Node *lhs, Node *rhs) : left_(lhs), right_(rhs) {}
+
   Node *left_;
   Node *right_;
 };
@@ -162,6 +164,7 @@ class BinOpNode : public BinNode {
  private:
   friend class Arena;
   BinOpNode(Node *lhs, Node *rhs, TokenType op) : BinNode(lhs, rhs), op_(op) {}
+
   const TokenType op_;
 };
 
@@ -211,9 +214,6 @@ class ListComprehension : public Node {
 
 class Ternary : public Node {
  public:
-  Ternary(Node *condition, Node *positive, Node *negative)
-      : condition_(condition), positive_(positive), negative_(negative) {}
-
   Node *condition() { return condition_; }
   Node *positive() { return positive_; }
   Node *negative() { return negative_; }
@@ -221,6 +221,10 @@ class Ternary : public Node {
   void Accept(Visitor *v) final;
 
  private:
+  friend class Arena;
+  Ternary(Node *condition, Node *positive, Node *negative)
+      : condition_(condition), positive_(positive), negative_(negative) {}
+
   Node *condition_;
   Node *positive_;
   Node *negative_;
@@ -249,6 +253,7 @@ class FunCall : public BinNode {
 
  private:
   friend class Arena;
+  // A function call is essentially an identifier directly followed by a tuple.
   FunCall(Identifier *identifier, List *argument_list)
       : BinNode(identifier, argument_list) {
     assert(argument_list->type() == List::Type::kTuple);
@@ -307,17 +312,17 @@ class BaseVisitor : public Visitor {
 class PrintVisitor : public BaseVisitor {
  public:
   explicit PrintVisitor(std::ostream &out) : out_(out) {}
-  void VisitAssignment(Assignment *a) override;
-  void VisitFunCall(FunCall *f) override;
-  void VisitList(List *l) override;
+  void VisitAssignment(Assignment *a) final;
+  void VisitFunCall(FunCall *f) final;
+  void VisitList(List *l) final;
 
-  void VisitUnaryExpr(UnaryExpr *e) override;
-  void VisitBinOpNode(BinOpNode *b) override;
-  void VisitListComprehension(ListComprehension *lh) override;
-  void VisitTernary(Ternary *t) override;
+  void VisitUnaryExpr(UnaryExpr *e) final;
+  void VisitBinOpNode(BinOpNode *b) final;
+  void VisitListComprehension(ListComprehension *lh) final;
+  void VisitTernary(Ternary *t) final;
 
-  void VisitScalar(Scalar *s) override;
-  void VisitIdentifier(Identifier *i) override;
+  void VisitScalar(Scalar *s) final;
+  void VisitIdentifier(Identifier *i) final;
 
  private:
   int indent_ = 0;

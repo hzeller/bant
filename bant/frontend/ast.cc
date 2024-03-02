@@ -144,7 +144,7 @@ void PrintVisitor::VisitTernary(Ternary *t) {
 }
 
 void PrintVisitor::VisitScalar(Scalar *s) {
-  if (s->type() == Scalar::kInt) {
+  if (s->type() == Scalar::ScalarType::kInt) {
     out_ << s->AsInt();
   } else {
     const StringScalar *str = static_cast<StringScalar *>(s);
