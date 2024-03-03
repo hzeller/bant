@@ -68,7 +68,7 @@ std::ostream &operator<<(std::ostream &o, TokenType t) {
 
 std::ostream &operator<<(std::ostream &o, const Token t) {
   if (t.type < 256) {
-    o << "('" << t.text << "')";   // Don't write as-is operators
+    o << "('" << t.text << "')";  // Don't write as-is operators
   } else {
     o << t.type << "('" << t.text << "')";
   }
@@ -83,9 +83,9 @@ Scanner::Scanner(std::string_view content, LineColumnMap &line_map)
 
 inline Scanner::ContentPointer Scanner::SkipSpace() {
   bool in_comment = false;
-  while (pos_ < content_.end() &&
-         (absl::ascii_isspace(*pos_) || *pos_ == '\\' || *pos_ == '#' ||
-          in_comment)) {
+  const ContentPointer end = content_.end();
+  while (pos_ < end && (absl::ascii_isspace(*pos_) || *pos_ == '\\' ||
+                        *pos_ == '#' || in_comment)) {
     if (*pos_ == '#') {
       in_comment = true;
     } else if (*pos_ == '\n') {
@@ -117,10 +117,11 @@ bool Scanner::ConsumeOptionalIn() {
 
 Token Scanner::HandleIdentifierKeywordRawStringOrInvalid() {
   const ContentPointer start = pos_;
+  const ContentPointer end = content_.end();
 
   // Raw string literals r"foo" start out looking like an identifier,
   // but the following quote gives it away.
-  if ((content_.end() - start) > 2 &&          //
+  if ((end - start) > 2 &&                     //
       (start[0] == 'r' || start[0] == 'R') &&  //
       (start[1] == '"' || start[1] == '\'')) {
     return HandleString();
@@ -131,7 +132,7 @@ Token Scanner::HandleIdentifierKeywordRawStringOrInvalid() {
     ++pos_;
     return {TokenType::kError, {start, 1}};
   }
-  while (pos_ < content_.end() && IsIdentifierChar(*pos_)) {
+  while (pos_ < end && IsIdentifierChar(*pos_)) {
     ++pos_;
   }
   std::string_view text{start, (size_t)(pos_ - start)};
@@ -157,19 +158,20 @@ Token Scanner::HandleIdentifierKeywordRawStringOrInvalid() {
 Token Scanner::HandleString() {
   bool triple_quote = false;
   const ContentPointer start = pos_;
+  const ContentPointer end = content_.end();
+
   if (*pos_ == 'r' || *pos_ == 'R') {
     ++pos_;
   }
   const char str_quote = *pos_;
   pos_++;
-  if (pos_ + 1 < content_.end() && *pos_ == str_quote &&
-      *(pos_ + 1) == str_quote) {
+  if (pos_ + 1 < end && *pos_ == str_quote && *(pos_ + 1) == str_quote) {
     triple_quote = true;
     pos_ += 2;
   }
   int close_quote_count = triple_quote ? 3 : 1;
   bool last_was_escape = false;
-  while (pos_ < content_.end()) {
+  while (pos_ < end) {
     if (*pos_ == str_quote && !last_was_escape) {
       --close_quote_count;
       if (close_quote_count == 0) break;
@@ -183,7 +185,7 @@ Token Scanner::HandleString() {
     }
     ++pos_;
   }
-  if (pos_ >= content_.end()) {
+  if (pos_ >= end) {
     return {TokenType::kError, {start, (size_t)(pos_ - start)}};
   }
   ++pos_;

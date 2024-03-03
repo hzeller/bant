@@ -452,7 +452,7 @@ class Parser::Impl {
       // We deal with these variants, but in any case, they are follwed by 'in'.
       if (scanner_->Peek().type == '(') {  // (i, j, k) case.
         scanner_->Next();                  // Consume open tuple '('
-        variable_tuple = ParseList(     // .. parse until we see close ')'
+        variable_tuple = ParseList(        // .. parse until we see close ')'
           Make<List>(List::Type::kTuple),
           [&]() { return ParseOptionalIdentifier(); }, TokenType::kCloseParen);
         const Token expected_in = scanner_->Next();

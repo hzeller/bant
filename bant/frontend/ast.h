@@ -202,7 +202,7 @@ class ListComprehension : public Node {
  private:
   friend class Arena;
   ListComprehension(List::Type type, BinOpNode *for_node)
-    : type_(type), for_node_(for_node) {}
+      : type_(type), for_node_(for_node) {}
 
   List::Type type_;
   BinOpNode *for_node_;

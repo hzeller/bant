@@ -74,7 +74,7 @@ struct ParsedProject {
 
   int error_count = 0;
 
-  Arena arena{1 << 16};
+  Arena arena{1 << 20};
   std::map<std::string, ParsedBuildFile> file_to_ast;
 };
 

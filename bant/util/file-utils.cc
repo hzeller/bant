@@ -16,13 +16,14 @@
 // 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 
 #include <dirent.h>
+#include <fcntl.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 
 #include <cstddef>
 #include <cstring>
 #include <deque>
 #include <filesystem>
-#include <fstream>
 #include <functional>
 #include <optional>
 #include <string>
@@ -34,16 +35,25 @@ namespace fs = std::filesystem;
 
 namespace bant {
 std::optional<std::string> ReadFileToString(const fs::path &filename) {
-  std::ifstream is(filename, std::ifstream::binary);
-  if (!is.good()) return std::nullopt;
-  std::string result;
-  char buffer[4096];
-  for (;;) {
-    is.read(buffer, sizeof(buffer));
-    result.append(buffer, is.gcount());
-    if (!is.good()) break;
+  int fd = open(filename.string().c_str(), O_RDONLY);
+  if (fd < 0) return std::nullopt;
+  std::string content;
+  if (struct stat s; fstat(fd, &s) == 0) {
+    content.resize(s.st_size);
+  } else {
+    return std::nullopt;
   }
-  return result;
+  char *buf = const_cast<char *>(content.data());  // sneaky :)
+  size_t bytes_left = content.size();
+  while (bytes_left) {
+    ssize_t r = read(fd, buf, bytes_left);
+    if (r <= 0) break;
+    bytes_left -= r;
+    buf += r;
+  }
+  close(fd);
+  if (bytes_left) return std::nullopt;
+  return content;
 }
 
 // TODO: This was previously implemented recursively using

@@ -49,8 +49,7 @@ std::ostream &operator<<(std::ostream &out, const LineColumnRange &r) {
 }
 
 LineColumn LineColumnMap::GetPos(std::string_view::const_iterator pos) const {
-  auto start =
-    std::upper_bound(line_map_.begin(), line_map_.end(), pos);
+  auto start = std::upper_bound(line_map_.begin(), line_map_.end(), pos);
   assert(start - line_map_.begin() > 0);
   --start;
   LineColumn result;
