@@ -56,22 +56,27 @@ bool FilesystemPath::is_symlink() const {
 std::optional<std::string> ReadFileToString(const FilesystemPath &filename) {
   int fd = open(filename.c_str(), O_RDONLY);
   if (fd < 0) return std::nullopt;
+  struct stat st;
+  if (fstat(fd, &st) != 0) return std::nullopt;
+
+  const size_t filesize = st.st_size;
+  bool success = false;
   std::string content;
-  if (struct stat s; fstat(fd, &s) == 0) {
-    content.resize(s.st_size);
-  } else {
-    return std::nullopt;
-  }
-  char *buf = const_cast<char *>(content.data());  // sneaky :)
-  size_t bytes_left = content.size();
-  while (bytes_left) {
-    ssize_t r = read(fd, buf, bytes_left);
-    if (r <= 0) break;
-    bytes_left -= r;
-    buf += r;
-  }
+  content.resize_and_overwrite(
+    filesize, [fd, filesize, &success](char *buf, std::size_t alloced_size) {
+      // Need to use filesize; alloced_size is >= requested.
+      size_t bytes_left = filesize;
+      while (bytes_left) {
+        ssize_t r = read(fd, buf, bytes_left);
+        if (r <= 0) break;
+        bytes_left -= r;
+        buf += r;
+      }
+      success = (bytes_left == 0);
+      return filesize;
+    });
   close(fd);
-  if (bytes_left) return std::nullopt;
+  if (!success) return std::nullopt;
   return content;
 }
 
