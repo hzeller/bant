@@ -281,6 +281,28 @@ id_map = { SOME_IDENTIFIER : ANOTHER_ID }
 )")));
 }
 
+TEST_F(ParserTest, Lists) {
+  Node *const expected = List({
+    Assign("empty", List({})),
+    Assign("one", List({Id("a")})),
+    Assign("one_c", List({Id("a")})),
+    Assign("two", List({Id("a"), Id("b")})),
+    Assign("two_c", List({Id("a"), Id("b")})),
+    Assign("three", List({Id("a"), Id("b"), Id("c")})),
+    Assign("three_c", List({Id("a"), Id("b"), Id("c")})),
+  });
+
+  EXPECT_EQ(Print(expected), Print(Parse(R"(
+empty =   []
+one =     [a]
+one_c =   [a,]   # Same with trailling comma
+two =     [a, b]
+two_c =   [a, b,]
+three =   [a, b, c]
+three_c = [a, b, c,]
+)")));
+}
+
 TEST_F(ParserTest, SimpleFunctionCalls) {
   Node *const expected = List({
     Call("foo", Tuple({Str("foo"), Id("k")})),

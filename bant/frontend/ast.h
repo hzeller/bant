@@ -281,6 +281,7 @@ class BaseVisitor : public Visitor {
   void VisitAssignment(Assignment *a) override { WalkNonNull(a->right()); }
   void VisitFunCall(FunCall *f) override { WalkNonNull(f->right()); }
   void VisitList(List *l) override {
+    if (l == nullptr) return;
     for (Node *node : *l) {
       WalkNonNull(node);
     }

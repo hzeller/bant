@@ -388,11 +388,13 @@ class Parser::Impl {
     LOG_ENTER();
     // We're here when '[', '(', or '{' brace already consumed.
     // corresponding close_token ']', ')' or '}' chosen from type.
+    // The token after the first expression distinguishes if this is a list
+    // or list comprehension.
     // remaining_node
     //   : close_token                                -> empty list
     //   | expression close_token                     -> one element list
     //   | expression 'for' list_comprehension        -> comprehension
-    //   | expression ',' (expression+) ,? end_token  -> longer list
+    //   | expression ',' [rest-of-list] close_token  -> longer list
     const TokenType expected_close_token = EndTokenFor(type);
     Token upcoming = scanner_->Peek();
     if (upcoming.type == expected_close_token) {

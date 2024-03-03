@@ -12,6 +12,9 @@ build --cxxopt=-Wno-unused-parameter    --host_cxxopt=-Wno-unused-parameter
 build --cxxopt=-fno-exceptions          --host_cxxopt=-fno-exceptions
 build --cxxopt=-fno-rtti                --host_cxxopt=-fno-rtti
 
+# Print out test log on failure.
+test --test_output=errors
+
 # Address sanitizer settings.
 build:asan --strip=never
 build:asan --copt -fsanitize=address

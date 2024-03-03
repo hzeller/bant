@@ -4,6 +4,7 @@
 *.patch
 perf.data*
 /.envrc
+/.direnv
 /.cache
 /bazel-*
 MODULE.bazel.lock
