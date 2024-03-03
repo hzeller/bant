@@ -108,7 +108,7 @@ int main(int argc, char *argv[]) {
     bant::Stat stats;
     auto build_files = bant::CollectBuildFiles(include_external, stats);
     for (const auto &file : build_files) {
-      *primary_output << file.string() << "\n";
+      *primary_output << file.path() << "\n";
     }
     if (verbose) {
       *info_output << "Walked through " << stats.ToString("files/dirs") << "\n";

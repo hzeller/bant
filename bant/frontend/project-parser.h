@@ -18,7 +18,6 @@
 #ifndef BANT_PROJECT_PARDER_
 #define BANT_PROJECT_PARDER_
 
-#include <filesystem>
 #include <map>
 #include <optional>
 #include <ostream>
@@ -29,6 +28,7 @@
 #include "bant/frontend/ast.h"
 #include "bant/frontend/linecolumn-map.h"
 #include "bant/types-bazel.h"
+#include "bant/util/file-utils.h"
 
 namespace bant {
 struct ParsedBuildFile {
@@ -80,8 +80,8 @@ struct ParsedProject {
 
 // Conveenience function to just collect all the BUILD files. Update "stats"
 // with total files searched and total time.
-std::vector<std::filesystem::path> CollectBuildFiles(bool include_external,
-                                                     Stat &stats);
+std::vector<FilesystemPath> CollectBuildFiles(bool include_external,
+                                              Stat &stats);
 
 // Convenience function to print a fully parsed project, recreated from the
 // AST.

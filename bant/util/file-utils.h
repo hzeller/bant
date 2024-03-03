@@ -19,17 +19,43 @@
 #define BANT_FILE_UTILS_H
 
 #include <cstddef>
-#include <filesystem>
 #include <functional>
 #include <optional>
 #include <string>
 #include <vector>
 
 namespace bant {
+
+// This is a replacement for std::filesyste::path which seems to do a lot
+// of expensive operations on filenames; sometimes occoupied > 20% bant runtime.
+// This, instead, is just a simple wrapper around a string.
+class FilesystemPath {
+ public:
+  FilesystemPath() = default;
+  explicit FilesystemPath(std::string_view path) : path_(path) {}
+
+  FilesystemPath(FilesystemPath &&) = default;
+  FilesystemPath(const FilesystemPath &) = delete;
+
+  const std::string &path() const { return path_; }
+
+  // Operating system functions might need a nul-terminated string.
+  const char *c_str() const { return path_.c_str(); }
+
+  // Just the element after the last slash.
+  std::string_view filename() const;
+
+  // Some predicates we use.
+  bool is_directory() const;
+  bool is_symlink() const;
+
+ private:
+  std::string path_;
+};
+
 // Given a filename, read the content of the file into a string. If there was
 // an error, return a nullopt.
-std::optional<std::string> ReadFileToString(
-  const std::filesystem::path &filename);
+std::optional<std::string> ReadFileToString(const FilesystemPath &filename);
 
 // Collect files found recursively and store in "paths".
 // Uses predicate "want_dir_p" to check if directory should be entered, and
@@ -37,9 +63,9 @@ std::optional<std::string> ReadFileToString(
 //
 // Returns number of files looked at.
 size_t CollectFilesRecursive(
-  const std::filesystem::path &dir, std::vector<std::filesystem::path> &paths,
-  const std::function<bool(const std::filesystem::path &)> &want_dir_p,
-  const std::function<bool(const std::filesystem::path &)> &want_file_p);
+  const FilesystemPath &dir, std::vector<FilesystemPath> &paths,
+  const std::function<bool(const FilesystemPath &)> &want_dir_p,
+  const std::function<bool(const FilesystemPath &)> &want_file_p);
 }  // namespace bant
 
 #endif  // BANT_FILE_UTILS_H

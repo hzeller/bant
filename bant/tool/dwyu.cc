@@ -69,7 +69,8 @@ std::set<BazelTarget> TargetsForIncludes(
     // File could be in multiple locations, primary or generated. Use first.
     std::optional<std::string> src_content;
     for (std::string_view search_path : kSourceLocations) {
-      src_content = ReadFileToString(absl::StrCat(search_path, source_file));
+      src_content = ReadFileToString(
+        FilesystemPath(absl::StrCat(search_path, source_file)));
       if (src_content.has_value()) break;
     }
     if (!src_content.has_value()) {

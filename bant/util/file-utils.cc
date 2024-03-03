@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU General Public License along
 // with this program; if not, write to the Free Software Foundation, Inc.,
 // 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
+#include "bant/util/file-utils.h"
 
 #include <dirent.h>
 #include <fcntl.h>
@@ -23,7 +24,6 @@
 #include <cstddef>
 #include <cstring>
 #include <deque>
-#include <filesystem>
 #include <functional>
 #include <optional>
 #include <string>
@@ -31,11 +31,30 @@
 #include "absl/container/flat_hash_set.h"
 #include "absl/strings/str_cat.h"
 
-namespace fs = std::filesystem;
-
 namespace bant {
-std::optional<std::string> ReadFileToString(const fs::path &filename) {
-  int fd = open(filename.string().c_str(), O_RDONLY);
+std::string_view FilesystemPath::filename() const {
+  std::string_view full_path(path_);
+  auto last_slash = full_path.find_last_of('/');
+  if (last_slash != std::string::npos) {
+    return full_path.substr(last_slash + 1);
+  }
+  return full_path;
+}
+
+bool FilesystemPath::is_directory() const {
+  struct stat s;
+  if (stat(c_str(), &s) != 0) return false;  // ¯\_(ツ)_/¯
+  return S_ISDIR(s.st_mode);
+}
+
+bool FilesystemPath::is_symlink() const {
+  struct stat s;
+  if (lstat(c_str(), &s) != 0) return false;  // ¯\_(ツ)_/¯
+  return S_ISLNK(s.st_mode);
+}
+
+std::optional<std::string> ReadFileToString(const FilesystemPath &filename) {
+  int fd = open(filename.c_str(), O_RDONLY);
   if (fd < 0) return std::nullopt;
   std::string content;
   if (struct stat s; fstat(fd, &s) == 0) {
@@ -59,19 +78,17 @@ std::optional<std::string> ReadFileToString(const fs::path &filename) {
 // TODO: This was previously implemented recursively using
 // std::filesystem::directory_iterator() which was noticeably slower.
 //
-// However, we still map every file back to a fs::path, so maybe there is
-// more to be gained ?
 // Compared to the std::filesystem, it is probaly also slightly less portable,
 // but for my personal tools, I'll only ever run it on some Unix anyway.
 size_t CollectFilesRecursive(
-  const fs::path &dir, std::vector<fs::path> &paths,
-  const std::function<bool(const std::filesystem::path &)> &want_dir_p,
-  const std::function<bool(const std::filesystem::path &)> &want_file_p) {
+  const FilesystemPath &dir, std::vector<FilesystemPath> &paths,
+  const std::function<bool(const FilesystemPath &)> &want_dir_p,
+  const std::function<bool(const FilesystemPath &)> &want_file_p) {
   absl::flat_hash_set<ino_t> seen_inode;  // make sure we don't run in circles.
   size_t count = 0;
   std::error_code err;
   std::deque<std::string> directory_worklist;
-  directory_worklist.push_back(dir.string());
+  directory_worklist.emplace_back(dir.path());
   while (!directory_worklist.empty()) {
     const std::string current_dir = directory_worklist.front();
     directory_worklist.pop_front();
@@ -88,16 +105,15 @@ size_t CollectFilesRecursive(
       }
 
       ++count;
-      std::string full_path = absl::StrCat(current_dir, "/", entry->d_name);
-      fs::path file_or_dir(full_path);
+      FilesystemPath file_or_dir(absl::StrCat(current_dir, "/", entry->d_name));
       if (entry->d_type == DT_DIR ||  // Already know is directory. fast-track.
           ((entry->d_type == DT_UNKNOWN || entry->d_type == DT_LNK) &&
-           fs::is_directory(file_or_dir, err))) {
+           file_or_dir.is_directory())) {
         if (want_dir_p(file_or_dir)) {
-          directory_worklist.emplace_back(full_path);
+          directory_worklist.emplace_back(file_or_dir.path());
         }
       } else if (want_file_p(file_or_dir)) {
-        paths.emplace_back(file_or_dir);
+        paths.emplace_back(std::move(file_or_dir));
       }
     }
     closedir(dir);

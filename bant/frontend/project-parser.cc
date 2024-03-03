@@ -30,8 +30,6 @@
 #include "bant/types-bazel.h"
 #include "bant/util/file-utils.h"
 
-namespace fs = std::filesystem;
-
 namespace bant {
 namespace {
 
@@ -52,21 +50,21 @@ std::optional<BazelPackage> PackageFromExternal(std::string_view path) {
   return BazelPackage::ParseFrom(absl::StrCat("@", path));
 }
 
-static void ParseBuildFiles(const std::vector<fs::path> &build_files,
+static void ParseBuildFiles(const std::vector<FilesystemPath> &build_files,
                             const std::string &external_prefix,
                             std::ostream &error_out, ParsedProject *result) {
   const absl::Time start_time = absl::Now();
 
   size_t bytes_processed = 0;
-  for (const fs::path &build_file : build_files) {
+  for (const FilesystemPath &build_file : build_files) {
     std::optional<std::string> content = ReadFileToString(build_file);
     if (!content.has_value()) {
-      std::cerr << "Could not read " << build_file << "\n";
+      std::cerr << "Could not read " << build_file.path() << "\n";
       ++result->error_count;
       continue;
     }
 
-    const std::string filename = build_file.string();
+    const std::string &filename = build_file.path();
     auto inserted = result->file_to_ast.emplace(
       filename, ParsedBuildFile(filename, std::move(*content)));
     if (!inserted.second) {
@@ -113,11 +111,11 @@ static void ParseBuildFiles(const std::vector<fs::path> &build_files,
 
 // Assemble a path that points to the symbolik link bazel generates for
 // the external location.
-// TODO: properly do this with fs::path
-static std::string ExternalProjectDir() {
-  const std::string project_dir_name = fs::current_path().filename().string();
+static FilesystemPath ExternalProjectDir() {
+  const std::string project_dir_name =
+    std::filesystem::current_path().filename().string();
   const std::string external_base = absl::StrCat("./bazel-", project_dir_name);
-  return absl::StrCat(external_base, "/external");
+  return FilesystemPath(absl::StrCat(external_base, "/external"));
 }
 }  // namespace
 
@@ -133,36 +131,38 @@ std::string Stat::ToString(std::string_view thing_name) const {
                          duration_usec / 1000.0);
 }
 
-std::vector<fs::path> CollectBuildFiles(bool include_external, Stat &stats) {
-  std::vector<fs::path> build_files;
+std::vector<FilesystemPath> CollectBuildFiles(bool include_external,
+                                              Stat &stats) {
+  std::vector<FilesystemPath> build_files;
   const absl::Time start_time = absl::Now();
 
-  const auto relevant_build_file_predicate = [](const fs::path &file) {
-    const auto &basename = file.filename();
+  const auto relevant_build_file_predicate = [](const FilesystemPath &file) {
+    const std::string_view basename = file.filename();
     return basename == "BUILD" || basename == "BUILD.bazel";
   };
 
-  const auto dir_predicate = [](bool allow_symlink, const fs::path &dir) {
-    if (dir.filename() == "_tmp") return false;
-    if (dir.filename() == ".git") return false;  // lots of irrelevant stuff
-    return allow_symlink || !fs::is_symlink(dir);
+  const auto dir_predicate = [](bool allow_symlink, const FilesystemPath &dir) {
+    const std::string_view filename = dir.filename();
+    if (filename == "_tmp") return false;
+    if (filename == ".git") return false;  // lots of irrelevant stuff
+    return allow_symlink || !dir.is_symlink();
   };
 
   // TODO: implement some curry solution
-  const auto dir_with_symlink = [&dir_predicate](const fs::path &dir) {
+  const auto dir_with_symlink = [&dir_predicate](const FilesystemPath &dir) {
     return dir_predicate(true, dir);
   };
-  const auto dir_without_symlink = [&dir_predicate](const fs::path &dir) {
+  const auto dir_without_symlink = [&dir_predicate](const FilesystemPath &dir) {
     return dir_predicate(false, dir);
   };
 
   // File in the general project
   stats.count =
-    CollectFilesRecursive(".", build_files,
+    CollectFilesRecursive(FilesystemPath("."), build_files,
                           dir_without_symlink,  // bazel symlink tree: ignore
                           relevant_build_file_predicate);
 
-  const std::string external_name = ExternalProjectDir();
+  const FilesystemPath external_name = ExternalProjectDir();
   if (include_external) {
     stats.count +=
       CollectFilesRecursive(external_name, build_files, dir_with_symlink,
@@ -180,7 +180,7 @@ ParsedProject ParsedProject::FromFilesystem(bool include_external,
   ParsedProject result;
   auto build_files =
     CollectBuildFiles(include_external, result.file_collect_stat);
-  const std::string external_name = ExternalProjectDir();
+  const std::string external_name = ExternalProjectDir().path();
   ParseBuildFiles(build_files, absl::StrCat(external_name, "/"), error_out,
                   &result);
   return result;
