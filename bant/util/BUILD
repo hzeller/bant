@@ -39,8 +39,16 @@ cc_library(
     name = "file-utils",
     srcs = ["file-utils.cc"],
     hdrs = ["file-utils.h"],
+    deps = ["@abseil-cpp//absl/container:flat_hash_set"],
+)
+
+cc_test(
+    name = "file-utils_test",
+    size = "small",
+    srcs = ["file-utils_test.cc"],
     deps = [
-        "@abseil-cpp//absl/container:flat_hash_set",
-        "@abseil-cpp//absl/strings",
+        ":file-utils",
+        "@googletest//:gtest",
+        "@googletest//:gtest_main",
     ],
 )

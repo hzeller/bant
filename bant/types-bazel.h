@@ -48,6 +48,8 @@ struct BazelPackage {
   std::string_view LastElement() const;
 
   auto operator<=>(const BazelPackage &o) const {
+    // Note: currently explicitly _not_ taking version into account.
+    // The way we print names only considers project and path.
     return std::tie(project, path) <=> std::tie(o.project, o.path);
   }
   bool operator<(const BazelPackage &) const = default;
@@ -78,13 +80,10 @@ struct BazelTarget {
 
   std::string ToString() const;
 
-  // More compact printing of a path if we are already in that path.
+  // More compact printing of a path if we are already in that package.
   std::string ToStringRelativeTo(const BazelPackage &other_package) const;
 
-  auto operator<=>(const BazelTarget &o) const {
-    return std::tie(package, target_name) <=>
-           std::tie(o.package, o.target_name);
-  }
+  auto operator<=>(const BazelTarget &o) const = default;
   bool operator<(const BazelTarget &) const = default;
   bool operator==(const BazelTarget &) const = default;
   bool operator!=(const BazelTarget &) const = default;

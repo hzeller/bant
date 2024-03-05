@@ -27,34 +27,75 @@
 #include <functional>
 #include <optional>
 #include <string>
+#include <string_view>
 
 #include "absl/container/flat_hash_set.h"
-#include "absl/strings/str_cat.h"
 
 namespace bant {
+FilesystemPath::FilesystemPath(std::string_view path_up_to,
+                               const struct dirent &dirent) {
+  while (path_up_to.ends_with('/')) path_up_to.remove_suffix(1);
+  const std::string_view dirent_filename(dirent.d_name);
+  path_.reserve(path_up_to.length() + 1 + dirent_filename.length());
+  path_.append(path_up_to).append("/").append(dirent_filename);
+  filename_ = path_;
+  filename_ = filename_.substr(path_up_to.size() + 1);
+  switch (dirent.d_type) {
+  case DT_LNK:
+    is_symlink_ = MemoizedResult::kYes;
+    is_dir_ = MemoizedResult::kUnknown;  // Only known after following link.
+    break;
+  case DT_DIR:
+    is_dir_ = MemoizedResult::kYes;
+    is_symlink_ = MemoizedResult::kNo;  // Since we know it is definitely dir
+    break;
+  default:;
+  }
+}
+
 std::string_view FilesystemPath::filename() const {
+  if (!filename_.empty()) return filename_;
+
   std::string_view full_path(path_);
   auto last_slash = full_path.find_last_of('/');
   if (last_slash != std::string::npos) {
-    return full_path.substr(last_slash + 1);
+    filename_ = full_path.substr(last_slash + 1);
+  } else {
+    filename_ = full_path;
   }
-  return full_path;
+  return filename_;
 }
 
 bool FilesystemPath::is_directory() const {
-  struct stat s;
-  if (stat(c_str(), &s) != 0) return false;  // ¯\_(ツ)_/¯
-  return S_ISDIR(s.st_mode);
+  if (is_dir_ == MemoizedResult::kUnknown) {
+    struct stat s;
+    if (stat(c_str(), &s) != 0) return false;  // ¯\_(ツ)_/¯
+    is_dir_ = (S_ISDIR(s.st_mode)) ? MemoizedResult::kYes : MemoizedResult::kNo;
+  }
+  return (is_dir_ == MemoizedResult::kYes);
 }
 
 bool FilesystemPath::is_symlink() const {
+  if (is_symlink_ == MemoizedResult::kUnknown) {
+    struct stat s;
+    if (lstat(c_str(), &s) != 0) return false;  // ¯\_(ツ)_/¯
+    is_symlink_ =
+      (S_ISLNK(s.st_mode)) ? MemoizedResult::kYes : MemoizedResult::kNo;
+  }
+  return (is_symlink_ == MemoizedResult::kYes);
+}
+
+// Test if symbolic link points to a directory and return 'true' if it does.
+// Update "out_inode" with the inode at the destination.
+static bool FollowLinkTestIsDir(const FilesystemPath &path, ino_t *out_inode) {
   struct stat s;
-  if (lstat(c_str(), &s) != 0) return false;  // ¯\_(ツ)_/¯
-  return S_ISLNK(s.st_mode);
+  if (stat(path.c_str(), &s) != 0) return false;
+  *out_inode = s.st_ino;
+  return S_ISDIR(s.st_mode);
 }
 
 std::optional<std::string> ReadFileToString(const FilesystemPath &filename) {
-  int fd = open(filename.c_str(), O_RDONLY);
+  const int fd = open(filename.c_str(), O_RDONLY);
   if (fd < 0) return std::nullopt;
   struct stat st;
   if (fstat(fd, &st) != 0) return std::nullopt;
@@ -80,40 +121,47 @@ std::optional<std::string> ReadFileToString(const FilesystemPath &filename) {
   return content;
 }
 
-// TODO: This was previously implemented recursively using
+// FYI: This was previously implemented recursively using
 // std::filesystem::directory_iterator() which was noticeably slower.
 //
-// Compared to the std::filesystem, it is probaly also slightly less portable,
-// but for my personal tools, I'll only ever run it on some Unix anyway.
+// Compared to using std::filesystem, this implementation is probably slightly
+// less portable, but I run my personal tools on Posix-Systems anyway.
 size_t CollectFilesRecursive(
   const FilesystemPath &dir, std::vector<FilesystemPath> &paths,
   const std::function<bool(const FilesystemPath &)> &want_dir_p,
   const std::function<bool(const FilesystemPath &)> &want_file_p) {
   absl::flat_hash_set<ino_t> seen_inode;  // make sure we don't run in circles.
   size_t count = 0;
-  std::error_code err;
+
   std::deque<std::string> directory_worklist;
   directory_worklist.emplace_back(dir.path());
   while (!directory_worklist.empty()) {
     const std::string current_dir = directory_worklist.front();
     directory_worklist.pop_front();
 
-    DIR *dir = opendir(current_dir.c_str());
+    DIR *const dir = opendir(current_dir.c_str());
     if (!dir) continue;
 
-    while (dirent *entry = readdir(dir)) {
-      if (!seen_inode.insert(entry->d_ino).second) {
-        continue;  // Avoid getting caught in the symbolic-link loop.
-      }
+    while (dirent *const entry = readdir(dir)) {
       if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
         continue;
       }
 
+      FilesystemPath file_or_dir(current_dir, *entry);
+      ino_t inode = entry->d_ino;  // Might need updating below if entry symlink
+
+      // The dirent might already tell us that this is a directory, or, we have
+      // to test it ourselves, e.g. if it is a symlink. Minimize stat() calls.
+      const bool is_directory =
+        (entry->d_type == DT_DIR ||  // Short-path: already known to be a dir
+         ((entry->d_type == DT_UNKNOWN || entry->d_type == DT_LNK) &&
+          FollowLinkTestIsDir(file_or_dir, &inode)));
+
       ++count;
-      FilesystemPath file_or_dir(absl::StrCat(current_dir, "/", entry->d_name));
-      if (entry->d_type == DT_DIR ||  // Already know is directory. fast-track.
-          ((entry->d_type == DT_UNKNOWN || entry->d_type == DT_LNK) &&
-           file_or_dir.is_directory())) {
+      if (is_directory) {
+        if (!seen_inode.insert(inode).second) {
+          continue;  // Avoid getting caught in symbolic-link loops.
+        }
         if (want_dir_p(file_or_dir)) {
           directory_worklist.emplace_back(file_or_dir.path());
         }
@@ -123,6 +171,7 @@ size_t CollectFilesRecursive(
     }
     closedir(dir);
   }
+
   return count;
 }
 }  // namespace bant
