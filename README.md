@@ -2,8 +2,8 @@ bant - Build Analysis and Navigation Tool
 =========================================
 
 Quick-and-dirty hack for my personal projects that use [bazel]. Extracting a
-list of targets; finding which headers belong to them etc. for easy scripting
-with `grep`, `awk`, `buildozer` etc.
+list of targets; finding which headers belong to them, DWYU ...
+Outputs are for easy scripting with `grep`, `awk`, `buildozer` etc.
 
 Probably not useful for anyone else.
 
@@ -27,13 +27,17 @@ Early Stages. WIP.
 #### Commands
  * `-L` command: Simply list all the BUILD files it would consider for the
    other commands. Use `-x` to limit scope to not include the external rules.
- * `-P` command: Print parse for project (should look similar to the input :) ).
+ * `-P` command: Print AST for project (should look similar to the input :) ).
  * `-H` command: for each header exported with `hdrs = [...]` in libraries,
    report which library that is (two columns, easy to `grep` or `awk` over).
- * `-D` grep all include files used in sources and libraries, determine which
-   libraries defined them and emit [buildozer] commands to 'add' or 'remove'
-   dependencies. If unclear if a library can be removed, it is conservatively
-   _not_ suggested for removal. 'Depend on What You Use' DWYU.
+ * `-D` Depend on What You Use (DWYU): Determine which dependencies are needed
+   in `cc_library`, `cc_binary`, and `cc_test` targets by looking at
+   their sources, determine which headers they include and thus which
+   libraries they need to depend on that export these headers.
+   Emit [buildozer] commands to 'add' or 'remove' dependencies.
+   If unclear if a library can be removed, it is conservatively
+   _not_ suggested for removal.
+   You could call this a simple `build_cleaner` ...
 
 ### Nice-to-have/next steps/TODO
 
@@ -62,6 +66,7 @@ bazel run -c opt //bant:install -- ~/bin
 # (Do _not_ run bazel with sudo.)
 bazel run -c opt //bant:install -- -s /usr/local/bin
 ```
+
 ### Use
 
 Note, `bant` can only find external projects if `bazel` has set up the
