@@ -5,7 +5,7 @@ Quick-and-dirty hack for my personal projects that use [bazel]. Extracting a
 list of targets; finding which headers belong to them, DWYU ...
 Outputs are for easy scripting with `grep`, `awk`, `buildozer` etc.
 
-Probably not useful for anyone else.
+Probably not too useful for anyone else.
 
  * Goal: Reading bazel-like BUILD files and doing useful things with content.
  * Non-Goal: parse full starlark (e.g. *.bzl files with `def`-initions)
@@ -17,30 +17,35 @@ Early Stages. WIP.
 #### Parsing
  * Parses most of simple BUILD/BUILD.bazel files and builds an AST of the
    Lists/Tuples/Function-calls (=build rules) involved for inspection and
-   writing tools for (Use `-P` or `-Pe` for parse-tree inspection).
-   Mostly ok; might still stumble upon rare Python-specific syntax elements.
+   writing tools for. Should parse most common BUILD files.
  * No expression evaluation yet (e.g. glob() calls do not see files yet)
  * Given a directory with a bazel project, parses all BUILD files including
    the external ones that bazel had extracted in `bazel-${project}/external/`,
    report parse errors.
 
 #### Commands
- * `list` List all the BUILD files it would consider for the
-    other commands. Use `-x` to limit scope to not include the external rules.
+Commands are given on the command line of `bant`. They can be shortened as
+long as they are unique, e.g. `lib` is sufficient to invoke `lib-headers`.
+Some have extra command line options (e.g. for `parse`, `-p` prints AST).
+
+ * `list` List all the BUILD files it would consider for the other commands.
+    Use `-x` to limit scope to not include the external rules.
  * `parse` Parse build files and emit syntax errors if any.
     * `-p` print AST (should look similar to the input :) ).
     * `-e` print AST, but only for files that had syntax errors.
  * `lib-headers` for each header exported with `hdrs = [...]` in libraries,
     report which library that is (two columns, easy to `grep` or `awk` over).
  * `dwyu` Depend on What You Use (DWYU): Determine which dependencies are
-   needed in `cc_library`, `cc_binary`, and `cc_test` targets by looking at
-   their sources, to find which headers they include. Use the information
-   from `lib-headers` to determine which libraries these sources thus need to
-   depnd on.
+   needed in `cc_library()`, `cc_binary()`, and `cc_test()` targets.
+   Greps through their declared sources to find which headers they include.
+   Uses the information from `lib-headers` to determine which libraries
+   these sources thus need to depend on.
    Emit [buildozer] commands to 'add' or 'remove' dependencies.
    If unclear if a library can be removed, it is conservatively
    _not_ suggested for removal.
    You could call this a simple `build_cleaner` ...
+
+Also, see `bant -h` or [Synopsis](#synopsis) below.
 
 ### Nice-to-have/next steps/TODO
 
@@ -120,6 +125,7 @@ Commands (unique prefix sufficient):
 
 ### Development
 
+Compiled using `bazel` >= 6.
 Relevant dependencies are already in the `shell.nix` so you can set up
 your environment [with that automatically][nix-devel-env].
 
