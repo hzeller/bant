@@ -15,6 +15,7 @@ cc_library(
         "//bant/frontend:parser",
         "//bant/frontend:project-parser",
         "//bant/util:query-utils",
+        "@abseil-cpp//absl/strings:str_format",
     ],
 )
 

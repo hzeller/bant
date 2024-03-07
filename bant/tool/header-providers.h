@@ -18,8 +18,8 @@
 #ifndef BANT_TOOL_HEADER_PROVIDER_
 #define BANT_TOOL_HEADER_PROVIDER_
 
-#include <cstdio>
 #include <map>
+#include <ostream>
 #include <string>
 
 #include "bant/frontend/project-parser.h"
@@ -33,8 +33,8 @@ HeaderToTargetMap ExtractHeaderToLibMapping(const ParsedProject &project,
                                             std::ostream &info_out);
 
 // Pretty print headers and targets in two columns.
-// (Uses stdio FILE currently, because printf() is so much easier than ostream)
-void PrintLibraryHeaders(FILE *out, const ParsedProject &project);
+void PrintLibraryHeaders(const HeaderToTargetMap &header_to_lib,
+                         std::ostream &out);
 }  // namespace bant
 
 #endif  // BANT_TOOL_HEADER_PROVIDER_

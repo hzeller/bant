@@ -20,6 +20,7 @@
 #include <functional>
 #include <string_view>
 
+#include "absl/strings/str_format.h"
 #include "bant/frontend/ast.h"
 #include "bant/frontend/project-parser.h"
 #include "bant/types-bazel.h"
@@ -104,14 +105,14 @@ HeaderToTargetMap ExtractHeaderToLibMapping(const ParsedProject &project,
   return result;
 }
 
-void PrintLibraryHeaders(FILE *out, const ParsedProject &project) {
-  const auto header_to_lib = ExtractHeaderToLibMapping(project, std::cerr);
+void PrintLibraryHeaders(const HeaderToTargetMap &header_to_lib,
+                         std::ostream &out) {
   int longest = 0;
   for (const auto &[header, _] : header_to_lib) {
     longest = std::max(longest, (int)header.length());
   }
   for (const auto &[header, lib] : header_to_lib) {
-    fprintf(out, "%*s\t%s\n", -longest, header.c_str(), lib.ToString().c_str());
+    out << absl::StrFormat("%*s\t%s\n", -longest, header, lib.ToString());
   }
 }
 }  // namespace bant

@@ -18,6 +18,7 @@
 #include <unistd.h>
 
 #include <filesystem>
+#include <fstream>
 #include <iostream>
 
 #include "bant/frontend/project-parser.h"
@@ -34,6 +35,7 @@ static int usage(const char *prog) {
 	-x             : Do not read BUILD files of eXternal projects.
 	                 (i.e. only read the files in the direct project)
 	-q             : Quiet: don't print info messages to stderr.
+	-o <filename>  : Instead of stdout, emit command output to file.
 	-v             : Verbose; print some stats.
 	-h             : This help.
 
@@ -51,14 +53,12 @@ Commands:
 }
 
 int main(int argc, char *argv[]) {
-  // '/dev/null' :)
-  class NullBuf : public std::streambuf {
-    std::streamsize xsputn(const char *s, std::streamsize n) final { return n; }
-    int overflow(int c) final { return c; }
-  } null_buf;
-  std::ostream devnull{&null_buf};
+  // non-nullptr streams if chosen by user.
+  std::unique_ptr<std::ostream> user_primary_output;
+  std::unique_ptr<std::ostream> user_info_output;
 
-  std::ostream *primary_output = &std::cout;  // TODO: could also be -o
+  // Default primary and info outputs.
+  std::ostream *primary_output = &std::cout;
   std::ostream *info_output = &std::cerr;
 
   bool verbose = false;
@@ -74,7 +74,7 @@ int main(int argc, char *argv[]) {
   } cmd = Command::kNone;
 
   int opt;
-  while ((opt = getopt(argc, argv, "hC:vxPeHLDq")) != -1) {
+  while ((opt = getopt(argc, argv, "hC:vxPeHLDqo:")) != -1) {
     switch (opt) {
     case 'C': {
       std::error_code err;
@@ -85,14 +85,31 @@ int main(int argc, char *argv[]) {
       }
       break;
     }
+
     case 'q':  //
-      info_output = &devnull;
+      user_info_output.reset(new std::ostream(nullptr));
+      info_output = user_info_output.get();
       break;
+
+    case 'o':  //
+      if (std::string_view(optarg) == "-") {
+        primary_output = &std::cout;
+        break;
+      }
+      user_primary_output.reset(new std::fstream(
+        optarg, std::ios::out | std::ios::binary | std::ios::trunc));
+      if (!user_primary_output->good()) {
+        std::cerr << "Could not open '" << optarg << "'\n";
+        return 1;
+      }
+      primary_output = user_primary_output.get();
+      break;
+
     case 'x':
       include_external = false;
       break;
 
-      // TODO: instead of flags, these sub-commands should be given as string
+      // TODO: instead of flags, these sub-commands should be given by name
     case 'P': cmd = Command::kPrint; break;
     case 'e': print_only_errors = true; break;  // command should handle
 
@@ -130,7 +147,8 @@ int main(int argc, char *argv[]) {
                        print_only_errors);
     break;
   case Command::kLibraryHeaders:  //
-    bant::PrintLibraryHeaders(stdout, project);
+    bant::PrintLibraryHeaders(ExtractHeaderToLibMapping(project, *info_output),
+                              *primary_output);
     break;
   case Command::kDependencyEdits:
     bant::CreateDependencyEdits(project, deps_stat, *info_output,
