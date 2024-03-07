@@ -17,39 +17,40 @@
 
 #include <unistd.h>
 
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <map>
 
 #include "bant/frontend/project-parser.h"
 #include "bant/tool/dwyu.h"
 #include "bant/tool/header-providers.h"
 
-static int usage(const char *prog) {
+static int usage(const char *prog, int exit_code) {
   fprintf(stderr,
           "Copyright (c) 2024 Henner Zeller. "
           "This program is free software; license GPL 2.0.\n");
-  fprintf(stderr, "Usage: %s [options]\n", prog);
+  fprintf(stderr, "Usage: %s [options] <command>\n", prog);
   fprintf(stderr, R"(Options
-	-C<directory>  : Change to project directory (default = '.')
-	-x             : Do not read BUILD files of eXternal projects.
-	                 (i.e. only read the files in the direct project)
-	-q             : Quiet: don't print info messages to stderr.
-	-o <filename>  : Instead of stdout, emit command output to file.
-	-v             : Verbose; print some stats.
-	-h             : This help.
+    -C <directory> : Change to project directory (default = '.')
+    -x             : Do not read BUILD files of eXternal projects (e.g. @foo)
+                     (i.e. only read the files in the direct project)
+    -q             : Quiet: don't print info messages to stderr.
+    -o <filename>  : Instead of stdout, emit command primary output to file.
+    -v             : Verbose; print some stats.
+    -h             : This help.
 
-Commands:
-	(no-flag)      : Just parse BUILD files of project, emit parse errors.
-	                 Parse is primary objective, errors go to stdout.
-	                 Other commands below with different main output
-	                 emit errors to info stream (stderr or muted with -q)
-	-L             : List all the build files found in project
-	-P             : Print parse tree (-e : only files with parse errors)
-	-H             : Print table header files -> targets that define them.
-	-D             : DWYU: Depend on What You Use (emit buildozer edits)
+Commands (unique prefix sufficient):
+    parse          : Just parse BUILD files of project, emit parse errors
+                     (which might well be due to bant not handling that yet).
+                     -p : also print abstract syntax tree (AST) for all files.
+                     -e : Only for files with parse errors: print partial AST.
+    list           : List all the build files found in project
+    lib-headers    : Print table header files -> targets that define them.
+    dwyu           : DWYU: Depend on What You Use (emit buildozer edit script)
 )");
-  return 1;
+  return exit_code;
 }
 
 int main(int argc, char *argv[]) {
@@ -62,19 +63,25 @@ int main(int argc, char *argv[]) {
   std::ostream *info_output = &std::cerr;
 
   bool verbose = false;
+  bool print_ast = false;
   bool print_only_errors = false;
   bool include_external = true;
 
   enum class Command {
     kNone,
-    kPrint,
-    kLibraryHeaders,
+    kParse,
     kListBazelFiles,
+    kLibraryHeaders,
     kDependencyEdits,
   } cmd = Command::kNone;
-
+  static const std::map<std::string_view, Command> kCommandNames = {
+    {"parse", Command::kParse},
+    {"list", Command::kListBazelFiles},
+    {"lib-headers", Command::kLibraryHeaders},
+    {"dwyu", Command::kDependencyEdits},
+  };
   int opt;
-  while ((opt = getopt(argc, argv, "hC:vxPeHLDqo:")) != -1) {
+  while ((opt = getopt(argc, argv, "C:xqo:vhpe")) != -1) {
     switch (opt) {
     case 'C': {
       std::error_code err;
@@ -105,20 +112,39 @@ int main(int argc, char *argv[]) {
       primary_output = user_primary_output.get();
       break;
 
-    case 'x':
-      include_external = false;
-      break;
+    case 'x': include_external = false; break;
 
-      // TODO: instead of flags, these sub-commands should be given by name
-    case 'P': cmd = Command::kPrint; break;
-    case 'e': print_only_errors = true; break;  // command should handle
-
-    case 'H': cmd = Command::kLibraryHeaders; break;
-    case 'L': cmd = Command::kListBazelFiles; break;
-    case 'D': cmd = Command::kDependencyEdits; break;
+    case 'p': print_ast = true; break;
+    case 'e': print_only_errors = true; break;
     case 'v': verbose = true; break;
-    default: return usage(argv[0]);
+    default: return usage(argv[0], EXIT_SUCCESS);
     }
+  }
+
+  if (optind < argc) {
+    const std::string_view cmd_string = argv[optind];
+    auto found = kCommandNames.lower_bound(cmd_string);
+    if (found != kCommandNames.end() && found->first.starts_with(cmd_string)) {
+      auto next_command = std::next(found);
+      if (next_command != kCommandNames.end() &&
+          next_command->first.starts_with(cmd_string)) {
+        std::cerr << "Command '" << cmd_string << "' too short and ambiguous: "
+                  << "[" << found->first << ", " << next_command->first
+                  << ", ...\n";
+        return usage(argv[0], EXIT_FAILURE);
+      }
+      cmd = found->second;
+    }
+    if (cmd == Command::kNone) {
+      std::cerr << "Unknown command prefix '" << cmd_string << "'\n";
+      return usage(argv[0], EXIT_FAILURE);
+    }
+    ++optind;
+  }
+
+  if (cmd == Command::kNone) {
+    std::cerr << "Command expected\n";
+    return usage(argv[0], EXIT_FAILURE);
   }
 
   if (cmd == Command::kListBazelFiles) {  // This one does not parse project
@@ -136,15 +162,17 @@ int main(int argc, char *argv[]) {
   bant::Stat deps_stat;
 
   // Rest of the commands need to parse the project.
-  auto &parse_err_out = cmd == Command::kNone ? *primary_output : *info_output;
+  auto &parse_err_out = cmd == Command::kParse ? *primary_output : *info_output;
   const bant::ParsedProject project =
     bant::ParsedProject::FromFilesystem(include_external, parse_err_out);
   project.arena.SetVerbose(verbose);
 
   switch (cmd) {
-  case Command::kPrint:
-    bant::PrintProject(*primary_output, *info_output, project,
-                       print_only_errors);
+  case Command::kParse:
+    if (print_ast || print_only_errors) {
+      bant::PrintProject(*primary_output, *info_output, project,
+                         print_only_errors);
+    }
     break;
   case Command::kLibraryHeaders:  //
     bant::PrintLibraryHeaders(ExtractHeaderToLibMapping(project, *info_output),

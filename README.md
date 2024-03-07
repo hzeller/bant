@@ -25,15 +25,18 @@ Early Stages. WIP.
    report parse errors.
 
 #### Commands
- * `-L` command: Simply list all the BUILD files it would consider for the
-   other commands. Use `-x` to limit scope to not include the external rules.
- * `-P` command: Print AST for project (should look similar to the input :) ).
- * `-H` command: for each header exported with `hdrs = [...]` in libraries,
-   report which library that is (two columns, easy to `grep` or `awk` over).
- * `-D` Depend on What You Use (DWYU): Determine which dependencies are needed
-   in `cc_library`, `cc_binary`, and `cc_test` targets by looking at
-   their sources, determine which headers they include and thus which
-   libraries they need to depend on that export these headers.
+ * `list` List all the BUILD files it would consider for the
+    other commands. Use `-x` to limit scope to not include the external rules.
+ * `parse` Parse build files and emit syntax errors if any.
+    * `-p` print AST (should look similar to the input :) ).
+    * `-e` print AST, but only for files that had syntax errors.
+ * `lib-headers` for each header exported with `hdrs = [...]` in libraries,
+    report which library that is (two columns, easy to `grep` or `awk` over).
+ * `dwyu` Depend on What You Use (DWYU): Determine which dependencies are
+   needed in `cc_library`, `cc_binary`, and `cc_test` targets by looking at
+   their sources, to find which headers they include. Use the information
+   from `lib-headers` to determine which libraries these sources thus need to
+   depnd on.
    Emit [buildozer] commands to 'add' or 'remove' dependencies.
    If unclear if a library can be removed, it is conservatively
    _not_ suggested for removal.
@@ -76,44 +79,43 @@ workspace, and fetched, unpacked and made visible these into
 Bant never does any fetching, it just observes the existing workspace. Given
 that `bazel` adapts the visible external projecgts depending on what targets
 are used, consider a bazel command that needs all of them, e.g.
-`bazel test ...` before bant.
+`bazel test ...` before running `bant`.
 
 ### Synopsis
 
 ```
 $ bazel-bin/bant/bant -h
 Copyright (c) 2024 Henner Zeller. This program is free software; license GPL 2.0.
-Usage: bazel-bin/bant/bant [options]
+Usage: bazel-bin/bant/bant [options] <command>
 Options
-        -C<directory>  : Change to project directory (default = '.')
-        -x             : Do not read BUILD files of eXternal projects.
-                         (i.e. only read the files in the direct project)
-        -q             : Quiet: don't print info messages to stderr.
-        -v             : Verbose; print some stats.
-        -h             : This help.
+    -C <directory> : Change to project directory (default = '.')
+    -x             : Do not read BUILD files of eXternal projects (e.g. @foo)
+                     (i.e. only read the files in the direct project)
+    -q             : Quiet: don't print info messages to stderr.
+    -o <filename>  : Instead of stdout, emit command primary output to file.
+    -v             : Verbose; print some stats.
+    -h             : This help.
 
-Commands:
-        (no-flag)      : Just parse BUILD files of project, emit parse errors.
-                         Parse is primary objective, errors go to stdout.
-                         Other commands below with different main output
-                         emit errors to info stream (stderr or muted with -q)
-        -L             : List all the build files found in project
-        -P             : Print parse tree (-e : only files with parse errors)
-        -H             : Print table header files -> targets that define them.
-        -D             : DWYU: Depend on What You Use (emit buildozer edits)
+Commands (unique prefix sufficient):
+    parse          : Just parse BUILD files of project, emit parse errors
+                     (which might well be due to bant not handling that yet).
+                     -p : also print abstract syntax tree (AST) for all files.
+                     -e : Only for files with parse errors: print partial AST.
+    list           : List all the build files found in project
+    lib-headers    : Print table header files -> targets that define them.
+    dwyu           : DWYU: Depend on What You Use (emit buildozer edit script)
 ```
 
 ### Usage examples
 
 ```bash
- bant -P -v   # reads bazel project in current dir, print AST and some stats
- bant -Pe     # read project, print AST of files that couldn't be parsed
- bant -C ~/src/verible -v  # read bazel project in given directory; print stats
- bant -x      # read bazel project, but don't parse referenced external projects
- bant -L      # List all the build files including the referenced external
- bant -Lx     # Only list build files in this project.
- bant -H      # for each header, print libray exporting it
- bant -D      # Look which headers are used and suggest add/remove dependencies
+ bant parse -p -v  # Read bazel project in current dir, print AST, and stats.
+ bant parse -e     # Read project, print AST of files that couldn't be parsed.
+ bant parse -C ~/src/verible -v  # Read project in given directory.
+ bant list         # List all the build files including the referenced external
+ bant list -x      # List BUILD files only in this project, no external.
+ bant lib-headers  # For each header found in project, print exporting target.
+ bant dwyu         # Look which headers are used and suggest add/remove deps
 ```
 
 ### Development
