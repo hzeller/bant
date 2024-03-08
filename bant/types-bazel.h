@@ -28,15 +28,13 @@ namespace bant {
 // Something like //foo/bar or @baz//foo/bar
 struct BazelPackage {
   BazelPackage() = default;
-  BazelPackage(std::string_view project, std::string_view path,
-               std::string_view version = "")
-      : project(project), version(version), path(path) {}
+  BazelPackage(std::string_view project, std::string_view path)
+      : project(project), path(path) {}
 
   // Parse and create package if possible.
   static std::optional<BazelPackage> ParseFrom(std::string_view str);
 
   std::string project;  // either empty, or something like @foo_bar_baz
-  std::string version;  // if known. Typically in bzlmod environments.
   std::string path;     // path relative to project w/o leading/trailing '/'
 
   std::string ToString() const;  // @project//package/path
@@ -44,14 +42,7 @@ struct BazelPackage {
   // Assemble filename relative to the path.
   std::string QualifiedFile(std::string_view relative_file) const;
 
-  // Return the last path element (or empty string)
-  std::string_view LastElement() const;
-
-  auto operator<=>(const BazelPackage &o) const {
-    // Note: currently explicitly _not_ taking version into account.
-    // The way we print names only considers project and path.
-    return std::tie(project, path) <=> std::tie(o.project, o.path);
-  }
+  auto operator<=>(const BazelPackage &o) const = default;
   bool operator<(const BazelPackage &) const = default;
   bool operator==(const BazelPackage &) const = default;
   bool operator!=(const BazelPackage &) const = default;
@@ -70,10 +61,6 @@ struct BazelTarget {
   // supported. The latter case is canonicalized by adding the context package.
   static std::optional<BazelTarget> ParseFrom(std::string_view str,
                                               const BazelPackage &context);
-
-  // Simple litmus test checking if this looks like a //-style or :-style
-  // target.
-  static bool LooksWellformed(std::string_view str);
 
   BazelPackage package;
   std::string target_name;  // e.g. a library

@@ -49,6 +49,7 @@ Commands (unique prefix sufficient):
     list           : List all the build files found in project
     lib-headers    : Print table header files -> targets that define them.
     dwyu           : DWYU: Depend on What You Use (emit buildozer edit script)
+                     -c : emit rename edits to canonicalize targets.
 )");
   return exit_code;
 }
@@ -66,6 +67,7 @@ int main(int argc, char *argv[]) {
   bool print_ast = false;
   bool print_only_errors = false;
   bool include_external = true;
+  bool canonicalize_targets = false;
 
   enum class Command {
     kNone,
@@ -81,7 +83,7 @@ int main(int argc, char *argv[]) {
     {"dwyu", Command::kDependencyEdits},
   };
   int opt;
-  while ((opt = getopt(argc, argv, "C:xqo:vhpe")) != -1) {
+  while ((opt = getopt(argc, argv, "C:xqo:vhpec")) != -1) {
     switch (opt) {
     case 'C': {
       std::error_code err;
@@ -112,10 +114,19 @@ int main(int argc, char *argv[]) {
       primary_output = user_primary_output.get();
       break;
 
-    case 'x': include_external = false; break;
+    case 'x':
+      include_external = false;
+      break;
 
+      // "print" options
     case 'p': print_ast = true; break;
-    case 'e': print_only_errors = true; break;
+    case 'e':
+      print_only_errors = true;
+      break;
+
+      // "dwyu" options
+    case 'c': canonicalize_targets = true; break;
+
     case 'v': verbose = true; break;
     default: return usage(argv[0], EXIT_SUCCESS);
     }
@@ -179,7 +190,8 @@ int main(int argc, char *argv[]) {
                               *primary_output);
     break;
   case Command::kDependencyEdits:
-    bant::CreateDependencyEdits(project, deps_stat, *info_output,
+    bant::CreateDependencyEdits(project, canonicalize_targets, deps_stat,
+                                *info_output,
                                 bant::CreateBuildozerPrinter(*primary_output));
     break;
   case Command::kListBazelFiles:  // already handled

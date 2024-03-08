@@ -56,14 +56,6 @@ TEST(TypesBazel, ParsePackage) {
     EXPECT_EQ(p->path, "bar/baz");  // NOLINT(*-unchecked-optional-access)
   }
 
-  {
-    auto p = BazelPackage::ParseFrom("@foo~3.14//bar/baz");
-    ASSERT_TRUE(p.has_value());
-    EXPECT_EQ(p->project, "@foo");  // NOLINT(*-unchecked-optional-access)
-    EXPECT_EQ(p->path, "bar/baz");  // NOLINT(*-unchecked-optional-access)
-    EXPECT_EQ(p->version, "3.14");  // NOLINT(*-unchecked-optional-access)
-  }
-
   // Some not quite proper formatted
   {
     auto p = BazelPackage::ParseFrom("@foo/bar/baz");
@@ -106,8 +98,6 @@ TEST(TypesBazel, ParseTarget) {
   }
 
   {
-    EXPECT_FALSE(BazelTarget::LooksWellformed("target"));
-
     // Not well-formed, but we'll still parse it.
     auto t = BazelTarget::ParseFrom("target", context);
     ASSERT_TRUE(t.has_value());
@@ -158,5 +148,35 @@ TEST(TypesBazel, PrintTarget) {
   EXPECT_EQ(baz.ToString(), "//foo/bar/baz");
   EXPECT_EQ(baz.ToStringRelativeTo(p1), ":baz");
   EXPECT_EQ(baz.ToStringRelativeTo(p2), "//foo/bar/baz");
+
+  BazelPackage pack("@project", "");
+  BazelTarget pack_t1(pack, "foo");
+  EXPECT_EQ(pack_t1.ToString(), "@project//:foo");
+  EXPECT_EQ(pack_t1.ToStringRelativeTo(pack), ":foo");
+
+  // Toplevel tareget same as project
+  BazelTarget pack_t2(pack, "project");
+  EXPECT_EQ(pack_t2.ToString(), "@project");
+  EXPECT_EQ(pack_t2.ToStringRelativeTo(pack), ":project");
+}
+
+// Quick tests.
+TEST(TypesBazel, ParseRePrint) {
+  BazelPackage c("", "foo");
+
+  EXPECT_EQ("//foo/bar:baz",
+            BazelTarget::ParseFrom("//foo/bar:baz", c)->ToString());
+  EXPECT_EQ("//foo", BazelTarget::ParseFrom("//foo", c)->ToString());
+  EXPECT_EQ("//foo", BazelTarget::ParseFrom("//foo:foo", c)->ToString());
+  EXPECT_EQ("@foo//:baz", BazelTarget::ParseFrom("@foo//:baz", c)->ToString());
+  EXPECT_EQ("@foo//foo", BazelTarget::ParseFrom("@foo//foo", c)->ToString());
+  EXPECT_EQ("@foo", BazelTarget::ParseFrom("@foo//:foo", c)->ToString());
+
+  EXPECT_EQ("//bar", BazelTarget::ParseFrom("//bar", c)->ToString());
+  EXPECT_EQ("//bar", BazelTarget::ParseFrom("//bar:bar", c)->ToString());
+
+  EXPECT_EQ("@foo//bar", BazelTarget::ParseFrom("@foo//bar", c)->ToString());
+  EXPECT_EQ("@foo//bar",
+            BazelTarget::ParseFrom("@foo//bar:bar", c)->ToString());
 }
 }  // namespace bant

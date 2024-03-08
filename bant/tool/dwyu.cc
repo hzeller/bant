@@ -151,7 +151,8 @@ std::vector<std::string> ExtractCCIncludes(std::string_view content) {
   return result;
 }
 
-void CreateDependencyEdits(const ParsedProject &project, Stat &stats,
+void CreateDependencyEdits(const ParsedProject &project,
+                           bool canonicalize_targets, Stat &stats,
                            std::ostream &info_out,
                            const EditCallback &emit_deps_edit) {
   const HeaderToTargetMap header2dep =
@@ -190,8 +191,6 @@ void CreateDependencyEdits(const ParsedProject &project, Stat &stats,
         std::vector<std::string_view> deps;
         query::ExtractStringList(target.deps_list, deps);
         for (std::string_view dependency_target : deps) {
-          // Some target like "foo" instead of ":foo"; consider reparing below
-          bool needs_repair = !BazelTarget::LooksWellformed(dependency_target);
           auto requested_target = BazelTarget::ParseFrom(dependency_target,  //
                                                          current_package);
           if (!requested_target.has_value()) {
@@ -201,29 +200,21 @@ void CreateDependencyEdits(const ParsedProject &project, Stat &stats,
             continue;
           }
 
+          const bool needs_repair =
+            canonicalize_targets &&
+            (dependency_target !=
+             requested_target->ToStringRelativeTo(current_package));
+
           // Strike off the dependency requested in the build file from the
           // dependendencies we independently determined from the #includes.
           // If it is not on that list, it is a canidate for removal.
           bool requested_was_needed = deps_needed.erase(*requested_target);
 
-          // But before we remove things, be confident that this does no harm.
-          if (!known_libs.contains(*requested_target) ||
-              !all_header_deps_known) {
-            // If we don't know this library (or it is linkonly) or
-            // some of the headers we included uses a mystery dependency, we
-            // can't confidently make a removal suggestion.
-            if (needs_repair) {
-              info_out
-                << parsed_package.filename << ":"
-                << parsed_package.line_columns.GetRange(dependency_target)
-                << " target \"" << dependency_target
-                << "\": no '// or ':' prefix. Consider canonicalizing.\n";
-            }
-            continue;
-          }
+          const bool potential_remove_suggestion_safe =
+            known_libs.contains(*requested_target) && all_header_deps_known;
 
           // Emit the edits.
-          if (!requested_was_needed) {
+          if (!requested_was_needed && potential_remove_suggestion_safe) {
             emit_deps_edit(EditRequest::kRemove, *self, dependency_target, "");
           } else if (needs_repair) {
             emit_deps_edit(

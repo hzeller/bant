@@ -17,6 +17,7 @@
 
 #include "bant/types-bazel.h"
 
+#include <iostream>
 #include <string_view>
 
 #include "absl/strings/str_cat.h"
@@ -32,12 +33,6 @@ std::string BazelPackage::QualifiedFile(std::string_view relative_file) const {
   return absl::StrCat(path, "/", relative_file);
 }
 
-std::string_view BazelPackage::LastElement() const {
-  auto pos = path.find_last_of('/');
-  if (pos == std::string::npos) return "";
-  return std::string_view(path).substr(pos + 1);
-}
-
 /*static*/ std::optional<BazelPackage> BazelPackage::ParseFrom(
   std::string_view str) {
   auto maybe_colon = str.find_last_of(':');
@@ -46,7 +41,6 @@ std::string_view BazelPackage::LastElement() const {
   using absl::StrSplit;
   if (str.size() < 2) return std::nullopt;
   std::string_view project;
-  std::string_view version;
   std::string_view path;
   if (str[0] == '@') {
     project = str.substr(0, str.find_first_of('/'));
@@ -61,10 +55,10 @@ std::string_view BazelPackage::LastElement() const {
   }
   auto tilde_pos = project.find_first_of('~');
   if (tilde_pos != std::string_view::npos) {  // bzlmod puts version after ~
-    version = project.substr(tilde_pos + 1);
+    // version = project.substr(tilde_pos + 1);
     project = project.substr(0, tilde_pos);
   }
-  return BazelPackage(project, path, version);
+  return BazelPackage(project, path);
 }
 
 /*static*/ std::optional<BazelTarget> BazelTarget::ParseFrom(
@@ -106,12 +100,25 @@ std::string_view BazelPackage::LastElement() const {
   return BazelTarget(package_part.value(), target);
 }
 
-/*static*/ bool BazelTarget::LooksWellformed(std::string_view str) {
-  return str.starts_with(":") || str.starts_with("//") || str.starts_with("@");
+static std::string_view PackageLastElement(const BazelPackage &p) {
+  auto pos = p.path.find_last_of('/');
+  if (pos != std::string::npos) {
+    return std::string_view(p.path).substr(pos + 1);
+  }
+  if (!p.path.empty()) {
+    return p.path;
+  }
+  if (!p.project.empty()) {
+    return std::string_view(p.project).substr(1);
+  }
+  return "";
 }
 
 std::string BazelTarget::ToString() const {
-  if (package.LastElement() == target_name) {
+  if (PackageLastElement(package) == target_name) {
+    if (package.path.empty()) {
+      return package.project;
+    }
     return package.ToString();  // target==package -> compact representation.
   }
   return absl::StrCat(package.ToString(), ":", target_name);

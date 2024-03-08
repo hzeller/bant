@@ -47,8 +47,10 @@ using EditCallback =
 
 // Look through the sources mentioned in the file, check what they include
 // and determine what dependencies need to be added/remove.
-// Also, if there are some simple corrections that can be made emit these.
-void CreateDependencyEdits(const ParsedProject &project, Stat &stats,
+// Also, if "canonicalize_targets" is enabled and there are some
+// simple corrections that can be made emit these as 'replace' operation.
+void CreateDependencyEdits(const ParsedProject &project,
+                           bool canonicalize_targets, Stat &stats,
                            std::ostream &info_out,
                            const EditCallback &emit_deps_edit);
 
