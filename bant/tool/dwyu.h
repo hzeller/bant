@@ -19,18 +19,25 @@
 #define BANT_TOOL_DWYU_
 
 #include <ostream>
-#include <string>
 #include <string_view>
 #include <vector>
 
+#include "bant/frontend/linecolumn-map.h"
 #include "bant/frontend/project-parser.h"
 #include "bant/tool/edit-callback.h"
 
 namespace bant {
 
+// A content extraction of parts from a bigger string view. The result
+// contains all the parts and a location mapper to help extract locations.
+struct ContentPartsExtraction {
+  std::vector<std::string_view> parts;
+  LineColumnMap location_mapper;
+};
+
 // Extract #include project headers (the ones with the quotes not angle
 // brackts) from given file. Best effort: may result empty vector.
-std::vector<std::string> ExtractCCIncludes(std::string_view content);
+ContentPartsExtraction ExtractCCIncludes(std::string_view content);
 
 // Look through the sources mentioned in the file, check what they include
 // and determine what dependencies need to be added/remove.

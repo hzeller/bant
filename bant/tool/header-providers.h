@@ -18,16 +18,16 @@
 #ifndef BANT_TOOL_HEADER_PROVIDER_
 #define BANT_TOOL_HEADER_PROVIDER_
 
-#include <map>
 #include <ostream>
 #include <string>
 
+#include "absl/container/btree_map.h"
 #include "bant/frontend/project-parser.h"
 
 namespace bant {
 
 // Map describing what file has been provided by which target.
-using ProvidedFromTargetMap = std::map<std::string, BazelTarget>;
+using ProvidedFromTargetMap = absl::btree_map<std::string, BazelTarget>;
 
 // Givent the "project", creates a mapping of all headers that are exported by
 // cc_library() targets to their respective targets.

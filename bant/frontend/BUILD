@@ -10,6 +10,7 @@ cc_library(
     name = "linecolumn-map",
     srcs = ["linecolumn-map.cc"],
     hdrs = ["linecolumn-map.h"],
+    deps = ["@abseil-cpp//absl/log:check"],
 )
 
 cc_test(
@@ -18,6 +19,7 @@ cc_test(
     srcs = ["linecolumn-map_test.cc"],
     deps = [
         ":linecolumn-map",
+        "@abseil-cpp//absl/log:check",
         "@googletest//:gtest",
         "@googletest//:gtest_main",
     ],

@@ -19,6 +19,7 @@
 
 #include <sstream>
 
+#include "absl/log/check.h"
 #include "gtest/gtest.h"
 
 namespace bant {
@@ -62,5 +63,25 @@ TEST(LineColumnTextTest, PrintLineColumnRange) {
     oss << test_case.range;
     EXPECT_EQ(oss.str(), test_case.expected);
   }
+}
+
+// Find given string in "haystack" and return substring from that haystack.
+static std::string_view FindReturnSubstr(std::string_view needle,
+                                         std::string_view haystack) {
+  size_t found = haystack.find(needle);
+  CHECK_NE(found, std::string_view::npos);
+  return std::string_view(haystack.begin() + found, needle.length());
+}
+
+TEST(LineColumnTextTest, CreateFromRange) {
+  constexpr std::string_view kText = R"(
+line 2
+line 3
+  line 4)";  // No line ending here.
+  auto line_col_map = LineColumnMap::CreateFromStringView(kText);
+  EXPECT_EQ(line_col_map.GetRange(FindReturnSubstr("line 2", kText)),
+            LineColumnRange({1, 0}, {1, 6}));  // Note: zero based.
+  EXPECT_EQ(line_col_map.GetRange(FindReturnSubstr("line 4", kText)),
+            LineColumnRange({3, 2}, {3, 8}));
 }
 }  // namespace bant

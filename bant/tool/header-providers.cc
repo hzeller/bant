@@ -57,7 +57,7 @@ static void FindCCLibraryHeaders(Node *ast, const FindHeaderCallback &cb) {
 }  // namespace
 
 ProvidedFromTargetMap ExtractHeaderToLibMapping(const ParsedProject &project,
-                                            std::ostream &info_out) {
+                                                std::ostream &info_out) {
   ProvidedFromTargetMap result;
 
 #ifdef BANT_GTEST_HACK
@@ -106,7 +106,7 @@ ProvidedFromTargetMap ExtractHeaderToLibMapping(const ParsedProject &project,
 }
 
 ProvidedFromTargetMap ExtractGeneratedFromGenrule(const ParsedProject &project,
-                                           std::ostream &info_out) {
+                                                  std::ostream &info_out) {
   ProvidedFromTargetMap result;
   for (const auto &[_, file_content] : project.file_to_ast) {
     if (!file_content.ast) continue;

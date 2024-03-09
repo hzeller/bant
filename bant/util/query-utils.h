@@ -33,7 +33,7 @@ struct TargetParameters {
   List *srcs_list = nullptr;
   List *hdrs_list = nullptr;
   List *deps_list = nullptr;
-  List *outs_list = nullptr;   // genrule.
+  List *outs_list = nullptr;  // genrule.
   List *includes_list = nullptr;
   bool alwayslink = false;
 };

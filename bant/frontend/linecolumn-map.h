@@ -29,6 +29,8 @@ namespace bant {
 struct LineColumn {
   int line;
   int col;
+
+  bool operator==(const LineColumn &) const = default;
 };
 
 // Print line and column; one-based for easier human consumption.
@@ -37,6 +39,8 @@ std::ostream &operator<<(std::ostream &out, LineColumn);
 struct LineColumnRange {
   LineColumn start;  // inclusive
   LineColumn end;    // exclusive
+
+  bool operator==(const LineColumnRange &) const = default;
 };
 
 std::ostream &operator<<(std::ostream &out, const LineColumnRange &);
@@ -47,8 +51,14 @@ std::ostream &operator<<(std::ostream &out, const LineColumnRange &);
 // This allows a lightweight way to provide human-readable Lines and Columns
 // without the overhead to attach it to every Token. The Token's string_view
 // in itself has all necessary information to recover that.
+// The first PushNewline() needs to be at begin() of the covered string_view.
 class LineColumnMap {
  public:
+  LineColumnMap() = default;
+
+  // factory creating a LineColumnMap from a string view.
+  static LineColumnMap CreateFromStringView(std::string_view s);
+
   // Push the position after the last newline. Typically done by the scanner.
   void PushNewline(std::string_view::const_iterator newline_pos);
 

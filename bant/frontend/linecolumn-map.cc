@@ -20,9 +20,11 @@
 #include <algorithm>
 #include <cassert>
 
+#include "absl/log/check.h"
+
 namespace bant {
 void LineColumnMap::PushNewline(std::string_view::const_iterator newline_pos) {
-  assert(line_map_.empty() || line_map_.back() <= newline_pos);
+  CHECK(line_map_.empty() || line_map_.back() <= newline_pos);
   line_map_.push_back(newline_pos);
 }
 
@@ -50,7 +52,7 @@ std::ostream &operator<<(std::ostream &out, const LineColumnRange &r) {
 
 LineColumn LineColumnMap::GetPos(std::string_view::const_iterator pos) const {
   auto start = std::upper_bound(line_map_.begin(), line_map_.end(), pos);
-  assert(start - line_map_.begin() > 0);
+  CHECK(start - line_map_.begin() > 0);
   --start;
   LineColumn result;
   result.line = start - line_map_.begin();
@@ -65,4 +67,17 @@ LineColumnRange LineColumnMap::GetRange(std::string_view text) const {
   return result;
 }
 
+/*static*/
+LineColumnMap LineColumnMap::CreateFromStringView(std::string_view str) {
+  LineColumnMap result;
+  result.PushNewline(str.begin());
+  const size_t end_of_string = str.end() - str.begin();
+  for (size_t pos = 0; pos < end_of_string; /**/) {
+    pos = str.find_first_of('\n', pos);
+    if (pos == std::string_view::npos) break;
+    pos = pos + 1;
+    result.PushNewline(str.begin() + pos);
+  }
+  return result;
+}
 }  // namespace bant

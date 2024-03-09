@@ -24,6 +24,7 @@ cc_library(
         "//bant/frontend:parser",
         "//bant/frontend:project-parser",
         "//bant/util:query-utils",
+        "@abseil-cpp//absl/container:btree",
         "@abseil-cpp//absl/strings:str_format",
     ],
 )
@@ -36,6 +37,7 @@ cc_library(
         ":edit-callback",
         ":header-providers",
         "//bant:types-bazel",
+        "//bant/frontend:linecolumn-map",
         "//bant/frontend:project-parser",
         "//bant/util:file-utils",
         "//bant/util:query-utils",
@@ -62,6 +64,8 @@ cc_test(
     srcs = ["dwyu_test.cc"],
     deps = [
         ":dwyu",
+        "//bant/frontend:linecolumn-map",
+        "@abseil-cpp//absl/log:check",
         "@googletest//:gtest",
         "@googletest//:gtest_main",
     ],
