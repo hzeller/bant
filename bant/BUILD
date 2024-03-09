@@ -22,7 +22,9 @@ cc_binary(
     ],
     deps = [
         "//bant/frontend:project-parser",
+        "//bant/tool:canon-targets",
         "//bant/tool:dwyu",
+        "//bant/tool:edit-callback",
         "//bant/tool:header-providers",
     ],
 )

@@ -44,7 +44,7 @@ Some have extra command line options (e.g. for `parse`, `-p` prints AST).
    If unclear if a library can be removed, it is conservatively
    _not_ suggested for removal.
    You could call this a simple `build_cleaner` ...
- * Option `-c` for `dwyu` also emits edits to canonicalize targets, e.g.
+ * `canonicalize` emits edits to canonicalize targets, e.g.
     * `//foo/bar:baz` when already in `//foo/bar` becomes `:baz`
     * `//foo:foo` becomes `//foo`
     * `@foo//:foo` becomes `@foo`
@@ -114,7 +114,7 @@ Commands (unique prefix sufficient):
     list           : List all the build files found in project
     lib-headers    : Print table header files -> targets that define them.
     dwyu           : DWYU: Depend on What You Use (emit buildozer edit script)
-                     -c : emit rename edits to canonicalize targets.
+    canonicalize   : Emit rename edits to canonicalize targets.
 ```
 
 ### Usage examples

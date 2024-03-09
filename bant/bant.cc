@@ -24,6 +24,7 @@
 #include <map>
 
 #include "bant/frontend/project-parser.h"
+#include "bant/tool/canon-targets.h"
 #include "bant/tool/dwyu.h"
 #include "bant/tool/edit-callback.h"
 #include "bant/tool/header-providers.h"
@@ -50,7 +51,7 @@ Commands (unique prefix sufficient):
     list           : List all the build files found in project
     lib-headers    : Print table header files -> targets that define them.
     dwyu           : DWYU: Depend on What You Use (emit buildozer edit script)
-                     -c : emit rename edits to canonicalize targets.
+    canonicalize   : Emit rename edits to canonicalize targets.
 )");
   return exit_code;
 }
@@ -68,7 +69,6 @@ int main(int argc, char *argv[]) {
   bool print_ast = false;
   bool print_only_errors = false;
   bool include_external = true;
-  bool canonicalize_targets = false;
 
   enum class Command {
     kNone,
@@ -76,12 +76,14 @@ int main(int argc, char *argv[]) {
     kListBazelFiles,
     kLibraryHeaders,
     kDependencyEdits,
+    kCanonicalizeDeps,
   } cmd = Command::kNone;
   static const std::map<std::string_view, Command> kCommandNames = {
     {"parse", Command::kParse},
     {"list", Command::kListBazelFiles},
     {"lib-headers", Command::kLibraryHeaders},
     {"dwyu", Command::kDependencyEdits},
+    {"canonicalize", Command::kCanonicalizeDeps},
   };
   int opt;
   while ((opt = getopt(argc, argv, "C:xqo:vhpec")) != -1) {
@@ -121,12 +123,7 @@ int main(int argc, char *argv[]) {
 
       // "print" options
     case 'p': print_ast = true; break;
-    case 'e':
-      print_only_errors = true;
-      break;
-
-      // "dwyu" options
-    case 'c': canonicalize_targets = true; break;
+    case 'e': print_only_errors = true; break;
 
     case 'v': verbose = true; break;
     default: return usage(argv[0], EXIT_SUCCESS);
@@ -191,9 +188,13 @@ int main(int argc, char *argv[]) {
     break;
   case Command::kDependencyEdits:
     using bant::CreateBuildozerDepsEditCallback;
-    bant::CreateDependencyEdits(project, canonicalize_targets, deps_stat,
-                                *info_out,
+    bant::CreateDependencyEdits(project, deps_stat, *info_out,
                                 CreateBuildozerDepsEditCallback(*primary_out));
+    break;
+  case Command::kCanonicalizeDeps:
+    using bant::CreateCanonicalizeEdits;
+    CreateCanonicalizeEdits(project, *info_out,
+                            CreateBuildozerDepsEditCallback(*primary_out));
     break;
   case Command::kListBazelFiles:  // already handled
   case Command::kNone:            // nop (implicitly done by parsing)

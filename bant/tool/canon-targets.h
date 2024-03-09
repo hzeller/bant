@@ -15,29 +15,22 @@
 // with this program; if not, write to the Free Software Foundation, Inc.,
 // 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 
-#ifndef BANT_TOOL_DWYU_
-#define BANT_TOOL_DWYU_
+#ifndef BANT_TOOL_CANON_TARGETS_
+#define BANT_TOOL_CANON_TARGETS_
 
 #include <ostream>
-#include <string>
-#include <string_view>
-#include <vector>
 
 #include "bant/frontend/project-parser.h"
 #include "bant/tool/edit-callback.h"
 
 namespace bant {
-
-// Extract #include project headers (the ones with the quotes not angle
-// brackts) from given file. Best effort: may result empty vector.
-std::vector<std::string> ExtractCCIncludes(std::string_view content);
-
-// Look through the sources mentioned in the file, check what they include
-// and determine what dependencies need to be added/remove.
-void CreateDependencyEdits(const ParsedProject &project, Stat &stats,
-                           std::ostream &info_out,
-                           const EditCallback &emit_deps_edit);
-
+// Fix dep targets that can be canonicalized
+//  * `//foo/bar:baz` when already in `//foo/bar` becomes `:baz`
+//  * `//foo:foo` becomes `//foo`
+//  * `@foo//:foo` becomes `@foo`
+//  * `foo` without `:` prefix becomes `:foo`
+void CreateCanonicalizeEdits(const ParsedProject &project,
+                             std::ostream &info_out,
+                             const EditCallback &emit_canon_edit);
 }  // namespace bant
-
-#endif  // BANT_TOOL_DWYU_
+#endif  // BANT_TOOL_CANON_TARGETS_

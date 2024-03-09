@@ -152,8 +152,7 @@ std::vector<std::string> ExtractCCIncludes(std::string_view content) {
   return result;
 }
 
-void CreateDependencyEdits(const ParsedProject &project,
-                           bool canonicalize_targets, Stat &stats,
+void CreateDependencyEdits(const ParsedProject &project, Stat &stats,
                            std::ostream &info_out,
                            const EditCallback &emit_deps_edit) {
   const HeaderToTargetMap header2dep =
@@ -201,11 +200,6 @@ void CreateDependencyEdits(const ParsedProject &project,
             continue;
           }
 
-          const bool needs_repair =
-            canonicalize_targets &&
-            (dependency_target !=
-             requested_target->ToStringRelativeTo(current_package));
-
           // Strike off the dependency requested in the build file from the
           // dependendencies we independently determined from the #includes.
           // If it is not on that list, it is a canidate for removal.
@@ -217,10 +211,6 @@ void CreateDependencyEdits(const ParsedProject &project,
           // Emit the edits.
           if (!requested_was_needed && potential_remove_suggestion_safe) {
             emit_deps_edit(EditRequest::kRemove, *self, dependency_target, "");
-          } else if (needs_repair) {
-            emit_deps_edit(
-              EditRequest::kRename, *self, dependency_target,
-              requested_target->ToStringRelativeTo(current_package));
           }
         }
 

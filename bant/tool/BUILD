@@ -45,6 +45,17 @@ cc_library(
     ],
 )
 
+cc_library(
+    name = "canon-targets",
+    srcs = ["canon-targets.cc"],
+    hdrs = ["canon-targets.h"],
+    deps = [
+        ":edit-callback",
+        "//bant/frontend:project-parser",
+        "//bant/util:query-utils",
+    ],
+)
+
 cc_test(
     name = "dwyu_test",
     size = "small",
