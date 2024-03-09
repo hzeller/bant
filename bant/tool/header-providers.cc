@@ -56,9 +56,9 @@ static void FindCCLibraryHeaders(Node *ast, const FindHeaderCallback &cb) {
 }
 }  // namespace
 
-HeaderToTargetMap ExtractHeaderToLibMapping(const ParsedProject &project,
+ProvidedFromTargetMap ExtractHeaderToLibMapping(const ParsedProject &project,
                                             std::ostream &info_out) {
-  HeaderToTargetMap result;
+  ProvidedFromTargetMap result;
 
 #ifdef BANT_GTEST_HACK
   // gtest hack (can't glob() the headers yet, so manually add these to
@@ -76,7 +76,7 @@ HeaderToTargetMap ExtractHeaderToLibMapping(const ParsedProject &project,
   }
 #endif
 
-  for (const auto &[filename, file_content] : project.file_to_ast) {
+  for (const auto &[_, file_content] : project.file_to_ast) {
     if (!file_content.ast) continue;
     FindCCLibraryHeaders(file_content.ast, [&](std::string_view lib_name,
                                                std::string_view header) {
@@ -105,14 +105,50 @@ HeaderToTargetMap ExtractHeaderToLibMapping(const ParsedProject &project,
   return result;
 }
 
-void PrintLibraryHeaders(const HeaderToTargetMap &header_to_lib,
-                         std::ostream &out) {
-  int longest = 0;
-  for (const auto &[header, _] : header_to_lib) {
-    longest = std::max(longest, (int)header.length());
+ProvidedFromTargetMap ExtractGeneratedFromGenrule(const ParsedProject &project,
+                                           std::ostream &info_out) {
+  ProvidedFromTargetMap result;
+  for (const auto &[_, file_content] : project.file_to_ast) {
+    if (!file_content.ast) continue;
+    query::FindTargets(
+      file_content.ast, {"genrule"},
+      [&](const query::TargetParameters &params) {
+        std::vector<std::string_view> genfiles;
+        query::ExtractStringList(params.outs_list, genfiles);
+
+        BazelTarget target(file_content.package, params.name);
+        for (std::string_view generated : genfiles) {
+          std::string gen_fqn = file_content.package.QualifiedFile(generated);
+          const auto &inserted = result.insert({gen_fqn, target});
+          if (!inserted.second && target != inserted.first->second) {
+            // TODO: differentiate between info-log (external projects) and
+            // error-log (current project, as these are actionable).
+            // For now: just report errors.
+            const bool is_error = file_content.package.project.empty();
+            if (is_error) {
+              // TODO: Get file-position from other target which might be
+              // in a different file.
+              info_out << file_content.filename << ":"
+                       << file_content.line_columns.GetRange(generated) << " '"
+                       << gen_fqn << "' in " << target.ToString()
+                       << " also created by "
+                       << inserted.first->second.ToString() << "\n";
+            }
+          }
+        }
+      });
   }
-  for (const auto &[header, lib] : header_to_lib) {
-    out << absl::StrFormat("%*s\t%s\n", -longest, header, lib.ToString());
+  return result;
+}
+
+void PrintProvidedSources(const ProvidedFromTargetMap &provided_from_lib,
+                          std::ostream &out) {
+  int longest = 0;
+  for (const auto &[provided, _] : provided_from_lib) {
+    longest = std::max(longest, (int)provided.length());
+  }
+  for (const auto &[provided, lib] : provided_from_lib) {
+    out << absl::StrFormat("%*s\t%s\n", -longest, provided, lib.ToString());
   }
 }
 }  // namespace bant

@@ -69,6 +69,8 @@ class TargetFinder : public BaseVisitor {
         current_.deps_list = list;
       } else if (lhs == "includes") {
         current_.includes_list = list;
+      } else if (lhs == "outs") {
+        current_.outs_list = list;
       }
     }
   }

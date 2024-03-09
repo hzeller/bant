@@ -49,7 +49,8 @@ Commands (unique prefix sufficient):
                      -p : also print abstract syntax tree (AST) for all files.
                      -e : Only for files with parse errors: print partial AST.
     list           : List all the build files found in project
-    lib-headers    : Print table header files -> targets that define them.
+    lib-headers    : Print table header files -> libraries that define them.
+    genrule-outputs: Print table generated files -> genrules creating them.
     dwyu           : DWYU: Depend on What You Use (emit buildozer edit script)
     canonicalize   : Emit rename edits to canonicalize targets.
 )");
@@ -75,6 +76,7 @@ int main(int argc, char *argv[]) {
     kParse,
     kListBazelFiles,
     kLibraryHeaders,
+    kGenruleOutputs,
     kDependencyEdits,
     kCanonicalizeDeps,
   } cmd = Command::kNone;
@@ -82,6 +84,7 @@ int main(int argc, char *argv[]) {
     {"parse", Command::kParse},
     {"list", Command::kListBazelFiles},
     {"lib-headers", Command::kLibraryHeaders},
+    {"genrule-outputs", Command::kGenruleOutputs},
     {"dwyu", Command::kDependencyEdits},
     {"canonicalize", Command::kCanonicalizeDeps},
   };
@@ -183,8 +186,12 @@ int main(int argc, char *argv[]) {
     }
     break;
   case Command::kLibraryHeaders:  //
-    bant::PrintLibraryHeaders(ExtractHeaderToLibMapping(project, *info_out),
-                              *primary_out);
+    bant::PrintProvidedSources(ExtractHeaderToLibMapping(project, *info_out),
+                               *primary_out);
+    break;
+  case Command::kGenruleOutputs:
+    bant::PrintProvidedSources(ExtractGeneratedFromGenrule(project, *info_out),
+                               *primary_out);
     break;
   case Command::kDependencyEdits:
     using bant::CreateBuildozerDepsEditCallback;
