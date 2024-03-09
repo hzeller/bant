@@ -93,10 +93,12 @@ std::set<BazelTarget> DependenciesForIncludes(
 
     // File could be in multiple locations, primary or generated. Use first.
     std::optional<std::string> src_content;
+    bool generated_source = false;
     for (std::string_view search_path : kSourceLocations) {
       src_content = ReadFileToString(
         FilesystemPath(absl::StrCat(search_path, source_file)));
       if (src_content.has_value()) break;
+      generated_source = true;  // Sources searched after first are generated.
     }
     if (!src_content.has_value()) {
       // Nothing we can do about this for now. These are probably
@@ -121,11 +123,13 @@ std::set<BazelTarget> DependenciesForIncludes(
 
       // mmh, maybe we included it without the proper prefix ?
       if (IsHeaderInList(inc_file, sources, "")) {
-        info_out << context.filename << ":"
-                 << context.line_columns.GetRange(s)
-                 << " '" << source_file << "' includes "
-                 << inc_file << " relative to source file. "
-                 << "Suggesting to make that relative to project root.\n";
+        if (!generated_source) {  // Only complain if actionable
+          info_out << context.filename << ":"
+                   << context.line_columns.GetRange(s)
+                   << " '" << source_file << "' includes "
+                   << inc_file << " relative to source file. "
+                   << "Suggesting to make that relative to project root.\n";
+        }
         continue;  // But, anyway, found it in our own sources; accounted for.
       }
 
@@ -141,11 +145,13 @@ std::set<BazelTarget> DependenciesForIncludes(
       const std::string abs_header = context.package.QualifiedFile(inc_file);
       if (const auto found = file_index.headers_from_libs.find(abs_header);
           found != file_index.headers_from_libs.end()) {
-        info_out << context.filename << ":"
-                 << context.line_columns.GetRange(s)
-                 << " '" << source_file << "' includes "
-                 << inc_file << " relative to source file. "
-                 << "Suggesting to make that relative to project root\n";
+        if (!generated_source) {  // Only complain if actionable
+          info_out << context.filename << ":"
+                   << context.line_columns.GetRange(s)
+                   << " '" << source_file << "' includes "
+                   << inc_file << " relative to source file. "
+                   << "Suggesting to make that relative to project root\n";
+        }
         if (found->second != target_self) {
           result.insert(found->second);
         }
