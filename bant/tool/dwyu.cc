@@ -35,6 +35,7 @@
 #include "absl/strings/str_cat.h"
 #include "absl/time/clock.h"
 #include "bant/frontend/project-parser.h"
+#include "bant/tool/edit-callback.h"
 #include "bant/tool/header-providers.h"
 #include "bant/types-bazel.h"
 #include "bant/util/file-utils.h"
@@ -233,23 +234,4 @@ void CreateDependencyEdits(const ParsedProject &project,
   const absl::Time end_time = absl::Now();
   stats.duration = end_time - start_time;
 }
-
-EditCallback CreateBuildozerPrinter(std::ostream &out) {
-  return [&out](EditRequest edit, const BazelTarget &target,
-                std::string_view before, std::string_view after) {
-    switch (edit) {
-    case EditRequest::kRemove:
-      out << "buildozer 'remove deps " << before << "' " << target << "\n";
-      break;
-    case EditRequest::kAdd:
-      out << "buildozer 'add deps " << after << "' " << target << "\n";
-      break;
-    case EditRequest::kRename:
-      out << "buildozer 'replace deps " << before << " " << after << "' "
-          << target << "\n";
-      break;
-    }
-  };
-}
-
 }  // namespace bant

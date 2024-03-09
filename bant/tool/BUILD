@@ -7,6 +7,15 @@ package(
 )
 
 cc_library(
+    name = "edit-callback",
+    srcs = ["edit-callback.cc"],
+    hdrs = ["edit-callback.h"],
+    deps = [
+        "//bant:types-bazel",
+    ],
+)
+
+cc_library(
     name = "header-providers",
     srcs = ["header-providers.cc"],
     hdrs = ["header-providers.h"],
@@ -24,6 +33,7 @@ cc_library(
     srcs = ["dwyu.cc"],
     hdrs = ["dwyu.h"],
     deps = [
+        ":edit-callback",
         ":header-providers",
         "//bant:types-bazel",
         "//bant/frontend:project-parser",

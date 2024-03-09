@@ -25,6 +25,7 @@
 
 #include "bant/frontend/project-parser.h"
 #include "bant/tool/dwyu.h"
+#include "bant/tool/edit-callback.h"
 #include "bant/tool/header-providers.h"
 
 static int usage(const char *prog, int exit_code) {
@@ -56,12 +57,12 @@ Commands (unique prefix sufficient):
 
 int main(int argc, char *argv[]) {
   // non-nullptr streams if chosen by user.
-  std::unique_ptr<std::ostream> user_primary_output;
-  std::unique_ptr<std::ostream> user_info_output;
+  std::unique_ptr<std::ostream> user_primary_out;
+  std::unique_ptr<std::ostream> user_info_out;
 
   // Default primary and info outputs.
-  std::ostream *primary_output = &std::cout;
-  std::ostream *info_output = &std::cerr;
+  std::ostream *primary_out = &std::cout;
+  std::ostream *info_out = &std::cerr;
 
   bool verbose = false;
   bool print_ast = false;
@@ -96,22 +97,22 @@ int main(int argc, char *argv[]) {
     }
 
     case 'q':  //
-      user_info_output.reset(new std::ostream(nullptr));
-      info_output = user_info_output.get();
+      user_info_out.reset(new std::ostream(nullptr));
+      info_out = user_info_out.get();
       break;
 
     case 'o':  //
       if (std::string_view(optarg) == "-") {
-        primary_output = &std::cout;
+        primary_out = &std::cout;
         break;
       }
-      user_primary_output.reset(new std::fstream(
+      user_primary_out.reset(new std::fstream(
         optarg, std::ios::out | std::ios::binary | std::ios::trunc));
-      if (!user_primary_output->good()) {
+      if (!user_primary_out->good()) {
         std::cerr << "Could not open '" << optarg << "'\n";
         return 1;
       }
-      primary_output = user_primary_output.get();
+      primary_out = user_primary_out.get();
       break;
 
     case 'x':
@@ -162,10 +163,10 @@ int main(int argc, char *argv[]) {
     bant::Stat stats;
     auto build_files = bant::CollectBuildFiles(include_external, stats);
     for (const auto &file : build_files) {
-      *primary_output << file.path() << "\n";
+      *primary_out << file.path() << "\n";
     }
     if (verbose) {
-      *info_output << "Walked through " << stats.ToString("files/dirs") << "\n";
+      *info_out << "Walked through " << stats.ToString("files/dirs") << "\n";
     }
     return 0;
   }
@@ -173,7 +174,7 @@ int main(int argc, char *argv[]) {
   bant::Stat deps_stat;
 
   // Rest of the commands need to parse the project.
-  auto &parse_err_out = cmd == Command::kParse ? *primary_output : *info_output;
+  auto &parse_err_out = (cmd == Command::kParse ? *primary_out : *info_out);
   const bant::ParsedProject project =
     bant::ParsedProject::FromFilesystem(include_external, parse_err_out);
   project.arena.SetVerbose(verbose);
@@ -181,26 +182,27 @@ int main(int argc, char *argv[]) {
   switch (cmd) {
   case Command::kParse:
     if (print_ast || print_only_errors) {
-      bant::PrintProject(*primary_output, *info_output, project,
-                         print_only_errors);
+      bant::PrintProject(*primary_out, *info_out, project, print_only_errors);
     }
     break;
   case Command::kLibraryHeaders:  //
-    bant::PrintLibraryHeaders(ExtractHeaderToLibMapping(project, *info_output),
-                              *primary_output);
+    bant::PrintLibraryHeaders(ExtractHeaderToLibMapping(project, *info_out),
+                              *primary_out);
     break;
   case Command::kDependencyEdits:
+    using bant::CreateBuildozerDepsEditCallback;
     bant::CreateDependencyEdits(project, canonicalize_targets, deps_stat,
-                                *info_output,
-                                bant::CreateBuildozerPrinter(*primary_output));
+                                *info_out,
+                                CreateBuildozerDepsEditCallback(*primary_out));
     break;
   case Command::kListBazelFiles:  // already handled
-  case Command::kNone:;           // nop (implicitly done by parsing)
+  case Command::kNone:            // nop (implicitly done by parsing)
+    ;
   }
 
   if (verbose) {
     // If verbose explicitly chosen, we want to print this even if -q.
-    // So not to info_output, but std::cerr
+    // So not to info_out, but std::cerr
     std::cerr << "Walked through "
               << project.file_collect_stat.ToString("files/dirs")
               << " to collect BUILD files.\n"

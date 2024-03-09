@@ -18,32 +18,19 @@
 #ifndef BANT_TOOL_DWYU_
 #define BANT_TOOL_DWYU_
 
-#include <functional>
 #include <ostream>
 #include <string>
 #include <string_view>
 #include <vector>
 
 #include "bant/frontend/project-parser.h"
-#include "bant/types-bazel.h"
+#include "bant/tool/edit-callback.h"
 
 namespace bant {
 
 // Extract #include project headers (the ones with the quotes not angle
 // brackts) from given file. Best effort: may result empty vector.
 std::vector<std::string> ExtractCCIncludes(std::string_view content);
-
-// Edit operations on tagets.
-enum class EditRequest {
-  kRemove,
-  kAdd,
-  kRename,
-};
-
-// Request kRemove will have "before" set, kAdd "after, and kRename both.
-using EditCallback =
-  std::function<void(EditRequest, const BazelTarget &target,
-                     std::string_view before, std::string_view after)>;
 
 // Look through the sources mentioned in the file, check what they include
 // and determine what dependencies need to be added/remove.
@@ -53,9 +40,6 @@ void CreateDependencyEdits(const ParsedProject &project,
                            bool canonicalize_targets, Stat &stats,
                            std::ostream &info_out,
                            const EditCallback &emit_deps_edit);
-
-// Create an EditCallback function that writes "buildozer" edits to out.
-EditCallback CreateBuildozerPrinter(std::ostream &out);
 
 }  // namespace bant
 
