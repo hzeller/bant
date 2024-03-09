@@ -32,6 +32,7 @@ TEST(DWYUTest, HeaderFilesAreExtracted) {
 // #include "also-not-extracted.h"
    #include "but-this.h"
 #include "with/suffix.hh"      // other ..
+#include "with/suffix.pb.h"
 #include "with/suffix.inc"     // .. common suffices
 #include    "w/space.h"        // even strange spacing should work
 #include /* foo */ "this-is-silly.h"  // Some things are too far :)
@@ -39,6 +40,7 @@ TEST(DWYUTest, HeaderFilesAreExtracted) {
   std::vector<std::string> headers = ExtractCCIncludes(kTestContent);
   EXPECT_THAT(headers,
               ElementsAre("CaSe-dash_underscore.h", "but-this.h",
-                          "with/suffix.hh", "with/suffix.inc", "w/space.h"));
+                          "with/suffix.hh", "with/suffix.pb.h",
+                          "with/suffix.inc", "w/space.h"));
 }
 }  // namespace bant

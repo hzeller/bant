@@ -187,7 +187,7 @@ std::set<BazelTarget> ExtractKnownLibraries(const ParsedProject &project) {
 
 std::vector<std::string> ExtractCCIncludes(std::string_view content) {
   static const LazyRE2 kIncRe{
-    R"/((?m)^\s*#include\s+"([0-9a-zA-Z_/-]+\.[a-zA-Z]+)")/"};
+    R"/((?m)^\s*#include\s+"([0-9a-zA-Z_/-]+(\.[a-zA-Z]+)*)")/"};
 
   std::vector<std::string> result;
   std::string header_path;
