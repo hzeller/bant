@@ -108,29 +108,29 @@ ProvidedFromTargetMap ExtractHeaderToLibMapping(const ParsedProject &project,
   // cc_library()
   for (const auto &[_, file_content] : project.file_to_ast) {
     if (!file_content.ast) continue;
-    FindCCLibraryHeaders(file_content, [&](std::string_view lib_name,
-                                           std::string_view hdr_loc,
-                                           const std::string &header_fqn) {
-      auto target = BazelTarget::ParseFrom(lib_name, file_content.package);
-      if (!target.has_value()) return;
+    FindCCLibraryHeaders(
+      file_content, [&](std::string_view lib_name, std::string_view hdr_loc,
+                        const std::string &header_fqn) {
+        auto target = BazelTarget::ParseFrom(lib_name, file_content.package);
+        if (!target.has_value()) return;
 
-      const auto &inserted = result.insert({header_fqn, *target});
-      if (!inserted.second && target != inserted.first->second) {
-        // TODO: differentiate between info-log (external projects) and
-        // error-log (current project, as these are actionable).
-        // For now: just report errors.
-        const bool is_error = file_content.package.project.empty();
-        if (is_error) {
-          // TODO: Get file-position from other target which might be
-          // in a different file.
-          info_out << file_content.filename << ":"
-                   << file_content.line_columns.GetRange(hdr_loc) << " Header '"
-                   << header_fqn << "' in " << target->ToString()
-                   << " already provided by "
-                   << inserted.first->second.ToString() << "\n";
+        const auto &inserted = result.insert({header_fqn, *target});
+        if (!inserted.second && target != inserted.first->second) {
+          // TODO: differentiate between info-log (external projects) and
+          // error-log (current project, as these are actionable).
+          // For now: just report errors.
+          const bool is_error = file_content.package.project.empty();
+          if (is_error) {
+            // TODO: Get file-position from other target which might be
+            // in a different file.
+            info_out << file_content.filename << ":"
+                     << file_content.line_columns.GetRange(hdr_loc)
+                     << " Header '" << header_fqn << "' in "
+                     << target->ToString() << " already provided by "
+                     << inserted.first->second.ToString() << "\n";
+          }
         }
-      }
-    });
+      });
   }
 
   // proto_library(), cc_proto_library().
@@ -182,7 +182,7 @@ ProvidedFromTargetMap ExtractHeaderToLibMapping(const ParsedProject &project,
     if (found != proto_lib_inputTo_cc_proto.end()) {
       result.insert({proto_header, found->second});
     } else {
-      //info_out << "Don't know how to associate " << proto_header << "\n";
+      // info_out << "Don't know how to associate " << proto_header << "\n";
     }
   }
 
