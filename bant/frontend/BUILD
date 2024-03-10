@@ -83,7 +83,6 @@ cc_library(
     srcs = ["project-parser.cc"],
     hdrs = ["project-parser.h"],
     deps = [
-        ":linecolumn-map",
         ":named-content",
         ":parser",
         "//bant:types-bazel",
