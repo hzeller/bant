@@ -52,15 +52,14 @@ inline std::ostream &operator<<(std::ostream &o, const BazelPackage &p) {
   return o << p.ToString();
 }
 
-struct BazelTarget {
-  BazelTarget() = default;
-  BazelTarget(BazelPackage package, std::string_view target)
-      : package(std::move(package)), target_name(target) {}
-
+class BazelTarget {
+public:
   // Parse target from string. Both forms //foo/bar:baz and :baz are
   // supported. The latter case is canonicalized by adding the context package.
   static std::optional<BazelTarget> ParseFrom(std::string_view str,
                                               const BazelPackage &context);
+
+  BazelTarget() = default;
 
   BazelPackage package;
   std::string target_name;  // e.g. a library
@@ -74,6 +73,12 @@ struct BazelTarget {
   bool operator<(const BazelTarget &) const = default;
   bool operator==(const BazelTarget &) const = default;
   bool operator!=(const BazelTarget &) const = default;
+
+private:
+  // Make sure we only use the ParseFrom(). Not always needed, but this way
+  // it is harder to accidentally have broken targets.
+  BazelTarget(BazelPackage package, std::string_view target)
+    : package(std::move(package)), target_name(target) {}
 };
 
 inline std::ostream &operator<<(std::ostream &o, const BazelTarget &t) {

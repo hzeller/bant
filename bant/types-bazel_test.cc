@@ -139,25 +139,29 @@ TEST(TypesBazel, PrintTarget) {
   BazelPackage p1("", "foo/bar/baz");
   BazelPackage p2("", "other/path");
 
-  BazelTarget tlib(p1, "some-lib");
-  EXPECT_EQ(tlib.ToString(), "//foo/bar/baz:some-lib");
-  EXPECT_EQ(tlib.ToStringRelativeTo(p1), ":some-lib");
-  EXPECT_EQ(tlib.ToStringRelativeTo(p2), "//foo/bar/baz:some-lib");
+  auto tlib = BazelTarget::ParseFrom("some-lib", p1);
+  ASSERT_TRUE(tlib.has_value());
+  EXPECT_EQ(tlib->ToString(), "//foo/bar/baz:some-lib");
+  EXPECT_EQ(tlib->ToStringRelativeTo(p1), ":some-lib");
+  EXPECT_EQ(tlib->ToStringRelativeTo(p2), "//foo/bar/baz:some-lib");
 
-  BazelTarget baz(p1, "baz");
-  EXPECT_EQ(baz.ToString(), "//foo/bar/baz");
-  EXPECT_EQ(baz.ToStringRelativeTo(p1), ":baz");
-  EXPECT_EQ(baz.ToStringRelativeTo(p2), "//foo/bar/baz");
+  auto baz = BazelTarget::ParseFrom("baz", p1);
+  ASSERT_TRUE(baz.has_value());
+  EXPECT_EQ(baz->ToString(), "//foo/bar/baz");
+  EXPECT_EQ(baz->ToStringRelativeTo(p1), ":baz");
+  EXPECT_EQ(baz->ToStringRelativeTo(p2), "//foo/bar/baz");
 
   BazelPackage pack("@project", "");
-  BazelTarget pack_t1(pack, "foo");
-  EXPECT_EQ(pack_t1.ToString(), "@project//:foo");
-  EXPECT_EQ(pack_t1.ToStringRelativeTo(pack), ":foo");
+  auto pack_t1 = BazelTarget::ParseFrom("foo", pack);
+  ASSERT_TRUE(pack_t1.has_value());
+  EXPECT_EQ(pack_t1->ToString(), "@project//:foo");
+  EXPECT_EQ(pack_t1->ToStringRelativeTo(pack), ":foo");
 
   // Toplevel tareget same as project
-  BazelTarget pack_t2(pack, "project");
-  EXPECT_EQ(pack_t2.ToString(), "@project");
-  EXPECT_EQ(pack_t2.ToStringRelativeTo(pack), ":project");
+  auto pack_t2 = BazelTarget::ParseFrom("project", pack);
+  ASSERT_TRUE(pack_t2.has_value());
+  EXPECT_EQ(pack_t2->ToString(), "@project");
+  EXPECT_EQ(pack_t2->ToStringRelativeTo(pack), ":project");
 }
 
 // Quick tests.
