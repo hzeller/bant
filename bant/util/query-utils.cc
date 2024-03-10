@@ -59,6 +59,8 @@ class TargetFinder : public BaseVisitor {
         // Even if the follwing was given as 'True' constant, the constant
         // expression eval will have flattened that to a scalar.
         current_.alwayslink = scalar->AsInt();
+      } else if (lhs == "include_prefix") {
+        current_.include_prefix = scalar->AsString();
       }
     } else if (List *list = a->value()->CastAsList()) {
       if (lhs == "hdrs") {

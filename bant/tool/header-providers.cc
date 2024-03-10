@@ -26,7 +26,8 @@
 #include "bant/types-bazel.h"
 #include "bant/util/query-utils.h"
 
-#define BANT_GTEST_HACK 1
+// Inject dependency to gtest, as we don't glob() the files yet.
+#define BANT_GTEST_HACK
 
 namespace bant {
 namespace {
@@ -42,6 +43,11 @@ static void FindCCLibraryHeaders(Node *ast, const FindHeaderCallback &cb) {
       query::ExtractStringList(params.hdrs_list, headers);
 
       for (std::string_view header_file : headers) {
+        if (!params.include_prefix.empty()) {  // cc_library() dictates path.
+          cb(params.name,
+             absl::StrCat(params.include_prefix, "/", header_file));
+          continue;
+        }
         cb(params.name, header_file);
         // Could also show up under shorter path with -I
         for (std::string_view dir : incdirs) {
@@ -80,7 +86,10 @@ ProvidedFromTargetMap ExtractHeaderToLibMapping(const ParsedProject &project,
     if (!file_content.ast) continue;
     FindCCLibraryHeaders(file_content.ast, [&](std::string_view lib_name,
                                                std::string_view header) {
-      std::string header_fqn = file_content.package.QualifiedFile(header);
+      std::string header_fqn(header);
+      if (header.find_first_of('/') == std::string::npos) {
+        header_fqn = file_content.package.QualifiedFile(header);
+      }
 
       BazelTarget target(file_content.package, lib_name);
       const auto &inserted = result.insert({header_fqn, target});

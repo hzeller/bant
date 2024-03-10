@@ -35,6 +35,7 @@ struct TargetParameters {
   List *deps_list = nullptr;
   List *outs_list = nullptr;  // genrule.
   List *includes_list = nullptr;
+  std::string_view include_prefix;
   bool alwayslink = false;
 };
 

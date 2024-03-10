@@ -102,8 +102,7 @@ std::set<BazelTarget> DependenciesForIncludes(
     }
     if (!src_content.has_value()) {
       // Nothing we can do about this for now. These are probably
-      // coming from some generated sources. TODO: check 'out's from genrules
-      // Since we don't know what they include, influences remove confidences.
+      // coming from some generated sources or we don't see all packages.
       info_out << context.filename << ":" << context.line_columns.GetRange(s)
                << " Can not read '" << source_file << "' referenced in "
                << target_self.ToString() << " Missing ? Generated ?\n";
