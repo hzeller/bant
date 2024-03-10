@@ -43,10 +43,6 @@
 #include "bant/util/query-utils.h"
 #include "re2/re2.h"
 
-// Until we have a glob() implementation, this is pretty noisy at this point.
-// also false positive from includes mentioned in strings, like dwyu_test.cc :)
-//#define PRINT_NOISY_UNKNOWN_SOURCE_MESSAGE
-
 // Looking for source files directly in the source tree, but if not found
 // in the various locations generated files could be.
 static constexpr std::string_view kSourceLocations[] = {
@@ -86,7 +82,7 @@ std::set<BazelTarget> DependenciesForIncludes(
   const BazelTarget &target_self, const ParsedBuildFile &context,
   const std::vector<std::string_view> &sources,
   const FileProviderLookups &file_index, bool *all_headers_accounted_for,
-  Stat &stats, std::ostream &info_out) {
+  Stat &stats, std::ostream &info_out, bool verbose) {
   size_t total_size = 0;
   std::set<BazelTarget> result;
   for (std::string_view src_name : sources) {
@@ -179,13 +175,15 @@ std::set<BazelTarget> DependenciesForIncludes(
 
       // No luck. Source includes it, but we don't know where it is.
       // Be careful with remove suggestion, so consider 'not accounted for'.
-#ifdef PRINT_NOISY_UNKNOWN_SOURCE_MESSAGE
-      scanned_source.Loc(info_out, inc_file)
-        << " " << inc_file
-        << " unaccounted for; lib missing ? bazel build needed ?\n";
-      context.source.Loc(info_out, src_name)
-        << " .. here in rule " << target_self.ToString() << "\n";
-#endif
+      if (verbose) {
+        // Until we have a glob() implementation, this is pretty noisy at this
+        // point. So wrap only show it if verbose enabled.
+        scanned_source.Loc(info_out, inc_file)
+          << " " << inc_file
+          << " unaccounted for; lib missing ? bazel build needed ?\n";
+        context.source.Loc(info_out, src_name)
+          << " .. here in rule " << target_self.ToString() << "\n";
+      }
     }
   }
 
@@ -245,7 +243,7 @@ std::vector<std::string_view> ExtractCCIncludes(NamedLineIndexedContent *src) {
 }
 
 void CreateDependencyEdits(const ParsedProject &project, Stat &stats,
-                           std::ostream &info_out,
+                           std::ostream &info_out, bool verbose_messages,
                            const EditCallback &emit_deps_edit) {
   FileProviderLookups hdr_idx;
   hdr_idx.headers_from_libs = ExtractHeaderToLibMapping(project, info_out);
@@ -274,10 +272,11 @@ void CreateDependencyEdits(const ParsedProject &project, Stat &stats,
         std::vector<std::string_view> sources;
         query::ExtractStringList(target.srcs_list, sources);
         query::ExtractStringList(target.hdrs_list, sources);
-        auto deps_needed = DependenciesForIncludes(*self, parsed_package,   //
-                                                   sources, hdr_idx,        //
-                                                   &all_header_deps_known,  //
-                                                   stats, info_out);
+        auto deps_needed =
+          DependenciesForIncludes(*self, parsed_package,   //
+                                  sources, hdr_idx,        //
+                                  &all_header_deps_known,  //
+                                  stats, info_out, verbose_messages);
 
         // Check all the dependencies that the build target requested and
         // verify we actually need them. If not: remove.

@@ -36,7 +36,7 @@ std::vector<std::string_view> ExtractCCIncludes(NamedLineIndexedContent *src);
 // Look through the sources mentioned in the file, check what they include
 // and determine what dependencies need to be added/remove.
 void CreateDependencyEdits(const ParsedProject &project, Stat &stats,
-                           std::ostream &info_out,
+                           std::ostream &info_out, bool verbose_messages,
                            const EditCallback &emit_deps_edit);
 
 }  // namespace bant

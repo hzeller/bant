@@ -46,11 +46,13 @@ Some have extra command line options (e.g. for `parse`, `-p` prints AST).
    Uses the information from `lib-headers` to determine which libraries
    these sources thus need to depend on.
    Emit [buildozer] commands to 'add' or 'remove' dependencies.
-   If unclear if a library can be removed, it is conservatively
-   _not_ suggested for removal.
+   Note, `bant` can't currently see all sources of header included
+   (e.g. glob() is not implemented yet). If unclear if a library can be
+   removed, it is conservatively _not_ suggested for removal.
    You can use this to clean up existing builds, or, while in the development
    and you added/removed headers from your code, to update your BUILD files
    using the ouptut of `bant dwyu`.
+   Note: does not take visibiliity into acccount yet.
    You could call this a simple `build_cleaner` ...
  * `canonicalize` emits edits to canonicalize targets, e.g.
     * `//foo/bar:baz` when already in `//foo/bar` becomes `:baz`

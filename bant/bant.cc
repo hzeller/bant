@@ -195,7 +195,7 @@ int main(int argc, char *argv[]) {
     break;
   case Command::kDependencyEdits:
     using bant::CreateBuildozerDepsEditCallback;
-    bant::CreateDependencyEdits(project, deps_stat, *info_out,
+    bant::CreateDependencyEdits(project, deps_stat, *info_out, verbose,
                                 CreateBuildozerDepsEditCallback(*primary_out));
     break;
   case Command::kCanonicalizeDeps:
