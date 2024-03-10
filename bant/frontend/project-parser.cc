@@ -74,7 +74,7 @@ static void ParseBuildFiles(const std::vector<FilesystemPath> &build_files,
 
     ParsedBuildFile &parse_result = inserted.first->second;
     ++result->parse_stat.count;
-    bytes_processed += parse_result.content.size();
+    bytes_processed += parse_result.source.size();
 
     if (filename.starts_with(external_prefix)) {
       std::string_view project_extract(filename);
@@ -89,9 +89,9 @@ static void ParseBuildFiles(const std::vector<FilesystemPath> &build_files,
       parse_result.package.path = TargetPathFromBuildFile(filename);
     }
 
-    Scanner scanner(parse_result.content, parse_result.line_columns);
+    Scanner scanner(parse_result.source);
     std::stringstream error_collect;
-    Parser parser(&scanner, &result->arena, filename.c_str(), error_collect);
+    Parser parser(&scanner, &result->arena, error_collect);
     parse_result.ast = parser.parse();
     parse_result.errors = error_collect.str();
     if (parser.parse_error()) {

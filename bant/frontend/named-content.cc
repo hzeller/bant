@@ -15,30 +15,24 @@
 // with this program; if not, write to the Free Software Foundation, Inc.,
 // 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 
-#ifndef BANT_TOOL_DWYU_
-#define BANT_TOOL_DWYU_
+#include "bant/frontend/named-content.h"
 
 #include <ostream>
 #include <string_view>
-#include <vector>
 
-#include "bant/frontend/linecolumn-map.h"
-#include "bant/frontend/project-parser.h"
-#include "bant/tool/edit-callback.h"
+#include "absl/log/check.h"
 
 namespace bant {
+std::ostream &NamedLineIndexedContent::Loc(std::ostream &out,
+                                           std::string_view s) const {
+  CHECK(s.begin() >= content().begin() && s.end() <= content().end())
+    << "Attempt to pass '" << s << "' which is not within " << name_;
+  out << name_ << ":" << GetRange(s);
+  return out;
+}
 
-// Scan "src" and extract #include project headers (the ones with the quotes
-// not angle brackts) from given file. Best effort: may result empty vector.
-// Initialize the line index in src to be able to refer back to origainal.
-std::vector<std::string_view> ExtractCCIncludes(NamedLineIndexedContent *src);
-
-// Look through the sources mentioned in the file, check what they include
-// and determine what dependencies need to be added/remove.
-void CreateDependencyEdits(const ParsedProject &project, Stat &stats,
-                           std::ostream &info_out,
-                           const EditCallback &emit_deps_edit);
+LineColumnRange NamedLineIndexedContent::GetRange(std::string_view text) const {
+  return line_index_.GetRange(text);
+}
 
 }  // namespace bant
-
-#endif  // BANT_TOOL_DWYU_

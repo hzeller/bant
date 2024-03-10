@@ -1,5 +1,3 @@
-# -*- python -*-
-
 load("@rules_license//rules:license.bzl", "license")
 
 package(

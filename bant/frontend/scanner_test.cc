@@ -24,23 +24,24 @@ inline bool operator==(const Token &a, const Token &b) {
   return a.type == b.type && a.text == b.text;
 }
 
+#define TEST_SCANNER(name, content)                              \
+  NamedLineIndexedContent content_##__LINE__(__FILE__, content); \
+  Scanner name(content_##__LINE__)
+
 TEST(ScannerTest, EmptyStringEOF) {
-  LineColumnMap lc;
-  Scanner s("", lc);
+  TEST_SCANNER(s, "");
   EXPECT_EQ(s.Next().type, TokenType::kEof);
   EXPECT_EQ(s.Next().type, TokenType::kEof);
 }
 
 TEST(ScannerTest, UnknownToken) {
-  LineColumnMap lc;
-  Scanner s("@", lc);
+  TEST_SCANNER(s, "@");
   EXPECT_EQ(s.Next().type, TokenType::kError);
   EXPECT_EQ(s.Next().type, TokenType::kEof);
 }
 
 TEST(ScannerTest, BackslashSimplySkippedAsWhitespace) {
-  LineColumnMap lc;
-  Scanner s(R"(if\else)", lc);
+  TEST_SCANNER(s, R"(if\else)");
   EXPECT_EQ(s.Next().type, TokenType::kIf);
   EXPECT_EQ(s.Next().type, TokenType::kElse);
   EXPECT_EQ(s.Next().type, TokenType::kEof);
@@ -85,8 +86,7 @@ TEST(ScannerTest, SimpleTokens) {
     {"some_random_thing", TokenType::kIdentifier},
   };
   for (const TestCase &t : tests) {
-    LineColumnMap lc;
-    Scanner s(t.input_text, lc);
+    TEST_SCANNER(s, t.input_text);
     const Token tok = s.Next();
     EXPECT_EQ(tok.type, t.expected);
     EXPECT_EQ(tok.text, t.input_text);
@@ -95,16 +95,14 @@ TEST(ScannerTest, SimpleTokens) {
 }
 
 TEST(ScannerTest, NumberString) {
-  LineColumnMap lc;
-  Scanner s(R"(42 "hello world")", lc);
+  TEST_SCANNER(s, R"(42 "hello world")");
   EXPECT_EQ(s.Next(), Token({TokenType::kNumberLiteral, "42"}));
   EXPECT_EQ(s.Next(), Token({TokenType::kStringLiteral, "\"hello world\""}));
   EXPECT_EQ(s.Next(), Token({TokenType::kEof, ""}));
 }
 
 TEST(ScannerTest, DoubleWordTokens) {
-  LineColumnMap lc;
-  Scanner s(R"(43 not in answer foo in 12)", lc);
+  TEST_SCANNER(s, R"(43 not in answer foo in 12)");
   EXPECT_EQ(s.Next(), Token({TokenType::kNumberLiteral, "43"}));
   EXPECT_EQ(s.Next(), Token({TokenType::kNotIn, "not in"}));
   EXPECT_EQ(s.Next(), Token({TokenType::kIdentifier, "answer"}));
@@ -116,63 +114,54 @@ TEST(ScannerTest, DoubleWordTokens) {
 
 TEST(ScannerTest, StringLiteral) {
   {
-    LineColumnMap lc;
-    Scanner s(R"("double")", lc);
+    TEST_SCANNER(s, R"("double")");
     EXPECT_EQ(s.Next(), Token({TokenType::kStringLiteral, R"("double")"}));
     EXPECT_EQ(s.Next(), Token({TokenType::kEof, ""}));
   }
   {
-    LineColumnMap lc;
-    Scanner s(R"('single')", lc);
+    TEST_SCANNER(s, R"('single')");
     EXPECT_EQ(s.Next(), Token({TokenType::kStringLiteral, R"('single')"}));
     EXPECT_EQ(s.Next(), Token({TokenType::kEof, ""}));
   }
   {
-    LineColumnMap lc;
-    Scanner s(R"("hello \" ' world")", lc);
+    TEST_SCANNER(s, R"("hello \" ' world")");
     EXPECT_EQ(s.Next(),
               Token({TokenType::kStringLiteral, R"("hello \" ' world")"}));
     EXPECT_EQ(s.Next(), Token({TokenType::kEof, ""}));
   }
 
   {
-    LineColumnMap lc;
-    Scanner s(R"('hello " \' world')", lc);
+    TEST_SCANNER(s, R"('hello " \' world')");
     EXPECT_EQ(s.Next(),
               Token({TokenType::kStringLiteral, R"('hello " \' world')"}));
     EXPECT_EQ(s.Next(), Token({TokenType::kEof, ""}));
   }
 
   {
-    LineColumnMap lc;
-    Scanner s(R"("\\")", lc);
+    TEST_SCANNER(s, R"("\\")");
     EXPECT_EQ(s.Next(), Token({TokenType::kStringLiteral, R"("\\")"}));
     EXPECT_EQ(s.Next(), Token({TokenType::kEof, ""}));
   }
 
   {
-    LineColumnMap lc;
-    Scanner s(R"("\\\\")", lc);
+    TEST_SCANNER(s, R"("\\\\")");
     EXPECT_EQ(s.Next(), Token({TokenType::kStringLiteral, R"("\\\\")"}));
     EXPECT_EQ(s.Next(), Token({TokenType::kEof, ""}));
   }
 
   {  // long string literals
-    LineColumnMap lc;
-    Scanner s(R"("""hello "" world""")", lc);
+    TEST_SCANNER(s, R"("""hello "" world""")");
     EXPECT_EQ(s.Next(),
               Token({TokenType::kStringLiteral, R"("""hello "" world""")"}));
     EXPECT_EQ(s.Next(), Token({TokenType::kEof, ""}));
   }
   {
-    LineColumnMap lc;
-    Scanner s(R"("""""")", lc);
+    TEST_SCANNER(s, R"("""""")");
     EXPECT_EQ(s.Next(), Token({TokenType::kStringLiteral, R"("""""")"}));
     EXPECT_EQ(s.Next(), Token({TokenType::kEof, ""}));
   }
   {
-    LineColumnMap lc;
-    Scanner s(R"(""""")", lc);
+    TEST_SCANNER(s, R"(""""")");
     EXPECT_EQ(s.Next(), Token({TokenType::kError, R"(""""")"}));
     EXPECT_EQ(s.Next(), Token({TokenType::kEof, ""}));
   }
@@ -180,14 +169,12 @@ TEST(ScannerTest, StringLiteral) {
 
 TEST(ScannerTest, RawStringLiteral) {
   {
-    LineColumnMap lc;
-    Scanner s("  r'foo'  ", lc);
+    TEST_SCANNER(s, "  r'foo'  ");
     EXPECT_EQ(s.Next(), Token({TokenType::kStringLiteral, "r'foo'"}));
     EXPECT_EQ(s.Next(), Token({TokenType::kEof, ""}));
   }
   {
-    LineColumnMap lc;
-    Scanner s("r''", lc);
+    TEST_SCANNER(s, "r''");
     EXPECT_EQ(s.Next(), Token({TokenType::kStringLiteral, "r''"}));
     EXPECT_EQ(s.Next(), Token({TokenType::kEof, ""}));
   }

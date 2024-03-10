@@ -63,12 +63,8 @@ namespace bant {
 // file with all the parse methods needed for the productions.
 class Parser::Impl {
  public:
-  Impl(Scanner *token_source, Arena *allocator, std::string_view info_filename,
-       std::ostream &err_out)
-      : scanner_(token_source),
-        node_arena_(allocator),
-        filename_(info_filename),
-        err_out_(err_out) {}
+  Impl(Scanner *token_source, Arena *allocator, std::ostream &err_out)
+      : scanner_(token_source), node_arena_(allocator), err_out_(err_out) {}
 
   // Parse file. If there is an error, return at least partial tree.
   // A file is a list of data structures, function calls, or assignments..
@@ -500,8 +496,7 @@ class Parser::Impl {
   }
 
   std::ostream &ErrAt(Token t) {
-    err_out_ << filename_ << ":" << scanner_->line_col().GetRange(t.text)
-             << " got '" << t.text << "'; ";
+    scanner_->source().Loc(err_out_, t.text) << " got '" << t.text << "'; ";
     error_ = true;
     return err_out_;
   }
@@ -522,9 +517,8 @@ class Parser::Impl {
   bool error_ = false;
 };
 
-Parser::Parser(Scanner *token_source, Arena *allocator,
-               std::string_view info_filename, std::ostream &err_out)
-    : impl_(new Impl(token_source, allocator, info_filename, err_out)) {}
+Parser::Parser(Scanner *token_source, Arena *allocator, std::ostream &err_out)
+    : impl_(new Impl(token_source, allocator, err_out)) {}
 Parser::~Parser() = default;
 
 List *Parser::parse() { return impl_->parse(); }

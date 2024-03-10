@@ -56,8 +56,7 @@ class LineColumnMap {
  public:
   LineColumnMap() = default;
 
-  // factory creating a LineColumnMap from a string view.
-  static LineColumnMap CreateFromStringView(std::string_view s);
+  void InitializeFromStringView(std::string_view s);
 
   // Push the position after the last newline. Typically done by the scanner.
   void PushNewline(std::string_view::const_iterator newline_pos);

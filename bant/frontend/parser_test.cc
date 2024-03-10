@@ -23,6 +23,7 @@
 #include <utility>
 
 #include "bant/frontend/ast.h"
+#include "bant/frontend/named-content.h"
 #include "bant/util/arena.h"
 #include "gtest/gtest.h"
 
@@ -32,9 +33,9 @@ class ParserTest : public testing::Test {
   ParserTest() : arena_(4096) {}
 
   bant::List *Parse(std::string_view text) {
-    LineColumnMap lc;
-    Scanner scanner(text, lc);
-    Parser parser(&scanner, &arena_, "<text>", std::cerr);
+    NamedLineIndexedContent source("<text>", text);
+    Scanner scanner(source);
+    Parser parser(&scanner, &arena_, std::cerr);
     bant::List *first_pass = parser.parse();
     RoundTripPrintParseAgainTest(first_pass);
     return first_pass;
@@ -115,11 +116,11 @@ class ParserTest : public testing::Test {
       stringify1 << n << "\n";
     }
 
-    const std::string first_printed = stringify1.str();
-    LineColumnMap lc;
-    Scanner scanner(first_printed, lc);
+    std::string source1 = stringify1.str();
+    NamedLineIndexedContent source("<text-reprinted>", source1);
+    Scanner scanner(source);
     Arena local_arena(4096);
-    Parser parser(&scanner, &local_arena, "<text-reprinted>", std::cerr);
+    Parser parser(&scanner, &local_arena, std::cerr);
     bant::List *second_pass = parser.parse();
     ASSERT_TRUE(second_pass != nullptr);
 
@@ -128,7 +129,7 @@ class ParserTest : public testing::Test {
       stringify2 << n << "\n";
     }
 
-    EXPECT_EQ(first_printed, stringify2.str());
+    EXPECT_EQ(source.content(), stringify2.str());
   }
 
   Arena arena_;

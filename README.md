@@ -48,6 +48,9 @@ Some have extra command line options (e.g. for `parse`, `-p` prints AST).
    Emit [buildozer] commands to 'add' or 'remove' dependencies.
    If unclear if a library can be removed, it is conservatively
    _not_ suggested for removal.
+   You can use this to clean up existing builds, or, while in the development
+   and you added/removed headers from your code, to update your BUILD files
+   using the ouptut of `bant dwyu`.
    You could call this a simple `build_cleaner` ...
  * `canonicalize` emits edits to canonicalize targets, e.g.
     * `//foo/bar:baz` when already in `//foo/bar` becomes `:baz`

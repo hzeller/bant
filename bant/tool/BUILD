@@ -1,5 +1,3 @@
-# -*- python -*-
-
 package(
     default_applicable_licenses = ["//:license"],
     default_visibility = ["//bant:__pkg__"],
@@ -38,6 +36,7 @@ cc_library(
         ":header-providers",
         "//bant:types-bazel",
         "//bant/frontend:linecolumn-map",
+        "//bant/frontend:named-content",
         "//bant/frontend:project-parser",
         "//bant/util:file-utils",
         "//bant/util:query-utils",
@@ -65,6 +64,7 @@ cc_test(
     deps = [
         ":dwyu",
         "//bant/frontend:linecolumn-map",
+        "//bant/frontend:named-content",
         "@abseil-cpp//absl/log:check",
         "@googletest//:gtest",
         "@googletest//:gtest_main",

@@ -43,9 +43,8 @@ void CreateCanonicalizeEdits(const ParsedProject &project,
         for (std::string_view dep_str : deps) {
           auto dep_target = BazelTarget::ParseFrom(dep_str, current_package);
           if (!dep_target.has_value()) {
-            info_out << parsed_package.filename << ":"
-                     << parsed_package.line_columns.GetRange(dep_str)
-                     << " Invalid target name '" << dep_str << "'\n";
+            parsed_package.source.Loc(info_out, dep_str)
+              << " Invalid target name '" << dep_str << "'\n";
             continue;
           }
           if (dep_str != dep_target->ToStringRelativeTo(current_package)) {

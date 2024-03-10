@@ -73,12 +73,13 @@ static std::string_view FindReturnSubstr(std::string_view needle,
   return std::string_view(haystack.begin() + found, needle.length());
 }
 
-TEST(LineColumnTextTest, CreateFromRange) {
+TEST(LineColumnTextTest, InitializeFromRange) {
   constexpr std::string_view kText = R"(
 line 2
 line 3
   line 4)";  // No line ending here.
-  auto line_col_map = LineColumnMap::CreateFromStringView(kText);
+  LineColumnMap line_col_map;
+  line_col_map.InitializeFromStringView(kText);
   EXPECT_EQ(line_col_map.GetRange(FindReturnSubstr("line 2", kText)),
             LineColumnRange({1, 0}, {1, 6}));  // Note: zero based.
   EXPECT_EQ(line_col_map.GetRange(FindReturnSubstr("line 4", kText)),

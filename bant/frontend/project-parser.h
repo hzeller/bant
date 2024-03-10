@@ -27,20 +27,19 @@
 #include "absl/time/time.h"
 #include "bant/frontend/ast.h"
 #include "bant/frontend/linecolumn-map.h"
+#include "bant/frontend/named-content.h"
 #include "bant/types-bazel.h"
 #include "bant/util/file-utils.h"
 
 namespace bant {
 struct ParsedBuildFile {
-  explicit ParsedBuildFile(std::string_view filename, std::string &&c)
-      : filename(filename), content(std::move(c)) {}
+  explicit ParsedBuildFile(std::string_view filename, std::string c)
+      : content(std::move(c)), source(filename, content) {}
   ParsedBuildFile(ParsedBuildFile &&) noexcept = default;
   ParsedBuildFile(const ParsedBuildFile &) = delete;
 
-  // TODO: maybe combine filename, content and line_columns
-  std::string filename;
-  std::string content;  // AST string_views refer to this, don't change alloc
-  LineColumnMap line_columns;  // To recover line/column information from Tokens
+  std::string content;
+  NamedLineIndexedContent source;
 
   BazelPackage package;
   List *ast;           // parsed AST. Content owned by arena in ParsedProject

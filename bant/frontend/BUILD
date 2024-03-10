@@ -1,5 +1,3 @@
-# -*- python -*-
-
 package(
     default_applicable_licenses = ["//:license"],
     default_visibility = ["//:__subpackages__"],
@@ -26,6 +24,16 @@ cc_test(
 )
 
 cc_library(
+    name = "named-content",
+    srcs = ["named-content.cc"],
+    hdrs = ["named-content.h"],
+    deps = [
+        ":linecolumn-map",
+        "@abseil-cpp//absl/log:check",
+    ],
+)
+
+cc_library(
     name = "parser",
     srcs = [
         "ast.cc",
@@ -39,7 +47,9 @@ cc_library(
     ],
     deps = [
         ":linecolumn-map",
+        ":named-content",
         "//bant/util:memory",
+        "@abseil-cpp//absl/log:check",
         "@abseil-cpp//absl/strings",
     ],
 )
@@ -60,6 +70,7 @@ cc_test(
     size = "small",
     srcs = ["parser_test.cc"],
     deps = [
+        ":named-content",
         ":parser",
         "//bant/util:memory",
         "@googletest//:gtest",
@@ -73,6 +84,7 @@ cc_library(
     hdrs = ["project-parser.h"],
     deps = [
         ":linecolumn-map",
+        ":named-content",
         ":parser",
         "//bant:types-bazel",
         "//bant/util:file-utils",

@@ -123,11 +123,10 @@ ProvidedFromTargetMap ExtractHeaderToLibMapping(const ParsedProject &project,
           if (is_error) {
             // TODO: Get file-position from other target which might be
             // in a different file.
-            info_out << file_content.filename << ":"
-                     << file_content.line_columns.GetRange(hdr_loc)
-                     << " Header '" << header_fqn << "' in "
-                     << target->ToString() << " already provided by "
-                     << inserted.first->second.ToString() << "\n";
+            file_content.source.Loc(info_out, hdr_loc)
+              << " Header '" << header_fqn << "' in " << target->ToString()
+              << " already provided by " << inserted.first->second.ToString()
+              << "\n";
           }
         }
       });
@@ -214,11 +213,10 @@ ProvidedFromTargetMap ExtractGeneratedFromGenrule(const ParsedProject &project,
             if (is_error) {
               // TODO: Get file-position from other target which might be
               // in a different file.
-              info_out << file_content.filename << ":"
-                       << file_content.line_columns.GetRange(generated) << " '"
-                       << gen_fqn << "' in " << target->ToString()
-                       << " also created by "
-                       << inserted.first->second.ToString() << "\n";
+              file_content.source.Loc(info_out, generated)
+                << " '" << gen_fqn << "' in " << target->ToString()
+                << " also created by " << inserted.first->second.ToString()
+                << "\n";
             }
           }
         }

@@ -32,8 +32,8 @@ class Parser {
   // Memory for nodes is alloctaed from given "allocator" arena.
   // The "info_filename" is used to report errors, the "err_out" stream
   // receives user-readable error messages.
-  Parser(Scanner *token_source, Arena *allocator,
-         std::string_view info_filename, std::ostream &err_out);
+  Parser(Scanner *token_source, Arena *allocator, std::ostream &err_out);
+
   ~Parser();
 
   // Consume token_source, parse file and return the abstract syntax tree root.

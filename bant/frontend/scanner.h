@@ -22,6 +22,7 @@
 #include <string_view>
 
 #include "bant/frontend/linecolumn-map.h"
+#include "bant/frontend/named-content.h"
 
 namespace bant {
 enum TokenType : int {
@@ -87,7 +88,7 @@ class Scanner {
   // time to determine the position of a Token extractedf from the file.
   // All tokens returned by the Scanner are substrings from the larger
   // content; this keeps correspondence with the original.
-  Scanner(std::string_view content, LineColumnMap &line_map);
+  Scanner(NamedLineIndexedContent &source);
 
   // Return next token.
   Token Next();
@@ -100,7 +101,7 @@ class Scanner {
     return upcoming_;
   }
 
-  const LineColumnMap &line_col() const { return line_map_; }
+  const NamedLineIndexedContent &source() { return source_; }
 
  private:
   using ContentPointer = std::string_view::const_iterator;
@@ -114,15 +115,14 @@ class Scanner {
   Token HandleAssignOrRelational();
   Token HandleNotOrNotEquals();
 
-  // Externally owned content.
-  const std::string_view content_;
-  ContentPointer pos_;
+  NamedLineIndexedContent &source_;
+  const std::string_view content_;  // Local copy of source_.content()
+
+  ContentPointer pos_;  // Current scanning location
 
   // If we got a token from peeking, this is it.
   Token upcoming_;
   bool has_upcoming_ = false;
-
-  LineColumnMap &line_map_;
 };
 }  // namespace bant
 #endif  // BANT_SCANNER_H_

@@ -19,6 +19,7 @@
 
 #include "absl/log/check.h"
 #include "bant/frontend/linecolumn-map.h"
+#include "bant/frontend/named-content.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
@@ -26,9 +27,11 @@ using ::testing::ElementsAre;
 
 namespace bant {
 
-static LineColumn PosOfPart(const ContentPartsExtraction &extract, size_t i) {
-  CHECK(i <= extract.parts.size());
-  return extract.location_mapper.GetPos(extract.parts[i].begin());
+static LineColumn PosOfPart(const NamedLineIndexedContent &src,
+                            const std::vector<std::string_view> &parts,
+                            size_t i) {
+  CHECK(i <= parts.size());
+  return src.GetRange(parts[i]).start;
 }
 
 // TODO: need some bant-nolint to not stumble upon the following includes :)
@@ -45,17 +48,17 @@ TEST(DWYUTest, HeaderFilesAreExtracted) {
 #include    "w/space.h"        // even strange spacing should work
 #include /* foo */ "this-is-silly.h"  // Some things are too far :)
 )";
-  const ContentPartsExtraction extraction = ExtractCCIncludes(kTestContent);
-  EXPECT_THAT(
-    extraction.parts,
-    ElementsAre("CaSe-dash_underscore.h", "but-this.h", "with/suffix.hh",
-                "with/suffix.pb.h", "with/suffix.inc", "w/space.h"));
-  EXPECT_EQ(PosOfPart(extraction, 0), (LineColumn{2, 10}));
-  EXPECT_EQ(PosOfPart(extraction, 1), (LineColumn{5, 13}));
+  NamedLineIndexedContent scanned_src("<text>", kTestContent);
+  const auto includes = ExtractCCIncludes(&scanned_src);
+  EXPECT_THAT(includes, ElementsAre("CaSe-dash_underscore.h", "but-this.h",
+                                    "with/suffix.hh", "with/suffix.pb.h",
+                                    "with/suffix.inc", "w/space.h"));
+  EXPECT_EQ(PosOfPart(scanned_src, includes, 0), (LineColumn{2, 10}));
+  EXPECT_EQ(PosOfPart(scanned_src, includes, 1), (LineColumn{5, 13}));
 
-  EXPECT_EQ(PosOfPart(extraction, 2), (LineColumn{6, 10}));
-  EXPECT_EQ(PosOfPart(extraction, 3), (LineColumn{7, 10}));
-  EXPECT_EQ(PosOfPart(extraction, 4), (LineColumn{8, 10}));
-  EXPECT_EQ(PosOfPart(extraction, 5), (LineColumn{9, 13}));
+  EXPECT_EQ(PosOfPart(scanned_src, includes, 2), (LineColumn{6, 10}));
+  EXPECT_EQ(PosOfPart(scanned_src, includes, 3), (LineColumn{7, 10}));
+  EXPECT_EQ(PosOfPart(scanned_src, includes, 4), (LineColumn{8, 10}));
+  EXPECT_EQ(PosOfPart(scanned_src, includes, 5), (LineColumn{9, 13}));
 }
 }  // namespace bant

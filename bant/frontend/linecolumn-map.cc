@@ -67,17 +67,15 @@ LineColumnRange LineColumnMap::GetRange(std::string_view text) const {
   return result;
 }
 
-/*static*/
-LineColumnMap LineColumnMap::CreateFromStringView(std::string_view str) {
-  LineColumnMap result;
-  result.PushNewline(str.begin());
+void LineColumnMap::InitializeFromStringView(std::string_view str) {
+  CHECK(empty());  // Can only initialize once.
+  PushNewline(str.begin());
   const size_t end_of_string = str.end() - str.begin();
   for (size_t pos = 0; pos < end_of_string; /**/) {
     pos = str.find_first_of('\n', pos);
     if (pos == std::string_view::npos) break;
     pos = pos + 1;
-    result.PushNewline(str.begin() + pos);
+    PushNewline(str.begin() + pos);
   }
-  return result;
 }
 }  // namespace bant

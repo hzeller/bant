@@ -17,9 +17,9 @@
 
 #include "bant/frontend/scanner.h"
 
-#include <cassert>
 #include <string_view>
 
+#include "absl/log/check.h"
 #include "absl/strings/ascii.h"
 #include "bant/frontend/linecolumn-map.h"
 
@@ -75,10 +75,10 @@ std::ostream &operator<<(std::ostream &o, const Token t) {
   return o;
 }
 
-Scanner::Scanner(std::string_view content, LineColumnMap &line_map)
-    : content_(content), pos_(content_.begin()), line_map_(line_map) {
-  assert(line_map_.empty());  // Already used ?
-  line_map_.PushNewline(pos_);
+Scanner::Scanner(NamedLineIndexedContent &source)
+    : source_(source), content_(source.content()), pos_(content_.begin()) {
+  CHECK(source.mutable_line_index()->empty());  // Already used ?
+  source.mutable_line_index()->PushNewline(pos_);
 }
 
 inline Scanner::ContentPointer Scanner::SkipSpace() {
@@ -89,7 +89,7 @@ inline Scanner::ContentPointer Scanner::SkipSpace() {
     if (*pos_ == '#') {
       in_comment = true;
     } else if (*pos_ == '\n') {
-      line_map_.PushNewline(pos_ + 1);
+      source_.mutable_line_index()->PushNewline(pos_ + 1);
       in_comment = false;
     }
     pos_++;
@@ -181,7 +181,7 @@ Token Scanner::HandleString() {
     // Double \\ will cancel escape.
     last_was_escape = (*pos_ == '\\' && !last_was_escape);
     if (*pos_ == '\n') {
-      line_map_.PushNewline(pos_ + 1);
+      source_.mutable_line_index()->PushNewline(pos_ + 1);
     }
     ++pos_;
   }
