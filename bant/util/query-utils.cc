@@ -61,6 +61,8 @@ class TargetFinder : public BaseVisitor {
         current_.alwayslink = scalar->AsInt();
       } else if (lhs == "include_prefix") {
         current_.include_prefix = scalar->AsString();
+      } else if (lhs == "strip_include_prefix") {
+        current_.strip_include_prefix = scalar->AsString();
       }
     } else if (List *list = a->value()->CastAsList()) {
       if (lhs == "hdrs") {

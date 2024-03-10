@@ -33,28 +33,51 @@ namespace bant {
 namespace {
 // Find cc_library and call callback for each header file it exports.
 using FindHeaderCallback =
-  std::function<void(std::string_view library_name, std::string_view header)>;
-static void FindCCLibraryHeaders(Node *ast, const FindHeaderCallback &cb) {
+  std::function<void(std::string_view library_name, std::string_view hdr_loc,
+                     const std::string &header_fqn)>;
+static void FindCCLibraryHeaders(const ParsedBuildFile &file_content,
+                                 const FindHeaderCallback &cb) {
   query::FindTargets(
-    ast, {"cc_library"}, [&cb](const query::TargetParameters &params) {
+    file_content.ast, {"cc_library"},
+    [&](const query::TargetParameters &params) {
       std::vector<std::string_view> incdirs;
       query::ExtractStringList(params.includes_list, incdirs);
       std::vector<std::string_view> headers;
       query::ExtractStringList(params.hdrs_list, headers);
 
-      for (std::string_view header_file : headers) {
+      for (std::string_view header : headers) {
         if (!params.include_prefix.empty()) {  // cc_library() dictates path.
-          cb(params.name,
-             absl::StrCat(params.include_prefix, "/", header_file));
+          cb(params.name, header,
+             absl::StrCat(params.include_prefix, "/", header));
           continue;
         }
-        cb(params.name, header_file);
+        std::string header_fqn = file_content.package.QualifiedFile(header);
+
+        std::string_view strip_prefix = params.strip_include_prefix;
+
+        // In protobuf, strip_include_prefix starts with '/' ???
+        while (strip_prefix.starts_with('/')) strip_prefix.remove_prefix(1);
+        while (strip_prefix.ends_with('/')) strip_prefix.remove_suffix(1);
+
+        const size_t strip_len = strip_prefix.length();
+        if (strip_len > 0 && header_fqn.length() > strip_len &&
+            header_fqn.starts_with(strip_prefix) &&
+            header_fqn[strip_len] == '/') {
+          cb(params.name, header, header_fqn.substr(strip_len + 1));
+        } else {
+          cb(params.name, header, header_fqn);
+        }
+
+        // TODO: double check that the following is what incdirs is supposed to
+        // do. Looks like it works for zlib.
         // Could also show up under shorter path with -I
         for (std::string_view dir : incdirs) {
           std::string prefix(dir);
-          if (!prefix.ends_with('/')) prefix.append("/");
-          if (header_file.starts_with(prefix)) {
-            cb(params.name, header_file.substr(prefix.length()));
+          if (!prefix.ends_with('/')) {
+            prefix.append("/");
+          }
+          if (header_fqn.starts_with(prefix)) {
+            cb(params.name, header, header_fqn.substr(prefix.length()));
           }
         }
       }
@@ -85,13 +108,9 @@ ProvidedFromTargetMap ExtractHeaderToLibMapping(const ParsedProject &project,
   // cc_library()
   for (const auto &[_, file_content] : project.file_to_ast) {
     if (!file_content.ast) continue;
-    FindCCLibraryHeaders(file_content.ast, [&](std::string_view lib_name,
-                                               std::string_view header) {
-      std::string header_fqn(header);
-      if (header.find_first_of('/') == std::string::npos) {
-        header_fqn = file_content.package.QualifiedFile(header);
-      }
-
+    FindCCLibraryHeaders(file_content, [&](std::string_view lib_name,
+                                           std::string_view hdr_loc,
+                                           const std::string &header_fqn) {
       auto target = BazelTarget::ParseFrom(lib_name, file_content.package);
       if (!target.has_value()) return;
 
@@ -105,7 +124,7 @@ ProvidedFromTargetMap ExtractHeaderToLibMapping(const ParsedProject &project,
           // TODO: Get file-position from other target which might be
           // in a different file.
           info_out << file_content.filename << ":"
-                   << file_content.line_columns.GetRange(header) << " Header '"
+                   << file_content.line_columns.GetRange(hdr_loc) << " Header '"
                    << header_fqn << "' in " << target->ToString()
                    << " already provided by "
                    << inserted.first->second.ToString() << "\n";

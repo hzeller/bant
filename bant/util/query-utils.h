@@ -34,8 +34,9 @@ struct TargetParameters {
   List *hdrs_list = nullptr;
   List *deps_list = nullptr;
   List *outs_list = nullptr;  // genrule.
-  List *includes_list = nullptr;
-  std::string_view include_prefix;
+  List *includes_list = nullptr;         // various ways ...
+  std::string_view include_prefix;       // ... to manipulate the path ...
+  std::string_view strip_include_prefix; // ... files from hdrs are found.
   bool alwayslink = false;
 };
 
