@@ -24,12 +24,21 @@ inline bool operator==(const Token &a, const Token &b) {
   return a.type == b.type && a.text == b.text;
 }
 
-#define TEST_SCANNER(name, content)                              \
-  NamedLineIndexedContent content_##__LINE__(__FILE__, content); \
+#define LSTR(x)  LSTR1(x)
+#define LSTR1(x) #x
+#define TEST_SCANNER(name, content)                                       \
+  NamedLineIndexedContent content_##__LINE__(__FILE__ ":" LSTR(__LINE__), \
+                                             content);                    \
   Scanner name(content_##__LINE__)
 
 TEST(ScannerTest, EmptyStringEOF) {
   TEST_SCANNER(s, "");
+  EXPECT_EQ(s.Next().type, TokenType::kEof);
+  EXPECT_EQ(s.Next().type, TokenType::kEof);
+}
+
+TEST(ScannerTest, JustCommentThenEOF) {
+  TEST_SCANNER(s, " # foo");
   EXPECT_EQ(s.Next().type, TokenType::kEof);
   EXPECT_EQ(s.Next().type, TokenType::kEof);
 }

@@ -90,7 +90,7 @@ class Parser::Impl {
 
       // Any other toplevel element is expected to start with an identifier.
       if (tok.type != kIdentifier) {
-        ErrAt(tok) << "expected identifier\n";
+        ErrAt(tok) << "expected identifier, got " << tok << "\n";
         return statement_list;
       }
 

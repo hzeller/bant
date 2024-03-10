@@ -25,12 +25,12 @@ void CreateCanonicalizeEdits(const ParsedProject &project,
                              const EditCallback &emit_canon_edit) {
   using query::TargetParameters;
   for (const auto &[_, parsed_package] : project.file_to_ast) {
-    if (!parsed_package.package.project.empty()) {
+    if (!parsed_package->package.project.empty()) {
       continue;  // Only interested in our project, not the externals
     }
-    const BazelPackage &current_package = parsed_package.package;
+    const BazelPackage &current_package = parsed_package->package;
     query::FindTargets(
-      parsed_package.ast, {"cc_library", "cc_binary", "cc_test"},
+      parsed_package->ast, {"cc_library", "cc_binary", "cc_test"},
       [&](const TargetParameters &target) {
         auto self = BazelTarget::ParseFrom(target.name, current_package);
         if (!self.has_value()) {
@@ -43,7 +43,7 @@ void CreateCanonicalizeEdits(const ParsedProject &project,
         for (std::string_view dep_str : deps) {
           auto dep_target = BazelTarget::ParseFrom(dep_str, current_package);
           if (!dep_target.has_value()) {
-            parsed_package.source.Loc(info_out, dep_str)
+            parsed_package->source.Loc(info_out, dep_str)
               << " Invalid target name '" << dep_str << "'\n";
             continue;
           }

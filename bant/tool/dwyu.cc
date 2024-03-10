@@ -163,7 +163,7 @@ std::set<BazelTarget> DependenciesForIncludes(
           << found->second.ToString() << ", but not "
           << "in hdrs=[...] of any cc_library() we depend on.\n";
         context.source.Loc(info_out, src_name)
-          << " .. here in rule " << target_self.ToString() << "\n";
+          << " ... in source of rule " << target_self.ToString() << "\n";
         continue;
       }
 
@@ -182,7 +182,7 @@ std::set<BazelTarget> DependenciesForIncludes(
           << " " << inc_file
           << " unaccounted for; lib missing ? bazel build needed ?\n";
         context.source.Loc(info_out, src_name)
-          << " .. here in rule " << target_self.ToString() << "\n";
+          << " ... in source of rule " << target_self.ToString() << "\n";
       }
     }
   }
@@ -201,8 +201,8 @@ std::set<BazelTarget> ExtractKnownLibraries(const ParsedProject &project) {
   std::set<BazelTarget> result;
   using query::TargetParameters;
   for (const auto &[_, parsed_package] : project.file_to_ast) {
-    const BazelPackage &current_package = parsed_package.package;
-    query::FindTargets(parsed_package.ast, {"cc_library"},  //
+    const BazelPackage &current_package = parsed_package->package;
+    query::FindTargets(parsed_package->ast, {"cc_library"},  //
                        [&](const TargetParameters &target) {
                          if (target.alwayslink) {
                            // Don't include always-link targets: this makes
@@ -253,12 +253,12 @@ void CreateDependencyEdits(const ParsedProject &project, Stat &stats,
   const absl::Time start_time = absl::Now();
   using query::TargetParameters;
   for (const auto &[_, parsed_package] : project.file_to_ast) {
-    if (!parsed_package.package.project.empty()) {
+    if (!parsed_package->package.project.empty()) {
       continue;  // Only interested in our project, not the externals
     }
-    const BazelPackage &current_package = parsed_package.package;
+    const BazelPackage &current_package = parsed_package->package;
     query::FindTargets(
-      parsed_package.ast, {"cc_library", "cc_binary", "cc_test"},
+      parsed_package->ast, {"cc_library", "cc_binary", "cc_test"},
       [&](const TargetParameters &target) {
         auto self = BazelTarget::ParseFrom(absl::StrCat(":", target.name),
                                            current_package);
@@ -273,7 +273,7 @@ void CreateDependencyEdits(const ParsedProject &project, Stat &stats,
         query::ExtractStringList(target.srcs_list, sources);
         query::ExtractStringList(target.hdrs_list, sources);
         auto deps_needed =
-          DependenciesForIncludes(*self, parsed_package,   //
+          DependenciesForIncludes(*self, *parsed_package,  //
                                   sources, hdr_idx,        //
                                   &all_header_deps_known,  //
                                   stats, info_out, verbose_messages);
@@ -286,7 +286,7 @@ void CreateDependencyEdits(const ParsedProject &project, Stat &stats,
           auto requested_target = BazelTarget::ParseFrom(dependency_target,  //
                                                          current_package);
           if (!requested_target.has_value()) {
-            parsed_package.source.Loc(info_out, dependency_target)
+            parsed_package->source.Loc(info_out, dependency_target)
               << " Invalid target name '" << dependency_target << "'\n";
             continue;
           }

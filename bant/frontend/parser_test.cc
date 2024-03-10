@@ -135,6 +135,12 @@ class ParserTest : public testing::Test {
   Arena arena_;
 };
 
+TEST_F(ParserTest, ParseEmpty) {
+  EXPECT_TRUE(Parse("")->empty());
+  EXPECT_TRUE(Parse("# just a with newline\n")->empty());
+  EXPECT_TRUE(Parse("# just a comment without newline")->empty());
+}
+
 TEST_F(ParserTest, Assignments) {
   Node *const expected = List({
     Assign("foo", Str("regular_string", false, false)),

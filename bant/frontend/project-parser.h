@@ -26,16 +26,18 @@
 
 #include "absl/time/time.h"
 #include "bant/frontend/ast.h"
-#include "bant/frontend/linecolumn-map.h"
 #include "bant/frontend/named-content.h"
 #include "bant/types-bazel.h"
 #include "bant/util/file-utils.h"
 
 namespace bant {
 struct ParsedBuildFile {
-  explicit ParsedBuildFile(std::string_view filename, std::string c)
+  ParsedBuildFile(std::string_view filename, std::string c)
       : content(std::move(c)), source(filename, content) {}
-  ParsedBuildFile(ParsedBuildFile &&) noexcept = default;
+
+  // Can't be copied or moved as AST nodes can contain string_views
+  // owned by content.
+  ParsedBuildFile(ParsedBuildFile &&) = delete;
   ParsedBuildFile(const ParsedBuildFile &) = delete;
 
   std::string content;
@@ -74,7 +76,7 @@ struct ParsedProject {
   int error_count = 0;
 
   Arena arena{1 << 20};
-  std::map<std::string, ParsedBuildFile> file_to_ast;
+  std::map<std::string, std::unique_ptr<ParsedBuildFile>> file_to_ast;
 };
 
 // Conveenience function to just collect all the BUILD files. Update "stats"

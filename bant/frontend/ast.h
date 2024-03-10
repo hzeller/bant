@@ -174,6 +174,7 @@ class List : public Node {
 
   Type type() const { return type_; }
   size_t size() const { return list_.size(); }
+  bool empty() const { return list_.size() == 0; }
 
   void Append(Arena *arena, Node *value) { list_.Append(value, arena); }
   ArenaDeque<Node *>::const_iterator begin() const { return list_.begin(); }

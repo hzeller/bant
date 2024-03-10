@@ -66,13 +66,13 @@ static void ParseBuildFiles(const std::vector<FilesystemPath> &build_files,
 
     const std::string &filename = build_file.path();
     auto inserted = result->file_to_ast.emplace(
-      filename, ParsedBuildFile(filename, std::move(*content)));
+      filename, new ParsedBuildFile(filename, std::move(*content)));
     if (!inserted.second) {
       std::cerr << "Already seen " << filename << "\n";
       continue;
     }
 
-    ParsedBuildFile &parse_result = inserted.first->second;
+    ParsedBuildFile &parse_result = *inserted.first->second;
     ++result->parse_stat.count;
     bytes_processed += parse_result.source.size();
 
@@ -189,14 +189,14 @@ ParsedProject ParsedProject::FromFilesystem(bool include_external,
 void PrintProject(std::ostream &out, std::ostream &info_out,
                   const ParsedProject &project, bool only_files_with_errors) {
   for (const auto &[filename, file_content] : project.file_to_ast) {
-    if (only_files_with_errors && file_content.errors.empty()) {
+    if (only_files_with_errors && file_content->errors.empty()) {
       continue;
     }
     info_out << "------- file " << filename << "\n";
-    info_out << file_content.errors;
-    if (!file_content.ast) continue;
-    out << file_content.package.ToString() << " = ";
-    PrintVisitor(out).WalkNonNull(file_content.ast);
+    info_out << file_content->errors;
+    if (!file_content->ast) continue;
+    out << file_content->package.ToString() << " = ";
+    PrintVisitor(out).WalkNonNull(file_content->ast);
     out << "\n";
   }
 }

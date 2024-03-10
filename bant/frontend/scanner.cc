@@ -21,6 +21,7 @@
 
 #include "absl/log/check.h"
 #include "absl/strings/ascii.h"
+#include "absl/strings/escaping.h"
 #include "bant/frontend/linecolumn-map.h"
 
 namespace bant {
@@ -69,8 +70,10 @@ std::ostream &operator<<(std::ostream &o, TokenType t) {
 std::ostream &operator<<(std::ostream &o, const Token t) {
   if (t.type < 256) {
     o << "('" << t.text << "')";  // Don't write as-is operators
+  } else if (t.text.empty()) {
+    o << t.type;
   } else {
-    o << t.type << "('" << t.text << "')";
+    o << t.type << "('" << absl::CEscape(t.text) << "')";
   }
   return o;
 }
