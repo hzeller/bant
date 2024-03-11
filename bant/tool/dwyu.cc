@@ -91,9 +91,10 @@ std::set<BazelTarget> DependenciesForIncludes(
     // File could be in multiple locations, primary or generated. Use first.
     std::optional<std::string> src_content;
     bool generated_source = false;
+    std::string src_concrete_filename;
     for (std::string_view search_path : kSourceLocations) {
-      src_content = ReadFileToString(
-        FilesystemPath(absl::StrCat(search_path, source_file)));
+      src_concrete_filename = absl::StrCat(search_path, source_file);
+      src_content = ReadFileToString(FilesystemPath(src_concrete_filename));
       if (src_content.has_value()) break;
       generated_source = true;  // Sources searched after first are generated.
     }
@@ -109,7 +110,7 @@ std::set<BazelTarget> DependenciesForIncludes(
 
     ++stats.count;
     total_size += src_content->size();
-    NamedLineIndexedContent scanned_source(src_name, *src_content);
+    NamedLineIndexedContent scanned_source(src_concrete_filename, *src_content);
     const auto pound_includes = ExtractCCIncludes(&scanned_source);
 
     // Now for all includes, we need to make sure we can account for it.
