@@ -33,7 +33,7 @@ static int usage(const char *prog, int exit_code) {
   fprintf(stderr,
           "Copyright (c) 2024 Henner Zeller. "
           "This program is free software; license GPL 2.0.\n");
-  fprintf(stderr, "Usage: %s [options] <command>\n", prog);
+  fprintf(stderr, "Usage: %s [options] <command> [pattern]\n", prog);
   fprintf(stderr, R"(Options
     -C <directory> : Change to project directory (default = '.')
     -x             : Do not read BUILD files of eXternal projects (e.g. @foo)
@@ -65,6 +65,8 @@ int main(int argc, char *argv[]) {
   // Default primary and info outputs.
   std::ostream *primary_out = &std::cout;
   std::ostream *info_out = &std::cerr;
+
+  std::string pattern = "//...";
 
   bool verbose = false;
   bool print_ast = false;
@@ -121,6 +123,9 @@ int main(int argc, char *argv[]) {
       break;
 
     case 'x':
+      // TODO: this should not be needed.
+      // All tools should not read the full project unconditionally, but
+      // read dependency paths as they need them.
       include_external = false;
       break;
 
@@ -159,9 +164,23 @@ int main(int argc, char *argv[]) {
     return usage(argv[0], EXIT_FAILURE);
   }
 
+  if (optind < argc) {
+    // TODO: read a list of patterns.
+    pattern = argv[optind];
+
+    if (cmd == Command::kDependencyEdits) {
+      std::cerr << "FYI: dwyu with pattern might not work well because "
+                << "it needs to know all dependencies, not a subset.\n";
+    }
+  }
+
+  if (cmd == Command::kCanonicalizeDeps) {
+    include_external = false;  // This command is purely working on local info
+  }
+
   bant::Stat file_collect_stats;
   auto build_files =
-    bant::CollectBuildFiles(include_external, file_collect_stats);
+    bant::CollectBuildFiles(pattern, include_external, file_collect_stats);
 
   if (cmd == Command::kListBazelFiles) {  // This one does not parse project
     for (const auto &file : build_files) {

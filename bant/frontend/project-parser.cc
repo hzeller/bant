@@ -72,8 +72,24 @@ std::string Stat::ToString(std::string_view thing_name) const {
                          duration_usec / 1000.0);
 }
 
-std::vector<FilesystemPath> CollectBuildFiles(bool include_external,
+std::vector<FilesystemPath> CollectBuildFiles(std::string_view pattern,
+                                              bool include_external,
                                               Stat &stats) {
+  bool recursive = false;
+  if (pattern.ends_with("...")) {
+    recursive = true;
+    pattern = pattern.substr(0, pattern.size() - 3);
+  }
+  BazelPackage root("", "");
+  auto p = BazelTarget::ParseFrom(pattern, root);
+  if (!p.has_value()) {
+    std::cerr << "Can't parse pattern " << pattern << "\n";
+    return {};
+  }
+
+  std::string start_dir = p->package.path;
+  if (start_dir.empty()) start_dir = ".";
+
   std::vector<FilesystemPath> build_files;
   const absl::Time start_time = absl::Now();
 
@@ -90,17 +106,18 @@ std::vector<FilesystemPath> CollectBuildFiles(bool include_external,
   };
 
   // TODO: implement some curry solution
-  const auto dir_with_symlink = [&dir_predicate](const FilesystemPath &dir) {
+  const auto dir_with_symlink = [&](const FilesystemPath &dir) {
     return dir_predicate(true, dir);
   };
-  const auto dir_without_symlink = [&dir_predicate](const FilesystemPath &dir) {
+  const auto dir_without_symlink = [&](const FilesystemPath &dir) {
+    if (!recursive) return false;
     return dir_predicate(false, dir);
   };
 
   // File in the general project
   stats.count =
-    CollectFilesRecursive(FilesystemPath("."), build_files,
-                          dir_without_symlink,  // bazel symlink tree: ignore
+    CollectFilesRecursive(FilesystemPath(start_dir), build_files,
+                          dir_without_symlink,
                           relevant_build_file_predicate);
 
   const FilesystemPath external_name = ExternalProjectDir();
@@ -182,9 +199,8 @@ void PrintProject(std::ostream &out, std::ostream &info_out,
     if (only_files_with_errors && file_content->errors.empty()) {
       continue;
     }
-    info_out << "------- file " << filename << "\n";
+    out << "# " << filename << "\n";
     info_out << file_content->errors;
-    if (!file_content->ast) continue;
     out << file_content->package.ToString() << " = ";
     PrintVisitor(out).WalkNonNull(file_content->ast);
     out << "\n";
