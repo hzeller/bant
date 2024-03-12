@@ -201,7 +201,7 @@ std::set<BazelTarget> DependenciesForIncludes(
 std::set<BazelTarget> ExtractKnownLibraries(const ParsedProject &project) {
   std::set<BazelTarget> result;
   using query::TargetParameters;
-  for (const auto &[_, parsed_package] : project.file_to_ast) {
+  for (const auto &[_, parsed_package] : project.ParsedFiles()) {
     const BazelPackage &current_package = parsed_package->package;
     query::FindTargets(parsed_package->ast, {"cc_library"},  //
                        [&](const TargetParameters &target) {
@@ -253,7 +253,7 @@ void CreateDependencyEdits(const ParsedProject &project, Stat &stats,
 
   const absl::Time start_time = absl::Now();
   using query::TargetParameters;
-  for (const auto &[_, parsed_package] : project.file_to_ast) {
+  for (const auto &[_, parsed_package] : project.ParsedFiles()) {
     if (!parsed_package->package.project.empty()) {
       continue;  // Only interested in our project, not the externals
     }

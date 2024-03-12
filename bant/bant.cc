@@ -159,14 +159,17 @@ int main(int argc, char *argv[]) {
     return usage(argv[0], EXIT_FAILURE);
   }
 
+  bant::Stat file_collect_stats;
+  auto build_files =
+    bant::CollectBuildFiles(include_external, file_collect_stats);
+
   if (cmd == Command::kListBazelFiles) {  // This one does not parse project
-    bant::Stat stats;
-    auto build_files = bant::CollectBuildFiles(include_external, stats);
     for (const auto &file : build_files) {
       *primary_out << file.path() << "\n";
     }
     if (verbose) {
-      *info_out << "Walked through " << stats.ToString("files/dirs") << "\n";
+      *info_out << "Walked through "
+                << file_collect_stats.ToString("files/dirs") << "\n";
     }
     return 0;
   }
@@ -175,9 +178,11 @@ int main(int argc, char *argv[]) {
 
   // Rest of the commands need to parse the project.
   auto &parse_err_out = (cmd == Command::kParse ? *primary_out : *info_out);
-  const bant::ParsedProject project =
-    bant::ParsedProject::FromFilesystem(include_external, parse_err_out);
-  project.arena.SetVerbose(verbose);
+
+  bant::ParsedProject project(verbose);
+  for (const auto &build_file : build_files) {
+    project.AddBuildFile(build_file, parse_err_out);
+  }
 
   switch (cmd) {
   case Command::kParse:
@@ -211,16 +216,15 @@ int main(int argc, char *argv[]) {
   if (verbose) {
     // If verbose explicitly chosen, we want to print this even if -q.
     // So not to info_out, but std::cerr
-    std::cerr << "Walked through "
-              << project.file_collect_stat.ToString("files/dirs")
+    std::cerr << "Walked through " << file_collect_stats.ToString("files/dirs")
               << " to collect BUILD files.\n"
-              << "Parsed " << project.parse_stat.ToString("BUILD files") << "; "
-              << project.error_count << " with parse issues.\n";
+              << "Parsed " << project.stats().ToString("BUILD files") << "; "
+              << project.error_count() << " with parse issues.\n";
     if (cmd == Command::kDependencyEdits) {
       std::cerr << "Grep'd " << deps_stat.ToString("sources")
                 << " to extract includes and create dependency edits.\n";
     }
   }
 
-  return project.error_count;
+  return project.error_count();
 }

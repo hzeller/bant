@@ -24,7 +24,7 @@ void CreateCanonicalizeEdits(const ParsedProject &project,
                              std::ostream &info_out,
                              const EditCallback &emit_canon_edit) {
   using query::TargetParameters;
-  for (const auto &[_, parsed_package] : project.file_to_ast) {
+  for (const auto &[_, parsed_package] : project.ParsedFiles()) {
     if (!parsed_package->package.project.empty()) {
       continue;  // Only interested in our project, not the externals
     }

@@ -50,65 +50,6 @@ std::optional<BazelPackage> PackageFromExternal(std::string_view path) {
   return BazelPackage::ParseFrom(absl::StrCat("@", path));
 }
 
-static void ParseBuildFiles(const std::vector<FilesystemPath> &build_files,
-                            const std::string &external_prefix,
-                            std::ostream &error_out, ParsedProject *result) {
-  const absl::Time start_time = absl::Now();
-
-  size_t bytes_processed = 0;
-  for (const FilesystemPath &build_file : build_files) {
-    std::optional<std::string> content = ReadFileToString(build_file);
-    if (!content.has_value()) {
-      std::cerr << "Could not read " << build_file.path() << "\n";
-      ++result->error_count;
-      continue;
-    }
-
-    const std::string &filename = build_file.path();
-    auto inserted = result->file_to_ast.emplace(
-      filename, new ParsedBuildFile(filename, std::move(*content)));
-    if (!inserted.second) {
-      std::cerr << "Already seen " << filename << "\n";
-      continue;
-    }
-
-    ParsedBuildFile &parse_result = *inserted.first->second;
-    ++result->parse_stat.count;
-    bytes_processed += parse_result.source.size();
-
-    if (filename.starts_with(external_prefix)) {
-      std::string_view project_extract(filename);
-      project_extract.remove_prefix(external_prefix.size());
-      auto opt_package = PackageFromExternal(project_extract);
-      if (!opt_package.has_value()) {
-        std::cerr << filename << ": Can't parse as package\n";
-        continue;
-      }
-      parse_result.package = *opt_package;
-    } else {
-      parse_result.package.path = TargetPathFromBuildFile(filename);
-    }
-
-    Scanner scanner(parse_result.source);
-    std::stringstream error_collect;
-    Parser parser(&scanner, &result->arena, error_collect);
-    parse_result.ast = parser.parse();
-    parse_result.errors = error_collect.str();
-    if (parser.parse_error()) {
-      error_out << error_collect.str();
-      ++result->error_count;
-    }
-  }
-
-  if (bytes_processed > 0) {
-    result->parse_stat.bytes_processed = bytes_processed;
-  }
-
-  // fill FYI field.
-  const absl::Time end_time = absl::Now();
-  result->parse_stat.duration = end_time - start_time;
-}
-
 // Assemble a path that points to the symbolik link bazel generates for
 // the external location.
 static FilesystemPath ExternalProjectDir() {
@@ -175,20 +116,69 @@ std::vector<FilesystemPath> CollectBuildFiles(bool include_external,
   return build_files;
 }
 
-ParsedProject ParsedProject::FromFilesystem(bool include_external,
-                                            std::ostream &error_out) {
-  ParsedProject result;
-  auto build_files =
-    CollectBuildFiles(include_external, result.file_collect_stat);
-  const std::string external_name = ExternalProjectDir().path();
-  ParseBuildFiles(build_files, absl::StrCat(external_name, "/"), error_out,
-                  &result);
-  return result;
+ParsedProject::ParsedProject(bool verbose)
+    : external_prefix_(absl::StrCat(ExternalProjectDir().path(), "/")) {
+  arena_.SetVerbose(verbose);
+}
+
+bool ParsedProject::AddBuildFile(const FilesystemPath &build_file,
+                                 std::ostream &error_out) {
+  const absl::Time start_time = absl::Now();
+  std::optional<std::string> content = ReadFileToString(build_file);
+  if (!content.has_value()) {
+    std::cerr << "Could not read " << build_file.path() << "\n";
+    ++error_count_;
+    return false;
+  }
+
+  const std::string &filename = build_file.path();
+  auto inserted = file_to_parsed_.emplace(
+    filename, new ParsedBuildFile(filename, std::move(*content)));
+  if (!inserted.second) {
+    std::cerr << "Already seen " << filename << "\n";
+    return false;
+  }
+
+  ParsedBuildFile &parse_result = *inserted.first->second;
+  ++parse_stat_.count;
+  const size_t bytes_processed = parse_result.source.size();
+  if (parse_stat_.bytes_processed.has_value()) {
+    *parse_stat_.bytes_processed += bytes_processed;
+  } else {
+    parse_stat_.bytes_processed = bytes_processed;
+  }
+
+  if (filename.starts_with(external_prefix_)) {
+    std::string_view project_extract(filename);
+    project_extract.remove_prefix(external_prefix_.size());
+    auto opt_package = PackageFromExternal(project_extract);
+    if (!opt_package.has_value()) {
+      std::cerr << filename << ": Can't parse as package\n";
+      return false;
+    }
+    parse_result.package = *opt_package;
+  } else {
+    parse_result.package.path = TargetPathFromBuildFile(filename);
+  }
+
+  Scanner scanner(parse_result.source);
+  std::stringstream error_collect;
+  Parser parser(&scanner, &arena_, error_collect);
+  parse_result.ast = parser.parse();
+  parse_result.errors = error_collect.str();
+  if (parser.parse_error()) {
+    error_out << error_collect.str();
+    ++error_count_;
+  }
+  const absl::Time end_time = absl::Now();
+  parse_stat_.duration += (end_time - start_time);
+
+  return true;
 }
 
 void PrintProject(std::ostream &out, std::ostream &info_out,
                   const ParsedProject &project, bool only_files_with_errors) {
-  for (const auto &[filename, file_content] : project.file_to_ast) {
+  for (const auto &[filename, file_content] : project.ParsedFiles()) {
     if (only_files_with_errors && file_content->errors.empty()) {
       continue;
     }

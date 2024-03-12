@@ -73,6 +73,27 @@ TEST(TypesBazel, ParsePackage) {
   }
 }
 
+// bazel patterns can essentially be parsed with targets.
+TEST(TypesBazel, ParsePattern) {
+  BazelPackage root("", "");
+  {
+    auto p = BazelTarget::ParseFrom("//...", root);
+    ASSERT_TRUE(p.has_value());
+    const BazelTarget &t = *p;  // NOLINT(*-unchecked-optional-access)
+    EXPECT_EQ(t.package.project, "");
+    EXPECT_EQ(t.package.path, "...");
+    EXPECT_EQ(t.target_name, "...");
+  }
+  {
+    auto p = BazelTarget::ParseFrom("//foo:bar", root);
+    ASSERT_TRUE(p.has_value());
+    const BazelTarget &t = *p;  // NOLINT(*-unchecked-optional-access)
+    EXPECT_EQ(t.package.project, "");
+    EXPECT_EQ(t.package.path, "foo");
+    EXPECT_EQ(t.target_name, "bar");
+  }
+}
+
 TEST(TypesBazel, PrintPackage) {
   {
     BazelPackage p("", "foo/bar/baz");

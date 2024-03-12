@@ -58,28 +58,36 @@ struct Stat {
   std::string ToString(std::string_view thing_name) const;
 };
 
-struct ParsedProject {
-  // Parse project from the current directory. Looks for any
-  // BUILD and BUILD.bazel files for the main project '//' as well as
-  // all bazel-${projectname}/external/* sub-projects.
-  static ParsedProject FromFilesystem(bool include_external,
-                                      std::ostream &error_out);
+// A Parsed project contains all the parsed files of a project.
+class ParsedProject {
+ public:
+  using File2Parsed = std::map<std::string, std::unique_ptr<ParsedBuildFile>>;
 
-  ParsedProject() = default;
-  ParsedProject(ParsedProject &&) noexcept = default;
-  ParsedProject(const ParsedProject &) = delete;
+  ParsedProject(bool verbose);
+
+  // Add build file to the project. Parse and return parse success.
+  // Updates error count if needed.
+  bool AddBuildFile(const FilesystemPath &build_file, std::ostream &error_out);
+
+  // A map of filename -> ParsedBuildFile
+  const File2Parsed &ParsedFiles() const { return file_to_parsed_; }
 
   // Some stats.
-  Stat file_collect_stat;
-  Stat parse_stat;
+  int error_count() const { return error_count_; }
+  const Stat &stats() const { return parse_stat_; }
 
-  int error_count = 0;
+ private:
+  const std::string external_prefix_;
 
-  Arena arena{1 << 20};
-  std::map<std::string, std::unique_ptr<ParsedBuildFile>> file_to_ast;
+  // Some stats.
+  Stat parse_stat_;
+  int error_count_ = 0;
+
+  Arena arena_{1 << 20};
+  File2Parsed file_to_parsed_;
 };
 
-// Conveenience function to just collect all the BUILD files. Update "stats"
+// Convenience function to just collect all the BUILD files. Update "stats"
 // with total files searched and total time.
 std::vector<FilesystemPath> CollectBuildFiles(bool include_external,
                                               Stat &stats);

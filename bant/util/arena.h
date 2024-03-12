@@ -59,9 +59,7 @@ class Arena {
     }
   }
 
-  // Set Verbosity. 'const' to be able to set on const arenas, which is
-  // ok for the debugging purposes.
-  void SetVerbose(bool verbose) const { verbose_ = verbose; }
+  void SetVerbose(bool verbose) { verbose_ = verbose; }
 
  private:
   // Allocate new block, updates current block.
@@ -77,7 +75,7 @@ class Arena {
   const char *end_ = nullptr;
   char *pos_ = nullptr;
 
-  mutable bool verbose_ = false;
+  bool verbose_ = false;
   size_t total_bytes_ = 0;
   size_t total_allocations_ = 0;
 };

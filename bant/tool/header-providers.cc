@@ -92,7 +92,7 @@ ProvidedFromTargetMap ExtractHeaderToLibMapping(const ParsedProject &project,
 #ifdef BANT_GTEST_HACK
   // gtest hack (can't glob() the headers yet, so manually add these to
   // the first project that looks like it is googletest...
-  for (const auto &[_, file_content] : project.file_to_ast) {
+  for (const auto &[_, file_content] : project.ParsedFiles()) {
     if (file_content->package.project.find("googletest") == std::string::npos) {
       continue;
     }
@@ -106,7 +106,7 @@ ProvidedFromTargetMap ExtractHeaderToLibMapping(const ParsedProject &project,
 #endif
 
   // cc_library()
-  for (const auto &[_, file_content] : project.file_to_ast) {
+  for (const auto &[_, file_content] : project.ParsedFiles()) {
     if (!file_content->ast) continue;
     FindCCLibraryHeaders(
       *file_content, [&](std::string_view lib_name, std::string_view hdr_loc,
@@ -140,7 +140,7 @@ ProvidedFromTargetMap ExtractHeaderToLibMapping(const ParsedProject &project,
   //  Execution: gather both infos, then push in result.
   ProvidedFromTargetMap header2proto_library;  // header created by protolib
   std::map<BazelTarget, BazelTarget> proto_lib_inputTo_cc_proto;
-  for (const auto &[_, file_content] : project.file_to_ast) {
+  for (const auto &[_, file_content] : project.ParsedFiles()) {
     if (!file_content->ast) continue;
     query::FindTargets(
       file_content->ast, {"proto_library", "cc_proto_library"},
@@ -192,7 +192,7 @@ ProvidedFromTargetMap ExtractHeaderToLibMapping(const ParsedProject &project,
 ProvidedFromTargetMap ExtractGeneratedFromGenrule(const ParsedProject &project,
                                                   std::ostream &info_out) {
   ProvidedFromTargetMap result;
-  for (const auto &[_, file_content] : project.file_to_ast) {
+  for (const auto &[_, file_content] : project.ParsedFiles()) {
     if (!file_content->ast) continue;
     query::FindTargets(
       file_content->ast, {"genrule"},
