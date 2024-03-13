@@ -28,8 +28,7 @@ namespace bant {
 // resolved or could not be parsed.
 // TODO: given a pattern, we might be able to narrow.
 void ResolveMissingDependencies(ParsedProject *project, bool verbose,
-                                std::ostream &info_out,
-                                std::ostream &err_out);
+                                std::ostream &info_out, std::ostream &err_out);
 }  // namespace bant
 
 #endif  // BANT_UTIL_RESOLVE_PACKAGES_

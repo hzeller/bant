@@ -148,7 +148,7 @@ TEST(TypesBazel, ParseTarget) {
   }
 
   for (std::string_view test_case :
-         {"@absl//absl/strings:strings", "@absl//absl/strings"}) {
+       {"@absl//absl/strings:strings", "@absl//absl/strings"}) {
     auto t = BazelTarget::ParseFrom(test_case, context);
     ASSERT_TRUE(t.has_value()) << test_case;
     EXPECT_EQ(t->package, BazelPackage("@absl", "absl/strings"));
@@ -157,7 +157,7 @@ TEST(TypesBazel, ParseTarget) {
 
   BazelPackage project_context("@absl", "foo/bar");
   for (std::string_view test_case :
-         {"//absl/strings:strings", "//absl/strings"}) {
+       {"//absl/strings:strings", "//absl/strings"}) {
     auto t = BazelTarget::ParseFrom(test_case, project_context);
     ASSERT_TRUE(t.has_value()) << test_case;
     EXPECT_EQ(t->package, BazelPackage("@absl", "absl/strings"));

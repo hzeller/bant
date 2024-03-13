@@ -43,7 +43,7 @@ FilesystemPath::FilesystemPath(std::string_view path_up_to,
 
 FilesystemPath::FilesystemPath(std::string_view path_up_to,
                                const struct dirent &dirent)
-  : FilesystemPath(path_up_to, dirent.d_name) {
+    : FilesystemPath(path_up_to, dirent.d_name) {
   switch (dirent.d_type) {
   case DT_LNK:
     is_symlink_ = MemoizedResult::kYes;
@@ -72,9 +72,8 @@ std::string_view FilesystemPath::filename() const {
 
 bool FilesystemPath::can_read() const {
   if (can_read_ == MemoizedResult::kUnknown) {
-    can_read_ = (access(c_str(), R_OK) == 0)
-      ? MemoizedResult::kYes
-      : MemoizedResult::kNo;
+    can_read_ =
+      (access(c_str(), R_OK) == 0) ? MemoizedResult::kYes : MemoizedResult::kNo;
   }
   return (can_read_ == MemoizedResult::kYes);
 }

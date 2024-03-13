@@ -24,12 +24,12 @@
 #include <map>
 
 #include "bant/frontend/project-parser.h"
-#include "bant/types-bazel.h"
-#include "bant/util/resolve-packages.h"
 #include "bant/tool/canon-targets.h"
 #include "bant/tool/dwyu.h"
 #include "bant/tool/edit-callback.h"
 #include "bant/tool/header-providers.h"
+#include "bant/types-bazel.h"
+#include "bant/util/resolve-packages.h"
 
 static int usage(const char *prog, int exit_code) {
   fprintf(stderr,
@@ -217,7 +217,7 @@ int main(int argc, char *argv[]) {
     for (const auto &[filename, _] : project.ParsedFiles()) {
       *primary_out << filename << "\n";
     }
-  case Command::kNone:            // nop (implicitly done by parsing)
+  case Command::kNone:  // nop (implicitly done by parsing)
     ;
   }
 

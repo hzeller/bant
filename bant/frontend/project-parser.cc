@@ -109,8 +109,8 @@ std::vector<FilesystemPath> CollectBuildFiles(std::string_view pattern,
 
   // File in the general project
   stats.count =
-    CollectFilesRecursive(FilesystemPath(start_dir), build_files,
-                          dir_predicate, relevant_build_file_predicate);
+    CollectFilesRecursive(FilesystemPath(start_dir), build_files, dir_predicate,
+                          relevant_build_file_predicate);
 
   const absl::Time end_time = absl::Now();
   stats.duration = end_time - start_time;
@@ -145,8 +145,8 @@ const ParsedBuildFile *ParsedProject::AddBuildFile(
 
 const ParsedBuildFile *ParsedProject::AddBuildFile(
   const FilesystemPath &build_file,  //
-  const BazelPackage &package,
-  std::ostream &info_out, std::ostream &error_out) {
+  const BazelPackage &package, std::ostream &info_out,
+  std::ostream &error_out) {
   const absl::Time start_time = absl::Now();
   std::optional<std::string> content = ReadFileToString(build_file);
   if (!content.has_value()) {

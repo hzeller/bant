@@ -18,11 +18,12 @@
 #include "bant/util/resolve-packages.h"
 
 #include <glob.h>
-#include <set>
-#include <optional>
 
-#include "bant/frontend/project-parser.h"
+#include <optional>
+#include <set>
+
 #include "absl/strings/str_cat.h"
+#include "bant/frontend/project-parser.h"
 #include "bant/types-bazel.h"
 #include "bant/util/file-utils.h"
 #include "bant/util/query-utils.h"
@@ -46,18 +47,18 @@ std::vector<FilesystemPath> Glob(std::string pattern) {
 
 std::optional<FilesystemPath> PathForPackage(const BazelPackage &package) {
   if (package.project.empty()) {
-    for (const std::string_view build_file : { "BUILD", "BUILD.bazel"}) {
+    for (const std::string_view build_file : {"BUILD", "BUILD.bazel"}) {
       FilesystemPath test_path(package.path, build_file);
       if (test_path.can_read()) return test_path;
     }
     return std::nullopt;
   } else {
     constexpr std::string_view kExternalStart = "bazel-out/../../../external/";
-    for (const std::string_view glob_prefix : { "/", "~*/" }) {
-      for (const std::string_view build_test : { "BUILD", "BUILD.bazel"}) {
-        const auto found_build = Glob(
-          absl::StrCat(kExternalStart, package.project.substr(1), glob_prefix,
-                       package.path, "/", build_test));
+    for (const std::string_view glob_prefix : {"/", "~*/"}) {
+      for (const std::string_view build_test : {"BUILD", "BUILD.bazel"}) {
+        const auto found_build =
+          Glob(absl::StrCat(kExternalStart, package.project.substr(1),
+                            glob_prefix, package.path, "/", build_test));
         // TODO: just looking at first right now, should see if this is
         // a versioned one (need to look at MODULES.bazel to see what wanted)
         if (!found_build.empty()) {
@@ -74,8 +75,7 @@ std::optional<FilesystemPath> PathForPackage(const BazelPackage &package) {
 // Looking what we have, record what other deps we need, find these and parse.
 // Rinse/repeat until nothing more to add.
 void ResolveMissingDependencies(ParsedProject *project, bool verbose,
-                                std::ostream &info_out,
-                                std::ostream &err_out) {
+                                std::ostream &info_out, std::ostream &err_out) {
   std::vector<const ParsedBuildFile *> to_scan;
   std::set<BazelPackage> known_packages;
   for (const auto &[_, parsed] : project->ParsedFiles()) {
@@ -119,15 +119,15 @@ void ResolveMissingDependencies(ParsedProject *project, bool verbose,
         error_packages.push_back(package);
         continue;
       }
-      const auto parsed = project->AddBuildFile(*path, package,
-                                                info_out, err_out);
+      const auto parsed =
+        project->AddBuildFile(*path, package, info_out, err_out);
       if (parsed) to_scan.push_back(parsed);
     }
     work_list.clear();
   }
 
-  info_out << "\r" << project->ParsedFiles().size()
-           << " of " << known_packages.size() << " packages loaded";
+  info_out << "\r" << project->ParsedFiles().size() << " of "
+           << known_packages.size() << " packages loaded";
   if (!error_packages.empty()) {
     info_out << "; issues with " << error_packages.size();
   }
