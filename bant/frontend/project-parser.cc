@@ -117,8 +117,7 @@ std::vector<FilesystemPath> CollectBuildFiles(std::string_view pattern,
   // File in the general project
   stats.count =
     CollectFilesRecursive(FilesystemPath(start_dir), build_files,
-                          dir_without_symlink,
-                          relevant_build_file_predicate);
+                          dir_without_symlink, relevant_build_file_predicate);
 
   const FilesystemPath external_name = ExternalProjectDir();
   if (include_external) {

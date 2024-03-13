@@ -45,8 +45,16 @@
 
 // Looking for source files directly in the source tree, but if not found
 // in the various locations generated files could be.
+#define LINK_PREFIX "bazel-"
+// clang-format off
 static constexpr std::string_view kSourceLocations[] = {
-  "", "bazel-out/host/bin/", "bazel-bin/"};
+  "",
+  LINK_PREFIX "out/host/bin/",
+  LINK_PREFIX "bin/",
+  LINK_PREFIX "genfiles",  // Before bazel 1.1
+};
+// clang-format on
+#undef LINK_PREFIX
 
 namespace bant {
 namespace {
@@ -180,7 +188,7 @@ std::set<BazelTarget> DependenciesForIncludes(
         // Until we have a glob() implementation, this is pretty noisy at this
         // point. So wrap only show it if verbose enabled.
         scanned_source.Loc(info_out, inc_file)
-          << " " << inc_file  << " unaccounted for; "
+          << " " << inc_file << " unaccounted for; "
           << "glob()'ed ? lib missing ? bazel build needed ?\n";
         context.source.Loc(info_out, src_name)
           << " ... in source of rule " << target_self.ToString() << "\n";
