@@ -232,13 +232,21 @@ std::set<BazelTarget> ExtractKnownLibraries(const ParsedProject &project) {
 
 std::vector<std::string_view> ExtractCCIncludes(NamedLineIndexedContent *src) {
   static const LazyRE2 kIncRe{
-    R"/((?m)^\s*#include\s+"([0-9a-zA-Z_/-]+(\.[a-zA-Z]+)*)")/"};
+    R"/((?m)("|^\s*#include\s+"([0-9a-zA-Z_/-]+(\.[a-zA-Z]+)*)"))/"};
 
+  // We don't actually understand strings in c++, so we just pretend by
+  // toggle ignore whenever we see one.
+  bool best_effort_in_nested_quote_toggle = false;
   std::vector<std::string_view> result;
   std::string_view run = src->content();
   std::string_view header_path;
-  while (RE2::FindAndConsume(&run, *kIncRe, &header_path)) {
-    result.push_back(header_path);
+  std::string_view outer;
+  while (RE2::FindAndConsume(&run, *kIncRe, &outer, &header_path)) {
+    if (outer == "\"") {
+      best_effort_in_nested_quote_toggle = !best_effort_in_nested_quote_toggle;
+    } else if (!best_effort_in_nested_quote_toggle) {
+      result.push_back(header_path);
+    }
   }
 
   if (!result.empty()) {

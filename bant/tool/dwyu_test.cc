@@ -34,7 +34,12 @@ static LineColumn PosOfPart(const NamedLineIndexedContent &src,
   return src.GetRange(parts[i]).start;
 }
 
-// TODO: need some bant-nolint to not stumble upon the following includes :)
+// Inception deception:
+// Well, the following with a string in a string will create a warning if
+// running bant on bant becaue the include in string is seen as toplevel inc.
+// So, to avoid that, the include is actually an legitimate bant include which
+// makes bant happy (until we start warning that the same header is included
+// twice).
 TEST(DWYUTest, HeaderFilesAreExtracted) {
   constexpr std::string_view kTestContent = R"(  // line 0
 /* some ignored text in line 1 */
@@ -45,6 +50,9 @@ TEST(DWYUTest, HeaderFilesAreExtracted) {
 #include "with/suffix.hh"      // other ..
 #include "with/suffix.pb.h"
 #include "with/suffix.inc"     // .. common suffices
+R"(
+#include "bant/tool/dwyu.h"   // include embedded in string ignored.
+")
 #include    "w/space.h"        // even strange spacing should work
 #include /* foo */ "this-is-silly.h"  // Some things are too far :)
 )";
@@ -59,6 +67,6 @@ TEST(DWYUTest, HeaderFilesAreExtracted) {
   EXPECT_EQ(PosOfPart(scanned_src, includes, 2), (LineColumn{6, 10}));
   EXPECT_EQ(PosOfPart(scanned_src, includes, 3), (LineColumn{7, 10}));
   EXPECT_EQ(PosOfPart(scanned_src, includes, 4), (LineColumn{8, 10}));
-  EXPECT_EQ(PosOfPart(scanned_src, includes, 5), (LineColumn{9, 13}));
+  EXPECT_EQ(PosOfPart(scanned_src, includes, 5), (LineColumn{12, 13}));
 }
 }  // namespace bant
