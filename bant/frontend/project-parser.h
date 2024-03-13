@@ -65,9 +65,16 @@ class ParsedProject {
 
   ParsedProject(bool verbose);
 
-  // Add build file to the project. Parse and return parse success.
-  // Updates error count if needed.
-  bool AddBuildFile(const FilesystemPath &build_file, std::ostream &error_out);
+  // Parse build file for given package.
+  const ParsedBuildFile *AddBuildFile(const FilesystemPath &build_file,
+                                      const BazelPackage &package,
+                                      std::ostream &info_out,
+                                      std::ostream &error_out);
+
+  // Same, auto-determine path (todo: should probably be deprecated)
+  const ParsedBuildFile *AddBuildFile(const FilesystemPath &build_file,
+                                      std::ostream &info_out,
+                                      std::ostream &error_out);
 
   // A map of filename -> ParsedBuildFile
   const File2Parsed &ParsedFiles() const { return file_to_parsed_; }
@@ -90,7 +97,6 @@ class ParsedProject {
 // Convenience function to just collect all the BUILD files. Update "stats"
 // with total files searched and total time.
 std::vector<FilesystemPath> CollectBuildFiles(std::string_view pattern,
-                                              bool include_external,
                                               Stat &stats);
 
 // Convenience function to print a fully parsed project, recreated from the

@@ -33,13 +33,17 @@
 
 namespace bant {
 FilesystemPath::FilesystemPath(std::string_view path_up_to,
-                               const struct dirent &dirent) {
+                               std::string_view filename) {
   while (path_up_to.ends_with('/')) path_up_to.remove_suffix(1);
-  const std::string_view dirent_filename(dirent.d_name);
-  path_.reserve(path_up_to.length() + 1 + dirent_filename.length());
-  path_.append(path_up_to).append("/").append(dirent_filename);
+  path_.reserve(path_up_to.length() + 1 + filename.length());
+  path_.append(path_up_to).append("/").append(filename);
   filename_ = path_;
   filename_ = filename_.substr(path_up_to.size() + 1);
+}
+
+FilesystemPath::FilesystemPath(std::string_view path_up_to,
+                               const struct dirent &dirent)
+  : FilesystemPath(path_up_to, dirent.d_name) {
   switch (dirent.d_type) {
   case DT_LNK:
     is_symlink_ = MemoizedResult::kYes;
@@ -64,6 +68,15 @@ std::string_view FilesystemPath::filename() const {
     filename_ = full_path;
   }
   return filename_;
+}
+
+bool FilesystemPath::can_read() const {
+  if (can_read_ == MemoizedResult::kUnknown) {
+    can_read_ = (access(c_str(), R_OK) == 0)
+      ? MemoizedResult::kYes
+      : MemoizedResult::kNo;
+  }
+  return (can_read_ == MemoizedResult::kYes);
 }
 
 bool FilesystemPath::is_directory() const {

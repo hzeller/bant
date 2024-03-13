@@ -63,9 +63,11 @@ std::string BazelPackage::QualifiedFile(std::string_view relative_file) const {
 
 /*static*/ std::optional<BazelTarget> BazelTarget::ParseFrom(
   std::string_view str, const BazelPackage &context) {
-  std::vector<std::string_view> parts = absl::StrSplit(str, ':');
+  std::string_view project = context.project;
   std::string_view package;
   std::string_view target;
+
+  std::vector<std::string_view> parts = absl::StrSplit(str, ':');
   switch (parts.size()) {
   case 1: {
     package = parts[0];
@@ -97,7 +99,11 @@ std::string BazelPackage::QualifiedFile(std::string_view relative_file) const {
   if (!package_part.has_value()) {
     return std::nullopt;
   }
-  return BazelTarget(package_part.value(), target);
+  BazelPackage parsed_package = package_part.value();
+  if (parsed_package.project.empty()) {
+    parsed_package.project = project;
+  }
+  return BazelTarget(parsed_package, target);
 }
 
 static std::string_view PackageLastElement(const BazelPackage &p) {

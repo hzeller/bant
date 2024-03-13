@@ -73,7 +73,6 @@ std::string Stat::ToString(std::string_view thing_name) const {
 }
 
 std::vector<FilesystemPath> CollectBuildFiles(std::string_view pattern,
-                                              bool include_external,
                                               Stat &stats) {
   bool recursive = false;
   if (pattern.ends_with("...")) {
@@ -98,33 +97,20 @@ std::vector<FilesystemPath> CollectBuildFiles(std::string_view pattern,
     return basename == "BUILD" || basename == "BUILD.bazel";
   };
 
-  const auto dir_predicate = [](bool allow_symlink, const FilesystemPath &dir) {
+  std::cerr << "Recursive=" << recursive << " on " << start_dir << "\n";
+  const auto dir_predicate = [&](const FilesystemPath &dir) {
+    if (!recursive) return false;  // Only looking at one level.
+    if (dir.is_symlink()) return false;
     const std::string_view filename = dir.filename();
     if (filename == "_tmp") return false;
     if (filename == ".git") return false;  // lots of irrelevant stuff
-    return allow_symlink || !dir.is_symlink();
-  };
-
-  // TODO: implement some curry solution
-  const auto dir_with_symlink = [&](const FilesystemPath &dir) {
-    return dir_predicate(true, dir);
-  };
-  const auto dir_without_symlink = [&](const FilesystemPath &dir) {
-    if (!recursive) return false;
-    return dir_predicate(false, dir);
+    return true;
   };
 
   // File in the general project
   stats.count =
     CollectFilesRecursive(FilesystemPath(start_dir), build_files,
-                          dir_without_symlink, relevant_build_file_predicate);
-
-  const FilesystemPath external_name = ExternalProjectDir();
-  if (include_external) {
-    stats.count +=
-      CollectFilesRecursive(external_name, build_files, dir_with_symlink,
-                            relevant_build_file_predicate);
-  }
+                          dir_predicate, relevant_build_file_predicate);
 
   const absl::Time end_time = absl::Now();
   stats.duration = end_time - start_time;
@@ -137,22 +123,44 @@ ParsedProject::ParsedProject(bool verbose)
   arena_.SetVerbose(verbose);
 }
 
-bool ParsedProject::AddBuildFile(const FilesystemPath &build_file,
-                                 std::ostream &error_out) {
+const ParsedBuildFile *ParsedProject::AddBuildFile(
+  const FilesystemPath &build_file,  //
+  std::ostream &info_out, std::ostream &error_out) {
+  const std::string &filename = build_file.path();
+  BazelPackage package;
+  if (filename.starts_with(external_prefix_)) {
+    std::string_view project_extract(filename);
+    project_extract.remove_prefix(external_prefix_.size());
+    auto opt_package = PackageFromExternal(project_extract);
+    if (!opt_package.has_value()) {
+      std::cerr << filename << ": Can't parse as package\n";
+      return nullptr;
+    }
+    package = *opt_package;
+  } else {
+    package.path = TargetPathFromBuildFile(filename);
+  }
+  return AddBuildFile(build_file, package, info_out, error_out);
+}
+
+const ParsedBuildFile *ParsedProject::AddBuildFile(
+  const FilesystemPath &build_file,  //
+  const BazelPackage &package,
+  std::ostream &info_out, std::ostream &error_out) {
   const absl::Time start_time = absl::Now();
   std::optional<std::string> content = ReadFileToString(build_file);
   if (!content.has_value()) {
     std::cerr << "Could not read " << build_file.path() << "\n";
     ++error_count_;
-    return false;
+    return nullptr;
   }
 
   const std::string &filename = build_file.path();
   auto inserted = file_to_parsed_.emplace(
     filename, new ParsedBuildFile(filename, std::move(*content)));
   if (!inserted.second) {
-    std::cerr << "Already seen " << filename << "\n";
-    return false;
+    info_out << filename << ": Already seen\n";
+    return inserted.first->second.get();
   }
 
   ParsedBuildFile &parse_result = *inserted.first->second;
@@ -164,18 +172,7 @@ bool ParsedProject::AddBuildFile(const FilesystemPath &build_file,
     parse_stat_.bytes_processed = bytes_processed;
   }
 
-  if (filename.starts_with(external_prefix_)) {
-    std::string_view project_extract(filename);
-    project_extract.remove_prefix(external_prefix_.size());
-    auto opt_package = PackageFromExternal(project_extract);
-    if (!opt_package.has_value()) {
-      std::cerr << filename << ": Can't parse as package\n";
-      return false;
-    }
-    parse_result.package = *opt_package;
-  } else {
-    parse_result.package.path = TargetPathFromBuildFile(filename);
-  }
+  parse_result.package = package;
 
   Scanner scanner(parse_result.source);
   std::stringstream error_collect;
@@ -189,7 +186,7 @@ bool ParsedProject::AddBuildFile(const FilesystemPath &build_file,
   const absl::Time end_time = absl::Now();
   parse_stat_.duration += (end_time - start_time);
 
-  return true;
+  return inserted.first->second.get();
 }
 
 void PrintProject(std::ostream &out, std::ostream &info_out,

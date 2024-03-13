@@ -50,3 +50,16 @@ cc_test(
         "@googletest//:gtest_main",
     ],
 )
+
+cc_library(
+    name = "resolve-packages",
+    srcs = ["resolve-packages.cc"],
+    hdrs = ["resolve-packages.h"],
+    deps = [
+        ":file-utils",
+        ":query-utils",
+        "//bant:types-bazel",
+        "//bant/frontend:project-parser",
+        "@abseil-cpp//absl/strings",
+    ],
+)

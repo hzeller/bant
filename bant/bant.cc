@@ -24,6 +24,8 @@
 #include <map>
 
 #include "bant/frontend/project-parser.h"
+#include "bant/types-bazel.h"
+#include "bant/util/resolve-packages.h"
 #include "bant/tool/canon-targets.h"
 #include "bant/tool/dwyu.h"
 #include "bant/tool/edit-callback.h"
@@ -71,7 +73,6 @@ int main(int argc, char *argv[]) {
   bool verbose = false;
   bool print_ast = false;
   bool print_only_errors = false;
-  bool include_external = true;
 
   enum class Command {
     kNone,
@@ -91,7 +92,7 @@ int main(int argc, char *argv[]) {
     {"canonicalize", Command::kCanonicalizeDeps},
   };
   int opt;
-  while ((opt = getopt(argc, argv, "C:xqo:vhpec")) != -1) {
+  while ((opt = getopt(argc, argv, "C:qo:vhpec")) != -1) {
     switch (opt) {
     case 'C': {
       std::error_code err;
@@ -120,13 +121,6 @@ int main(int argc, char *argv[]) {
         return 1;
       }
       primary_out = user_primary_out.get();
-      break;
-
-    case 'x':
-      // TODO: this should not be needed.
-      // All tools should not read the full project unconditionally, but
-      // read dependency paths as they need them.
-      include_external = false;
       break;
 
       // "print" options
@@ -165,33 +159,24 @@ int main(int argc, char *argv[]) {
   }
 
   if (optind < argc) {
-    // TODO: read a list of patterns.
     pattern = argv[optind];
 
     if (cmd == Command::kDependencyEdits) {
       std::cerr << "FYI: dwyu with pattern might not work well because "
                 << "it needs to know all dependencies, not a subset.\n";
     }
+    ++optind;
   }
 
-  if (cmd == Command::kCanonicalizeDeps) {
-    include_external = false;  // This command is purely working on local info
+  if (optind < argc) {
+    // TODO: read a list of patterns.
+    std::cerr << argv[optind]
+              << " Sorry, can only deal with one pattern right now\n";
+    return 1;
   }
 
   bant::Stat file_collect_stats;
-  auto build_files =
-    bant::CollectBuildFiles(pattern, include_external, file_collect_stats);
-
-  if (cmd == Command::kListBazelFiles) {  // This one does not parse project
-    for (const auto &file : build_files) {
-      *primary_out << file.path() << "\n";
-    }
-    if (verbose) {
-      *info_out << "Walked through "
-                << file_collect_stats.ToString("files/dirs") << "\n";
-    }
-    return 0;
-  }
+  auto build_files = bant::CollectBuildFiles(pattern, file_collect_stats);
 
   bant::Stat deps_stat;
 
@@ -200,8 +185,9 @@ int main(int argc, char *argv[]) {
 
   bant::ParsedProject project(verbose);
   for (const auto &build_file : build_files) {
-    project.AddBuildFile(build_file, parse_err_out);
+    project.AddBuildFile(build_file, *info_out, parse_err_out);
   }
+  bant::ResolveMissingDependencies(&project, verbose, *info_out, *info_out);
 
   switch (cmd) {
   case Command::kParse:
@@ -227,7 +213,10 @@ int main(int argc, char *argv[]) {
     CreateCanonicalizeEdits(project, *info_out,
                             CreateBuildozerDepsEditCallback(*primary_out));
     break;
-  case Command::kListBazelFiles:  // already handled
+  case Command::kListBazelFiles:
+    for (const auto &[filename, _] : project.ParsedFiles()) {
+      *primary_out << filename << "\n";
+    }
   case Command::kNone:            // nop (implicitly done by parsing)
     ;
   }
@@ -236,7 +225,7 @@ int main(int argc, char *argv[]) {
     // If verbose explicitly chosen, we want to print this even if -q.
     // So not to info_out, but std::cerr
     std::cerr << "Walked through " << file_collect_stats.ToString("files/dirs")
-              << " to collect BUILD files.\n"
+              << " to collect initial BUILD files.\n"
               << "Parsed " << project.stats().ToString("BUILD files") << "; "
               << project.error_count() << " with parse issues.\n";
     if (cmd == Command::kDependencyEdits) {
