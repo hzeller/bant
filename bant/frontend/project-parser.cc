@@ -97,7 +97,6 @@ std::vector<FilesystemPath> CollectBuildFiles(std::string_view pattern,
     return basename == "BUILD" || basename == "BUILD.bazel";
   };
 
-  std::cerr << "Recursive=" << recursive << " on " << start_dir << "\n";
   const auto dir_predicate = [&](const FilesystemPath &dir) {
     if (!recursive) return false;  // Only looking at one level.
     if (dir.is_symlink()) return false;
