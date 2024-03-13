@@ -102,7 +102,7 @@ std::set<BazelTarget> DependenciesForIncludes(
       // Nothing we can do about this for now. These are probably
       // coming from some generated sources or we don't see all packages.
       context.source.Loc(info_out, src_name)
-        << " Can not read '" << source_file << "' referenced in "
+        << " Can not read source '" << source_file << "' referenced in "
         << target_self.ToString() << " Missing ? Generated ?\n";
       *all_headers_accounted_for = false;
       continue;
@@ -180,8 +180,8 @@ std::set<BazelTarget> DependenciesForIncludes(
         // Until we have a glob() implementation, this is pretty noisy at this
         // point. So wrap only show it if verbose enabled.
         scanned_source.Loc(info_out, inc_file)
-          << " " << inc_file
-          << " unaccounted for; lib missing ? bazel build needed ?\n";
+          << " " << inc_file  << " unaccounted for; "
+          << "glob()'ed ? lib missing ? bazel build needed ?\n";
         context.source.Loc(info_out, src_name)
           << " ... in source of rule " << target_self.ToString() << "\n";
       }

@@ -121,6 +121,14 @@ std::optional<std::string> ReadFileToString(const FilesystemPath &filename) {
   return content;
 }
 
+// Best effort on filesystems that don't have inodes.
+// That means, loop-detection is essentially disabled. If this become an issue:
+// TODO: in that case, base loop-detection on realpath() (will be slower).
+static bool LooksLikeValidInode(ino_t inode) {
+  // inode numbers at the edges available numbers look suspicous...
+  return inode != 0 && (inode & 0xffff'ffff) != 0xffff'ffff;
+}
+
 // FYI: This was previously implemented recursively using
 // std::filesystem::directory_iterator() which was noticeably slower.
 //
@@ -159,7 +167,7 @@ size_t CollectFilesRecursive(
 
       ++count;
       if (is_directory) {
-        if (!seen_inode.insert(inode).second) {
+        if (LooksLikeValidInode(inode) && !seen_inode.insert(inode).second) {
           continue;  // Avoid getting caught in symbolic-link loops.
         }
         if (want_dir_p(file_or_dir)) {
