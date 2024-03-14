@@ -94,7 +94,7 @@ void ResolveMissingDependencies(ParsedProject *project, bool verbose,
       const BazelPackage &current_package = parsed->package;
       query::FindTargets(
         parsed->ast, {"cc_library", "cc_test", "cc_binary"},
-        [&](const query::TargetParameters &params) {
+        [&](const query::Result &params) {
           // Look at all dependencies and add them if needed.
           std::vector<std::string_view> all_dependencies;
           query::ExtractStringList(params.deps_list, all_dependencies);

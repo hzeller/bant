@@ -205,7 +205,7 @@ void PrintProject(const BazelPattern &pattern, std::ostream &out,
       out << "\n";
     } else {
       query::FindTargets(
-        file_content->ast, {}, [&](const query::TargetParameters &result) {
+        file_content->ast, {}, [&](const query::Result &result) {
           auto self = BazelTarget::ParseFrom(result.name, current_package);
           if (!self.has_value() || !pattern.Match(*self)) {
             return;

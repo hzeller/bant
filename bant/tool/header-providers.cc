@@ -38,8 +38,7 @@ using FindHeaderCallback =
 static void FindCCLibraryHeaders(const ParsedBuildFile &file_content,
                                  const FindHeaderCallback &cb) {
   query::FindTargets(
-    file_content.ast, {"cc_library"},
-    [&](const query::TargetParameters &params) {
+    file_content.ast, {"cc_library"}, [&](const query::Result &params) {
       std::vector<std::string_view> incdirs;
       query::ExtractStringList(params.includes_list, incdirs);
       std::vector<std::string_view> headers;
@@ -144,7 +143,7 @@ ProvidedFromTargetMap ExtractHeaderToLibMapping(const ParsedProject &project,
     if (!file_content->ast) continue;
     query::FindTargets(
       file_content->ast, {"proto_library", "cc_proto_library"},
-      [&](const query::TargetParameters &params) {
+      [&](const query::Result &params) {
         auto target =
           BazelTarget::ParseFrom(params.name, file_content->package);
         if (params.rule == "proto_library") {
@@ -195,8 +194,7 @@ ProvidedFromTargetMap ExtractGeneratedFromGenrule(const ParsedProject &project,
   for (const auto &[_, file_content] : project.ParsedFiles()) {
     if (!file_content->ast) continue;
     query::FindTargets(
-      file_content->ast, {"genrule"},
-      [&](const query::TargetParameters &params) {
+      file_content->ast, {"genrule"}, [&](const query::Result &params) {
         std::vector<std::string_view> genfiles;
         query::ExtractStringList(params.outs_list, genfiles);
 

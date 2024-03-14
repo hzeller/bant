@@ -102,7 +102,7 @@ class TargetFinder : public BaseVisitor {
 
   // TODO: this assumes library call being a toplevel function; might need
   // stack here if nested (maybe in tuples after for-expansion?)
-  TargetParameters current_;
+  Result current_;
 
   const absl::flat_hash_set<std::string_view> of_interest_;
   const TargetFindCallback &found_cb_;

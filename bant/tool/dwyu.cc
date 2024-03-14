@@ -208,11 +208,10 @@ std::set<BazelTarget> DependenciesForIncludes(
 // existence in the project. If not, be cautious.
 std::set<BazelTarget> ExtractKnownLibraries(const ParsedProject &project) {
   std::set<BazelTarget> result;
-  using query::TargetParameters;
   for (const auto &[_, parsed_package] : project.ParsedFiles()) {
     const BazelPackage &current_package = parsed_package->package;
     query::FindTargets(parsed_package->ast, {"cc_library"},  //
-                       [&](const TargetParameters &target) {
+                       [&](const query::Result &target) {
                          if (target.alwayslink) {
                            // Don't include always-link targets: this makes
                            // sure they are not accidentally removed.
@@ -269,7 +268,6 @@ void CreateDependencyEdits(const ParsedProject &project,
   const std::set<BazelTarget> known_libs = ExtractKnownLibraries(project);
 
   const absl::Time start_time = absl::Now();
-  using query::TargetParameters;
   for (const auto &[_, parsed_package] : project.ParsedFiles()) {
     const BazelPackage &current_package = parsed_package->package;
     if (!pattern.Match(current_package)) {
@@ -277,7 +275,7 @@ void CreateDependencyEdits(const ParsedProject &project,
     }
     query::FindTargets(
       parsed_package->ast, {"cc_library", "cc_binary", "cc_test"},
-      [&](const TargetParameters &target) {
+      [&](const query::Result &target) {
         auto self = BazelTarget::ParseFrom(absl::StrCat(":", target.name),
                                            current_package);
         if (!self.has_value() || !pattern.Match(*self)) {

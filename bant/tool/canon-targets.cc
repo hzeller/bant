@@ -25,7 +25,6 @@ void CreateCanonicalizeEdits(const ParsedProject &project,
                              const BazelPattern &pattern,
                              std::ostream &info_out,
                              const EditCallback &emit_canon_edit) {
-  using query::TargetParameters;
   for (const auto &[_, parsed_package] : project.ParsedFiles()) {
     if (!pattern.Match(parsed_package->package)) {
       std::cerr << parsed_package->package << " does not match "
@@ -35,7 +34,7 @@ void CreateCanonicalizeEdits(const ParsedProject &project,
     const BazelPackage &current_package = parsed_package->package;
     query::FindTargets(
       parsed_package->ast, {"cc_library", "cc_binary", "cc_test"},
-      [&](const TargetParameters &target) {
+      [&](const query::Result &target) {
         auto self = BazelTarget::ParseFrom(target.name, current_package);
         if (!self.has_value()) {
           return;

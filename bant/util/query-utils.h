@@ -27,7 +27,7 @@ namespace bant {
 namespace query {
 // Typical target parameters for for binaries, cc_libraries rules and beyond.
 // They always have a name, and various lists with sources and dependencies.
-struct TargetParameters {
+struct Result {
   FunCall *node = nullptr;
   std::string_view rule;  // rule, sucha as cc_library, cc_binary,...
   std::string_view name;
@@ -42,7 +42,7 @@ struct TargetParameters {
 };
 
 // Callback of a query.
-using TargetFindCallback = std::function<void(const TargetParameters &)>;
+using TargetFindCallback = std::function<void(const Result &)>;
 
 // Walk the "ast" and find all the targets that match any of the given
 // "rules_of_interest" names (such as 'cc_library'). If list empty: match all.
