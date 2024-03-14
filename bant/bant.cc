@@ -46,10 +46,8 @@ static int usage(const char *prog, int exit_code) {
     -h             : This help.
 
 Commands (unique prefix sufficient):
-    parse          : Just parse BUILD files of project, emit parse errors
-                     (which might well be due to bant not handling that yet).
-                     -p : also print abstract syntax tree (AST) for all files.
-                     -e : Only for files with parse errors: print partial AST.
+    parse          : Parse all BUILD files from pattern the ones they depend on.
+    print          : Print rules matching pattern. -e : only files with errors
     list           : List all the build files found in project
     lib-headers    : Print table header files -> libraries that define them.
     genrule-outputs: Print table generated files -> genrules creating them.
@@ -77,6 +75,7 @@ int main(int argc, char *argv[]) {
   enum class Command {
     kNone,
     kParse,
+    kPrint,  // Like parse, but we narrow with pattern
     kListBazelFiles,
     kLibraryHeaders,
     kGenruleOutputs,
@@ -85,6 +84,7 @@ int main(int argc, char *argv[]) {
   } cmd = Command::kNone;
   static const std::map<std::string_view, Command> kCommandNames = {
     {"parse", Command::kParse},
+    {"print", Command::kPrint},
     {"list", Command::kListBazelFiles},
     {"lib-headers", Command::kLibraryHeaders},
     {"genrule-outputs", Command::kGenruleOutputs},
@@ -176,7 +176,8 @@ int main(int argc, char *argv[]) {
   }
 
   // Don't look through everything for these.
-  if (cmd == Command::kCanonicalizeDeps || cmd == Command::kDependencyEdits) {
+  if (cmd == Command::kCanonicalizeDeps || cmd == Command::kDependencyEdits ||
+      cmd == Command::kPrint) {
     if (pattern.is_matchall()) {
       std::cerr << "Please provide a bazel pattern for this command.\n";
       return EXIT_FAILURE;
@@ -195,11 +196,14 @@ int main(int argc, char *argv[]) {
   for (const auto &build_file : build_files) {
     project.AddBuildFile(build_file, *info_out, parse_err_out);
   }
-  if (cmd != Command::kCanonicalizeDeps && cmd != Command::kParse) {
+  if (cmd != Command::kCanonicalizeDeps && cmd != Command::kPrint) {
     bant::ResolveMissingDependencies(&project, verbose, *info_out, *info_out);
   }
 
   switch (cmd) {
+  case Command::kPrint:
+    print_ast = true;
+    [[fallthrough]];
   case Command::kParse:
     if (print_ast || print_only_errors) {
       bant::PrintProject(pattern, *primary_out, *info_out, project,

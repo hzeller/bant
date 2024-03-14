@@ -106,7 +106,7 @@ are used, consider a bazel command that needs all of them, e.g.
 ```
 $ bazel-bin/bant/bant -h
 Copyright (c) 2024 Henner Zeller. This program is free software; license GPL 2.0.
-Usage: bazel-bin/bant/bant [options] <command>
+Usage: bazel-bin/bant/bant [options] <command> [pattern]
 Options
     -C <directory> : Change to project directory (default = '.')
     -x             : Do not read BUILD files of eXternal projects (e.g. @foo)
@@ -117,10 +117,8 @@ Options
     -h             : This help.
 
 Commands (unique prefix sufficient):
-    parse          : Just parse BUILD files of project, emit parse errors
-                     (which might well be due to bant not handling that yet).
-                     -p : also print abstract syntax tree (AST) for all files.
-                     -e : Only for files with parse errors: print partial AST.
+    parse          : Parse all BUILD files from pattern the ones they depend on.
+    print          : Print rules matching pattern. -e : only files with errors
     list           : List all the build files found in project
     lib-headers    : Print table header files -> libraries that define them.
     genrule-outputs: Print table generated files -> genrules creating them.
@@ -134,6 +132,8 @@ Commands (unique prefix sufficient):
  bant parse -p -v  # Read bazel project in current dir, print AST, and stats.
  bant parse -e     # Read project, print AST of files that couldn't be parsed.
  bant parse -C ~/src/verible -v  # Read project in given directory.
+ bant print //foo:bar  # Print specific target AST matching pattern
+ bant print //foo/...  # Print all build files matching recursive pattern.
  bant list         # List all the build files including the referenced external
  bant list -x      # List BUILD files only in this project, no external.
  bant lib-headers  # For each header found in project, print exporting target.
