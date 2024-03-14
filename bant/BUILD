@@ -38,6 +38,7 @@ cc_library(
         "types-bazel.h",
     ],
     deps = [
+        "@abseil-cpp//absl/log:check",
         "@abseil-cpp//absl/strings",
     ],
 )
@@ -48,6 +49,7 @@ cc_test(
     srcs = ["types-bazel_test.cc"],
     deps = [
         ":types-bazel",
+        "@abseil-cpp//absl/log:check",
         "@googletest//:gtest",
         "@googletest//:gtest_main",
     ],

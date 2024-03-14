@@ -138,6 +138,7 @@ Commands (unique prefix sufficient):
  bant list -x      # List BUILD files only in this project, no external.
  bant lib-headers  # For each header found in project, print exporting target.
  bant dwyu         # Look which headers are used and suggest add/remove deps
+ . <(bant dwyu foo/...)  # fix dependencies in package foo/... in one line.
 ```
 
 ### Development

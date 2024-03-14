@@ -72,21 +72,17 @@ std::string Stat::ToString(std::string_view thing_name) const {
                          duration_usec / 1000.0);
 }
 
-std::vector<FilesystemPath> CollectBuildFiles(std::string_view pattern,
+std::vector<FilesystemPath> CollectBuildFiles(const BazelPattern &pattern,
                                               Stat &stats) {
-  bool recursive = false;
-  if (pattern.ends_with("...")) {
-    recursive = true;
-    pattern = pattern.substr(0, pattern.size() - 3);
+  bool recursive = pattern.is_recursive();
+  std::string start_dir;
+  if (!pattern.project().empty()) {
+    // TODO: with versioning, this will look differently.
+    start_dir.append("bazel-out/../../../external/")
+      .append(pattern.project().substr(1))
+      .append("/");
   }
-  BazelPackage root("", "");
-  auto p = BazelTarget::ParseFrom(pattern, root);
-  if (!p.has_value()) {
-    std::cerr << "Can't parse pattern " << pattern << "\n";
-    return {};
-  }
-
-  std::string start_dir = p->package.path;
+  start_dir.append(pattern.path());
   if (start_dir.empty()) start_dir = ".";
 
   std::vector<FilesystemPath> build_files;

@@ -96,7 +96,7 @@ class ParsedProject {
 
 // Convenience function to just collect all the BUILD files. Update "stats"
 // with total files searched and total time.
-std::vector<FilesystemPath> CollectBuildFiles(std::string_view pattern,
+std::vector<FilesystemPath> CollectBuildFiles(const BazelPattern &pattern,
                                               Stat &stats);
 
 // Convenience function to print a fully parsed project, recreated from the

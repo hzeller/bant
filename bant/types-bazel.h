@@ -85,6 +85,28 @@ inline std::ostream &operator<<(std::ostream &o, const BazelTarget &t) {
   return o << t.ToString();
 }
 
+// A bazel pattern such as //foo/... or //foo:all
+// But also for visibility rules :__pkg__ and :__subpackages__ as they are
+// essentially the same.
+class BazelPattern {
+ public:
+  // Factory to parse BazelPattern that is returned as value if successful.
+  static std::optional<BazelPattern> ParseFrom(std::string_view pattern);
+
+  bool is_recursive() const { return kind_ == MatchKind::kRecursive; }
+  const std::string &path() const { return target_pattern_.package.path; }
+  const std::string &project() const { return target_pattern_.package.project; }
+
+  bool Match(const BazelTarget &target);
+  bool Match(const BazelPackage &target);
+
+ private:
+  BazelPattern(const BazelTarget &pattern);
+
+  BazelTarget target_pattern_;
+  enum class MatchKind { kExact, kAllInPackage, kRecursive };
+  MatchKind kind_ = MatchKind::kExact;
+};
 }  // namespace bant
 
 #endif  // BANT_TYPES_BAZEL_

@@ -17,51 +17,72 @@
 
 #include "bant/types-bazel.h"
 
+#include "absl/log/check.h"
 #include "gtest/gtest.h"
 
 namespace bant {
+
+// Convenience methods to parse packages and patterns where we know the parse
+// should be successful.
+
+static BazelPackage PackageOrDie(std::string_view s) {
+  std::optional<BazelPackage> package_or = BazelPackage::ParseFrom(s);
+  CHECK(package_or.has_value()) << s;
+  return package_or.value();
+}
+
+static BazelTarget TargetOrDie(std::string_view s,
+                               const BazelPackage &context) {
+  std::optional<BazelTarget> target_or = BazelTarget::ParseFrom(s, context);
+  CHECK(target_or.has_value()) << s << "(relative to " << context << ")";
+  return target_or.value();
+}
+static BazelTarget TargetOrDie(std::string_view s) {
+  return TargetOrDie(s, BazelPackage("", ""));
+}
+
+static BazelPattern PatternOrDie(std::string_view s) {
+  std::optional<BazelPattern> pattern_or = BazelPattern::ParseFrom(s);
+  CHECK(pattern_or.has_value()) << s;
+  return pattern_or.value();
+}
+
 TEST(TypesBazel, ParsePackage) {
   {
-    auto p = BazelPackage::ParseFrom("nodelimiter");
-    ASSERT_TRUE(p.has_value());
-    EXPECT_EQ(p->project, "");          // NOLINT(*-unchecked-optional-access)
-    EXPECT_EQ(p->path, "nodelimiter");  // NOLINT(*-unchecked-optional-access)
+    const BazelPackage p = PackageOrDie("nodelimiter");
+    EXPECT_EQ(p.project, "");
+    EXPECT_EQ(p.path, "nodelimiter");
   }
 
   {
-    auto p = BazelPackage::ParseFrom("@foo");
-    ASSERT_TRUE(p.has_value());
-    EXPECT_EQ(p->project, "@foo");  // NOLINT(*-unchecked-optional-access)
-    EXPECT_TRUE(p->path.empty());   // NOLINT(*-unchecked-optional-access)
+    const BazelPackage p = PackageOrDie("@foo");
+    EXPECT_EQ(p.project, "@foo");
+    EXPECT_TRUE(p.path.empty());
   }
 
   {
-    auto p = BazelPackage::ParseFrom("//foo/bar");
-    ASSERT_TRUE(p.has_value());
-    EXPECT_TRUE(p->project.empty());  // NOLINT(*-unchecked-optional-access)
-    EXPECT_EQ(p->path, "foo/bar");    // NOLINT(*-unchecked-optional-access)
+    const BazelPackage p = PackageOrDie("//foo/bar");
+    EXPECT_TRUE(p.project.empty());
+    EXPECT_EQ(p.path, "foo/bar");
   }
 
   {
-    auto p = BazelPackage::ParseFrom("//foo/bar:targetignored");
-    ASSERT_TRUE(p.has_value());
-    EXPECT_TRUE(p->project.empty());  // NOLINT(*-unchecked-optional-access)
-    EXPECT_EQ(p->path, "foo/bar");    // NOLINT(*-unchecked-optional-access)
+    const BazelPackage p = PackageOrDie("//foo/bar:targetignored");
+    EXPECT_TRUE(p.project.empty());
+    EXPECT_EQ(p.path, "foo/bar");
   }
 
   {
-    auto p = BazelPackage::ParseFrom("@foo//bar/baz");
-    ASSERT_TRUE(p.has_value());
-    EXPECT_EQ(p->project, "@foo");  // NOLINT(*-unchecked-optional-access)
-    EXPECT_EQ(p->path, "bar/baz");  // NOLINT(*-unchecked-optional-access)
+    const BazelPackage p = PackageOrDie("@foo//bar/baz");
+    EXPECT_EQ(p.project, "@foo");
+    EXPECT_EQ(p.path, "bar/baz");
   }
 
   // Some not quite proper formatted
   {
-    auto p = BazelPackage::ParseFrom("@foo/bar/baz");
-    ASSERT_TRUE(p.has_value());
-    EXPECT_EQ(p->project, "@foo");  // NOLINT(*-unchecked-optional-access)
-    EXPECT_EQ(p->path, "bar/baz");  // NOLINT(*-unchecked-optional-access)
+    const BazelPackage p = PackageOrDie("@foo/bar/baz");
+    EXPECT_EQ(p.project, "@foo");
+    EXPECT_EQ(p.path, "bar/baz");
   }
 
   // ... but double slashes at the wrong place goes too far
@@ -77,17 +98,13 @@ TEST(TypesBazel, ParsePackage) {
 TEST(TypesBazel, ParsePattern) {
   BazelPackage root("", "");
   {
-    auto p = BazelTarget::ParseFrom("//...", root);
-    ASSERT_TRUE(p.has_value());
-    const BazelTarget &t = *p;  // NOLINT(*-unchecked-optional-access)
+    const BazelTarget &t = TargetOrDie("//...", root);
     EXPECT_EQ(t.package.project, "");
     EXPECT_EQ(t.package.path, "...");
     EXPECT_EQ(t.target_name, "...");
   }
   {
-    auto p = BazelTarget::ParseFrom("//foo:bar", root);
-    ASSERT_TRUE(p.has_value());
-    const BazelTarget &t = *p;  // NOLINT(*-unchecked-optional-access)
+    const BazelTarget &t = TargetOrDie("//foo:bar", root);
     EXPECT_EQ(t.package.project, "");
     EXPECT_EQ(t.package.path, "foo");
     EXPECT_EQ(t.target_name, "bar");
@@ -112,105 +129,142 @@ TEST(TypesBazel, PrintPackage) {
 TEST(TypesBazel, ParseTarget) {
   BazelPackage context("", "foo/bar");
   {
-    auto t = BazelTarget::ParseFrom(":target", context);
-    ASSERT_TRUE(t.has_value());
-    EXPECT_EQ(t->package, context);
-    EXPECT_EQ(t->target_name, "target");
+    const BazelTarget t = TargetOrDie(":target", context);
+    EXPECT_EQ(t.package, context);
+    EXPECT_EQ(t.target_name, "target");
   }
 
   {
     // Not well-formed, but we'll still parse it.
-    auto t = BazelTarget::ParseFrom("target", context);
-    ASSERT_TRUE(t.has_value());
-    EXPECT_EQ(t->package, context);
-    EXPECT_EQ(t->target_name, "target");
+    const BazelTarget t = TargetOrDie("target", context);
+    EXPECT_EQ(t.package, context);
+    EXPECT_EQ(t.target_name, "target");
   }
 
   {
-    auto t = BazelTarget::ParseFrom("@foo", context);
-    ASSERT_TRUE(t.has_value());
-    EXPECT_EQ(t->package, BazelPackage("@foo", ""));
-    EXPECT_EQ(t->target_name, "foo");
+    const BazelTarget t = TargetOrDie("@foo", context);
+    EXPECT_EQ(t.package, BazelPackage("@foo", ""));
+    EXPECT_EQ(t.target_name, "foo");
   }
 
   {
-    auto t = BazelTarget::ParseFrom("//other/path:target", context);
-    ASSERT_TRUE(t.has_value());
-    EXPECT_EQ(t->package, BazelPackage("", "other/path"));
-    EXPECT_EQ(t->target_name, "target");
+    const BazelTarget t = TargetOrDie("//other/path:target", context);
+    EXPECT_EQ(t.package, BazelPackage("", "other/path"));
+    EXPECT_EQ(t.target_name, "target");
   }
 
   {
-    auto t = BazelTarget::ParseFrom("//some/path/toplevel", context);
-    ASSERT_TRUE(t.has_value());
-    EXPECT_EQ(t->package, BazelPackage("", "some/path/toplevel"));
-    EXPECT_EQ(t->target_name, "toplevel");
+    const BazelTarget t = TargetOrDie("//some/path/toplevel", context);
+    EXPECT_EQ(t.package, BazelPackage("", "some/path/toplevel"));
+    EXPECT_EQ(t.target_name, "toplevel");
   }
 
   for (std::string_view test_case :
        {"@absl//absl/strings:strings", "@absl//absl/strings"}) {
-    auto t = BazelTarget::ParseFrom(test_case, context);
-    ASSERT_TRUE(t.has_value()) << test_case;
-    EXPECT_EQ(t->package, BazelPackage("@absl", "absl/strings"));
-    EXPECT_EQ(t->target_name, "strings");
+    const BazelTarget t = TargetOrDie(test_case, context);
+    EXPECT_EQ(t.package, BazelPackage("@absl", "absl/strings"));
+    EXPECT_EQ(t.target_name, "strings");
   }
 
   BazelPackage project_context("@absl", "foo/bar");
   for (std::string_view test_case :
        {"//absl/strings:strings", "//absl/strings"}) {
-    auto t = BazelTarget::ParseFrom(test_case, project_context);
-    ASSERT_TRUE(t.has_value()) << test_case;
-    EXPECT_EQ(t->package, BazelPackage("@absl", "absl/strings"));
-    EXPECT_EQ(t->target_name, "strings");
+    const BazelTarget t = TargetOrDie(test_case, project_context);
+    EXPECT_EQ(t.package, BazelPackage("@absl", "absl/strings"));
+    EXPECT_EQ(t.target_name, "strings");
   }
 }
 
 TEST(TypesBazel, PrintTarget) {
-  BazelPackage p1("", "foo/bar/baz");
-  BazelPackage p2("", "other/path");
+  const BazelPackage p1("", "foo/bar/baz");
+  const BazelPackage p2("", "other/path");
 
-  auto tlib = BazelTarget::ParseFrom("some-lib", p1);
-  ASSERT_TRUE(tlib.has_value());
-  EXPECT_EQ(tlib->ToString(), "//foo/bar/baz:some-lib");
-  EXPECT_EQ(tlib->ToStringRelativeTo(p1), ":some-lib");
-  EXPECT_EQ(tlib->ToStringRelativeTo(p2), "//foo/bar/baz:some-lib");
+  const BazelTarget tlib = TargetOrDie("some-lib", p1);
+  EXPECT_EQ(tlib.ToString(), "//foo/bar/baz:some-lib");
+  EXPECT_EQ(tlib.ToStringRelativeTo(p1), ":some-lib");
+  EXPECT_EQ(tlib.ToStringRelativeTo(p2), "//foo/bar/baz:some-lib");
 
-  auto baz = BazelTarget::ParseFrom("baz", p1);
-  ASSERT_TRUE(baz.has_value());
-  EXPECT_EQ(baz->ToString(), "//foo/bar/baz");
-  EXPECT_EQ(baz->ToStringRelativeTo(p1), ":baz");
-  EXPECT_EQ(baz->ToStringRelativeTo(p2), "//foo/bar/baz");
+  const BazelTarget baz = TargetOrDie("baz", p1);
+  EXPECT_EQ(baz.ToString(), "//foo/bar/baz");
+  EXPECT_EQ(baz.ToStringRelativeTo(p1), ":baz");
+  EXPECT_EQ(baz.ToStringRelativeTo(p2), "//foo/bar/baz");
 
   BazelPackage pack("@project", "");
-  auto pack_t1 = BazelTarget::ParseFrom("foo", pack);
-  ASSERT_TRUE(pack_t1.has_value());
-  EXPECT_EQ(pack_t1->ToString(), "@project//:foo");
-  EXPECT_EQ(pack_t1->ToStringRelativeTo(pack), ":foo");
+  const BazelTarget pack_t1 = TargetOrDie("foo", pack);
+  EXPECT_EQ(pack_t1.ToString(), "@project//:foo");
+  EXPECT_EQ(pack_t1.ToStringRelativeTo(pack), ":foo");
 
   // Toplevel tareget same as project
-  auto pack_t2 = BazelTarget::ParseFrom("project", pack);
-  ASSERT_TRUE(pack_t2.has_value());
-  EXPECT_EQ(pack_t2->ToString(), "@project");
-  EXPECT_EQ(pack_t2->ToStringRelativeTo(pack), ":project");
+  const BazelTarget pack_t2 = TargetOrDie("project", pack);
+  EXPECT_EQ(pack_t2.ToString(), "@project");
+  EXPECT_EQ(pack_t2.ToStringRelativeTo(pack), ":project");
 }
 
 // Quick tests.
 TEST(TypesBazel, ParseRePrint) {
-  BazelPackage c("", "foo");
+  const BazelPackage c("", "foo");
 
-  EXPECT_EQ("//foo/bar:baz",
-            BazelTarget::ParseFrom("//foo/bar:baz", c)->ToString());
-  EXPECT_EQ("//foo", BazelTarget::ParseFrom("//foo", c)->ToString());
-  EXPECT_EQ("//foo", BazelTarget::ParseFrom("//foo:foo", c)->ToString());
-  EXPECT_EQ("@foo//:baz", BazelTarget::ParseFrom("@foo//:baz", c)->ToString());
-  EXPECT_EQ("@foo//foo", BazelTarget::ParseFrom("@foo//foo", c)->ToString());
-  EXPECT_EQ("@foo", BazelTarget::ParseFrom("@foo//:foo", c)->ToString());
+  EXPECT_EQ("//foo/bar:baz", TargetOrDie("//foo/bar:baz", c).ToString());
+  EXPECT_EQ("//foo", TargetOrDie("//foo", c).ToString());
+  EXPECT_EQ("//foo", TargetOrDie("//foo:foo", c).ToString());
+  EXPECT_EQ("@foo//:baz", TargetOrDie("@foo//:baz", c).ToString());
+  EXPECT_EQ("@foo//foo", TargetOrDie("@foo//foo", c).ToString());
+  EXPECT_EQ("@foo", TargetOrDie("@foo//:foo", c).ToString());
 
-  EXPECT_EQ("//bar", BazelTarget::ParseFrom("//bar", c)->ToString());
-  EXPECT_EQ("//bar", BazelTarget::ParseFrom("//bar:bar", c)->ToString());
+  EXPECT_EQ("//bar", TargetOrDie("//bar", c).ToString());
+  EXPECT_EQ("//bar", TargetOrDie("//bar:bar", c).ToString());
 
-  EXPECT_EQ("@foo//bar", BazelTarget::ParseFrom("@foo//bar", c)->ToString());
-  EXPECT_EQ("@foo//bar",
-            BazelTarget::ParseFrom("@foo//bar:bar", c)->ToString());
+  EXPECT_EQ("@foo//bar", TargetOrDie("@foo//bar", c).ToString());
+  EXPECT_EQ("@foo//bar", TargetOrDie("@foo//bar:bar", c).ToString());
+}
+
+TEST(TypesBazel, CheckRecursivePatterns) {
+  EXPECT_TRUE(PatternOrDie("//...").is_recursive());
+  EXPECT_TRUE(PatternOrDie("...").is_recursive());
+  EXPECT_TRUE(PatternOrDie("foo/bar/...").is_recursive());
+  EXPECT_TRUE(PatternOrDie("//foo/bar/...").is_recursive());
+
+  // Typo, so regular non-recursive pattern matching.
+  EXPECT_FALSE(PatternOrDie("foo/bar/..").is_recursive());
+
+  EXPECT_FALSE(PatternOrDie("foo/bar:all").is_recursive());
+  EXPECT_FALSE(PatternOrDie("foo/bar:__pkg__").is_recursive());
+  EXPECT_TRUE(PatternOrDie("foo/bar:__subpackages__").is_recursive());
+}
+
+TEST(TypesBazel, CheckPatternPaths) {
+  EXPECT_EQ(PatternOrDie("//...").path(), "");
+  EXPECT_EQ(PatternOrDie("...").path(), "");
+  EXPECT_EQ(PatternOrDie("//foo/bar/...").path(), "foo/bar");
+  EXPECT_EQ(PatternOrDie("foo/bar/...").path(), "foo/bar");
+  EXPECT_EQ(PatternOrDie("foo/bar:all").path(), "foo/bar");
+  EXPECT_EQ(PatternOrDie("foo/bar:__pkg__").path(), "foo/bar");
+  EXPECT_EQ(PatternOrDie("foo/bar:__subpackages__").path(), "foo/bar");
+}
+
+TEST(TypesBazel, CheckPatternPackageMatch) {
+  EXPECT_TRUE(PatternOrDie("//foo/...").Match(PackageOrDie("//foo")));
+  EXPECT_TRUE(PatternOrDie("//foo/...").Match(PackageOrDie("//foo/bar")));
+  EXPECT_FALSE(PatternOrDie("//foo/...").Match(PackageOrDie("//foobar")));
+
+  EXPECT_TRUE(
+    PatternOrDie("//foo:__subpackages__").Match(PackageOrDie("//foo/bar")));
+  EXPECT_FALSE(
+    PatternOrDie("//foo:__subpackages__").Match(PackageOrDie("//baz")));
+
+  EXPECT_FALSE(PatternOrDie("@x//foo/...").Match(PackageOrDie("//foo")));
+  EXPECT_FALSE(PatternOrDie("//foo/...").Match(PackageOrDie("@x//foo")));
+
+  EXPECT_TRUE(PatternOrDie("//foo:all").Match(PackageOrDie("//foo")));
+  EXPECT_FALSE(PatternOrDie("//foo:all").Match(PackageOrDie("//foo/bar")));
+}
+
+TEST(TypesBazel, CheckPatternTargetMatch) {
+  EXPECT_TRUE(PatternOrDie("//foo/...").Match(TargetOrDie("//foo:bar")));
+  EXPECT_FALSE(PatternOrDie("//foo/...").Match(TargetOrDie("@foo//foo:bar")));
+  EXPECT_TRUE(PatternOrDie("//foo/...").Match(TargetOrDie("//foo/bar:baz")));
+
+  EXPECT_TRUE(PatternOrDie("//foo/...").Match(TargetOrDie("//foo")));
+  EXPECT_FALSE(PatternOrDie("//foo/...").Match(TargetOrDie("//fo")));
 }
 }  // namespace bant

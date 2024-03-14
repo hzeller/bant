@@ -20,6 +20,7 @@
 #include <iostream>
 #include <string_view>
 
+#include "absl/log/check.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_split.h"
 
@@ -134,6 +135,64 @@ std::string BazelTarget::ToStringRelativeTo(
   const BazelPackage &other_package) const {
   if (other_package != package) return ToString();  // regular handling.
   return absl::StrCat(":", target_name);
+}
+
+std::optional<BazelPattern> BazelPattern::ParseFrom(std::string_view pattern) {
+  const BazelPackage empty_context("", "");
+  auto target = BazelTarget::ParseFrom(pattern, empty_context);
+  if (!target.has_value()) return std::nullopt;
+  return BazelPattern(target.value());
+}
+
+BazelPattern::BazelPattern(const BazelTarget &target)
+    : target_pattern_(target) {
+  if (target_pattern_.target_name == "__pkg__" ||
+      target_pattern_.target_name == "all") {
+    target_pattern_.target_name.clear();
+    kind_ = MatchKind::kAllInPackage;
+  } else if (target_pattern_.target_name == "__subpackages__") {
+    target_pattern_.target_name.clear();
+    kind_ = MatchKind::kRecursive;
+  } else if (target_pattern_.package.path == "..." ||
+             target_pattern_.package.path.ends_with("/...")) {
+    std::string &p = target_pattern_.package.path;
+    if (p.size() >= 3) {
+      p.resize(p.size() > 3 ? p.size() - 4 : p.size() - 3);
+    }
+    target_pattern_.target_name.clear();
+    kind_ = MatchKind::kRecursive;
+  } else if (target_pattern_.target_name == "...") {
+    CHECK(target_pattern_.package.path.empty());  // mmh, should not happen.
+    target_pattern_.target_name.clear();
+    kind_ = MatchKind::kRecursive;
+  } else {
+    kind_ = MatchKind::kExact;
+  }
+}
+
+bool BazelPattern::Match(const BazelTarget &target) {
+  switch (kind_) {
+  case MatchKind::kExact: return target == target_pattern_;
+  case MatchKind::kAllInPackage:
+    return target.package == target_pattern_.package;
+  case MatchKind::kRecursive: return Match(target.package);
+  }
+  return false;
+}
+
+bool BazelPattern::Match(const BazelPackage &target) {
+  switch (kind_) {
+  case MatchKind::kExact:
+  case MatchKind::kAllInPackage: return target == target_pattern_.package;
+  case MatchKind::kRecursive: {
+    const std::string &me = target_pattern_.package.path;
+    const std::string &to_match = target.path;
+    return target.project == target_pattern_.package.project &&
+           (to_match.starts_with(me) && (me.length() == to_match.length() ||
+                                         to_match.at(me.length()) == '/'));
+  }
+  }
+  return false;
 }
 
 }  // namespace bant

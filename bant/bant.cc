@@ -68,7 +68,7 @@ int main(int argc, char *argv[]) {
   std::ostream *primary_out = &std::cout;
   std::ostream *info_out = &std::cerr;
 
-  std::string pattern = "//...";
+  bant::BazelPattern pattern = bant::BazelPattern::ParseFrom("...").value();
 
   bool verbose = false;
   bool print_ast = false;
@@ -159,11 +159,11 @@ int main(int argc, char *argv[]) {
   }
 
   if (optind < argc) {
-    pattern = argv[optind];
-
-    if (cmd == Command::kDependencyEdits) {
-      std::cerr << "FYI: dwyu with pattern might not work well because "
-                << "it needs to know all dependencies, not a subset.\n";
+    if (auto p = bant::BazelPattern::ParseFrom(argv[optind]); p.has_value()) {
+      pattern = p.value();
+    } else {
+      std::cerr << "Can't parse pattern " << argv[optind] << "\n";
+      return usage(argv[0], EXIT_FAILURE);
     }
     ++optind;
   }
@@ -187,7 +187,9 @@ int main(int argc, char *argv[]) {
   for (const auto &build_file : build_files) {
     project.AddBuildFile(build_file, *info_out, parse_err_out);
   }
-  bant::ResolveMissingDependencies(&project, verbose, *info_out, *info_out);
+  if (cmd != Command::kCanonicalizeDeps) {
+    bant::ResolveMissingDependencies(&project, verbose, *info_out, *info_out);
+  }
 
   switch (cmd) {
   case Command::kParse:
