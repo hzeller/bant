@@ -259,7 +259,8 @@ std::vector<std::string_view> ExtractCCIncludes(NamedLineIndexedContent *src) {
   return result;
 }
 
-void CreateDependencyEdits(const ParsedProject &project, Stat &stats,
+void CreateDependencyEdits(const ParsedProject &project,
+                           const BazelPattern &pattern, Stat &stats,
                            std::ostream &info_out, bool verbose_messages,
                            const EditCallback &emit_deps_edit) {
   FileProviderLookups hdr_idx;
@@ -270,16 +271,19 @@ void CreateDependencyEdits(const ParsedProject &project, Stat &stats,
   const absl::Time start_time = absl::Now();
   using query::TargetParameters;
   for (const auto &[_, parsed_package] : project.ParsedFiles()) {
-    if (!parsed_package->package.project.empty()) {
-      continue;  // Only interested in our project, not the externals
-    }
     const BazelPackage &current_package = parsed_package->package;
+    if (!pattern.Match(current_package)) {
+      continue;
+    }
     query::FindTargets(
       parsed_package->ast, {"cc_library", "cc_binary", "cc_test"},
       [&](const TargetParameters &target) {
         auto self = BazelTarget::ParseFrom(absl::StrCat(":", target.name),
                                            current_package);
         if (!self.has_value()) {
+          return;
+        }
+        if (!pattern.Match(*self)) {
           return;
         }
 

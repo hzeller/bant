@@ -68,7 +68,7 @@ int main(int argc, char *argv[]) {
   std::ostream *primary_out = &std::cout;
   std::ostream *info_out = &std::cerr;
 
-  bant::BazelPattern pattern = bant::BazelPattern::ParseFrom("...").value();
+  bant::BazelPattern pattern;
 
   bool verbose = false;
   bool print_ast = false;
@@ -175,6 +175,14 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
+  // Don't look through everything for these.
+  if (cmd == Command::kCanonicalizeDeps || cmd == Command::kDependencyEdits) {
+    if (pattern.is_matchall()) {
+      std::cerr << "Please provide a bazel pattern for this command.\n";
+      return EXIT_FAILURE;
+    }
+  }
+
   bant::Stat file_collect_stats;
   auto build_files = bant::CollectBuildFiles(pattern, file_collect_stats);
 
@@ -187,32 +195,33 @@ int main(int argc, char *argv[]) {
   for (const auto &build_file : build_files) {
     project.AddBuildFile(build_file, *info_out, parse_err_out);
   }
-  if (cmd != Command::kCanonicalizeDeps) {
+  if (cmd != Command::kCanonicalizeDeps && cmd != Command::kParse) {
     bant::ResolveMissingDependencies(&project, verbose, *info_out, *info_out);
   }
 
   switch (cmd) {
   case Command::kParse:
     if (print_ast || print_only_errors) {
-      bant::PrintProject(*primary_out, *info_out, project, print_only_errors);
+      bant::PrintProject(pattern, *primary_out, *info_out, project,
+                         print_only_errors);
     }
     break;
   case Command::kLibraryHeaders:  //
     bant::PrintProvidedSources(ExtractHeaderToLibMapping(project, *info_out),
-                               *primary_out);
+                               pattern, *primary_out);
     break;
   case Command::kGenruleOutputs:
     bant::PrintProvidedSources(ExtractGeneratedFromGenrule(project, *info_out),
-                               *primary_out);
+                               pattern, *primary_out);
     break;
   case Command::kDependencyEdits:
     using bant::CreateBuildozerDepsEditCallback;
-    bant::CreateDependencyEdits(project, deps_stat, *info_out, verbose,
+    bant::CreateDependencyEdits(project, pattern, deps_stat, *info_out, verbose,
                                 CreateBuildozerDepsEditCallback(*primary_out));
     break;
   case Command::kCanonicalizeDeps:
     using bant::CreateCanonicalizeEdits;
-    CreateCanonicalizeEdits(project, *info_out,
+    CreateCanonicalizeEdits(project, pattern, *info_out,
                             CreateBuildozerDepsEditCallback(*primary_out));
     break;
   case Command::kListBazelFiles:

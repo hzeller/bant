@@ -50,7 +50,8 @@ std::string BazelPackage::QualifiedFile(std::string_view relative_file) const {
     project = "";
     path = str;
   }
-  while (!path.empty() && path[0] == '/') path.remove_prefix(1);
+  while (!path.empty() && path.front() == '/') path.remove_prefix(1);
+  while (!path.empty() && path.back() == '/') path.remove_suffix(1);
   if (path.find("//") != std::string_view::npos) {
     return std::nullopt;  // Something is off.
   }
@@ -137,6 +138,8 @@ std::string BazelTarget::ToStringRelativeTo(
   return absl::StrCat(":", target_name);
 }
 
+BazelPattern::BazelPattern() : kind_(MatchKind::kAlwaysMatch) {}
+
 std::optional<BazelPattern> BazelPattern::ParseFrom(std::string_view pattern) {
   const BazelPackage empty_context("", "");
   auto target = BazelTarget::ParseFrom(pattern, empty_context);
@@ -170,8 +173,10 @@ BazelPattern::BazelPattern(const BazelTarget &target)
   }
 }
 
-bool BazelPattern::Match(const BazelTarget &target) {
+bool BazelPattern::Match(const BazelTarget &target) const {
   switch (kind_) {
+  case MatchKind::kAlwaysMatch:  //
+    return true;
   case MatchKind::kExact: return target == target_pattern_;
   case MatchKind::kAllInPackage:
     return target.package == target_pattern_.package;
@@ -180,16 +185,21 @@ bool BazelPattern::Match(const BazelTarget &target) {
   return false;
 }
 
-bool BazelPattern::Match(const BazelPackage &target) {
+bool BazelPattern::Match(const BazelPackage &target) const {
   switch (kind_) {
+  case MatchKind::kAlwaysMatch:  //
+    return true;
   case MatchKind::kExact:
   case MatchKind::kAllInPackage: return target == target_pattern_.package;
   case MatchKind::kRecursive: {
+    if (target.project != target_pattern_.package.project) {
+      return false;
+    }
     const std::string &me = target_pattern_.package.path;
+    if (me.empty()) return true;
     const std::string &to_match = target.path;
-    return target.project == target_pattern_.package.project &&
-           (to_match.starts_with(me) && (me.length() == to_match.length() ||
-                                         to_match.at(me.length()) == '/'));
+    return to_match.starts_with(me) && (me.length() == to_match.length() ||
+                                        to_match.at(me.length()) == '/');
   }
   }
   return false;

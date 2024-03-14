@@ -90,21 +90,28 @@ inline std::ostream &operator<<(std::ostream &o, const BazelTarget &t) {
 // essentially the same.
 class BazelPattern {
  public:
+  // The default constructed pattern always matches anything.
+  BazelPattern();
+
   // Factory to parse BazelPattern that is returned as value if successful.
   static std::optional<BazelPattern> ParseFrom(std::string_view pattern);
 
-  bool is_recursive() const { return kind_ == MatchKind::kRecursive; }
+  bool is_recursive() const {
+    return (kind_ == MatchKind::kRecursive || kind_ == MatchKind::kAlwaysMatch);
+  }
+  bool is_matchall() const { return kind_ == MatchKind::kAlwaysMatch; }
+
   const std::string &path() const { return target_pattern_.package.path; }
   const std::string &project() const { return target_pattern_.package.project; }
 
-  bool Match(const BazelTarget &target);
-  bool Match(const BazelPackage &target);
+  bool Match(const BazelTarget &target) const;
+  bool Match(const BazelPackage &target) const;
 
  private:
   BazelPattern(const BazelTarget &pattern);
 
   BazelTarget target_pattern_;
-  enum class MatchKind { kExact, kAllInPackage, kRecursive };
+  enum class MatchKind { kExact, kAllInPackage, kRecursive, kAlwaysMatch };
   MatchKind kind_ = MatchKind::kExact;
 };
 }  // namespace bant

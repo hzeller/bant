@@ -228,12 +228,14 @@ ProvidedFromTargetMap ExtractGeneratedFromGenrule(const ParsedProject &project,
 }
 
 void PrintProvidedSources(const ProvidedFromTargetMap &provided_from_lib,
-                          std::ostream &out) {
+                          const BazelPattern &pattern, std::ostream &out) {
   int longest = 0;
-  for (const auto &[provided, _] : provided_from_lib) {
+  for (const auto &[provided, lib] : provided_from_lib) {
+    if (!pattern.Match(lib.package)) continue;
     longest = std::max(longest, (int)provided.length());
   }
   for (const auto &[provided, lib] : provided_from_lib) {
+    if (!pattern.Match(lib.package)) continue;
     out << absl::StrFormat("%*s\t%s\n", -longest, provided, lib.ToString());
   }
 }

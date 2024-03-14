@@ -66,6 +66,12 @@ TEST(TypesBazel, ParsePackage) {
     EXPECT_EQ(p.path, "foo/bar");
   }
 
+  {  // Trailing slash removed.
+    const BazelPackage p = PackageOrDie("//foo/bar/");
+    EXPECT_TRUE(p.project.empty());
+    EXPECT_EQ(p.path, "foo/bar");
+  }
+
   {
     const BazelPackage p = PackageOrDie("//foo/bar:targetignored");
     EXPECT_TRUE(p.project.empty());
@@ -89,7 +95,7 @@ TEST(TypesBazel, ParsePackage) {
   {
     auto p = BazelPackage::ParseFrom("@foo/bar//baz");
     ASSERT_FALSE(p.has_value());
-    auto q = BazelPackage::ParseFrom("@foo/bar/baz//");
+    auto q = BazelPackage::ParseFrom("@foo/bar/baz//abc");
     ASSERT_FALSE(q.has_value());
   }
 }
@@ -139,6 +145,18 @@ TEST(TypesBazel, ParseTarget) {
     const BazelTarget t = TargetOrDie("target", context);
     EXPECT_EQ(t.package, context);
     EXPECT_EQ(t.target_name, "target");
+  }
+
+  {
+    const BazelTarget t = TargetOrDie("//baz", context);
+    EXPECT_EQ(t.package.path, "baz");
+    EXPECT_EQ(t.target_name, "baz");
+  }
+
+  {
+    const BazelTarget t = TargetOrDie("//baz/", context);
+    EXPECT_EQ(t.package.path, "baz");
+    EXPECT_EQ(t.target_name, "");  // or should this also be "baz" ?
   }
 
   {
@@ -243,6 +261,13 @@ TEST(TypesBazel, CheckPatternPaths) {
 }
 
 TEST(TypesBazel, CheckPatternPackageMatch) {
+  EXPECT_TRUE(PatternOrDie("...").Match(PackageOrDie("//foo")));
+  EXPECT_TRUE(PatternOrDie("...").Match(PackageOrDie("//foo:bar")));
+  EXPECT_TRUE(PatternOrDie("...").Match(PackageOrDie("//foo/bar:baz")));
+  EXPECT_FALSE(PatternOrDie("...").Match(PackageOrDie("@quux//foo/bar:baz")));
+
+  EXPECT_TRUE(PatternOrDie("//...").Match(PackageOrDie("//foo:bar")));
+
   EXPECT_TRUE(PatternOrDie("//foo/...").Match(PackageOrDie("//foo")));
   EXPECT_TRUE(PatternOrDie("//foo/...").Match(PackageOrDie("//foo/bar")));
   EXPECT_FALSE(PatternOrDie("//foo/...").Match(PackageOrDie("//foobar")));
@@ -266,5 +291,10 @@ TEST(TypesBazel, CheckPatternTargetMatch) {
 
   EXPECT_TRUE(PatternOrDie("//foo/...").Match(TargetOrDie("//foo")));
   EXPECT_FALSE(PatternOrDie("//foo/...").Match(TargetOrDie("//fo")));
+
+  EXPECT_TRUE(PatternOrDie("//foo").Match(TargetOrDie("//foo")));
+  EXPECT_TRUE(PatternOrDie("//foo/...").Match(TargetOrDie("//foo/")));
+  // Should the following work ?
+  // EXPECT_TRUE(PatternOrDie("//foo").Match(TargetOrDie("//foo/")));
 }
 }  // namespace bant

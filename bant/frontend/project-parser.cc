@@ -184,12 +184,18 @@ const ParsedBuildFile *ParsedProject::AddBuildFile(
   return inserted.first->second.get();
 }
 
-void PrintProject(std::ostream &out, std::ostream &info_out,
-                  const ParsedProject &project, bool only_files_with_errors) {
+void PrintProject(const BazelPattern &pattern, std::ostream &out,
+                  std::ostream &info_out, const ParsedProject &project,
+                  bool only_files_with_errors) {
   for (const auto &[filename, file_content] : project.ParsedFiles()) {
     if (only_files_with_errors && file_content->errors.empty()) {
       continue;
     }
+    if (!pattern.Match(file_content->package)) {
+      continue;
+    }
+
+    // TODO: if target name given: match target.
     out << "# " << filename << "\n";
     info_out << file_content->errors;
     out << file_content->package.ToString() << " = ";

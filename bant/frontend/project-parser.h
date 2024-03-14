@@ -104,7 +104,8 @@ std::vector<FilesystemPath> CollectBuildFiles(const BazelPattern &pattern,
 // "out" is the destination of the acutal parse tree, "info_out" will
 // print error message and filenames.
 // If "only_files_with_errors" is set, prints only the files that had issues.
-void PrintProject(std::ostream &out, std::ostream &info_out,
-                  const ParsedProject &project, bool only_files_with_errors);
+void PrintProject(const BazelPattern &pattern, std::ostream &out,
+                  std::ostream &info_out, const ParsedProject &project,
+                  bool only_files_with_errors);
 }  // namespace bant
 #endif  // BANT_PROJECT_PARDER_

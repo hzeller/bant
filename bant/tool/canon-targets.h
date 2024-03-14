@@ -22,6 +22,7 @@
 
 #include "bant/frontend/project-parser.h"
 #include "bant/tool/edit-callback.h"
+#include "bant/types-bazel.h"
 
 namespace bant {
 // Fix dep targets that can be canonicalized
@@ -30,6 +31,7 @@ namespace bant {
 //  * `@foo//:foo` becomes `@foo`
 //  * `foo` without `:` prefix becomes `:foo`
 void CreateCanonicalizeEdits(const ParsedProject &project,
+                             const BazelPattern &pattern,
                              std::ostream &info_out,
                              const EditCallback &emit_canon_edit);
 }  // namespace bant

@@ -17,16 +17,20 @@
 
 #include "bant/tool/canon-targets.h"
 
+#include "bant/types-bazel.h"
 #include "bant/util/query-utils.h"
 
 namespace bant {
 void CreateCanonicalizeEdits(const ParsedProject &project,
+                             const BazelPattern &pattern,
                              std::ostream &info_out,
                              const EditCallback &emit_canon_edit) {
   using query::TargetParameters;
   for (const auto &[_, parsed_package] : project.ParsedFiles()) {
-    if (!parsed_package->package.project.empty()) {
-      continue;  // Only interested in our project, not the externals
+    if (!pattern.Match(parsed_package->package)) {
+      std::cerr << parsed_package->package << " does not match "
+                << pattern.path() << "\n";
+      continue;
     }
     const BazelPackage &current_package = parsed_package->package;
     query::FindTargets(
@@ -36,7 +40,9 @@ void CreateCanonicalizeEdits(const ParsedProject &project,
         if (!self.has_value()) {
           return;
         }
-
+        if (!pattern.Match(*self)) {
+          return;
+        }
         std::vector<std::string_view> deps;
         query::ExtractStringList(target.deps_list, deps);
 
