@@ -33,13 +33,19 @@ class TargetFinder : public BaseVisitor {
                const TargetFindCallback &cb)
       : of_interest_(rules_of_interest), found_cb_(cb) {}
 
+  bool IsRelevant(std::string_view name) const {
+    if (of_interest_.empty()) return true;  // matchall
+    return of_interest_.contains(name);
+  }
+
   void VisitFunCall(FunCall *f) final {
     if (in_relevant_call_) {
       return BaseVisitor::VisitFunCall(f);  // Nesting.
     }
-    in_relevant_call_ = of_interest_.contains(f->identifier()->id());
+    in_relevant_call_ = IsRelevant(f->identifier()->id());
     if (!in_relevant_call_) return;  // Nothing interesting beyond here.
     current_ = {};
+    current_.node = f;
     current_.rule = f->identifier()->id();
     for (Node *element : *f->argument()) {
       WalkNonNull(element);

@@ -280,10 +280,7 @@ void CreateDependencyEdits(const ParsedProject &project,
       [&](const TargetParameters &target) {
         auto self = BazelTarget::ParseFrom(absl::StrCat(":", target.name),
                                            current_package);
-        if (!self.has_value()) {
-          return;
-        }
-        if (!pattern.Match(*self)) {
+        if (!self.has_value() || !pattern.Match(*self)) {
           return;
         }
 

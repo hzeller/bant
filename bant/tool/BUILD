@@ -35,7 +35,6 @@ cc_library(
         ":edit-callback",
         ":header-providers",
         "//bant:types-bazel",
-        "//bant/frontend:linecolumn-map",
         "//bant/frontend:named-content",
         "//bant/frontend:project-parser",
         "//bant/util:file-utils",
@@ -52,6 +51,7 @@ cc_library(
     hdrs = ["canon-targets.h"],
     deps = [
         ":edit-callback",
+        "//bant:types-bazel",
         "//bant/frontend:project-parser",
         "//bant/util:query-utils",
     ],

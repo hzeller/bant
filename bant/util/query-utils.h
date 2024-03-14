@@ -28,6 +28,7 @@ namespace query {
 // Typical target parameters for for binaries, cc_libraries rules and beyond.
 // They always have a name, and various lists with sources and dependencies.
 struct TargetParameters {
+  FunCall *node = nullptr;
   std::string_view rule;  // rule, sucha as cc_library, cc_binary,...
   std::string_view name;
   List *srcs_list = nullptr;
@@ -43,9 +44,10 @@ struct TargetParameters {
 // Callback of a query.
 using TargetFindCallback = std::function<void(const TargetParameters &)>;
 
-// Walk the "ast" and find all the targets that match any of the given rule
-// names (such as 'cc_library'). Provides callback with all the relevant
-// information gathered in a convenient struct.
+// Walk the "ast" and find all the targets that match any of the given
+// "rules_of_interest" names (such as 'cc_library'). If list empty: match all.
+// Provides callback with all the relevant information gathered in a
+// convenient struct.
 // All string views are pointing to the original data, so it is possible to
 // get detailed line/column information for user display.
 void FindTargets(Node *ast,

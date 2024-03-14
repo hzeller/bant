@@ -29,6 +29,7 @@
 #include "bant/frontend/parser.h"
 #include "bant/types-bazel.h"
 #include "bant/util/file-utils.h"
+#include "bant/util/query-utils.h"
 
 namespace bant {
 namespace {
@@ -191,16 +192,29 @@ void PrintProject(const BazelPattern &pattern, std::ostream &out,
     if (only_files_with_errors && file_content->errors.empty()) {
       continue;
     }
-    if (!pattern.Match(file_content->package)) {
+    const BazelPackage &current_package = file_content->package;
+    if (!pattern.Match(current_package)) {
       continue;
     }
 
-    // TODO: if target name given: match target.
     out << "# " << filename << "\n";
-    info_out << file_content->errors;
-    out << file_content->package.ToString() << " = ";
-    PrintVisitor(out).WalkNonNull(file_content->ast);
-    out << "\n";
+    if (pattern.is_recursive()) {
+      info_out << file_content->errors;
+      out << file_content->package.ToString() << " = ";
+      PrintVisitor(out).WalkNonNull(file_content->ast);
+      out << "\n";
+    } else {
+      query::FindTargets(
+        file_content->ast, {}, [&](const query::TargetParameters &result) {
+          auto self = BazelTarget::ParseFrom(result.name, current_package);
+          if (!self.has_value() || !pattern.Match(*self)) {
+            return;
+          }
+          out << *self << " = ";
+          PrintVisitor(out).WalkNonNull(result.node);
+          out << "\n";
+        });
+    }
   }
 }
 }  // namespace bant

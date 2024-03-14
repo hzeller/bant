@@ -87,6 +87,7 @@ cc_library(
         ":parser",
         "//bant:types-bazel",
         "//bant/util:file-utils",
+        "//bant/util:query-utils",
         "@abseil-cpp//absl/strings",
         "@abseil-cpp//absl/strings:str_format",
         "@abseil-cpp//absl/time",
