@@ -144,34 +144,39 @@ std::optional<BazelPattern> BazelPattern::ParseFrom(std::string_view pattern) {
   const BazelPackage empty_context("", "");
   auto target = BazelTarget::ParseFrom(pattern, empty_context);
   if (!target.has_value()) return std::nullopt;
-  return BazelPattern(target.value());
-}
 
-BazelPattern::BazelPattern(const BazelTarget &target)
-    : target_pattern_(target) {
-  if (target_pattern_.target_name == "__pkg__" ||
-      target_pattern_.target_name == "all") {
-    target_pattern_.target_name.clear();
-    kind_ = MatchKind::kAllInPackage;
-  } else if (target_pattern_.target_name == "__subpackages__") {
-    target_pattern_.target_name.clear();
-    kind_ = MatchKind::kRecursive;
-  } else if (target_pattern_.package.path == "..." ||
-             target_pattern_.package.path.ends_with("/...")) {
-    std::string &p = target_pattern_.package.path;
+  BazelTarget target_pattern = target.value();
+  MatchKind kind = MatchKind::kExact;
+  if (target_pattern.target_name == "__pkg__" ||
+      target_pattern.target_name == "all") {
+    target_pattern.target_name.clear();
+    kind = MatchKind::kAllInPackage;
+  } else if (target_pattern.target_name == "__subpackages__") {
+    target_pattern.target_name.clear();
+    kind = MatchKind::kRecursive;
+  } else if (target_pattern.package.path == "..." ||
+             target_pattern.package.path.ends_with("/...")) {
+    std::string &p = target_pattern.package.path;
     if (p.size() >= 3) {
       p.resize(p.size() > 3 ? p.size() - 4 : p.size() - 3);
     }
-    target_pattern_.target_name.clear();
-    kind_ = MatchKind::kRecursive;
-  } else if (target_pattern_.target_name == "...") {
-    CHECK(target_pattern_.package.path.empty());  // mmh, should not happen.
-    target_pattern_.target_name.clear();
-    kind_ = MatchKind::kRecursive;
+    target_pattern.target_name.clear();
+    kind = MatchKind::kRecursive;
+  } else if (target_pattern.target_name == "...") {
+    if (!target_pattern.package.path.empty()) {
+      return std::nullopt;
+    }
+    target_pattern.target_name.clear();
+    kind = MatchKind::kRecursive;
   } else {
-    kind_ = MatchKind::kExact;
+    kind = MatchKind::kExact;
   }
+
+  return BazelPattern(target_pattern, kind);
 }
+
+BazelPattern::BazelPattern(const BazelTarget &pattern, MatchKind kind)
+    : target_pattern_(pattern), kind_(kind) {}
 
 bool BazelPattern::Match(const BazelTarget &target) const {
   switch (kind_) {

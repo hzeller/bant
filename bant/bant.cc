@@ -141,20 +141,20 @@ int main(int argc, char *argv[]) {
           next_command->first.starts_with(cmd_string)) {
         std::cerr << "Command '" << cmd_string << "' too short and ambiguous: "
                   << "[" << found->first << ", " << next_command->first
-                  << ", ...\n";
+                  << ", ...\n\n";
         return usage(argv[0], EXIT_FAILURE);
       }
       cmd = found->second;
     }
     if (cmd == Command::kNone) {
-      std::cerr << "Unknown command prefix '" << cmd_string << "'\n";
+      std::cerr << "Unknown command prefix '" << cmd_string << "'\n\n";
       return usage(argv[0], EXIT_FAILURE);
     }
     ++optind;
   }
 
   if (cmd == Command::kNone) {
-    std::cerr << "Command expected\n";
+    std::cerr << "Command expected\n\n";
     return usage(argv[0], EXIT_FAILURE);
   }
 
@@ -162,7 +162,7 @@ int main(int argc, char *argv[]) {
     if (auto p = bant::BazelPattern::ParseFrom(argv[optind]); p.has_value()) {
       pattern = p.value();
     } else {
-      std::cerr << "Can't parse pattern " << argv[optind] << "\n";
+      std::cerr << "Invalid pattern " << argv[optind] << "\n\n";
       return usage(argv[0], EXIT_FAILURE);
     }
     ++optind;
@@ -201,9 +201,7 @@ int main(int argc, char *argv[]) {
   }
 
   switch (cmd) {
-  case Command::kPrint:
-    print_ast = true;
-    [[fallthrough]];
+  case Command::kPrint: print_ast = true; [[fallthrough]];
   case Command::kParse:
     if (print_ast || print_only_errors) {
       bant::PrintProject(pattern, *primary_out, *info_out, project,

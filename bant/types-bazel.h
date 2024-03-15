@@ -108,11 +108,11 @@ class BazelPattern {
   bool Match(const BazelPackage &target) const;
 
  private:
-  BazelPattern(const BazelTarget &pattern);
-
-  BazelTarget target_pattern_;
   enum class MatchKind { kExact, kAllInPackage, kRecursive, kAlwaysMatch };
-  MatchKind kind_ = MatchKind::kExact;
+
+  BazelPattern(const BazelTarget &pattern, MatchKind kind);
+  BazelTarget target_pattern_;
+  MatchKind kind_;
 };
 }  // namespace bant
 
