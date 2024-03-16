@@ -31,6 +31,8 @@
 namespace bant {
 namespace {
 
+constexpr std::string_view kExternalStart = "bazel-out/../../../external/";
+
 // TODO: this needs to move to file-utils
 std::vector<FilesystemPath> Glob(std::string pattern) {
   glob_t glob_list;
@@ -53,7 +55,6 @@ std::optional<FilesystemPath> PathForPackage(const BazelPackage &package) {
     }
     return std::nullopt;
   } else {
-    constexpr std::string_view kExternalStart = "bazel-out/../../../external/";
     for (const std::string_view glob_prefix : {"/", "~*/"}) {
       for (const std::string_view build_test : {"BUILD", "BUILD.bazel"}) {
         const auto found_build =
@@ -74,13 +75,22 @@ std::optional<FilesystemPath> PathForPackage(const BazelPackage &package) {
 
 // Looking what we have, record what other deps we need, find these and parse.
 // Rinse/repeat until nothing more to add.
-void ResolveMissingDependencies(ParsedProject *project, bool verbose,
+void ResolveMissingDependencies(ParsedProject *project,
+                                const BazelPattern &pattern,
+                                bool verbose,
                                 std::ostream &info_out, std::ostream &err_out) {
   std::vector<const ParsedBuildFile *> to_scan;
   std::set<BazelPackage> known_packages;
+
+  // TODO: here, we base our starting point from the files we have, that
+  // have been derived from the pattern.
+  // It would probably be better to start out with and empty project and
+  // handle all the pattern expansion of files to look at here.
   for (const auto &[_, parsed] : project->ParsedFiles()) {
     known_packages.insert(parsed->package);
-    to_scan.push_back(parsed.get());
+    if (pattern.Match(parsed->package)) {
+      to_scan.push_back(parsed.get());
+    }
   }
 
   int rounds = 0;

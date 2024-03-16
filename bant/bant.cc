@@ -197,7 +197,8 @@ int main(int argc, char *argv[]) {
     project.AddBuildFile(build_file, *info_out, parse_err_out);
   }
   if (cmd != Command::kCanonicalizeDeps && cmd != Command::kPrint) {
-    bant::ResolveMissingDependencies(&project, verbose, *info_out, *info_out);
+    bant::ResolveMissingDependencies(&project, pattern, verbose,  //
+                                     *info_out, *info_out);
   }
 
   switch (cmd) {

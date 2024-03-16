@@ -21,13 +21,16 @@
 #include <ostream>
 
 #include "bant/frontend/project-parser.h"
+#include "bant/types-bazel.h"
 
 namespace bant {
 // Given the current project, and the desired bazel rule pattern, resolve
 // all the relevant dependencies recusively until all dependencies are
 // resolved or could not be parsed.
 // TODO: given a pattern, we might be able to narrow.
-void ResolveMissingDependencies(ParsedProject *project, bool verbose,
+void ResolveMissingDependencies(ParsedProject *project,
+                                const BazelPattern &pattern,
+                                bool verbose,
                                 std::ostream &info_out, std::ostream &err_out);
 }  // namespace bant
 
