@@ -1,7 +1,6 @@
 { pkgs ? import <nixpkgs> {} }:
 let
   bant_used_stdenv = pkgs.stdenv;        # no layering_check but clangd works
-  #bant_used_stdenv = pkgs.gcc13Stdenv;
   #bant_used_stdenv = pkgs.clang17Stdenv;  # layering_check works, but clangd fails to understand c++ headers.
 in
 bant_used_stdenv.mkDerivation {

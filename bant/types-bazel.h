@@ -22,7 +22,6 @@
 #include <ostream>
 #include <string>
 #include <string_view>
-#include <tuple>
 
 namespace bant {
 // Something like //foo/bar or @baz//foo/bar

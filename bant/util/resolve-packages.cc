@@ -31,8 +31,6 @@
 namespace bant {
 namespace {
 
-constexpr std::string_view kExternalStart = "bazel-out/../../../external/";
-
 // TODO: this needs to move to file-utils
 std::vector<FilesystemPath> Glob(std::string pattern) {
   glob_t glob_list;
@@ -47,6 +45,7 @@ std::vector<FilesystemPath> Glob(std::string pattern) {
   return result;
 }
 
+// TODO: this should use the BazelWorkspace to determine external project paths.
 std::optional<FilesystemPath> PathForPackage(const BazelPackage &package) {
   if (package.project.empty()) {
     for (const std::string_view build_file : {"BUILD", "BUILD.bazel"}) {
@@ -58,7 +57,8 @@ std::optional<FilesystemPath> PathForPackage(const BazelPackage &package) {
     for (const std::string_view glob_prefix : {"/", "~*/"}) {
       for (const std::string_view build_test : {"BUILD", "BUILD.bazel"}) {
         const auto found_build =
-          Glob(absl::StrCat(kExternalStart, package.project.substr(1),
+          Glob(absl::StrCat(BazelWorkspace::kExternalBaseDir, "/",
+                            package.project.substr(1),
                             glob_prefix, package.path, "/", build_test));
         // TODO: just looking at first right now, should see if this is
         // a versioned one (need to look at MODULES.bazel to see what wanted)

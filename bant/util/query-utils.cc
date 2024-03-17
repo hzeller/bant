@@ -69,6 +69,10 @@ class TargetFinder : public BaseVisitor {
         current_.include_prefix = scalar->AsString();
       } else if (lhs == "strip_include_prefix") {
         current_.strip_include_prefix = scalar->AsString();
+      } else if (lhs == "version") {
+        current_.version = scalar->AsString();
+      } else if (lhs == "repo_name") {
+        current_.repo_name = scalar->AsString();
       }
     } else if (List *list = a->value()->CastAsList()) {
       if (lhs == "hdrs") {

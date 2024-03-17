@@ -35,12 +35,13 @@ namespace bant {
 class FilesystemPath {
  public:
   FilesystemPath() = default;
-  explicit FilesystemPath(std::string path) : path_(std::move(path)) {}
+  explicit FilesystemPath(std::string_view path) : path_(path) {}
   FilesystemPath(std::string_view path_up_to, std::string_view filename);
   FilesystemPath(std::string_view path_up_to, const struct dirent &dirent);
 
   FilesystemPath(FilesystemPath &&) = default;
   FilesystemPath(const FilesystemPath &) = default;
+  FilesystemPath& operator=(const FilesystemPath&) = default;
 
   const std::string &path() const { return path_; }
 
@@ -59,8 +60,10 @@ class FilesystemPath {
   enum class MemoizedResult : char { kUnknown, kNo, kYes };
   std::string path_;
 
+  // memoized start of filename.
+  mutable size_t filename_offset_ = std::string::npos;
+
   // Memoized results are updated in const methods and ok to have them mutable.
-  mutable std::string_view filename_;  // memoized filename
   mutable MemoizedResult can_read_ = MemoizedResult::kUnknown;
   mutable MemoizedResult is_dir_ = MemoizedResult::kUnknown;
   mutable MemoizedResult is_symlink_ = MemoizedResult::kUnknown;

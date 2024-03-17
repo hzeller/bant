@@ -37,8 +37,7 @@ FilesystemPath::FilesystemPath(std::string_view path_up_to,
   while (path_up_to.ends_with('/')) path_up_to.remove_suffix(1);
   path_.reserve(path_up_to.length() + 1 + filename.length());
   path_.append(path_up_to).append("/").append(filename);
-  filename_ = path_;
-  filename_ = filename_.substr(path_up_to.size() + 1);
+  filename_offset_ = path_up_to.size() + 1;
 }
 
 FilesystemPath::FilesystemPath(std::string_view path_up_to,
@@ -58,16 +57,17 @@ FilesystemPath::FilesystemPath(std::string_view path_up_to,
 }
 
 std::string_view FilesystemPath::filename() const {
-  if (!filename_.empty()) return filename_;
-
-  std::string_view full_path(path_);
-  auto last_slash = full_path.find_last_of('/');
-  if (last_slash != std::string::npos) {
-    filename_ = full_path.substr(last_slash + 1);
-  } else {
-    filename_ = full_path;
+  if (filename_offset_ == std::string::npos) {
+    std::string_view full_path(path_);
+    auto last_slash = full_path.find_last_of('/');
+    if (last_slash != std::string::npos) {
+      filename_offset_ = last_slash + 1;
+    } else {
+      filename_offset_ = 0;
+    }
   }
-  return filename_;
+  std::string_view filename = path_;
+  return filename.substr(filename_offset_);
 }
 
 bool FilesystemPath::can_read() const {

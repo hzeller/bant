@@ -120,6 +120,7 @@ Commands (unique prefix sufficient):
     parse          : Parse all BUILD files from pattern the ones they depend on.
     print          : Print rules matching pattern. -e : only files with errors
     list           : List all the build files found in project
+    workspace      : Print external projects found in WORKSPACE.
     lib-headers    : Print table header files -> libraries that define them.
     genrule-outputs: Print table generated files -> genrules creating them.
     dwyu           : DWYU: Depend on What You Use (emit buildozer edit script)
@@ -134,10 +135,11 @@ Commands (unique prefix sufficient):
  bant parse -C ~/src/verible -v  # Read project in given directory.
  bant print //foo:bar  # Print specific target AST matching pattern
  bant print //foo/...  # Print all build files matching recursive pattern.
+ bant workspace    # List all the external projects listed in workspace.
  bant list         # List all the build files including the referenced external
  bant list -x      # List BUILD files only in this project, no external.
  bant lib-headers  # For each header found in project, print exporting target.
- bant dwyu         # Look which headers are used and suggest add/remove deps
+ bant dwyu ...     # Look which headers are used and suggest add/remove deps
  . <(bant dwyu foo/...)  # fix dependencies in package foo/... in one line.
 ```
 

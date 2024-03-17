@@ -24,13 +24,33 @@
 #include <string>
 #include <vector>
 
-#include "absl/time/time.h"
 #include "bant/frontend/ast.h"
 #include "bant/frontend/named-content.h"
 #include "bant/types-bazel.h"
 #include "bant/util/file-utils.h"
+#include "bant/util/stat.h"
 
 namespace bant {
+
+struct VersionedProject {
+  std::string project;
+  std::string version;  // TODO: make this better to compare numerical versions
+
+  auto operator<=>(const VersionedProject &other) const = default;
+};
+
+struct BazelWorkspace {
+  // Where bazel stores all the external projects.
+  static const std::string_view kExternalBaseDir;
+
+  // Project to directory.
+  std::map<VersionedProject, FilesystemPath> project_location;
+};
+
+// Scan current directory for workspace files and create an index of all
+// external projects the workspace references.
+std::optional<BazelWorkspace> LoadWorkspace(std::ostream &info_out);
+
 struct ParsedBuildFile {
   ParsedBuildFile(std::string_view filename, std::string c)
       : content(std::move(c)), source(filename, content) {}
@@ -46,16 +66,6 @@ struct ParsedBuildFile {
   BazelPackage package;
   List *ast;           // parsed AST. Content owned by arena in ParsedProject
   std::string errors;  // List of errors if observed (todo: make actual list)
-};
-
-// TODO: this should probably be in a separate header
-struct Stat {
-  int count = 0;
-  absl::Duration duration;
-  std::optional<size_t> bytes_processed;
-
-  // Print readable string with "thing_name" used to describe the count.
-  std::string ToString(std::string_view thing_name) const;
 };
 
 // A Parsed project contains all the parsed files of a project.

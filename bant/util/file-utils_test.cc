@@ -44,4 +44,17 @@ TEST(FileUtils, FilesystemPathFromPath) {
   EXPECT_EQ(from_path.filename(), "baz");
 }
 
+TEST(FileUtils, FilesystemPathCopy) {
+  FilesystemPath from_path("foo/bar/baz");
+  EXPECT_EQ(from_path.path(), "foo/bar/baz");
+  EXPECT_EQ(from_path.filename(), "baz");
+
+  // Make sure a copied filename (that has a different path() string location,
+  // still outputs the correct filename (and does not have it cached as
+  // string-view pointing to the wrong location).
+  FilesystemPath other = from_path;
+  EXPECT_NE(&from_path.path(), &other.path());
+  EXPECT_EQ(other.filename(), "baz");
+}
+
 }  // namespace bant

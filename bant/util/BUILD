@@ -22,6 +22,16 @@ cc_library(
     ],
 )
 
+cc_library(
+    name = "stat",
+    srcs = ["stat.cc"],
+    hdrs = ["stat.h"],
+    deps = [
+        "@abseil-cpp//absl/strings:str_format",
+        "@abseil-cpp//absl/time",
+    ],
+)
+
 cc_test(
     name = "arena-container_test",
     size = "small",
