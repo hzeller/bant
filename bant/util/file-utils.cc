@@ -18,6 +18,7 @@
 
 #include <dirent.h>
 #include <fcntl.h>
+#include <glob.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 
@@ -104,6 +105,20 @@ static bool FollowLinkTestIsDir(const FilesystemPath &path, ino_t *out_inode) {
   if (stat(path.c_str(), &s) != 0) return false;
   *out_inode = s.st_ino;
   return S_ISDIR(s.st_mode);
+}
+
+std::vector<FilesystemPath> Glob(std::string_view glob_pattern) {
+  const std::string pattern(glob_pattern);
+  glob_t glob_list;
+  if (glob(pattern.c_str(), 0, nullptr, &glob_list) != 0) {
+    return {};
+  }
+  std::vector<FilesystemPath> result;
+  for (char **path = glob_list.gl_pathv; *path; ++path) {
+    result.emplace_back(*path);
+  }
+  globfree(&glob_list);
+  return result;
 }
 
 std::optional<std::string> ReadFileToString(const FilesystemPath &filename) {

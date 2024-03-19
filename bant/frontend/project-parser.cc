@@ -104,6 +104,17 @@ std::optional<BazelWorkspace> LoadWorkspace(std::ostream &info_out) {
         }
 
         if (!project_dir_found) {
+          // Maybe we got a different version ?
+          auto maybe_match = Glob(absl::StrCat(BazelWorkspace::kExternalBaseDir,
+                                               "/", result.name, "~*"));
+          if (!maybe_match.empty()) {
+            path = maybe_match.front();
+            project_dir_found = path.is_directory() && path.can_read();
+            // Should we extract version from path ?
+          }
+        }
+
+        if (!project_dir_found) {
           named_content.Loc(info_out, result.name)
             << " Can't find extracted project '" << result.name << "'\n";
           if (!did_bazel_run_already_printed) {

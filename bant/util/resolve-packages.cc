@@ -17,8 +17,6 @@
 
 #include "bant/util/resolve-packages.h"
 
-#include <glob.h>
-
 #include <optional>
 #include <set>
 
@@ -31,20 +29,6 @@
 namespace bant {
 namespace {
 
-// TODO: this needs to move to file-utils
-std::vector<FilesystemPath> Glob(std::string pattern) {
-  glob_t glob_list;
-  if (glob(pattern.c_str(), 0, nullptr, &glob_list) != 0) {
-    return {};
-  }
-  std::vector<FilesystemPath> result;
-  for (char **path = glob_list.gl_pathv; *path; ++path) {
-    result.emplace_back(*path);
-  }
-  globfree(&glob_list);
-  return result;
-}
-
 // TODO: this should use the BazelWorkspace to determine external project paths.
 std::optional<FilesystemPath> PathForPackage(const BazelPackage &package) {
   if (package.project.empty()) {
@@ -56,10 +40,9 @@ std::optional<FilesystemPath> PathForPackage(const BazelPackage &package) {
   } else {
     for (const std::string_view glob_prefix : {"/", "~*/"}) {
       for (const std::string_view build_test : {"BUILD", "BUILD.bazel"}) {
-        const auto found_build =
-          Glob(absl::StrCat(BazelWorkspace::kExternalBaseDir, "/",
-                            package.project.substr(1),
-                            glob_prefix, package.path, "/", build_test));
+        const auto found_build = Glob(absl::StrCat(
+          BazelWorkspace::kExternalBaseDir, "/", package.project.substr(1),
+          glob_prefix, package.path, "/", build_test));
         // TODO: just looking at first right now, should see if this is
         // a versioned one (need to look at MODULES.bazel to see what wanted)
         if (!found_build.empty()) {
@@ -76,8 +59,7 @@ std::optional<FilesystemPath> PathForPackage(const BazelPackage &package) {
 // Looking what we have, record what other deps we need, find these and parse.
 // Rinse/repeat until nothing more to add.
 void ResolveMissingDependencies(ParsedProject *project,
-                                const BazelPattern &pattern,
-                                bool verbose,
+                                const BazelPattern &pattern, bool verbose,
                                 std::ostream &info_out, std::ostream &err_out) {
   std::vector<const ParsedBuildFile *> to_scan;
   std::set<BazelPackage> known_packages;

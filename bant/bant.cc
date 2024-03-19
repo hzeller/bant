@@ -242,7 +242,7 @@ int main(int argc, char *argv[]) {
     auto workspace_or = bant::LoadWorkspace(*info_out);
     if (!workspace_or.has_value()) {
       std::cerr
-        << "Didn't find any workspace file. Is this a bazel project ?\n";
+        << "Didn't find any workspace file. Is this a bazel project root ?\n";
       return EXIT_FAILURE;
     }
 

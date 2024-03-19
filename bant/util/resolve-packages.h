@@ -29,8 +29,7 @@ namespace bant {
 // resolved or could not be parsed.
 // TODO: given a pattern, we might be able to narrow.
 void ResolveMissingDependencies(ParsedProject *project,
-                                const BazelPattern &pattern,
-                                bool verbose,
+                                const BazelPattern &pattern, bool verbose,
                                 std::ostream &info_out, std::ostream &err_out);
 }  // namespace bant
 

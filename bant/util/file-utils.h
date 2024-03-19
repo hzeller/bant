@@ -41,7 +41,7 @@ class FilesystemPath {
 
   FilesystemPath(FilesystemPath &&) = default;
   FilesystemPath(const FilesystemPath &) = default;
-  FilesystemPath& operator=(const FilesystemPath&) = default;
+  FilesystemPath &operator=(const FilesystemPath &) = default;
 
   const std::string &path() const { return path_; }
 
@@ -68,6 +68,9 @@ class FilesystemPath {
   mutable MemoizedResult is_dir_ = MemoizedResult::kUnknown;
   mutable MemoizedResult is_symlink_ = MemoizedResult::kUnknown;
 };
+
+// Given a shell-globbing pattern, return all the matching files.
+std::vector<FilesystemPath> Glob(std::string_view glob_pattern);
 
 // Given a filename, read the content of the file into a string. If there was
 // an error, return a nullopt.
