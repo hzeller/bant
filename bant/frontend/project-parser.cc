@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_split.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "bant/frontend/parser.h"
@@ -59,84 +60,6 @@ static FilesystemPath ExternalProjectDir() {
   return FilesystemPath(absl::StrCat(external_base, "/external"));
 }
 }  // namespace
-
-/*static*/ const std::string_view BazelWorkspace::kExternalBaseDir =
-  "bazel-out/../../../external";
-
-std::optional<BazelWorkspace> LoadWorkspace(std::ostream &info_out) {
-  bool workspace_found = false;
-  BazelWorkspace workspace;
-  bool did_bazel_run_already_printed = false;
-  for (const auto ws :
-       {"WORKSPACE", "WORKSPACE.bazel", "WORKSPACE.bzlmod", "MODULE.bazel"}) {
-    std::optional<std::string> content = ReadFileToString(FilesystemPath(ws));
-    if (!content.has_value()) continue;
-    // TODO: maybe store the names_content for later use. Right now we only
-    // parse once, then don't worry about keeping content.
-    NamedLineIndexedContent named_content(ws, content.value());
-    Arena arena(1 << 16);
-
-    Scanner scanner(named_content);
-    std::stringstream error_collect;
-    Parser parser(&scanner, &arena, info_out);
-    Node *ast = parser.parse();
-    if (ast) workspace_found = true;
-    query::FindTargets(
-      ast, {"http_archive", "bazel_dep"}, [&](const query::Result &result) {
-        // Sometimes, the versin is attached to the dirs, somtimes not. Not
-        // clear why, but check for both if we have a version.
-        std::vector<std::string> search_dirs;
-        if (!result.version.empty()) {
-          search_dirs.push_back(absl::StrCat(result.name, "~", result.version));
-        }
-        search_dirs.emplace_back(result.name);
-
-        // Also a plausible location when archive_override() is used:
-        search_dirs.push_back(absl::StrCat(result.name, "~override"));
-
-        FilesystemPath path;
-        bool project_dir_found = false;
-        for (std::string dir : search_dirs) {
-          path = FilesystemPath(BazelWorkspace::kExternalBaseDir, dir);
-          if (!path.is_directory() || !path.can_read()) continue;
-          project_dir_found = true;
-          break;
-        }
-
-        if (!project_dir_found) {
-          // Maybe we got a different version ?
-          auto maybe_match = Glob(absl::StrCat(BazelWorkspace::kExternalBaseDir,
-                                               "/", result.name, "~*"));
-          if (!maybe_match.empty()) {
-            path = maybe_match.front();
-            project_dir_found = path.is_directory() && path.can_read();
-            // Should we extract version from path ?
-          }
-        }
-
-        if (!project_dir_found) {
-          named_content.Loc(info_out, result.name)
-            << " Can't find extracted project '" << result.name << "'\n";
-          if (!did_bazel_run_already_printed) {
-            info_out << "Note: need to run a bazel build at least once to "
-                     << "extract external projects\n";
-            did_bazel_run_already_printed = true;
-          }
-          return;
-        }
-
-        VersionedProject project;
-        project.project =
-          result.repo_name.empty() ? result.name : result.repo_name;
-        project.version = result.version;
-        workspace.project_location[project] = path;
-      });
-  }
-  if (!workspace_found) return std::nullopt;
-  // TODO: check that directory if there are other projects ? In projcts that
-  // obfuscate WORKSPACE by including a *.bzl.
-  return workspace;
-}
 
 std::vector<FilesystemPath> CollectBuildFiles(const BazelPattern &pattern,
                                               Stat &stats) {

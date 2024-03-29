@@ -25,6 +25,7 @@
 #include "bant/types-bazel.h"
 #include "bant/util/file-utils.h"
 #include "bant/util/query-utils.h"
+#include "bant/workspace.h"
 
 namespace bant {
 namespace {

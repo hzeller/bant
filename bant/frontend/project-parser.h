@@ -32,25 +32,6 @@
 
 namespace bant {
 
-struct VersionedProject {
-  std::string project;
-  std::string version;  // TODO: make this better to compare numerical versions
-
-  auto operator<=>(const VersionedProject &other) const = default;
-};
-
-struct BazelWorkspace {
-  // Where bazel stores all the external projects.
-  static const std::string_view kExternalBaseDir;
-
-  // Project to directory.
-  std::map<VersionedProject, FilesystemPath> project_location;
-};
-
-// Scan current directory for workspace files and create an index of all
-// external projects the workspace references.
-std::optional<BazelWorkspace> LoadWorkspace(std::ostream &info_out);
-
 struct ParsedBuildFile {
   ParsedBuildFile(std::string_view filename, std::string c)
       : content(std::move(c)), source(filename, content) {}

@@ -69,6 +69,7 @@ cc_library(
         ":file-utils",
         ":query-utils",
         "//bant:types-bazel",
+        "//bant:workspace",
         "//bant/frontend:project-parser",
         "@abseil-cpp//absl/strings",
     ],

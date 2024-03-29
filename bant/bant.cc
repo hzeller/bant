@@ -30,6 +30,7 @@
 #include "bant/tool/header-providers.h"
 #include "bant/types-bazel.h"
 #include "bant/util/resolve-packages.h"
+#include "bant/workspace.h"
 
 static int usage(const char *prog, int exit_code) {
   fprintf(stderr,

@@ -20,6 +20,7 @@ cc_binary(
     ],
     deps = [
         ":types-bazel",
+        ":workspace",
         "//bant/frontend:project-parser",
         "//bant/tool:canon-targets",
         "//bant/tool:dwyu",
@@ -39,6 +40,19 @@ cc_library(
     ],
     deps = [
         "@abseil-cpp//absl/log:check",
+        "@abseil-cpp//absl/strings",
+    ],
+)
+
+cc_library(
+    name = "workspace",
+    srcs = ["workspace.cc"],
+    hdrs = ["workspace.h"],
+    deps = [
+        "//bant/frontend:parser",
+        "//bant/util:file-utils",
+        "//bant/util:memory",
+        "//bant/util:query-utils",
         "@abseil-cpp//absl/strings",
     ],
 )
