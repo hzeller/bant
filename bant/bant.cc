@@ -39,8 +39,6 @@ static int usage(const char *prog, int exit_code) {
   fprintf(stderr, "Usage: %s [options] <command> [pattern]\n", prog);
   fprintf(stderr, R"(Options
     -C <directory> : Change to project directory (default = '.')
-    -x             : Do not read BUILD files of eXternal projects (e.g. @foo)
-                     (i.e. only read the files in the direct project)
     -q             : Quiet: don't print info messages to stderr.
     -o <filename>  : Instead of stdout, emit command primary output to file.
     -v             : Verbose; print some stats.
@@ -49,7 +47,7 @@ static int usage(const char *prog, int exit_code) {
 Commands (unique prefix sufficient):
     parse          : Parse all BUILD files from pattern the ones they depend on.
     print          : Print rules matching pattern. -e : only files with errors
-    list           : List all the build files found in project
+    list           : List all the build files relevant for the pattern.
     workspace      : Print external projects found in WORKSPACE.
     lib-headers    : Print table header files -> libraries that define them.
     genrule-outputs: Print table generated files -> genrules creating them.
@@ -188,8 +186,17 @@ int main(int argc, char *argv[]) {
     }
   }
 
+  auto workspace_or = bant::LoadWorkspace(*info_out);
+  if (!workspace_or.has_value()) {
+    std::cerr
+      << "Didn't find any workspace file. Is this a bazel project root ?\n";
+    return EXIT_FAILURE;
+  }
+  const bant::BazelWorkspace &workspace = workspace_or.value();
+
   bant::Stat file_collect_stats;
-  auto build_files = bant::CollectBuildFiles(pattern, file_collect_stats);
+  const auto build_files =
+    bant::CollectBuildFiles(workspace, pattern, file_collect_stats);
 
   bant::Stat deps_stat;
 
@@ -200,9 +207,10 @@ int main(int argc, char *argv[]) {
   for (const auto &build_file : build_files) {
     project.AddBuildFile(build_file, *info_out, parse_err_out);
   }
+
   if (cmd != Command::kCanonicalizeDeps && cmd != Command::kPrint &&
       cmd != Command::kListWorkkspace) {
-    bant::ResolveMissingDependencies(&project, pattern, verbose,  //
+    bant::ResolveMissingDependencies(workspace, &project, pattern, verbose,  //
                                      *info_out, *info_out);
   }
 
@@ -240,13 +248,6 @@ int main(int argc, char *argv[]) {
   case Command::kListWorkkspace: {
     // For now, we just load the workspace file in this command. We might need
     // it later also to resolve dependencies.
-    auto workspace_or = bant::LoadWorkspace(*info_out);
-    if (!workspace_or.has_value()) {
-      std::cerr
-        << "Didn't find any workspace file. Is this a bazel project root ?\n";
-      return EXIT_FAILURE;
-    }
-
     for (const auto &[project, file] : workspace_or->project_location) {
       *primary_out << absl::StrFormat(
         "%-33s %12s %s\n", project.project,

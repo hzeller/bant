@@ -27,6 +27,16 @@
 
 namespace bant {
 
+static constexpr std::string_view kExternalBaseDir =
+  "bazel-out/../../../external";
+
+// Some projects somewhat obfuscate the dependencies (looking at you, XLS), by
+// putting things in various bzl files instead of a simple toplevel
+// WORKSPACE or MODULE.bazel.
+// Do some fallback by checking these directories.
+// TODO: maybe only enable fallback with some flag.
+static constexpr bool kAttemptLoadingFromDirectoryStructure = true;
+
 /*static*/ std::optional<VersionedProject> VersionedProject::ParseFromDir(
   std::string_view dir) {
   if (dir.empty()) return std::nullopt;
@@ -45,6 +55,8 @@ namespace bant {
 
 std::optional<FilesystemPath> BazelWorkspace::FindPathByProject(
   std::string_view name) const {
+  if (name.empty()) return std::nullopt;
+  if (name[0] == '@') name.remove_prefix(1);
   VersionedProject query{.project = std::string(name), .version = ""};
   auto found = project_location.lower_bound(query);
   if (found == project_location.end()) return std::nullopt;
@@ -52,19 +64,9 @@ std::optional<FilesystemPath> BazelWorkspace::FindPathByProject(
   return found->second;
 }
 
-// TODO: move this local.
-/*static*/ const std::string_view BazelWorkspace::kExternalBaseDir =
-  "bazel-out/../../../external";
-
-// Some projects somewhat obfuscate the dependencies (looking at you, XLS), by
-// putting things in various bzl files instead of a simple toplevel
-// WORKSPACE or MODULE.bazel.
-// Do some fallback by checking these directories.
-// TODO: maybe only enable fallback with some flag.
-static constexpr bool kAttemptLoadingFromDirectoryStructure = true;
-
 static bool BestEffortAugmentProjectFromDir(BazelWorkspace &workspace) {
-  std::string pattern = absl::StrCat(BazelWorkspace::kExternalBaseDir, "/*");
+  bool any_found = false;
+  const std::string pattern = absl::StrCat(kExternalBaseDir, "/*");
   for (const FilesystemPath &project_dir : Glob(pattern)) {
     if (!project_dir.is_directory()) continue;
     std::string_view project_name = project_dir.filename();
@@ -72,10 +74,11 @@ static bool BestEffortAugmentProjectFromDir(BazelWorkspace &workspace) {
     if (!project_or) continue;
     // If there is any version of that project already, don't bother.
     if (!workspace.FindPathByProject(project_or->project)) {
+      any_found = true;
       workspace.project_location[*project_or] = project_dir;
     }
   }
-  return true;
+  return any_found;
 }
 
 std::optional<BazelWorkspace> LoadWorkspace(std::ostream &info_out) {
@@ -112,7 +115,7 @@ std::optional<BazelWorkspace> LoadWorkspace(std::ostream &info_out) {
         FilesystemPath path;
         bool project_dir_found = false;
         for (std::string dir : search_dirs) {
-          path = FilesystemPath(BazelWorkspace::kExternalBaseDir, dir);
+          path = FilesystemPath(kExternalBaseDir, dir);
           if (!path.is_directory() || !path.can_read()) continue;
           project_dir_found = true;
           break;
@@ -120,8 +123,8 @@ std::optional<BazelWorkspace> LoadWorkspace(std::ostream &info_out) {
 
         if (!project_dir_found) {
           // Maybe we got a different version ?
-          auto maybe_match = Glob(absl::StrCat(BazelWorkspace::kExternalBaseDir,
-                                               "/", result.name, "~*"));
+          auto maybe_match =
+            Glob(absl::StrCat(kExternalBaseDir, "/", result.name, "~*"));
           if (!maybe_match.empty()) {
             path = maybe_match.front();
             project_dir_found = path.is_directory() && path.can_read();

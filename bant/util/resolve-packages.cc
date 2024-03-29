@@ -30,36 +30,38 @@
 namespace bant {
 namespace {
 
-// TODO: this should use the BazelWorkspace to determine external project paths.
-std::optional<FilesystemPath> PathForPackage(const BazelPackage &package) {
-  if (package.project.empty()) {
-    for (const std::string_view build_file : {"BUILD", "BUILD.bazel"}) {
-      FilesystemPath test_path(package.path, build_file);
-      if (test_path.can_read()) return test_path;
+std::optional<FilesystemPath> PathForPackage(const BazelWorkspace &workspace,
+                                             const BazelPackage &package,
+                                             std::ostream &info_out) {
+  std::string start_path;
+  if (!package.project.empty()) {
+    auto project_path_or = workspace.FindPathByProject(package.project);
+    if (!project_path_or.has_value()) {
+      // The following message would be too noisy right now as we attempt to
+      // read more dependencies than we need.
+      // info_out << "Can't find referenced " << package.project << "\n";
+      return std::nullopt;
     }
-    return std::nullopt;
-  } else {
-    for (const std::string_view glob_prefix : {"/", "~*/"}) {
-      for (const std::string_view build_test : {"BUILD", "BUILD.bazel"}) {
-        const auto found_build = Glob(absl::StrCat(
-          BazelWorkspace::kExternalBaseDir, "/", package.project.substr(1),
-          glob_prefix, package.path, "/", build_test));
-        // TODO: just looking at first right now, should see if this is
-        // a versioned one (need to look at MODULES.bazel to see what wanted)
-        if (!found_build.empty()) {
-          return found_build.front();
-        }
-      }
-    }
-    return std::nullopt;
+    start_path = project_path_or.value().path();
   }
+
+  if (!package.path.empty()) {
+    if (!start_path.empty()) start_path.append("/");
+    start_path.append(package.path);
+  }
+  for (const std::string_view build_file : {"BUILD", "BUILD.bazel"}) {
+    FilesystemPath test_path(start_path, build_file);
+    if (test_path.can_read()) return test_path;
+  }
+  return std::nullopt;
 }
 
 }  // namespace
 
 // Looking what we have, record what other deps we need, find these and parse.
 // Rinse/repeat until nothing more to add.
-void ResolveMissingDependencies(ParsedProject *project,
+void ResolveMissingDependencies(const BazelWorkspace &workspace,
+                                ParsedProject *project,
                                 const BazelPattern &pattern, bool verbose,
                                 std::ostream &info_out, std::ostream &err_out) {
   std::vector<const ParsedBuildFile *> to_scan;
@@ -103,11 +105,13 @@ void ResolveMissingDependencies(ParsedProject *project,
         });
     }
     to_scan.clear();
-    info_out << "\r" << before_size << " of " << known_packages.size()
-             << " packages loaded";
+    if (verbose) {
+      info_out << "\r" << before_size << " of " << known_packages.size()
+               << " packages loaded";
+    }
 
     for (const BazelPackage &package : work_list) {
-      auto path = PathForPackage(package);
+      auto path = PathForPackage(workspace, package, info_out);
       if (!path.has_value()) {
         error_packages.push_back(package);
         continue;
@@ -119,15 +123,15 @@ void ResolveMissingDependencies(ParsedProject *project,
     work_list.clear();
   }
 
-  info_out << "\r" << project->ParsedFiles().size() << " of "
-           << known_packages.size() << " packages loaded";
-  if (!error_packages.empty()) {
-    info_out << "; issues with " << error_packages.size();
-  }
   if (verbose) {
+    info_out << "\r" << project->ParsedFiles().size() << " of "
+             << known_packages.size() << " packages loaded";
+    if (!error_packages.empty()) {
+      info_out << "; issues with " << error_packages.size();
+    }
     info_out << "; " << rounds << " rounds of following dependencies.";
+    info_out << "\n";
   }
-  info_out << "\n";
 
   if (verbose) {
     // TODO: maybe we should record where we have seen the package.

@@ -36,9 +36,6 @@ struct VersionedProject {
 };
 
 struct BazelWorkspace {
-  // Where bazel stores all the external projects.
-  static const std::string_view kExternalBaseDir;
-
   // Returns the first Version that matches project name.
   std::optional<FilesystemPath> FindPathByProject(std::string_view name) const;
 

@@ -86,6 +86,7 @@ cc_library(
         ":named-content",
         ":parser",
         "//bant:types-bazel",
+        "//bant:workspace",
         "//bant/util:file-utils",
         "//bant/util:query-utils",
         "//bant/util:stat",

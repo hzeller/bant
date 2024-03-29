@@ -53,6 +53,7 @@ std::optional<BazelPackage> PackageFromExternal(std::string_view path) {
 
 // Assemble a path that points to the symbolik link bazel generates for
 // the external location.
+// TODO: get from workspace
 static FilesystemPath ExternalProjectDir() {
   const std::string project_dir_name =
     std::filesystem::current_path().filename().string();
@@ -61,15 +62,19 @@ static FilesystemPath ExternalProjectDir() {
 }
 }  // namespace
 
-std::vector<FilesystemPath> CollectBuildFiles(const BazelPattern &pattern,
+std::vector<FilesystemPath> CollectBuildFiles(const BazelWorkspace &workspace,
+                                              const BazelPattern &pattern,
                                               Stat &stats) {
   bool recursive = pattern.is_recursive();
   std::string start_dir;
   if (!pattern.project().empty()) {
-    // TODO: with versioning, this will look differently.
-    start_dir.append("bazel-out/../../../external/")
-      .append(pattern.project().substr(1))
-      .append("/");
+    auto dir_or = workspace.FindPathByProject(pattern.project());
+    if (!dir_or.has_value()) {
+      std::cerr << "Unknown project " << pattern.project() << "\n";
+      return {};
+    }
+    start_dir = dir_or->path();
+    start_dir.append("/");
   }
   start_dir.append(pattern.path());
   if (start_dir.empty()) start_dir = ".";
@@ -87,6 +92,7 @@ std::vector<FilesystemPath> CollectBuildFiles(const BazelPattern &pattern,
     if (dir.is_symlink()) return false;
     const std::string_view filename = dir.filename();
     if (filename == "_tmp") return false;
+    if (filename == ".cache") return false;
     if (filename == ".git") return false;  // lots of irrelevant stuff
     return true;
   };

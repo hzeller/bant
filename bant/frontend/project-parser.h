@@ -19,7 +19,6 @@
 #define BANT_PROJECT_PARDER_
 
 #include <map>
-#include <optional>
 #include <ostream>
 #include <string>
 #include <vector>
@@ -29,6 +28,7 @@
 #include "bant/types-bazel.h"
 #include "bant/util/file-utils.h"
 #include "bant/util/stat.h"
+#include "bant/workspace.h"
 
 namespace bant {
 
@@ -87,7 +87,9 @@ class ParsedProject {
 
 // Convenience function to just collect all the BUILD files. Update "stats"
 // with total files searched and total time.
-std::vector<FilesystemPath> CollectBuildFiles(const BazelPattern &pattern,
+// If pattern contains a project name, the path is resolved from "workspace".
+std::vector<FilesystemPath> CollectBuildFiles(const BazelWorkspace &workspace,
+                                              const BazelPattern &pattern,
                                               Stat &stats);
 
 // Convenience function to print a fully parsed project, recreated from the

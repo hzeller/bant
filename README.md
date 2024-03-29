@@ -94,7 +94,7 @@ bazel run -c opt //bant:install -- -s /usr/local/bin
 
 Note, `bant` can only find external projects if `bazel` has set up the
 workspace, and fetched, unpacked and made visible these into
-`bazel-${yourproject}/external`.
+`bazel-out/../../../external`
 
 Bant never does any fetching, it just observes the existing workspace. Given
 that `bazel` adapts the visible external projecgts depending on what targets
