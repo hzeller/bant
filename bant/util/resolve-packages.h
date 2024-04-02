@@ -25,14 +25,18 @@
 #include "bant/workspace.h"
 
 namespace bant {
-// Given the current project, and the desired bazel rule pattern, resolve
-// all the relevant dependencies recusively until all dependencies are
-// resolved or could not be parsed.
-// TODO: given a pattern, we might be able to narrow.
-void ResolveMissingDependencies(const BazelWorkspace &workspace,
-                                ParsedProject *project,
-                                const BazelPattern &pattern, bool verbose,
-                                std::ostream &info_out, std::ostream &err_out);
+struct DependencyGraph {
+  using OneToN = std::map<BazelTarget, std::vector<BazelTarget>>;
+  OneToN depends_on;
+  OneToN has_dependents;
+};
+
+// Build Dependency graph for all targets matching "pattern". Might update
+// "project" with new files to be parsed.
+DependencyGraph BuildDependencyGraph(const BazelWorkspace &workspace,
+                                     const BazelPattern &pattern,
+                                     ParsedProject *project, bool verbose,
+                                     std::ostream &info_out);
 }  // namespace bant
 
 #endif  // BANT_UTIL_RESOLVE_PACKAGES_

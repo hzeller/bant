@@ -130,5 +130,10 @@ void ExtractStringList(List *list, std::vector<std::string_view> &append_to) {
   }
 }
 
+std::vector<std::string_view> ExtractStringList(List *list) {
+  std::vector<std::string_view> result;
+  ExtractStringList(list, result);
+  return result;
+}
 }  // namespace query
 }  // namespace bant

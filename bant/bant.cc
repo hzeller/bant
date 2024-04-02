@@ -208,11 +208,13 @@ int main(int argc, char *argv[]) {
     project.AddBuildFile(build_file, *info_out, parse_err_out);
   }
 
-  if (cmd != Command::kCanonicalizeDeps && cmd != Command::kPrint &&
-      cmd != Command::kListWorkkspace) {
-    bant::ResolveMissingDependencies(workspace, &project, pattern, verbose,  //
-                                     *info_out, *info_out);
-  }
+  // TODO: right now, always create depenency graph, but we only need it
+  // for some commands.
+  const bant::DependencyGraph graph = bant::BuildDependencyGraph(
+    workspace, pattern, &project, verbose, *info_out);
+  *info_out << "Found " << graph.depends_on.size()
+            << " Targets with dependencies; " << graph.has_dependents.size()
+            << " referenced by others.\n";
 
   switch (cmd) {
   case Command::kPrint: print_ast = true; [[fallthrough]];

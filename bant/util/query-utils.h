@@ -61,6 +61,7 @@ void FindTargets(Node *ast,
 // vector. The original string-views are preserved, so can be used to recover
 // location in file.
 void ExtractStringList(List *list, std::vector<std::string_view> &append_to);
+std::vector<std::string_view> ExtractStringList(List *list);
 
 }  // namespace query
 }  // namespace bant

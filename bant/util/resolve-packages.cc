@@ -17,6 +17,7 @@
 
 #include "bant/util/resolve-packages.h"
 
+#include <initializer_list>
 #include <optional>
 #include <set>
 
@@ -56,88 +57,130 @@ std::optional<FilesystemPath> PathForPackage(const BazelWorkspace &workspace,
   return std::nullopt;
 }
 
+void FindAndParseMissingPackages(const std::set<BazelPackage> &want,
+                                 const BazelWorkspace &workspace,
+                                 std::set<BazelPackage> *known_packages,
+                                 std::vector<BazelPackage> *error_packages,
+                                 ParsedProject *project,
+                                 std::ostream &info_out) {
+  std::vector<BazelPackage> package_todo;
+  std::set_difference(want.begin(), want.end(),  //
+                      known_packages->begin(), known_packages->end(),
+                      std::back_inserter(package_todo));
+  for (const BazelPackage &package : package_todo) {
+    auto path = PathForPackage(workspace, package, info_out);
+    if (!path.has_value()) {
+      error_packages->push_back(package);
+      continue;
+    }
+    project->AddBuildFile(*path, package, info_out, info_out);
+    known_packages->insert(package);
+  }
+}
+
+template <typename Container>
+void PrintList(std::ostream &out, const char *msg, const Container &c) {
+  out << msg;
+  for (const auto &element : c) {
+    out << "\t" << element << "\n";
+  }
+  out << "\n";
+}
+
 }  // namespace
 
-// Looking what we have, record what other deps we need, find these and parse.
-// Rinse/repeat until nothing more to add.
-void ResolveMissingDependencies(const BazelWorkspace &workspace,
-                                ParsedProject *project,
-                                const BazelPattern &pattern, bool verbose,
-                                std::ostream &info_out, std::ostream &err_out) {
-  std::vector<const ParsedBuildFile *> to_scan;
-  std::set<BazelPackage> known_packages;
+DependencyGraph BuildDependencyGraph(const BazelWorkspace &workspace,
+                                     const BazelPattern &pattern,
+                                     ParsedProject *project, bool verbose,
+                                     std::ostream &info_out) {
+  const std::initializer_list<std::string_view> kRulesOfInterest = {
+    "cc_library", "cc_test", "cc_binary"};
 
-  // TODO: here, we base our starting point from the files we have, that
-  // have been derived from the pattern.
-  // It would probably be better to start out with and empty project and
-  // handle all the pattern expansion of files to look at here.
+  std::vector<BazelPackage> error_packages;
+  std::vector<BazelTarget> error_targets;
+
+  std::set<BazelPackage> known_packages;
+  std::set<BazelTarget> target_todo;
+
+  // Build the initial set of targets to follow.
   for (const auto &[_, parsed] : project->ParsedFiles()) {
-    known_packages.insert(parsed->package);
-    if (pattern.Match(parsed->package)) {
-      to_scan.push_back(parsed.get());
-    }
+    const BazelPackage &current_package = parsed->package;
+    known_packages.insert(current_package);
+    if (!pattern.Match(parsed->package)) continue;
+    query::FindTargets(parsed->ast, kRulesOfInterest,  //
+                       [&](const query::Result &result) {
+                         auto target_or =
+                           BazelTarget::ParseFrom(result.name, current_package);
+                         if (!target_or || !pattern.Match(*target_or)) return;
+                         target_todo.insert(*target_or);
+                       });
   }
 
-  int rounds = 0;
-  std::vector<BazelPackage> error_packages;
-  std::vector<BazelPackage> work_list;
-  while (!to_scan.empty()) {
-    ++rounds;
-    const size_t before_size = known_packages.size();
-    for (const ParsedBuildFile *parsed : to_scan) {
-      if (!parsed->ast) continue;
-      const BazelPackage &current_package = parsed->package;
-      query::FindTargets(
-        parsed->ast, {"cc_library", "cc_test", "cc_binary"},
-        [&](const query::Result &params) {
-          // Look at all dependencies and add them if needed.
-          std::vector<std::string_view> all_dependencies;
-          query::ExtractStringList(params.deps_list, all_dependencies);
+  DependencyGraph graph;
+  do {
+    if (verbose) {
+      std::cerr << "-- target-todo with " << target_todo.size() << " items\n";
+    }
 
-          for (std::string_view dep : all_dependencies) {
-            auto target = BazelTarget::ParseFrom(dep, current_package);
-            if (!target.has_value()) continue;
-            const BazelPackage &maybe_need = target->package;
-            if (known_packages.insert(maybe_need).second) {
-              work_list.push_back(maybe_need);
+    // Only need to look in a subset of packages requested by our target todo
+    std::set<BazelPackage> scan_package;
+    for (const auto &t : target_todo) scan_package.insert(t.package);
+
+    // Make sure that we have parsed all packages we're looking through.
+    FindAndParseMissingPackages(scan_package, workspace, &known_packages,
+                                &error_packages, project, info_out);
+
+    std::set<BazelTarget> next_target_todo;
+    // TODO: provide a lookup given a package from project.
+    for (const auto &[_, parsed] : project->ParsedFiles()) {
+      const BazelPackage &current_package = parsed->package;
+      if (!scan_package.contains(current_package)) continue;  // not interested.
+      query::FindTargets(
+        parsed->ast, kRulesOfInterest, [&](const query::Result &result) {
+          auto target_or = BazelTarget::ParseFrom(result.name, current_package);
+          if (!target_or.has_value()) return;
+          const bool interested = target_todo.erase(*target_or) == 1;
+          // std::cerr << (interested ? " * " : "   ") << *target_or << "\n";
+          if (!interested) return;
+          // The list to insert to.
+          std::vector<BazelTarget> &depends_on =
+            graph.depends_on.insert({*target_or, {}}).first->second;
+          for (auto dep : query::ExtractStringList(result.deps_list)) {
+            auto dependency_or = BazelTarget::ParseFrom(dep, current_package);
+            if (!dependency_or.has_value()) continue;
+
+            // If this dependency is a target that we have not seen yet or will
+            // see in this round, put in the next todo.
+            if (!graph.depends_on.contains(*dependency_or) &&
+                !target_todo.contains(*dependency_or)) {
+              next_target_todo.insert(*dependency_or);
             }
+
+            depends_on.push_back(*dependency_or);
+            graph.has_dependents[*dependency_or].push_back(*target_or);
           }
         });
     }
-    to_scan.clear();
-    if (verbose) {
-      info_out << "\r" << before_size << " of " << known_packages.size()
-               << " packages loaded";
-    }
 
-    for (const BazelPackage &package : work_list) {
-      auto path = PathForPackage(workspace, package, info_out);
-      if (!path.has_value()) {
-        error_packages.push_back(package);
-        continue;
-      }
-      const auto parsed =
-        project->AddBuildFile(*path, package, info_out, err_out);
-      if (parsed) to_scan.push_back(parsed);
-    }
-    work_list.clear();
+    // Leftover todos are were not found.
+    error_targets.insert(error_targets.end(), target_todo.begin(),
+                         target_todo.end());
+
+    target_todo = next_target_todo;
+  } while (!target_todo.empty());
+
+  if (!error_packages.empty()) {
+    PrintList(info_out, "Trouble finding packages", error_packages);
   }
 
-  if (verbose) {
-    info_out << "\r" << project->ParsedFiles().size() << " of "
-             << known_packages.size() << " packages loaded";
-    if (!error_packages.empty()) {
-      info_out << "; issues with " << error_packages.size();
-    }
-    info_out << "; " << rounds << " rounds of following dependencies.";
-    info_out << "\n";
+  if (verbose && !error_targets.empty()) {
+    // Currently, we have a lot of targets that we don't deal with yet, such as
+    // genrules or protobuffer rules. Goal: should be zero.
+    // But for now: hide behind 'verbose' flag, to not be too noisy.
+    PrintList(info_out, "Could not find these Targets\n", error_targets);
   }
 
-  if (verbose) {
-    // TODO: maybe we should record where we have seen the package.
-    for (const BazelPackage &missing : error_packages) {
-      info_out << missing << ": Could not find BUILD file\n";
-    }
-  }
+  return graph;
 }
+
 }  // namespace bant
