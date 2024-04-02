@@ -20,7 +20,7 @@
 
 #include <map>
 #include <ostream>
-#include <string>
+#include <string_view>
 
 #include "bant/util/stat.h"
 
@@ -29,9 +29,7 @@ namespace bant {
 // error and info messages.
 class Session {
  public:
-  // TODO: this should be something more akin of a linked hash map get
-  // a chronology what happend when.
-  using StatMap = std::map<std::string, bant::Stat>;
+  using StatMap = std::map<std::string_view, bant::Stat>;
 
   Session(std::ostream *out, std::ostream *info, bool verbose)
       : out_(out), info_(info), verbose_(verbose) {}
@@ -42,15 +40,33 @@ class Session {
 
   bool verbose() const { return verbose_; }
 
-  // Get a stat object to fill/update. Various subsystems can request these.
-  Stat &GetStatsFor(const std::string &subsystem_name) {
-    return stats_.insert({subsystem_name, {}}).first->second;
+  // Get a stat object to fill/update. The "subsystem_name" describes who is
+  // collecting stats, the "subject" is what (e.g. file-count etc).
+  // Both strings needs to outlive this session object, so typically a regular
+  // compile-time string constant.
+  Stat &GetStatsFor(std::string_view subsystem_name, std::string_view subject) {
+    auto inserted = stats_.insert({subsystem_name, {subject}});
+    if (inserted.second) {
+      stat_init_key_order_.push_back(subsystem_name);
+    }
+    return inserted.first->second;
   }
 
-  const StatMap &stats() const { return stats_; }
+  // Return stat keys in the sequence they have been added.
+  const std::vector<std::string_view> &stat_keys() const {
+    return stat_init_key_order_;
+  }
+
+  // Get stat for subsystem or nullptr, if there is no such stat.
+  const Stat *stat(std::string_view subsystem_name) const {
+    auto found = stats_.find(subsystem_name);
+    return (found != stats_.end()) ? &found->second : nullptr;
+  }
 
  private:
   StatMap stats_;
+  std::vector<std::string_view> stat_init_key_order_;
+
   std::ostream *out_;
   std::ostream *info_;
   bool verbose_;

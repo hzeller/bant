@@ -92,6 +92,5 @@ cc_library(
         "//bant/util:query-utils",
         "//bant/util:stat",
         "@abseil-cpp//absl/strings",
-        "@abseil-cpp//absl/time",
     ],
 )

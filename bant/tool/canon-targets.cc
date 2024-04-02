@@ -17,8 +17,6 @@
 
 #include "bant/tool/canon-targets.h"
 
-#include "absl/time/clock.h"
-#include "absl/time/time.h"
 #include "bant/types-bazel.h"
 #include "bant/util/query-utils.h"
 
@@ -27,10 +25,9 @@ void CreateCanonicalizeEdits(Session &session, const ParsedProject &project,
                              const BazelPattern &pattern,
                              const EditCallback &emit_canon_edit) {
   std::ostream &info_out = session.info();
-  Stat &stats = session.GetStatsFor("Canonicalization checked");
-  stats.thing_name = "dependencies";
+  Stat &stats = session.GetStatsFor("Canonicalization checked", "dependencies");
+  ScopedTimer timer(&stats.duration);
 
-  const absl::Time start_time = absl::Now();
   for (const auto &[_, parsed_package] : project.ParsedFiles()) {
     if (!pattern.Match(parsed_package->package)) {
       continue;
@@ -64,6 +61,5 @@ void CreateCanonicalizeEdits(Session &session, const ParsedProject &project,
         }
       });
   }
-  stats.duration = absl::Now() - start_time;
 }
 }  // namespace bant

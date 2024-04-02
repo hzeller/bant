@@ -23,9 +23,6 @@
 #include <vector>
 
 #include "absl/strings/str_cat.h"
-#include "absl/strings/str_split.h"
-#include "absl/time/clock.h"
-#include "absl/time/time.h"
 #include "bant/frontend/parser.h"
 #include "bant/types-bazel.h"
 #include "bant/util/file-utils.h"
@@ -64,9 +61,12 @@ static FilesystemPath ExternalProjectDir() {
 // Convenience function to just collect all the BUILD files. Update "stats"
 // with total files searched and total time.
 // If pattern contains a project name, the path is resolved from "workspace".
-std::vector<FilesystemPath> CollectBuildFiles(const BazelWorkspace &workspace,
-                                              const BazelPattern &pattern,
-                                              Stat &stats) {
+std::vector<FilesystemPath> CollectBuildFiles(Session &session,
+                                              const BazelWorkspace &workspace,
+                                              const BazelPattern &pattern) {
+  bant::Stat &stats =
+    session.GetStatsFor("BUILD file glob walk", "files/directories");
+
   bool recursive = pattern.is_recursive();
   std::string start_dir;
   if (!pattern.project().empty()) {
@@ -82,8 +82,7 @@ std::vector<FilesystemPath> CollectBuildFiles(const BazelWorkspace &workspace,
   if (start_dir.empty()) start_dir = ".";
 
   std::vector<FilesystemPath> build_files;
-  const absl::Time start_time = absl::Now();
-
+  ScopedTimer timer(&stats.duration);
   const auto relevant_build_file_predicate = [](const FilesystemPath &file) {
     const std::string_view basename = file.filename();
     return basename == "BUILD" || basename == "BUILD.bazel";
@@ -93,9 +92,10 @@ std::vector<FilesystemPath> CollectBuildFiles(const BazelWorkspace &workspace,
     if (!recursive) return false;  // Only looking at one level.
     if (dir.is_symlink()) return false;
     const std::string_view filename = dir.filename();
+    // Skip irrelevant stuff
     if (filename == "_tmp") return false;
     if (filename == ".cache") return false;
-    if (filename == ".git") return false;  // lots of irrelevant stuff
+    if (filename == ".git") return false;
     return true;
   };
 
@@ -103,9 +103,6 @@ std::vector<FilesystemPath> CollectBuildFiles(const BazelWorkspace &workspace,
   stats.count =
     CollectFilesRecursive(FilesystemPath(start_dir), build_files, dir_predicate,
                           relevant_build_file_predicate);
-
-  const absl::Time end_time = absl::Now();
-  stats.duration = end_time - start_time;
 
   return build_files;
 }
@@ -119,12 +116,8 @@ ParsedProject::ParsedProject(bool verbose)
 void ParsedProject::FillFromPattern(Session &session,
                                     const BazelWorkspace &workspace,
                                     const BazelPattern &pattern) {
-  bant::Stat &file_collect_stats = session.GetStatsFor("BUILD file glob walk");
-  file_collect_stats.thing_name = "files/directories";
-  const auto build_files =
-    CollectBuildFiles(workspace, pattern, file_collect_stats);
-
-  for (const auto &build_file : build_files) {
+  const auto build_files = CollectBuildFiles(session, workspace, pattern);
+  for (const FilesystemPath &build_file : build_files) {
     AddBuildFile(session, build_file);
   }
 }
@@ -152,10 +145,8 @@ const ParsedBuildFile *ParsedProject::AddBuildFile(
   Session &session,
   const FilesystemPath &build_file,  //
   const BazelPackage &package) {
-  const absl::Time start_time = absl::Now();
-  Stat &parse_stat = session.GetStatsFor("Parsed");
-  parse_stat.thing_name = "BUILD files";
-
+  Stat &parse_stat = session.GetStatsFor("Parsed", "BUILD files");
+  ScopedTimer timer(&parse_stat.duration);
   std::optional<std::string> content = ReadFileToString(build_file);
   if (!content.has_value()) {
     std::cerr << "Could not read " << build_file.path() << "\n";
@@ -191,8 +182,6 @@ const ParsedBuildFile *ParsedProject::AddBuildFile(
     session.error() << error_collect.str();
     ++error_count_;
   }
-  const absl::Time end_time = absl::Now();
-  parse_stat.duration += (end_time - start_time);
 
   return inserted.first->second.get();
 }

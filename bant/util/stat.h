@@ -21,21 +21,40 @@
 #include <cstddef>
 #include <optional>
 #include <string>
+#include <string_view>
 
+#include "absl/time/clock.h"
 #include "absl/time/time.h"
 
 namespace bant {
+
+class ScopedTimer {
+ public:
+  ScopedTimer(absl::Duration *to_update)
+      : to_update_(to_update), start_(absl::Now()) {}
+  ~ScopedTimer() { *to_update_ += absl::Now() - start_; }
+
+ private:
+  absl::Duration *const to_update_;
+  const absl::Time start_;
+};
+
 struct Stat {
-  std::string_view thing_name;  // Descriptive name this stat is counting.
+  Stat(std::string_view subject) : subject(subject) {}
+  std::string_view subject;  // Descriptive name this stat is counting.
 
   int count = 0;
   absl::Duration duration;
   std::optional<size_t> bytes_processed;
 
-  // Print readable string with "thing_name" used to describe the count.
-  std::string ToString(std::string_view thing_name) const;
-  std::string ToString() const { return ToString(thing_name); }
+  // Print readable string with "subject" used to describe the count.
+  std::string ToString() const;
 };
+
+inline std::ostream &operator<<(std::ostream &out, const Stat &stat) {
+  out << stat.ToString();
+  return out;
+}
 }  // namespace bant
 
 #endif  // BANT_UTIL_STAT_H

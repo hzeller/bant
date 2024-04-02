@@ -255,8 +255,8 @@ int main(int argc, char *argv[]) {
   if (verbose) {
     // If verbose explicitly chosen, we want to print this even if -q.
     // So not to info_out, but std::cerr
-    for (const auto &[s_name, stat] : session.stats()) {
-      std::cerr << s_name << " " << stat.ToString() << "\n";
+    for (std::string_view subsystem : session.stat_keys()) {
+      std::cerr << subsystem << " " << *session.stat(subsystem) << "\n";
     }
   }
 

@@ -263,15 +263,14 @@ void CreateDependencyEdits(Session &session, const ParsedProject &project,
                            const BazelPattern &pattern,
                            const EditCallback &emit_deps_edit) {
   std::ostream &info_out = session.info();
-  Stat &stats = session.GetStatsFor("Grep'ed");
-  stats.thing_name = "sources";
+  Stat &stats = session.GetStatsFor("Grep'ed", "sources");
 
   FileProviderLookups hdr_idx;
   hdr_idx.headers_from_libs = ExtractHeaderToLibMapping(project, info_out);
   hdr_idx.files_from_genrules = ExtractGeneratedFromGenrule(project, info_out);
   const std::set<BazelTarget> known_libs = ExtractKnownLibraries(project);
 
-  const absl::Time start_time = absl::Now();
+  ScopedTimer timer(&stats.duration);
   for (const auto &[_, parsed_package] : project.ParsedFiles()) {
     const BazelPackage &current_package = parsed_package->package;
     if (!pattern.Match(current_package)) {
@@ -331,7 +330,5 @@ void CreateDependencyEdits(Session &session, const ParsedProject &project,
         }
       });
   }
-  const absl::Time end_time = absl::Now();
-  stats.duration = end_time - start_time;
 }
 }  // namespace bant

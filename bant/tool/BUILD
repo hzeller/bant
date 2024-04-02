@@ -56,7 +56,6 @@ cc_library(
         "//bant:types-bazel",
         "//bant/frontend:project-parser",
         "//bant/util:query-utils",
-        "@abseil-cpp//absl/time",
     ],
 )
 
