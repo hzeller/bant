@@ -60,8 +60,10 @@ static FilesystemPath ExternalProjectDir() {
   const std::string external_base = absl::StrCat("./bazel-", project_dir_name);
   return FilesystemPath(absl::StrCat(external_base, "/external"));
 }
-}  // namespace
 
+// Convenience function to just collect all the BUILD files. Update "stats"
+// with total files searched and total time.
+// If pattern contains a project name, the path is resolved from "workspace".
 std::vector<FilesystemPath> CollectBuildFiles(const BazelWorkspace &workspace,
                                               const BazelPattern &pattern,
                                               Stat &stats) {
@@ -107,15 +109,28 @@ std::vector<FilesystemPath> CollectBuildFiles(const BazelWorkspace &workspace,
 
   return build_files;
 }
+}  // namespace
 
 ParsedProject::ParsedProject(bool verbose)
     : external_prefix_(absl::StrCat(ExternalProjectDir().path(), "/")) {
   arena_.SetVerbose(verbose);
 }
 
+void ParsedProject::FillFromPattern(Session &session,
+                                    const BazelWorkspace &workspace,
+                                    const BazelPattern &pattern) {
+  bant::Stat &file_collect_stats = session.GetStatsFor("BUILD file glob walk");
+  file_collect_stats.thing_name = "files/directories";
+  const auto build_files =
+    CollectBuildFiles(workspace, pattern, file_collect_stats);
+
+  for (const auto &build_file : build_files) {
+    AddBuildFile(session, build_file);
+  }
+}
+
 const ParsedBuildFile *ParsedProject::AddBuildFile(
-  const FilesystemPath &build_file,  //
-  std::ostream &info_out, std::ostream &error_out) {
+  Session &session, const FilesystemPath &build_file) {
   const std::string &filename = build_file.path();
   BazelPackage package;
   if (filename.starts_with(external_prefix_)) {
@@ -130,14 +145,17 @@ const ParsedBuildFile *ParsedProject::AddBuildFile(
   } else {
     package.path = TargetPathFromBuildFile(filename);
   }
-  return AddBuildFile(build_file, package, info_out, error_out);
+  return AddBuildFile(session, build_file, package);
 }
 
 const ParsedBuildFile *ParsedProject::AddBuildFile(
+  Session &session,
   const FilesystemPath &build_file,  //
-  const BazelPackage &package, std::ostream &info_out,
-  std::ostream &error_out) {
+  const BazelPackage &package) {
   const absl::Time start_time = absl::Now();
+  Stat &parse_stat = session.GetStatsFor("Parsed");
+  parse_stat.thing_name = "BUILD files";
+
   std::optional<std::string> content = ReadFileToString(build_file);
   if (!content.has_value()) {
     std::cerr << "Could not read " << build_file.path() << "\n";
@@ -149,17 +167,17 @@ const ParsedBuildFile *ParsedProject::AddBuildFile(
   auto inserted = file_to_parsed_.emplace(
     filename, new ParsedBuildFile(filename, std::move(*content)));
   if (!inserted.second) {
-    info_out << filename << ": Already seen\n";
+    session.info() << filename << ": Already seen\n";
     return inserted.first->second.get();
   }
 
   ParsedBuildFile &parse_result = *inserted.first->second;
-  ++parse_stat_.count;
+  ++parse_stat.count;
   const size_t bytes_processed = parse_result.source.size();
-  if (parse_stat_.bytes_processed.has_value()) {
-    *parse_stat_.bytes_processed += bytes_processed;
+  if (parse_stat.bytes_processed.has_value()) {
+    *parse_stat.bytes_processed += bytes_processed;
   } else {
-    parse_stat_.bytes_processed = bytes_processed;
+    parse_stat.bytes_processed = bytes_processed;
   }
 
   parse_result.package = package;
@@ -170,11 +188,11 @@ const ParsedBuildFile *ParsedProject::AddBuildFile(
   parse_result.ast = parser.parse();
   parse_result.errors = error_collect.str();
   if (parser.parse_error()) {
-    error_out << error_collect.str();
+    session.error() << error_collect.str();
     ++error_count_;
   }
   const absl::Time end_time = absl::Now();
-  parse_stat_.duration += (end_time - start_time);
+  parse_stat.duration += (end_time - start_time);
 
   return inserted.first->second.get();
 }

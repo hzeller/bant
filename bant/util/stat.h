@@ -26,12 +26,15 @@
 
 namespace bant {
 struct Stat {
+  std::string_view thing_name;  // Descriptive name this stat is counting.
+
   int count = 0;
   absl::Duration duration;
   std::optional<size_t> bytes_processed;
 
   // Print readable string with "thing_name" used to describe the count.
   std::string ToString(std::string_view thing_name) const;
+  std::string ToString() const { return ToString(thing_name); }
 };
 }  // namespace bant
 

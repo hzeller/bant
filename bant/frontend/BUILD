@@ -85,6 +85,7 @@ cc_library(
     deps = [
         ":named-content",
         ":parser",
+        "//bant:session",
         "//bant:types-bazel",
         "//bant:workspace",
         "//bant/util:file-utils",

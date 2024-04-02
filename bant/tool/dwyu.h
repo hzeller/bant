@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "bant/frontend/project-parser.h"
+#include "bant/session.h"
 #include "bant/tool/edit-callback.h"
 #include "bant/types-bazel.h"
 
@@ -35,10 +36,8 @@ std::vector<std::string_view> ExtractCCIncludes(NamedLineIndexedContent *src);
 
 // Look through the sources mentioned in the file, check what they include
 // and determine what dependencies need to be added/remove.
-void CreateDependencyEdits(const ParsedProject &project,  //
-                           const BazelPattern &pattern,   //
-                           Stat &stats, std::ostream &info_out,
-                           bool verbose_messages,
+void CreateDependencyEdits(Session &session, const ParsedProject &project,  //
+                           const BazelPattern &pattern,                     //
                            const EditCallback &emit_deps_edit);
 
 }  // namespace bant

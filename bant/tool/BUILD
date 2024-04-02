@@ -34,11 +34,13 @@ cc_library(
     deps = [
         ":edit-callback",
         ":header-providers",
+        "//bant:session",
         "//bant:types-bazel",
         "//bant/frontend:named-content",
         "//bant/frontend:project-parser",
         "//bant/util:file-utils",
         "//bant/util:query-utils",
+        "//bant/util:stat",
         "@abseil-cpp//absl/strings",
         "@abseil-cpp//absl/time",
         "@re2",
@@ -54,6 +56,7 @@ cc_library(
         "//bant:types-bazel",
         "//bant/frontend:project-parser",
         "//bant/util:query-utils",
+        "@abseil-cpp//absl/time",
     ],
 )
 

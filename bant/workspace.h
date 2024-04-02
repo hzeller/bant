@@ -23,6 +23,7 @@
 #include <string>
 #include <string_view>
 
+#include "bant/session.h"
 #include "bant/util/file-utils.h"
 
 namespace bant {
@@ -45,7 +46,7 @@ struct BazelWorkspace {
 
 // Scan current directory for workspace files and create an index of all
 // external projects the workspace references.
-std::optional<BazelWorkspace> LoadWorkspace(std::ostream &info_out);
+std::optional<BazelWorkspace> LoadWorkspace(Session &session);
 }  // namespace bant
 
 #endif  // BANT_WORKSPACE_

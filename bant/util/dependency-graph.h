@@ -21,6 +21,7 @@
 #include <ostream>
 
 #include "bant/frontend/project-parser.h"
+#include "bant/session.h"
 #include "bant/types-bazel.h"
 #include "bant/workspace.h"
 
@@ -33,10 +34,10 @@ struct DependencyGraph {
 
 // Build Dependency graph for all targets matching "pattern". Might update
 // "project" with new files to be parsed.
-DependencyGraph BuildDependencyGraph(const BazelWorkspace &workspace,
+DependencyGraph BuildDependencyGraph(Session &session,
+                                     const BazelWorkspace &workspace,
                                      const BazelPattern &pattern,
-                                     ParsedProject *project, bool verbose,
-                                     std::ostream &info_out);
+                                     ParsedProject *project);
 }  // namespace bant
 
 #endif  // BANT_UTIL_RESOLVE_PACKAGES_

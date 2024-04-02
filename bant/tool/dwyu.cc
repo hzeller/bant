@@ -41,6 +41,7 @@
 #include "bant/types-bazel.h"
 #include "bant/util/file-utils.h"
 #include "bant/util/query-utils.h"
+#include "bant/util/stat.h"
 #include "re2/re2.h"
 
 // Looking for source files directly in the source tree, but if not found
@@ -87,10 +88,10 @@ struct FileProviderLookups {
 // This is important as only then we can confidently suggest removals in that
 // target.
 std::set<BazelTarget> DependenciesForIncludes(
-  const BazelTarget &target_self, const ParsedBuildFile &context,
-  const std::vector<std::string_view> &sources,
-  const FileProviderLookups &file_index, bool *all_headers_accounted_for,
-  Stat &stats, std::ostream &info_out, bool verbose) {
+  Session &session, Stat &stats, const BazelTarget &target_self,
+  const ParsedBuildFile &context, const std::vector<std::string_view> &sources,
+  const FileProviderLookups &file_index, bool *all_headers_accounted_for) {
+  std::ostream &info_out = session.info();
   size_t total_size = 0;
   std::set<BazelTarget> result;
   for (std::string_view src_name : sources) {
@@ -184,7 +185,7 @@ std::set<BazelTarget> DependenciesForIncludes(
 
       // No luck. Source includes it, but we don't know where it is.
       // Be careful with remove suggestion, so consider 'not accounted for'.
-      if (verbose) {
+      if (session.verbose()) {
         // Until we have a glob() implementation, this is pretty noisy at this
         // point. So wrap only show it if verbose enabled.
         scanned_source.Loc(info_out, inc_file)
@@ -258,10 +259,13 @@ std::vector<std::string_view> ExtractCCIncludes(NamedLineIndexedContent *src) {
   return result;
 }
 
-void CreateDependencyEdits(const ParsedProject &project,
-                           const BazelPattern &pattern, Stat &stats,
-                           std::ostream &info_out, bool verbose_messages,
+void CreateDependencyEdits(Session &session, const ParsedProject &project,
+                           const BazelPattern &pattern,
                            const EditCallback &emit_deps_edit) {
+  std::ostream &info_out = session.info();
+  Stat &stats = session.GetStatsFor("Grep'ed");
+  stats.thing_name = "sources";
+
   FileProviderLookups hdr_idx;
   hdr_idx.headers_from_libs = ExtractHeaderToLibMapping(project, info_out);
   hdr_idx.files_from_genrules = ExtractGeneratedFromGenrule(project, info_out);
@@ -289,10 +293,9 @@ void CreateDependencyEdits(const ParsedProject &project,
         query::ExtractStringList(target.srcs_list, sources);
         query::ExtractStringList(target.hdrs_list, sources);
         auto deps_needed =
-          DependenciesForIncludes(*self, *parsed_package,  //
-                                  sources, hdr_idx,        //
-                                  &all_header_deps_known,  //
-                                  stats, info_out, verbose_messages);
+          DependenciesForIncludes(session, stats, *self, *parsed_package,  //
+                                  sources, hdr_idx,                        //
+                                  &all_header_deps_known);
 
         // Check all the dependencies that the build target requested and
         // verify we actually need them. If not: remove.

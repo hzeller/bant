@@ -68,6 +68,7 @@ cc_library(
     deps = [
         ":file-utils",
         ":query-utils",
+        "//bant:session",
         "//bant:types-bazel",
         "//bant:workspace",
         "//bant/frontend:project-parser",

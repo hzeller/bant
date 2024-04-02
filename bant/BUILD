@@ -19,6 +19,7 @@ cc_binary(
         "bant.cc",
     ],
     deps = [
+        ":session",
         ":types-bazel",
         ":workspace",
         "//bant/frontend:project-parser",
@@ -49,12 +50,19 @@ cc_library(
     srcs = ["workspace.cc"],
     hdrs = ["workspace.h"],
     deps = [
+        ":session",
         "//bant/frontend:parser",
         "//bant/util:file-utils",
         "//bant/util:memory",
         "//bant/util:query-utils",
         "@abseil-cpp//absl/strings",
     ],
+)
+
+cc_library(
+    name = "session",
+    hdrs = ["session.h"],
+    deps = ["//bant/util:stat"],
 )
 
 cc_test(

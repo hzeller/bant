@@ -25,6 +25,7 @@
 
 #include "bant/frontend/ast.h"
 #include "bant/frontend/named-content.h"
+#include "bant/session.h"
 #include "bant/types-bazel.h"
 #include "bant/util/file-utils.h"
 #include "bant/util/stat.h"
@@ -56,41 +57,34 @@ class ParsedProject {
 
   ParsedProject(bool verbose);
 
-  // Parse build file for given package.
-  const ParsedBuildFile *AddBuildFile(const FilesystemPath &build_file,
-                                      const BazelPackage &package,
-                                      std::ostream &info_out,
-                                      std::ostream &error_out);
+  // Given a BazelPattern, collect all the matching BUILD files
+  void FillFromPattern(Session &session, const BazelWorkspace &workspace,
+                       const BazelPattern &pattern);
 
-  // Same, auto-determine path (todo: should probably be deprecated)
-  const ParsedBuildFile *AddBuildFile(const FilesystemPath &build_file,
-                                      std::ostream &info_out,
-                                      std::ostream &error_out);
+  // Parse build file for given package.
+  const ParsedBuildFile *AddBuildFile(Session &session,
+                                      const FilesystemPath &build_file,
+                                      const BazelPackage &package);
 
   // A map of filename -> ParsedBuildFile
   const File2Parsed &ParsedFiles() const { return file_to_parsed_; }
 
   // Some stats.
   int error_count() const { return error_count_; }
-  const Stat &stats() const { return parse_stat_; }
 
  private:
-  const std::string external_prefix_;
+  // Same, auto-determine path (todo: should probably be deprecated)
+  const ParsedBuildFile *AddBuildFile(Session &session,
+                                      const FilesystemPath &build_file);
+
+  const std::string external_prefix_;  // TODO: should come from workspace.
 
   // Some stats.
-  Stat parse_stat_;
   int error_count_ = 0;
 
   Arena arena_{1 << 20};
   File2Parsed file_to_parsed_;
 };
-
-// Convenience function to just collect all the BUILD files. Update "stats"
-// with total files searched and total time.
-// If pattern contains a project name, the path is resolved from "workspace".
-std::vector<FilesystemPath> CollectBuildFiles(const BazelWorkspace &workspace,
-                                              const BazelPattern &pattern,
-                                              Stat &stats);
 
 // Convenience function to print a fully parsed project, recreated from the
 // AST.

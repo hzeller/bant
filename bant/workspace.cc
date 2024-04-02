@@ -81,7 +81,7 @@ static bool BestEffortAugmentProjectFromDir(BazelWorkspace &workspace) {
   return any_found;
 }
 
-std::optional<BazelWorkspace> LoadWorkspace(std::ostream &info_out) {
+std::optional<BazelWorkspace> LoadWorkspace(Session &session) {
   bool workspace_found = false;
   BazelWorkspace workspace;
   bool did_bazel_run_already_printed = false;
@@ -96,7 +96,7 @@ std::optional<BazelWorkspace> LoadWorkspace(std::ostream &info_out) {
 
     Scanner scanner(named_content);
     std::stringstream error_collect;
-    Parser parser(&scanner, &arena, info_out);
+    Parser parser(&scanner, &arena, session.info());
     Node *ast = parser.parse();
     if (ast) workspace_found = true;
     query::FindTargets(
@@ -133,11 +133,11 @@ std::optional<BazelWorkspace> LoadWorkspace(std::ostream &info_out) {
         }
 
         if (!project_dir_found) {
-          named_content.Loc(info_out, result.name)
+          named_content.Loc(session.info(), result.name)
             << " Can't find extracted project '" << result.name << "'\n";
           if (!did_bazel_run_already_printed) {
-            info_out << "Note: need to run a bazel build at least once to "
-                     << "extract external projects\n";
+            session.info() << "Note: need to run a bazel build at least once "
+                              "to extract external projects\n";
             did_bazel_run_already_printed = true;
           }
           return;

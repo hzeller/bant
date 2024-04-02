@@ -30,9 +30,8 @@ namespace bant {
 //  * `//foo:foo` becomes `//foo`
 //  * `@foo//:foo` becomes `@foo`
 //  * `foo` without `:` prefix becomes `:foo`
-void CreateCanonicalizeEdits(const ParsedProject &project,
+void CreateCanonicalizeEdits(Session &session, const ParsedProject &project,
                              const BazelPattern &pattern,
-                             std::ostream &info_out,
                              const EditCallback &emit_canon_edit);
 }  // namespace bant
 #endif  // BANT_TOOL_CANON_TARGETS_

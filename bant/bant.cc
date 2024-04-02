@@ -24,6 +24,7 @@
 #include <map>
 
 #include "bant/frontend/project-parser.h"
+#include "bant/session.h"
 #include "bant/tool/canon-targets.h"
 #include "bant/tool/dwyu.h"
 #include "bant/tool/edit-callback.h"
@@ -186,7 +187,9 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  auto workspace_or = bant::LoadWorkspace(*info_out);
+  bant::Session session(primary_out, info_out, verbose);
+
+  auto workspace_or = bant::LoadWorkspace(session);
   if (!workspace_or.has_value()) {
     std::cerr
       << "Didn't find any workspace file. Is this a bazel project root ?\n";
@@ -194,27 +197,16 @@ int main(int argc, char *argv[]) {
   }
   const bant::BazelWorkspace &workspace = workspace_or.value();
 
-  bant::Stat file_collect_stats;
-  const auto build_files =
-    bant::CollectBuildFiles(workspace, pattern, file_collect_stats);
-
-  bant::Stat deps_stat;
-
-  // Rest of the commands need to parse the project.
-  auto &parse_err_out = (cmd == Command::kParse ? *primary_out : *info_out);
-
   bant::ParsedProject project(verbose);
-  for (const auto &build_file : build_files) {
-    project.AddBuildFile(build_file, *info_out, parse_err_out);
-  }
+  project.FillFromPattern(session, workspace, pattern);
 
   // TODO: right now, always create depenency graph, but we only need it
   // for some commands.
-  const bant::DependencyGraph graph = bant::BuildDependencyGraph(
-    workspace, pattern, &project, verbose, *info_out);
-  *info_out << "Found " << graph.depends_on.size()
-            << " Targets with dependencies; " << graph.has_dependents.size()
-            << " referenced by others.\n";
+  const bant::DependencyGraph graph =
+    bant::BuildDependencyGraph(session, workspace, pattern, &project);
+  session.info() << "Found " << graph.depends_on.size()
+                 << " Targets with dependencies; "
+                 << graph.has_dependents.size() << " referenced by others.\n";
 
   switch (cmd) {
   case Command::kPrint: print_ast = true; [[fallthrough]];
@@ -234,12 +226,12 @@ int main(int argc, char *argv[]) {
     break;
   case Command::kDependencyEdits:
     using bant::CreateBuildozerDepsEditCallback;
-    bant::CreateDependencyEdits(project, pattern, deps_stat, *info_out, verbose,
+    bant::CreateDependencyEdits(session, project, pattern,
                                 CreateBuildozerDepsEditCallback(*primary_out));
     break;
   case Command::kCanonicalizeDeps:
     using bant::CreateCanonicalizeEdits;
-    CreateCanonicalizeEdits(project, pattern, *info_out,
+    CreateCanonicalizeEdits(session, project, pattern,
                             CreateBuildozerDepsEditCallback(*primary_out));
     break;
   case Command::kListBazelFiles:
@@ -263,13 +255,8 @@ int main(int argc, char *argv[]) {
   if (verbose) {
     // If verbose explicitly chosen, we want to print this even if -q.
     // So not to info_out, but std::cerr
-    std::cerr << "Walked through " << file_collect_stats.ToString("files/dirs")
-              << " to collect initial BUILD files.\n"
-              << "Parsed " << project.stats().ToString("BUILD files") << "; "
-              << project.error_count() << " with parse issues.\n";
-    if (cmd == Command::kDependencyEdits) {
-      std::cerr << "Grep'd " << deps_stat.ToString("sources")
-                << " to extract includes and create dependency edits.\n";
+    for (const auto &[s_name, stat] : session.stats()) {
+      std::cerr << s_name << " " << stat.ToString() << "\n";
     }
   }
 

@@ -57,23 +57,23 @@ std::optional<FilesystemPath> PathForPackage(const BazelWorkspace &workspace,
   return std::nullopt;
 }
 
-void FindAndParseMissingPackages(const std::set<BazelPackage> &want,
+void FindAndParseMissingPackages(Session &session,
+                                 const std::set<BazelPackage> &want,
                                  const BazelWorkspace &workspace,
                                  std::set<BazelPackage> *known_packages,
                                  std::vector<BazelPackage> *error_packages,
-                                 ParsedProject *project,
-                                 std::ostream &info_out) {
+                                 ParsedProject *project) {
   std::vector<BazelPackage> package_todo;
   std::set_difference(want.begin(), want.end(),  //
                       known_packages->begin(), known_packages->end(),
                       std::back_inserter(package_todo));
   for (const BazelPackage &package : package_todo) {
-    auto path = PathForPackage(workspace, package, info_out);
+    auto path = PathForPackage(workspace, package, session.info());
     if (!path.has_value()) {
       error_packages->push_back(package);
       continue;
     }
-    project->AddBuildFile(*path, package, info_out, info_out);
+    project->AddBuildFile(session, *path, package);
     known_packages->insert(package);
   }
 }
@@ -89,10 +89,10 @@ void PrintList(std::ostream &out, const char *msg, const Container &c) {
 
 }  // namespace
 
-DependencyGraph BuildDependencyGraph(const BazelWorkspace &workspace,
+DependencyGraph BuildDependencyGraph(Session &session,
+                                     const BazelWorkspace &workspace,
                                      const BazelPattern &pattern,
-                                     ParsedProject *project, bool verbose,
-                                     std::ostream &info_out) {
+                                     ParsedProject *project) {
   const std::initializer_list<std::string_view> kRulesOfInterest = {
     "cc_library", "cc_test", "cc_binary"};
 
@@ -118,7 +118,7 @@ DependencyGraph BuildDependencyGraph(const BazelWorkspace &workspace,
 
   DependencyGraph graph;
   do {
-    if (verbose) {
+    if (session.verbose()) {
       std::cerr << "-- target-todo with " << target_todo.size() << " items\n";
     }
 
@@ -127,8 +127,8 @@ DependencyGraph BuildDependencyGraph(const BazelWorkspace &workspace,
     for (const auto &t : target_todo) scan_package.insert(t.package);
 
     // Make sure that we have parsed all packages we're looking through.
-    FindAndParseMissingPackages(scan_package, workspace, &known_packages,
-                                &error_packages, project, info_out);
+    FindAndParseMissingPackages(session, scan_package, workspace,
+                                &known_packages, &error_packages, project);
 
     std::set<BazelTarget> next_target_todo;
     // TODO: provide a lookup given a package from project.
@@ -170,14 +170,14 @@ DependencyGraph BuildDependencyGraph(const BazelWorkspace &workspace,
   } while (!target_todo.empty());
 
   if (!error_packages.empty()) {
-    PrintList(info_out, "Trouble finding packages", error_packages);
+    PrintList(session.info(), "Trouble finding packages", error_packages);
   }
 
-  if (verbose && !error_targets.empty()) {
+  if (session.verbose() && !error_targets.empty()) {
     // Currently, we have a lot of targets that we don't deal with yet, such as
     // genrules or protobuffer rules. Goal: should be zero.
     // But for now: hide behind 'verbose' flag, to not be too noisy.
-    PrintList(info_out, "Could not find these Targets\n", error_targets);
+    PrintList(session.info(), "Could not find these Targets\n", error_targets);
   }
 
   return graph;
