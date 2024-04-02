@@ -26,7 +26,7 @@ cc_binary(
         "//bant/tool:dwyu",
         "//bant/tool:edit-callback",
         "//bant/tool:header-providers",
-        "//bant/util:resolve-packages",
+        "//bant/util:dependency-graph",
     ],
 )
 

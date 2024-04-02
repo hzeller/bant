@@ -62,9 +62,9 @@ cc_test(
 )
 
 cc_library(
-    name = "resolve-packages",
-    srcs = ["resolve-packages.cc"],
-    hdrs = ["resolve-packages.h"],
+    name = "dependency-graph",
+    srcs = ["dependency-graph.cc"],
+    hdrs = ["dependency-graph.h"],
     deps = [
         ":file-utils",
         ":query-utils",

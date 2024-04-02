@@ -29,7 +29,7 @@
 #include "bant/tool/edit-callback.h"
 #include "bant/tool/header-providers.h"
 #include "bant/types-bazel.h"
-#include "bant/util/resolve-packages.h"
+#include "bant/util/dependency-graph.h"
 #include "bant/workspace.h"
 
 static int usage(const char *prog, int exit_code) {
