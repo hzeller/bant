@@ -102,7 +102,10 @@ DependencyGraph BuildDependencyGraph(Session &session,
   std::set<BazelPackage> known_packages;
   std::set<BazelTarget> target_todo;
 
-  // Build the initial set of targets to follow.
+  Stat &stat = session.GetStatsFor("Dependency follow iterations", "rounds");
+  ScopedTimer timer(&stat.duration);
+
+  // Build the initial set of targets to follow from the pattern.
   for (const auto &[_, parsed] : project->ParsedFiles()) {
     const BazelPackage &current_package = parsed->package;
     known_packages.insert(current_package);
@@ -118,8 +121,9 @@ DependencyGraph BuildDependencyGraph(Session &session,
 
   DependencyGraph graph;
   do {
+    ++stat.count;
     if (session.verbose()) {
-      std::cerr << "-- target-todo with " << target_todo.size() << " items\n";
+      //std::cerr << "-- target-todo with " << target_todo.size() << " items\n";
     }
 
     // Only need to look in a subset of packages requested by our target todo
