@@ -27,8 +27,6 @@ void CreateCanonicalizeEdits(const ParsedProject &project,
                              const EditCallback &emit_canon_edit) {
   for (const auto &[_, parsed_package] : project.ParsedFiles()) {
     if (!pattern.Match(parsed_package->package)) {
-      std::cerr << parsed_package->package << " does not match "
-                << pattern.path() << "\n";
       continue;
     }
     const BazelPackage &current_package = parsed_package->package;
