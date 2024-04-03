@@ -60,21 +60,18 @@ std::optional<FilesystemPath> PathForPackage(const BazelWorkspace &workspace,
 void FindAndParseMissingPackages(Session &session,
                                  const std::set<BazelPackage> &want,
                                  const BazelWorkspace &workspace,
-                                 std::set<BazelPackage> *known_packages,
                                  std::vector<BazelPackage> *error_packages,
                                  ParsedProject *project) {
-  std::vector<BazelPackage> package_todo;
-  std::set_difference(want.begin(), want.end(),  //
-                      known_packages->begin(), known_packages->end(),
-                      std::back_inserter(package_todo));
-  for (const BazelPackage &package : package_todo) {
+  for (const BazelPackage &package : want) {
+    if (project->FindParsedOrNull(package) != nullptr) {
+      continue;  // have it already.
+    }
     auto path = PathForPackage(workspace, package, session.info());
     if (!path.has_value()) {
       error_packages->push_back(package);
       continue;
     }
     project->AddBuildFile(session, *path, package);
-    known_packages->insert(package);
   }
 }
 
@@ -99,7 +96,6 @@ DependencyGraph BuildDependencyGraph(Session &session,
   std::vector<BazelPackage> error_packages;
   std::vector<BazelTarget> error_targets;
 
-  std::set<BazelPackage> known_packages;
   std::set<BazelTarget> target_todo;
 
   Stat &stat = session.GetStatsFor("Dependency follow iterations", "rounds");
@@ -108,7 +104,6 @@ DependencyGraph BuildDependencyGraph(Session &session,
   // Build the initial set of targets to follow from the pattern.
   for (const auto &[_, parsed] : project->ParsedFiles()) {
     const BazelPackage &current_package = parsed->package;
-    known_packages.insert(current_package);
     if (!pattern.Match(parsed->package)) continue;
     query::FindTargets(parsed->ast, kRulesOfInterest,  //
                        [&](const query::Result &result) {
@@ -123,7 +118,8 @@ DependencyGraph BuildDependencyGraph(Session &session,
   do {
     ++stat.count;
     if (session.verbose()) {
-      //std::cerr << "-- target-todo with " << target_todo.size() << " items\n";
+      // std::cerr << "-- target-todo with " << target_todo.size() << "
+      // items\n";
     }
 
     // Only need to look in a subset of packages requested by our target todo
@@ -132,13 +128,12 @@ DependencyGraph BuildDependencyGraph(Session &session,
 
     // Make sure that we have parsed all packages we're looking through.
     FindAndParseMissingPackages(session, scan_package, workspace,
-                                &known_packages, &error_packages, project);
+                                &error_packages, project);
 
     std::set<BazelTarget> next_target_todo;
-    // TODO: provide a lookup given a package from project.
-    for (const auto &[_, parsed] : project->ParsedFiles()) {
-      const BazelPackage &current_package = parsed->package;
-      if (!scan_package.contains(current_package)) continue;  // not interested.
+    for (const BazelPackage &current_package : scan_package) {
+      const auto *parsed = project->FindParsedOrNull(current_package);
+      if (!parsed) continue;
       query::FindTargets(
         parsed->ast, kRulesOfInterest, [&](const query::Result &result) {
           auto target_or = BazelTarget::ParseFrom(result.name, current_package);

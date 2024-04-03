@@ -48,7 +48,9 @@ static int usage(const char *prog, int exit_code) {
 Commands (unique prefix sufficient):
     parse          : Parse all BUILD files from pattern the ones they depend on.
     print          : Print rules matching pattern. -e : only files with errors
-    list           : List all the build files relevant for the pattern.
+    list-buildfiles: List all the build files relevant for the pattern including
+                     the dependencies.
+    list-package   : List all packages relevant for the pattern.
     workspace      : Print external projects found in WORKSPACE.
     lib-headers    : Print table header files -> libraries that define them.
     genrule-outputs: Print table generated files -> genrules creating them.
@@ -78,6 +80,7 @@ int main(int argc, char *argv[]) {
     kParse,
     kPrint,  // Like parse, but we narrow with pattern
     kListBazelFiles,
+    kListPackages,
     kListWorkkspace,
     kLibraryHeaders,
     kGenruleOutputs,
@@ -87,7 +90,8 @@ int main(int argc, char *argv[]) {
   static const std::map<std::string_view, Command> kCommandNames = {
     {"parse", Command::kParse},
     {"print", Command::kPrint},
-    {"list", Command::kListBazelFiles},
+    {"list-buildfiles", Command::kListBazelFiles},
+    {"list-packages", Command::kListPackages},
     {"workspace", Command::kListWorkkspace},
     {"lib-headers", Command::kLibraryHeaders},
     {"genrule-outputs", Command::kGenruleOutputs},
@@ -200,13 +204,17 @@ int main(int argc, char *argv[]) {
   bant::ParsedProject project(verbose);
   project.FillFromPattern(session, workspace, pattern);
 
-  // TODO: right now, always create depenency graph, but we only need it
-  // for some commands.
-  const bant::DependencyGraph graph =
-    bant::BuildDependencyGraph(session, workspace, pattern, &project);
-  session.info() << "Found " << graph.depends_on.size()
-                 << " Targets with dependencies; "
-                 << graph.has_dependents.size() << " referenced by others.\n";
+  // TODO: move dependency graph creation to tools where needed.
+  // Some also should also read _all_ the BUILD files from the workspace.
+  if (cmd == Command::kLibraryHeaders || cmd == Command::kGenruleOutputs ||
+      cmd == Command::kDependencyEdits || cmd == Command::kListPackages ||
+      cmd == Command::kListBazelFiles) {
+    const bant::DependencyGraph graph =
+      bant::BuildDependencyGraph(session, workspace, pattern, &project);
+    session.info() << "Found " << graph.depends_on.size()
+                   << " Targets with dependencies; "
+                   << graph.has_dependents.size() << " referenced by others.\n";
+  }
 
   switch (cmd) {
   case Command::kPrint: print_ast = true; [[fallthrough]];
@@ -234,9 +242,14 @@ int main(int argc, char *argv[]) {
     CreateCanonicalizeEdits(session, project, pattern,
                             CreateBuildozerDepsEditCallback(*primary_out));
     break;
+  case Command::kListPackages:
+    for (const auto &[package, _] : project.ParsedFiles()) {
+      *primary_out << package << "\n";
+    }
+    break;
   case Command::kListBazelFiles:
-    for (const auto &[filename, _] : project.ParsedFiles()) {
-      *primary_out << filename << "\n";
+    for (const auto &[_, parsed] : project.ParsedFiles()) {
+      *primary_out << parsed->source.name() << "\n";
     }
     break;
   case Command::kListWorkkspace: {

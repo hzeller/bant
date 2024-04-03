@@ -109,8 +109,6 @@ Copyright (c) 2024 Henner Zeller. This program is free software; license GPL 2.0
 Usage: bazel-bin/bant/bant [options] <command> [pattern]
 Options
     -C <directory> : Change to project directory (default = '.')
-    -x             : Do not read BUILD files of eXternal projects (e.g. @foo)
-                     (i.e. only read the files in the direct project)
     -q             : Quiet: don't print info messages to stderr.
     -o <filename>  : Instead of stdout, emit command primary output to file.
     -v             : Verbose; print some stats.
@@ -119,7 +117,9 @@ Options
 Commands (unique prefix sufficient):
     parse          : Parse all BUILD files from pattern the ones they depend on.
     print          : Print rules matching pattern. -e : only files with errors
-    list           : List all the build files found in project
+    list-buildfiles: List all the build files relevant for the pattern including
+                     the dependencies.
+    list-package   : List all packages relevant for the pattern.
     workspace      : Print external projects found in WORKSPACE.
     lib-headers    : Print table header files -> libraries that define them.
     genrule-outputs: Print table generated files -> genrules creating them.

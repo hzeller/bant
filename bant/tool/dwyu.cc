@@ -52,7 +52,7 @@ static constexpr std::string_view kSourceLocations[] = {
   "",
   LINK_PREFIX "out/host/bin/",
   LINK_PREFIX "bin/",
-  LINK_PREFIX "genfiles",  // Before bazel 1.1
+  LINK_PREFIX "genfiles/",  // Before bazel 1.1
 };
 // clang-format on
 #undef LINK_PREFIX

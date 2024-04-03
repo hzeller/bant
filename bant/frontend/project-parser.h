@@ -53,7 +53,7 @@ struct ParsedBuildFile {
 // A Parsed project contains all the parsed files of a project.
 class ParsedProject {
  public:
-  using File2Parsed = std::map<std::string, std::unique_ptr<ParsedBuildFile>>;
+  using File2Parsed = std::map<BazelPackage, std::unique_ptr<ParsedBuildFile>>;
 
   ParsedProject(bool verbose);
 
@@ -68,6 +68,9 @@ class ParsedProject {
 
   // A map of filename -> ParsedBuildFile
   const File2Parsed &ParsedFiles() const { return file_to_parsed_; }
+
+  // Look up parse file given the package, or nullptr, if not parsed (yet).
+  const ParsedBuildFile *FindParsedOrNull(const BazelPackage &package) const;
 
   // Some stats.
   int error_count() const { return error_count_; }

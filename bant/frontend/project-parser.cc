@@ -156,7 +156,7 @@ const ParsedBuildFile *ParsedProject::AddBuildFile(
 
   const std::string &filename = build_file.path();
   auto inserted = file_to_parsed_.emplace(
-    filename, new ParsedBuildFile(filename, std::move(*content)));
+    package, new ParsedBuildFile(filename, std::move(*content)));
   if (!inserted.second) {
     session.info() << filename << ": Already seen\n";
     return inserted.first->second.get();
@@ -186,19 +186,25 @@ const ParsedBuildFile *ParsedProject::AddBuildFile(
   return inserted.first->second.get();
 }
 
+const ParsedBuildFile *ParsedProject::FindParsedOrNull(
+  const BazelPackage &package) const {
+  auto found = file_to_parsed_.find(package);
+  if (found == file_to_parsed_.end()) return nullptr;
+  return found->second.get();
+}
+
 void PrintProject(const BazelPattern &pattern, std::ostream &out,
                   std::ostream &info_out, const ParsedProject &project,
                   bool only_files_with_errors) {
-  for (const auto &[filename, file_content] : project.ParsedFiles()) {
+  for (const auto &[package, file_content] : project.ParsedFiles()) {
     if (only_files_with_errors && file_content->errors.empty()) {
       continue;
     }
-    const BazelPackage &current_package = file_content->package;
-    if (!pattern.Match(current_package)) {
+    if (!pattern.Match(package)) {
       continue;
     }
 
-    out << "# " << filename << "\n";
+    out << "# " << file_content->source.name() << "\n";
     if (pattern.is_recursive()) {
       info_out << file_content->errors;
       out << file_content->package.ToString() << " = ";
@@ -207,7 +213,7 @@ void PrintProject(const BazelPattern &pattern, std::ostream &out,
     } else {
       query::FindTargets(
         file_content->ast, {}, [&](const query::Result &result) {
-          auto self = BazelTarget::ParseFrom(result.name, current_package);
+          auto self = BazelTarget::ParseFrom(result.name, package);
           if (!self.has_value() || !pattern.Match(*self)) {
             return;
           }
