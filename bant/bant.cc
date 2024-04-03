@@ -33,6 +33,9 @@
 #include "bant/util/dependency-graph.h"
 #include "bant/workspace.h"
 
+#define BOLD  "\033[1m"
+#define RESET "\033[0m"
+
 static int usage(const char *prog, int exit_code) {
   fprintf(stderr,
           "Copyright (c) 2024 Henner Zeller. "
@@ -46,17 +49,27 @@ static int usage(const char *prog, int exit_code) {
     -h             : This help.
 
 Commands (unique prefix sufficient):
+    %s== Parsing ==%s
+    print          : Print AST matching pattern. -e : only files w/ parse errors
     parse          : Parse all BUILD files from pattern the ones they depend on.
-    print          : Print rules matching pattern. -e : only files with errors
-    list-buildfiles: List all the build files relevant for the pattern including
-                     the dependencies.
-    list-package   : List all packages relevant for the pattern.
+                     Emit parse errors. Silent otherwise: No news are good news.
+
+    %s== Extract facts ==%s (tables as white-space separated lines) ==
+    list-packages  : List all packages relevant for the pattern with their
+                     corresponding filename. Follows dependencies.
+                     → 2 column table: (package, buildfile)
     workspace      : Print external projects found in WORKSPACE.
-    lib-headers    : Print table header files -> libraries that define them.
-    genrule-outputs: Print table generated files -> genrules creating them.
+                     → 3 column table: (project, version, path)
+    lib-headers    : Print the targets for each header file in the project.
+                     → 2 column table: (header-filename, cc-library-target)
+    genrule-outputs: Print names of generates files an genrules creating them
+                     → 2 column table: (filename, genrule-target)
+
+    %s== Tools ==%s
     dwyu           : DWYU: Depend on What You Use (emit buildozer edit script)
     canonicalize   : Emit rename edits to canonicalize targets.
-)");
+)",
+          BOLD, RESET, BOLD, RESET, BOLD, RESET);
   return exit_code;
 }
 
@@ -79,7 +92,6 @@ int main(int argc, char *argv[]) {
     kNone,
     kParse,
     kPrint,  // Like parse, but we narrow with pattern
-    kListBazelFiles,
     kListPackages,
     kListWorkkspace,
     kLibraryHeaders,
@@ -90,7 +102,6 @@ int main(int argc, char *argv[]) {
   static const std::map<std::string_view, Command> kCommandNames = {
     {"parse", Command::kParse},
     {"print", Command::kPrint},
-    {"list-buildfiles", Command::kListBazelFiles},
     {"list-packages", Command::kListPackages},
     {"workspace", Command::kListWorkkspace},
     {"lib-headers", Command::kLibraryHeaders},
@@ -186,13 +197,16 @@ int main(int argc, char *argv[]) {
   if (cmd == Command::kCanonicalizeDeps || cmd == Command::kDependencyEdits ||
       cmd == Command::kPrint) {
     if (pattern.is_matchall()) {
-      std::cerr << "Please provide a bazel pattern for this command.\n";
+      std::cerr << "Please provide a bazel pattern for this command.\n"
+                << "Examples: //... or //foo/bar:baz\n";
       return EXIT_FAILURE;
     }
   }
 
   bant::Session session(primary_out, info_out, verbose);
 
+  // -- TODO: a lot of the following functionality needs to move into each
+  // command itself. We don't have a 'Command' object yet, so linear here.
   auto workspace_or = bant::LoadWorkspace(session);
   if (!workspace_or.has_value()) {
     std::cerr
@@ -207,8 +221,7 @@ int main(int argc, char *argv[]) {
   // TODO: move dependency graph creation to tools where needed.
   // Some also should also read _all_ the BUILD files from the workspace.
   if (cmd == Command::kLibraryHeaders || cmd == Command::kGenruleOutputs ||
-      cmd == Command::kDependencyEdits || cmd == Command::kListPackages ||
-      cmd == Command::kListBazelFiles) {
+      cmd == Command::kDependencyEdits || cmd == Command::kListPackages) {
     const bant::DependencyGraph graph =
       bant::BuildDependencyGraph(session, workspace, pattern, &project);
     session.info() << "Found " << graph.depends_on.size()
@@ -219,6 +232,7 @@ int main(int argc, char *argv[]) {
   switch (cmd) {
   case Command::kPrint: print_ast = true; [[fallthrough]];
   case Command::kParse:
+    // Parsing has already be done by now by building the dependency graph
     if (print_ast || print_only_errors) {
       bant::PrintProject(pattern, *primary_out, *info_out, project,
                          print_only_errors);
@@ -243,13 +257,9 @@ int main(int argc, char *argv[]) {
                             CreateBuildozerDepsEditCallback(*primary_out));
     break;
   case Command::kListPackages:
-    for (const auto &[package, _] : project.ParsedFiles()) {
-      *primary_out << package << "\n";
-    }
-    break;
-  case Command::kListBazelFiles:
-    for (const auto &[_, parsed] : project.ParsedFiles()) {
-      *primary_out << parsed->source.name() << "\n";
+    for (const auto &[package, parsed] : project.ParsedFiles()) {
+      *primary_out << absl::StrFormat("%-45s %s\n", package.ToString(),
+                                      parsed->source.name());
     }
     break;
   case Command::kListWorkkspace: {

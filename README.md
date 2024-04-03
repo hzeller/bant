@@ -115,14 +115,23 @@ Options
     -h             : This help.
 
 Commands (unique prefix sufficient):
+    == Parsing ==
+    print          : Print AST matching pattern. -e : only files w/ parse errors
     parse          : Parse all BUILD files from pattern the ones they depend on.
-    print          : Print rules matching pattern. -e : only files with errors
-    list-buildfiles: List all the build files relevant for the pattern including
-                     the dependencies.
-    list-package   : List all packages relevant for the pattern.
+                     Emit parse errors. Silent otherwise: No news are good news.
+
+    == Extract facts == (tables as white-space separated lines) ==
+    list-packages  : List all packages relevant for the pattern with their
+                     corresponding filename. Follows dependencies.
+                     → 2 column table: (package, buildfile)
     workspace      : Print external projects found in WORKSPACE.
-    lib-headers    : Print table header files -> libraries that define them.
-    genrule-outputs: Print table generated files -> genrules creating them.
+                     → 3 column table: (project, version, path)
+    lib-headers    : Print the targets for each header file in the project.
+                     → 2 column table: (header-filename, cc-library-target)
+    genrule-outputs: Print names of generates files an genrules creating them
+                     → 2 column table: (filename, genrule-target)
+
+    == Tools ==
     dwyu           : DWYU: Depend on What You Use (emit buildozer edit script)
     canonicalize   : Emit rename edits to canonicalize targets.
 ```
