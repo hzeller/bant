@@ -16,30 +16,18 @@ Early Stages. WIP.
 
 #### Parsing
  * Parses most of simple BUILD/BUILD.bazel files and builds an AST of the
-   Lists/Tuples/Function-calls (=build rules) involved for inspection and
-   writing tools for. Should parse most common BUILD files.
- * No expression evaluation yet (e.g. glob() calls do not see files yet)
- * Given a directory with a bazel project, parses all BUILD files including
-   the external ones that bazel had extracted in `bazel-${project}/external/`,
-   report parse errors.
- * This currently only works somewhat with non-bzlmod builds. The external
-   project symlinks seem to have moved around a bit in bzlmod, so can't be
-   found properly anymore.
+   Lists/Tuples/Function-calls (=build rules).
+   Should parse most common BUILD files.
+ * No expression evaluation yet (e.g. glob() or list comprehensions)
 
 #### Commands
 Commands are given on the command line of `bant`. They can be shortened as
 long as they are unique, e.g. `lib` is sufficient to invoke `lib-headers`.
 Some have extra command line options (e.g. for `parse`, `-p` prints AST).
 
- * `list` List all the BUILD files it would consider for the other commands.
-    Use `-x` to limit scope to not include the external rules.
- * `parse` Parse build files and emit syntax errors if any.
-    * `-p` print AST (should look similar to the input :) ).
-    * `-e` print AST, but only for files that had syntax errors.
- * `lib-headers` for each header exported with `hdrs = [...]` in libraries,
-    report which library that is (two columns, easy to `grep` or `awk` over).
- * `genrule-outputs` like `lib-headers`, but shows all the generated files
-    and which genrule created it.
+See `bant -h` for general [Synopsis](#synopsis).
+
+Tools that can help keep projects clean
  * `dwyu` Depend on What You Use (DWYU): Determine which dependencies are
    needed in `cc_library()`, `cc_binary()`, and `cc_test()` targets.
    Greps through their declared sources to find which headers they include.
@@ -60,7 +48,6 @@ Some have extra command line options (e.g. for `parse`, `-p` prints AST).
     * `@foo//:foo` becomes `@foo`
     * `foo` without `:` prefix becomes `:foo`
 
-Also, see `bant -h` or [Synopsis](#synopsis) below.
 
 ### Nice-to-have/next steps/TODO
 
