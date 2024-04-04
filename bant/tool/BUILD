@@ -18,9 +18,11 @@ cc_library(
     srcs = ["header-providers.cc"],
     hdrs = ["header-providers.h"],
     deps = [
+        "//bant:session",
         "//bant:types-bazel",
         "//bant/frontend:parser",
         "//bant/frontend:project-parser",
+        "//bant/util:print-util",
         "//bant/util:query-utils",
         "@abseil-cpp//absl/container:btree",
         "@abseil-cpp//absl/strings:str_format",

@@ -44,6 +44,16 @@ cc_test(
 )
 
 cc_library(
+    name = "print-util",
+    hdrs = ["print-util.h"],
+    deps = [
+        "@abseil-cpp//absl/log:check",
+        "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/strings:str_format",
+    ],
+)
+
+cc_library(
     name = "file-utils",
     srcs = ["file-utils.cc"],
     hdrs = ["file-utils.h"],

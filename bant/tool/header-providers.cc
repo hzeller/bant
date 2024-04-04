@@ -24,6 +24,7 @@
 #include "bant/frontend/ast.h"
 #include "bant/frontend/project-parser.h"
 #include "bant/types-bazel.h"
+#include "bant/util/print-util.h"
 #include "bant/util/query-utils.h"
 
 // Inject dependency to gtest, as we don't glob() the files yet.
@@ -225,16 +226,13 @@ ProvidedFromTargetMap ExtractGeneratedFromGenrule(const ParsedProject &project,
   return result;
 }
 
-void PrintProvidedSources(const ProvidedFromTargetMap &provided_from_lib,
-                          const BazelPattern &pattern, std::ostream &out) {
-  int longest = 0;
+void PrintProvidedSources(Session &session, const BazelPattern &pattern,
+                          const ProvidedFromTargetMap &provided_from_lib) {
+  TablePrinter printer(2);
   for (const auto &[provided, lib] : provided_from_lib) {
     if (!pattern.Match(lib.package)) continue;
-    longest = std::max(longest, (int)provided.length());
+    printer.AddRow({provided, lib.ToString()});
   }
-  for (const auto &[provided, lib] : provided_from_lib) {
-    if (!pattern.Match(lib.package)) continue;
-    out << absl::StrFormat("%*s\t%s\n", -longest, provided, lib.ToString());
-  }
+  printer.Print(session.out(), session.output_format() == OutputFormat::kSExpr);
 }
 }  // namespace bant

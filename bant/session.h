@@ -25,20 +25,27 @@
 #include "bant/util/stat.h"
 
 namespace bant {
-// A session allows all tools and functios to know where to write
-// error and info messages.
+enum class OutputFormat {
+  kNative,
+  kSExpr,
+  kGraphviz,
+};
+
+// A session contains some global settings such as output/verbose requests
+// as well as access to streams for general output or error and info messages.
 class Session {
  public:
   using StatMap = std::map<std::string_view, bant::Stat>;
 
-  Session(std::ostream *out, std::ostream *info, bool verbose)
-      : out_(out), info_(info), verbose_(verbose) {}
+  Session(std::ostream *out, std::ostream *info, bool verbose, OutputFormat fmt)
+      : out_(out), info_(info), verbose_(verbose), output_format_(fmt) {}
 
   std::ostream &out() { return *out_; }
   std::ostream &info() { return *info_; }
   std::ostream &error() { return *info_; }
 
   bool verbose() const { return verbose_; }
+  OutputFormat output_format() const { return output_format_; }
 
   // Get a stat object to fill/update. The "subsystem_name" describes who is
   // collecting stats, the "subject" is what (e.g. file-count etc).
@@ -70,6 +77,7 @@ class Session {
   std::ostream *out_;
   std::ostream *info_;
   bool verbose_;
+  OutputFormat output_format_;
 };
 }  // namespace bant
 #endif  // BANT_SESSION_H

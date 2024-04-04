@@ -23,6 +23,7 @@
 
 #include "absl/container/btree_map.h"
 #include "bant/frontend/project-parser.h"
+#include "bant/session.h"
 
 namespace bant {
 
@@ -39,8 +40,8 @@ ProvidedFromTargetMap ExtractGeneratedFromGenrule(const ParsedProject &project,
                                                   std::ostream &info_out);
 
 // Pretty provided files and targets they are coming from in two columns.
-void PrintProvidedSources(const ProvidedFromTargetMap &header_to_lib,
-                          const BazelPattern &pattern, std::ostream &out);
+void PrintProvidedSources(Session &session, const BazelPattern &pattern,
+                          const ProvidedFromTargetMap &header_to_lib);
 }  // namespace bant
 
 #endif  // BANT_TOOL_HEADER_PROVIDER_

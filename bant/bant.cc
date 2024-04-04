@@ -31,12 +31,14 @@
 #include "bant/tool/header-providers.h"
 #include "bant/types-bazel.h"
 #include "bant/util/dependency-graph.h"
+#include "bant/util/print-util.h"
 #include "bant/workspace.h"
 
 #define BOLD  "\033[1m"
+#define RED   "\033[1;31m"
 #define RESET "\033[0m"
 
-static int usage(const char *prog, int exit_code) {
+static int usage(const char *prog, const char *message, int exit_code) {
   fprintf(stderr,
           "Copyright (c) 2024 Henner Zeller. "
           "This program is free software; license GPL 2.0.\n");
@@ -45,6 +47,8 @@ static int usage(const char *prog, int exit_code) {
     -C <directory> : Change to project directory (default = '.')
     -q             : Quiet: don't print info messages to stderr.
     -o <filename>  : Instead of stdout, emit command primary output to file.
+    -f <format>    : Output format, support depends on command. One of
+                   : native (default), s-expr (unique prefix ok)
     -v             : Verbose; print some stats.
     -h             : This help.
 
@@ -54,7 +58,7 @@ Commands (unique prefix sufficient):
     parse          : Parse all BUILD files from pattern the ones they depend on.
                      Emit parse errors. Silent otherwise: No news are good news.
 
-    %s== Extract facts ==%s (tables as white-space separated lines) ==
+    %s== Extract facts ==%s (-f: whitespace separated columns or s-expr) ==
     list-packages  : List all packages relevant for the pattern with their
                      corresponding filename. Follows dependencies.
                      → 2 column table: (package, buildfile)
@@ -70,9 +74,14 @@ Commands (unique prefix sufficient):
     canonicalize   : Emit rename edits to canonicalize targets.
 )",
           BOLD, RESET, BOLD, RESET, BOLD, RESET);
+
+  if (message) {
+    fprintf(stderr, "\n%s%s%s\n", RED, message, RESET);
+  }
   return exit_code;
 }
 
+// TODO: this is getting big, time to put Commands into their own objects.
 int main(int argc, char *argv[]) {
   // non-nullptr streams if chosen by user.
   std::unique_ptr<std::ostream> user_primary_out;
@@ -109,8 +118,15 @@ int main(int argc, char *argv[]) {
     {"dwyu", Command::kDependencyEdits},
     {"canonicalize", Command::kCanonicalizeDeps},
   };
+  using bant::OutputFormat;
+  static const std::map<std::string_view, OutputFormat> kFormatOutNames = {
+    {"native", OutputFormat::kNative},
+    {"s-expr", OutputFormat::kSExpr},
+    {"graphviz", OutputFormat::kGraphviz},
+  };
+  OutputFormat out_fmt = OutputFormat::kNative;
   int opt;
-  while ((opt = getopt(argc, argv, "C:qo:vhpec")) != -1) {
+  while ((opt = getopt(argc, argv, "C:qo:vhpecf:")) != -1) {
     switch (opt) {
     case 'C': {
       std::error_code err;
@@ -144,9 +160,15 @@ int main(int argc, char *argv[]) {
       // "print" options
     case 'p': print_ast = true; break;
     case 'e': print_only_errors = true; break;
-
+    case 'f': {
+      auto found = kFormatOutNames.lower_bound(optarg);
+      if (found == kFormatOutNames.end() || !found->first.starts_with(optarg)) {
+        return usage(argv[0], "invalid -f format", EXIT_FAILURE);
+      }
+      out_fmt = found->second;
+    } break;
     case 'v': verbose = true; break;
-    default: return usage(argv[0], EXIT_SUCCESS);
+    default: return usage(argv[0], nullptr, EXIT_SUCCESS);
     }
   }
 
@@ -157,31 +179,33 @@ int main(int argc, char *argv[]) {
       auto next_command = std::next(found);
       if (next_command != kCommandNames.end() &&
           next_command->first.starts_with(cmd_string)) {
-        std::cerr << "Command '" << cmd_string << "' too short and ambiguous: "
-                  << "[" << found->first << ", " << next_command->first
-                  << ", ...\n\n";
-        return usage(argv[0], EXIT_FAILURE);
+        std::stringstream sout;
+        sout << "Command '" << cmd_string << "' too short and ambiguous: "
+             << "[" << found->first << ", " << next_command->first
+             << ", ...\n\n";
+        return usage(argv[0], sout.str().c_str(), EXIT_FAILURE);
       }
       cmd = found->second;
     }
     if (cmd == Command::kNone) {
-      std::cerr << "Unknown command prefix '" << cmd_string << "'\n\n";
-      return usage(argv[0], EXIT_FAILURE);
+      std::stringstream sout;
+      sout << "Unknown command prefix '" << cmd_string << "'\n\n";
+      return usage(argv[0], sout.str().c_str(), EXIT_FAILURE);
     }
     ++optind;
   }
 
   if (cmd == Command::kNone) {
-    std::cerr << "Command expected\n\n";
-    return usage(argv[0], EXIT_FAILURE);
+    return usage(argv[0], "Command expected", EXIT_FAILURE);
   }
 
   if (optind < argc) {
     if (auto p = bant::BazelPattern::ParseFrom(argv[optind]); p.has_value()) {
       pattern = p.value();
     } else {
-      std::cerr << "Invalid pattern " << argv[optind] << "\n\n";
-      return usage(argv[0], EXIT_FAILURE);
+      std::stringstream sout;
+      sout << "Invalid pattern " << argv[optind] << "\n\n";
+      return usage(argv[0], sout.str().c_str(), EXIT_FAILURE);
     }
     ++optind;
   }
@@ -203,7 +227,7 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  bant::Session session(primary_out, info_out, verbose);
+  bant::Session session(primary_out, info_out, verbose, out_fmt);
 
   // -- TODO: a lot of the following functionality needs to move into each
   // command itself. We don't have a 'Command' object yet, so linear here.
@@ -239,12 +263,12 @@ int main(int argc, char *argv[]) {
     }
     break;
   case Command::kLibraryHeaders:  //
-    bant::PrintProvidedSources(ExtractHeaderToLibMapping(project, *info_out),
-                               pattern, *primary_out);
+    bant::PrintProvidedSources(session, pattern,
+                               ExtractHeaderToLibMapping(project, *info_out));
     break;
   case Command::kGenruleOutputs:
-    bant::PrintProvidedSources(ExtractGeneratedFromGenrule(project, *info_out),
-                               pattern, *primary_out);
+    bant::PrintProvidedSources(session, pattern,
+                               ExtractGeneratedFromGenrule(project, *info_out));
     break;
   case Command::kDependencyEdits:
     using bant::CreateBuildozerDepsEditCallback;
@@ -256,20 +280,25 @@ int main(int argc, char *argv[]) {
     CreateCanonicalizeEdits(session, project, pattern,
                             CreateBuildozerDepsEditCallback(*primary_out));
     break;
-  case Command::kListPackages:
+  case Command::kListPackages: {
+    TablePrinter printer(2);
     for (const auto &[package, parsed] : project.ParsedFiles()) {
-      *primary_out << absl::StrFormat("%-45s %s\n", package.ToString(),
-                                      parsed->source.name());
+      printer.AddRow({package.ToString(), std::string(parsed->source.name())});
     }
-    break;
+    printer.Print(session.out(),
+                  session.output_format() == OutputFormat::kSExpr);
+  } break;
   case Command::kListWorkkspace: {
     // For now, we just load the workspace file in this command. We might need
     // it later also to resolve dependencies.
+    TablePrinter printer(3);
     for (const auto &[project, file] : workspace_or->project_location) {
-      *primary_out << absl::StrFormat(
-        "%-33s %12s %s\n", project.project,
-        project.version.empty() ? "-" : project.version, file.path());
+      printer.AddRow({project.project,
+                      project.version.empty() ? "-" : project.version,
+                      file.path()});
     }
+    printer.Print(session.out(),
+                  session.output_format() == OutputFormat::kSExpr);
   } break;
   case Command::kNone:  // nop (implicitly done by parsing)
     ;
