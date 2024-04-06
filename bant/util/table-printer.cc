@@ -29,6 +29,7 @@
 #include "bant/output-format.h"
 
 namespace bant {
+namespace {
 // The AlignedTextColumnPrinter needs to collect all the rows first to know
 // how wide columns are.
 class AlignedTextColumnPrinter : public TablePrinter {
@@ -92,6 +93,28 @@ class SExprTablePrinter : public TablePrinter {
   bool row_printed_ = false;
 };
 
+class JSonTablePrinter : public TablePrinter {
+ public:
+  JSonTablePrinter(std::ostream &out, const std::vector<std::string> &headers)
+    : out_(out), headers_(headers) {}
+
+  void AddRow(const std::vector<std::string> &row) final {
+    out_ << "{";
+    for (size_t c = 0; c < row.size(); ++c) {
+      if (c != 0) out_ << ", ";
+      out_ << "\"" << absl::CEscape(headers_[c]) << "\": ";
+      out_ << "\"" << absl::CEscape(row[c]) << "\"";
+    }
+    out_ << "}\n";
+  }
+
+  void Finish() final {}
+
+ private:
+  std::ostream &out_;
+  const std::vector<std::string> headers_;
+};
+
 class CSVTablePrinter : public TablePrinter {
  public:
   CSVTablePrinter(std::ostream &out, const std::vector<std::string> &headers)
@@ -116,6 +139,7 @@ class CSVTablePrinter : public TablePrinter {
  private:
   std::ostream &out_;
 };
+}  // namespace
 
 std::unique_ptr<TablePrinter> TablePrinter::Create(
   std::ostream &out, OutputFormat format,
@@ -125,6 +149,8 @@ std::unique_ptr<TablePrinter> TablePrinter::Create(
   case OutputFormat::kPList:
     return std::make_unique<SExprTablePrinter>(out, headers,
                                                format == OutputFormat::kPList);
+  case OutputFormat::kJSON:
+    return std::make_unique<JSonTablePrinter>(out, headers);
   case OutputFormat::kCSV:
     return std::make_unique<CSVTablePrinter>(out, headers);
   default: return std::make_unique<AlignedTextColumnPrinter>(out, headers);

@@ -94,13 +94,14 @@ are used, consider a bazel command that needs all of them, e.g.
 
 ```
 $ bazel-bin/bant/bant -h
+Copyright (c) 2024 Henner Zeller. This program is free software; license GPL 2.0.
 Usage: bazel-bin/bant/bant [options] <command> [pattern]
 Options
     -C <directory> : Change to project directory (default = '.')
     -q             : Quiet: don't print info messages to stderr.
     -o <filename>  : Instead of stdout, emit command primary output to file.
     -f <format>    : Output format, support depends on command. One of
-                   : native (default), s-expr, plist, csv (unique prefix ok)
+                   : native (default), s-expr, plist, json, csv (unique prefix ok)
     -v             : Verbose; print some stats.
     -h             : This help.
 

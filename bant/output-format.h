@@ -22,6 +22,7 @@ enum class OutputFormat {
   kNative,  // Default printing for whatever that command does.
   kSExpr,   // lisp s-expression
   kPList,   // lisp p-list
+  kJSON,
   kCSV,
   kGraphviz,
 };

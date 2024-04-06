@@ -48,7 +48,7 @@ static int usage(const char *prog, const char *message, int exit_code) {
     -q             : Quiet: don't print info messages to stderr.
     -o <filename>  : Instead of stdout, emit command primary output to file.
     -f <format>    : Output format, support depends on command. One of
-                   : native (default), s-expr, plist, csv (unique prefix ok)
+                   : native (default), s-expr, plist, json, csv (unique prefix ok)
     -v             : Verbose; print some stats.
     -h             : This help.
 
@@ -120,9 +120,9 @@ int main(int argc, char *argv[]) {
   };
   using bant::OutputFormat;
   static const std::map<std::string_view, OutputFormat> kFormatOutNames = {
-    {"native", OutputFormat::kNative},     {"s-expr", OutputFormat::kSExpr},
-    {"plist", OutputFormat::kPList},       {"csv", OutputFormat::kCSV},
-    {"graphviz", OutputFormat::kGraphviz},
+    {"native", OutputFormat::kNative}, {"s-expr", OutputFormat::kSExpr},
+    {"plist", OutputFormat::kPList},   {"csv", OutputFormat::kCSV},
+    {"json", OutputFormat::kJSON},     {"graphviz", OutputFormat::kGraphviz},
   };
   using bant::TablePrinter;
   OutputFormat out_fmt = OutputFormat::kNative;
