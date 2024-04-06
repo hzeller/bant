@@ -28,7 +28,7 @@ cc_binary(
         "//bant/tool:edit-callback",
         "//bant/tool:header-providers",
         "//bant/util:dependency-graph",
-        "//bant/util:print-util",
+        "//bant/util:table-printer",
     ],
 )
 
@@ -62,7 +62,10 @@ cc_library(
 
 cc_library(
     name = "session",
-    hdrs = ["session.h"],
+    hdrs = [
+        "output-format.h",
+        "session.h",
+    ],
     deps = ["//bant/util:stat"],
 )
 

@@ -31,7 +31,7 @@
 #include "bant/tool/header-providers.h"
 #include "bant/types-bazel.h"
 #include "bant/util/dependency-graph.h"
-#include "bant/util/print-util.h"
+#include "bant/util/table-printer.h"
 #include "bant/workspace.h"
 
 #define BOLD  "\033[1m"
@@ -48,7 +48,7 @@ static int usage(const char *prog, const char *message, int exit_code) {
     -q             : Quiet: don't print info messages to stderr.
     -o <filename>  : Instead of stdout, emit command primary output to file.
     -f <format>    : Output format, support depends on command. One of
-                   : native (default), s-expr (unique prefix ok)
+                   : native (default), s-expr, plist, csv (unique prefix ok)
     -v             : Verbose; print some stats.
     -h             : This help.
 
@@ -66,7 +66,7 @@ Commands (unique prefix sufficient):
                      → 3 column table: (project, version, path)
     lib-headers    : Print the targets for each header file in the project.
                      → 2 column table: (header-filename, cc-library-target)
-    genrule-outputs: Print names of generates files an genrules creating them
+    genrule-outputs: Print names of generated files and genrules creating them
                      → 2 column table: (filename, genrule-target)
 
     %s== Tools ==%s
@@ -120,10 +120,11 @@ int main(int argc, char *argv[]) {
   };
   using bant::OutputFormat;
   static const std::map<std::string_view, OutputFormat> kFormatOutNames = {
-    {"native", OutputFormat::kNative},
-    {"s-expr", OutputFormat::kSExpr},
+    {"native", OutputFormat::kNative},     {"s-expr", OutputFormat::kSExpr},
+    {"plist", OutputFormat::kPList},       {"csv", OutputFormat::kCSV},
     {"graphviz", OutputFormat::kGraphviz},
   };
+  using bant::TablePrinter;
   OutputFormat out_fmt = OutputFormat::kNative;
   int opt;
   while ((opt = getopt(argc, argv, "C:qo:vhpecf:")) != -1) {
@@ -263,11 +264,11 @@ int main(int argc, char *argv[]) {
     }
     break;
   case Command::kLibraryHeaders:  //
-    bant::PrintProvidedSources(session, pattern,
+    bant::PrintProvidedSources(session, "header", pattern,
                                ExtractHeaderToLibMapping(project, *info_out));
     break;
   case Command::kGenruleOutputs:
-    bant::PrintProvidedSources(session, pattern,
+    bant::PrintProvidedSources(session, "generated-file", pattern,
                                ExtractGeneratedFromGenrule(project, *info_out));
     break;
   case Command::kDependencyEdits:
@@ -281,24 +282,24 @@ int main(int argc, char *argv[]) {
                             CreateBuildozerDepsEditCallback(*primary_out));
     break;
   case Command::kListPackages: {
-    TablePrinter printer(2);
+    auto printer = TablePrinter::Create(session.out(), session.output_format(),
+                                        {"package", "bazel-file"});
     for (const auto &[package, parsed] : project.ParsedFiles()) {
-      printer.AddRow({package.ToString(), std::string(parsed->source.name())});
+      printer->AddRow({package.ToString(), std::string(parsed->source.name())});
     }
-    printer.Print(session.out(),
-                  session.output_format() == OutputFormat::kSExpr);
+    printer->Finish();
   } break;
   case Command::kListWorkkspace: {
     // For now, we just load the workspace file in this command. We might need
     // it later also to resolve dependencies.
-    TablePrinter printer(3);
+    auto printer = TablePrinter::Create(session.out(), session.output_format(),
+                                        {"project", "version", "directory"});
     for (const auto &[project, file] : workspace_or->project_location) {
-      printer.AddRow({project.project,
-                      project.version.empty() ? "-" : project.version,
-                      file.path()});
+      printer->AddRow({project.project,
+                       project.version.empty() ? "-" : project.version,
+                       file.path()});
     }
-    printer.Print(session.out(),
-                  session.output_format() == OutputFormat::kSExpr);
+    printer->Finish();
   } break;
   case Command::kNone:  // nop (implicitly done by parsing)
     ;

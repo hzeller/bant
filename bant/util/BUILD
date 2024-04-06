@@ -44,9 +44,11 @@ cc_test(
 )
 
 cc_library(
-    name = "print-util",
-    hdrs = ["print-util.h"],
+    name = "table-printer",
+    srcs = ["table-printer.cc"],
+    hdrs = ["table-printer.h"],
     deps = [
+        "//bant:session",
         "@abseil-cpp//absl/log:check",
         "@abseil-cpp//absl/strings",
         "@abseil-cpp//absl/strings:str_format",

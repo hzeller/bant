@@ -25,7 +25,9 @@ Commands are given on the command line of `bant`. They can be shortened as
 long as they are unique, e.g. `lib` is sufficient to invoke `lib-headers`.
 Some have extra command line options (e.g. for `parse`, `-p` prints AST).
 
-See `bant -h` for general [Synopsis](#synopsis).
+See `bant -h` for general [Synopsis](#synopsis). Play around with the various
+output formats of `workspace`, `list-packages` to best help with your preferred
+processing. `-fnative`, `-fs-expr` etc. (or short `-fn`, `-fs`, `-fp`, `-fc`).
 
 Tools that can help keep projects clean
  * `dwyu` Depend on What You Use (DWYU): Determine which dependencies are
@@ -92,14 +94,13 @@ are used, consider a bazel command that needs all of them, e.g.
 
 ```
 $ bazel-bin/bant/bant -h
-Copyright (c) 2024 Henner Zeller. This program is free software; license GPL 2.0.
-Usage: bant [options] <command> [pattern]
+Usage: bazel-bin/bant/bant [options] <command> [pattern]
 Options
     -C <directory> : Change to project directory (default = '.')
     -q             : Quiet: don't print info messages to stderr.
     -o <filename>  : Instead of stdout, emit command primary output to file.
     -f <format>    : Output format, support depends on command. One of
-                   : native (default), s-expr (unique prefix ok)
+                   : native (default), s-expr, plist, csv (unique prefix ok)
     -v             : Verbose; print some stats.
     -h             : This help.
 
@@ -117,7 +118,7 @@ Commands (unique prefix sufficient):
                      → 3 column table: (project, version, path)
     lib-headers    : Print the targets for each header file in the project.
                      → 2 column table: (header-filename, cc-library-target)
-    genrule-outputs: Print names of generates files an genrules creating them
+    genrule-outputs: Print names of generated files and genrules creating them
                      → 2 column table: (filename, genrule-target)
 
     == Tools ==

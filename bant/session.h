@@ -22,15 +22,10 @@
 #include <ostream>
 #include <string_view>
 
+#include "bant/output-format.h"
 #include "bant/util/stat.h"
 
 namespace bant {
-enum class OutputFormat {
-  kNative,
-  kSExpr,
-  kGraphviz,
-};
-
 // A session contains some global settings such as output/verbose requests
 // as well as access to streams for general output or error and info messages.
 class Session {
