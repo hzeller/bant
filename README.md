@@ -27,7 +27,7 @@ Some have extra command line options (e.g. for `parse`, `-p` prints AST).
 
 See `bant -h` for general [Synopsis](#synopsis). Play around with the various
 output formats of `workspace`, `list-packages` to best help with your preferred
-processing. `-fnative`, `-fs-expr` etc. (or short `-fn`, `-fs`, `-fp`, `-fc`).
+processing. `-fnative`, `-fs-expr`, `-fjson` etc. (or short `-fn`, `-fs`, `-fp`, `-fc`, `-fj').
 
 Tools that can help keep projects clean
  * `dwyu` Depend on What You Use (DWYU): Determine which dependencies are
