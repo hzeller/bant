@@ -25,9 +25,9 @@ Commands are given on the command line of `bant`. They can be shortened as
 long as they are unique, e.g. `lib` is sufficient to invoke `lib-headers`.
 Some have extra command line options (e.g. for `parse`, `-p` prints AST).
 
-See `bant -h` for general [Synopsis](#synopsis). Play around with the various
-output formats of `workspace`, `list-packages` to best help with your preferred
-processing. `-fnative`, `-fs-expr`, `-fjson` etc. (or short `-fn`, `-fs`, `-fp`, `-fc`, `-fj').
+See `bant -h` for general [Synopsis](#synopsis). Play around with the
+various `-f` output formats of `workspace`, `list-packages` etc. for your
+preferred post-processing.
 
 Tools that can help keep projects clean
  * `dwyu` Depend on What You Use (DWYU): Determine which dependencies are
@@ -101,7 +101,8 @@ Options
     -q             : Quiet: don't print info messages to stderr.
     -o <filename>  : Instead of stdout, emit command primary output to file.
     -f <format>    : Output format, support depends on command. One of
-                   : native (default), s-expr, plist, json, csv (unique prefix ok)
+                   : native (default), s-expr, plist, json, csv
+                     Unique prefix ok, so -fs , -fp, -fj or -fc is sufficient.
     -v             : Verbose; print some stats.
     -h             : This help.
 

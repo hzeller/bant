@@ -48,7 +48,8 @@ static int usage(const char *prog, const char *message, int exit_code) {
     -q             : Quiet: don't print info messages to stderr.
     -o <filename>  : Instead of stdout, emit command primary output to file.
     -f <format>    : Output format, support depends on command. One of
-                   : native (default), s-expr, plist, json, csv (unique prefix ok)
+                   : native (default), s-expr, plist, json, csv
+                     Unique prefix ok, so -fs , -fp, -fj or -fc is sufficient.
     -v             : Verbose; print some stats.
     -h             : This help.
 
