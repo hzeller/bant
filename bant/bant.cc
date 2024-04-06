@@ -58,7 +58,7 @@ Commands (unique prefix sufficient):
     parse          : Parse all BUILD files from pattern the ones they depend on.
                      Emit parse errors. Silent otherwise: No news are good news.
 
-    %s== Extract facts ==%s (-f: whitespace separated columns or s-expr) ==
+    %s== Extract facts ==%s (Use -f to choose output format) ==
     list-packages  : List all packages relevant for the pattern with their
                      corresponding filename. Follows dependencies.
                      → 2 column table: (package, buildfile)

@@ -95,7 +95,7 @@ are used, consider a bazel command that needs all of them, e.g.
 ```
 $ bazel-bin/bant/bant -h
 Copyright (c) 2024 Henner Zeller. This program is free software; license GPL 2.0.
-Usage: bazel-bin/bant/bant [options] <command> [pattern]
+Usage: bant [options] <command> [pattern]
 Options
     -C <directory> : Change to project directory (default = '.')
     -q             : Quiet: don't print info messages to stderr.
@@ -111,7 +111,7 @@ Commands (unique prefix sufficient):
     parse          : Parse all BUILD files from pattern the ones they depend on.
                      Emit parse errors. Silent otherwise: No news are good news.
 
-    == Extract facts == (-f: whitespace separated columns or s-expr) ==
+    == Extract facts == (Use -f to choose output format) ==
     list-packages  : List all packages relevant for the pattern with their
                      corresponding filename. Follows dependencies.
                      → 2 column table: (package, buildfile)
