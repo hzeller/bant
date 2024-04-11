@@ -1,16 +1,22 @@
-# Requires at least bazel 6
+# Requires at least bazel 6.
 common --enable_bzlmod
 
-# C++, with warnings mostly turned to 11
-build --cxxopt=-xc++                    --host_cxxopt=-xc++
-build --cxxopt=-std=c++23               --host_cxxopt=-std=c++23
-build --cxxopt=-Wall                    --host_cxxopt=-Wall
-build --cxxopt=-Wextra                  --host_cxxopt=-Wextra
-build --cxxopt=-Wno-unused-parameter    --host_cxxopt=-Wno-unused-parameter
+# C++, with warnings mostly turned to 11.
+build       --cxxopt=-std=c++23            --host_cxxopt=-std=c++23
+build       --cxxopt=-xc++                 --host_cxxopt=-xc++
+build       --cxxopt=-Wall                 --host_cxxopt=-Wall
+build       --cxxopt=-Wextra               --host_cxxopt=-Wextra
+build       --cxxopt=-Wno-unused-parameter --host_cxxopt=-Wno-unused-parameter
 
-# Avoid costly language features
-build --cxxopt=-fno-exceptions          --host_cxxopt=-fno-exceptions
-build --cxxopt=-fno-rtti                --host_cxxopt=-fno-rtti
+# Avoid costly language features.
+build       --cxxopt=-fno-exceptions       --host_cxxopt=-fno-exceptions
+build       --cxxopt=-fno-rtti             --host_cxxopt=-fno-rtti
+
+# Platform specific options.
+build --enable_platform_specific_config
+build:macos --macos_minimum_os=10.15
+build:macos --features=-supports_dynamic_linker
+build:macos --cxxopt=-std=c++2b            --host_cxxopt=-std=c++2b
 
 # Print out test log on failure.
 test --test_output=errors

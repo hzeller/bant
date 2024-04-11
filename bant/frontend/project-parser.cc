@@ -21,6 +21,7 @@
 #include <optional>
 #include <string>
 #include <vector>
+#include <sstream>
 
 #include "absl/strings/str_cat.h"
 #include "bant/frontend/parser.h"
