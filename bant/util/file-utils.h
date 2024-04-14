@@ -76,15 +76,13 @@ std::vector<FilesystemPath> Glob(std::string_view glob_pattern);
 // an error, return a nullopt.
 std::optional<std::string> ReadFileToString(const FilesystemPath &filename);
 
-// Collect files found recursively (BFS) and store in "paths".
+// Collect files found recursively (BFS) and return.
 // Uses predicate "want_dir_p" to check if directory should be entered, and
 // "want_file_p" if file should be included; if so, it is added to "paths".
 //
-// Result "paths" only contains files, never directories.
-//
-// Returns number of files and directories considered.
-size_t CollectFilesRecursive(
-  const FilesystemPath &dir, std::vector<FilesystemPath> &paths,
+// Result only contains files, never directories.
+std::vector<FilesystemPath> CollectFilesRecursive(
+  const FilesystemPath &dir,
   const std::function<bool(const FilesystemPath &)> &want_dir_p,
   const std::function<bool(const FilesystemPath &)> &want_file_p);
 }  // namespace bant

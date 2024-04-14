@@ -59,38 +59,46 @@ static FilesystemPath ExternalProjectDir() {
   return FilesystemPath(absl::StrCat(external_base, "/external"));
 }
 
-// Convenience function to just collect all the BUILD files. Update "stats"
-// with total files searched and total time.
-// If pattern contains a project name, the path is resolved from "workspace".
-std::vector<FilesystemPath> CollectBuildFiles(Session &session,
-                                              const BazelWorkspace &workspace,
-                                              const BazelPattern &pattern) {
-  bant::Stat &stats =
-    session.GetStatsFor("BUILD file glob walk", "files/directories");
-
-  bool recursive = pattern.is_recursive();
+// Given a bazel pattern, find the start directory to recursively walk the
+// filesytem from.
+static std::optional<FilesystemPath> DetermineSearchDirFromPattern(
+  const BazelWorkspace &workspace, const BazelPattern &pattern) {
   std::string start_dir;
   if (!pattern.project().empty()) {
     auto dir_or = workspace.FindPathByProject(pattern.project());
     if (!dir_or.has_value()) {
       std::cerr << "Unknown project " << pattern.project() << "\n";
-      return {};
+      return std::nullopt;
     }
     start_dir = dir_or->path();
     start_dir.append("/");
   }
   start_dir.append(pattern.path());
   if (start_dir.empty()) start_dir = ".";
+  return FilesystemPath(start_dir);
+}
 
-  std::vector<FilesystemPath> build_files;
-  ScopedTimer timer(&stats.duration);
-  const auto relevant_build_file_predicate = [](const FilesystemPath &file) {
+// Convenience function to just collect all the BUILD files. Update "stats"
+// with total files searched and total time.
+// If pattern contains a project name, the path is resolved from "workspace".
+std::vector<FilesystemPath> CollectBuildFiles(Session &session,
+                                              const BazelWorkspace &workspace,
+                                              const BazelPattern &pattern) {
+  bant::Stat &walk_stats =
+    session.GetStatsFor("BUILD file glob walk", "files/directories");
+  ScopedTimer timer(&walk_stats.duration);
+
+  // Predicates to decide if files should be included.
+  const bool allow_recursive_walking = pattern.is_recursive();
+  const auto is_build_file_predicate = [&](const FilesystemPath &file) {
     const std::string_view basename = file.filename();
+    walk_stats.count++;
     return basename == "BUILD" || basename == "BUILD.bazel";
   };
 
   const auto dir_predicate = [&](const FilesystemPath &dir) {
-    if (!recursive) return false;  // Only looking at one level.
+    walk_stats.count++;
+    if (!allow_recursive_walking) return false;  // Only looking at one level.
     if (dir.is_symlink()) return false;
     const std::string_view filename = dir.filename();
     // Skip irrelevant stuff
@@ -100,12 +108,9 @@ std::vector<FilesystemPath> CollectBuildFiles(Session &session,
     return true;
   };
 
-  // File in the general project
-  stats.count =
-    CollectFilesRecursive(FilesystemPath(start_dir), build_files, dir_predicate,
-                          relevant_build_file_predicate);
-
-  return build_files;
+  auto dir_or = DetermineSearchDirFromPattern(workspace, pattern);
+  if (!dir_or) return {};
+  return CollectFilesRecursive(*dir_or, dir_predicate, is_build_file_predicate);
 }
 }  // namespace
 

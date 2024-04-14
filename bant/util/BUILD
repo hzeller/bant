@@ -59,7 +59,10 @@ cc_library(
     name = "file-utils",
     srcs = ["file-utils.cc"],
     hdrs = ["file-utils.h"],
-    deps = ["@abseil-cpp//absl/container:flat_hash_set"],
+    deps = [
+        "@abseil-cpp//absl/cleanup",
+        "@abseil-cpp//absl/container:flat_hash_set",
+    ],
 )
 
 cc_test(

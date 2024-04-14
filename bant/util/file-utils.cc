@@ -30,6 +30,7 @@
 #include <string>
 #include <string_view>
 
+#include "absl/cleanup/cleanup.h"
 #include "absl/container/flat_hash_set.h"
 
 namespace bant {
@@ -113,17 +114,19 @@ std::vector<FilesystemPath> Glob(std::string_view glob_pattern) {
   if (glob(pattern.c_str(), 0, nullptr, &glob_list) != 0) {
     return {};
   }
+  const absl::Cleanup glob_closer = [&glob_list]() { globfree(&glob_list); };
+
   std::vector<FilesystemPath> result;
   for (char **path = glob_list.gl_pathv; *path; ++path) {
     result.emplace_back(*path);
   }
-  globfree(&glob_list);
   return result;
 }
 
 std::optional<std::string> ReadFileToString(const FilesystemPath &filename) {
   const int fd = open(filename.c_str(), O_RDONLY);
   if (fd < 0) return std::nullopt;
+  const absl::Cleanup fd_closer = [fd]() { close(fd); };
   struct stat st;
   if (fstat(fd, &st) != 0) return std::nullopt;
 
@@ -143,13 +146,14 @@ std::optional<std::string> ReadFileToString(const FilesystemPath &filename) {
       success = (bytes_left == 0);
       return filesize;
     });
-  close(fd);
   if (!success) return std::nullopt;
   return content;
 }
 
-// Best effort on filesystems that don't have inodes.
-// That means, loop-detection is essentially disabled. If this become an issue:
+// Best effort on filesystems that don't have inodes; they typically emit some
+// placeholder value such as 0 or -1.
+// In consequence, loop-detection is essentially disabled for these filesystems.
+// If this become an issue:
 // TODO: in that case, base loop-detection on realpath() (will be slower).
 static bool LooksLikeValidInode(ino_t inode) {
   // inode numbers at the edges available numbers look suspicous...
@@ -161,12 +165,12 @@ static bool LooksLikeValidInode(ino_t inode) {
 //
 // Compared to using std::filesystem, this implementation is probably slightly
 // less portable, but I run my personal tools on Posix-Systems anyway.
-size_t CollectFilesRecursive(
-  const FilesystemPath &dir, std::vector<FilesystemPath> &paths,
+std::vector<FilesystemPath> CollectFilesRecursive(
+  const FilesystemPath &dir,
   const std::function<bool(const FilesystemPath &)> &want_dir_p,
   const std::function<bool(const FilesystemPath &)> &want_file_p) {
+  std::vector<FilesystemPath> result_paths;
   absl::flat_hash_set<ino_t> seen_inode;  // make sure we don't run in circles.
-  size_t count = 0;
 
   std::deque<std::string> directory_worklist;
   directory_worklist.emplace_back(dir.path());
@@ -176,6 +180,7 @@ size_t CollectFilesRecursive(
 
     DIR *const dir = opendir(current_dir.c_str());
     if (!dir) continue;
+    const absl::Cleanup dir_closer = [dir]() { closedir(dir); };
 
     while (dirent *const entry = readdir(dir)) {
       if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
@@ -192,7 +197,6 @@ size_t CollectFilesRecursive(
          ((entry->d_type == DT_UNKNOWN || entry->d_type == DT_LNK) &&
           FollowLinkTestIsDir(file_or_dir, &inode)));
 
-      ++count;
       if (is_directory) {
         if (LooksLikeValidInode(inode) && !seen_inode.insert(inode).second) {
           continue;  // Avoid getting caught in symbolic-link loops.
@@ -201,12 +205,10 @@ size_t CollectFilesRecursive(
           directory_worklist.emplace_back(file_or_dir.path());
         }
       } else if (want_file_p(file_or_dir)) {
-        paths.emplace_back(std::move(file_or_dir));
+        result_paths.emplace_back(std::move(file_or_dir));
       }
     }
-    closedir(dir);
   }
-
-  return count;
+  return result_paths;
 }
 }  // namespace bant
