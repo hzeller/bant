@@ -232,7 +232,7 @@ void PrintProvidedSources(Session &session, const std::string &table_header,
   auto printer = TablePrinter::Create(session.out(), session.output_format(),
                                       {table_header, "providing-rule"});
   for (const auto &[provided, lib] : provided_from_lib) {
-    if (!pattern.Match(lib.package)) continue;
+    if (!pattern.Match(lib)) continue;
     printer->AddRow({provided, lib.ToString()});
   }
   printer->Finish();

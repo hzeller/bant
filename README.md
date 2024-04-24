@@ -103,24 +103,26 @@ Options
     -f <format>    : Output format, support depends on command. One of
                    : native (default), s-expr, plist, json, csv
                      Unique prefix ok, so -fs , -fp, -fj or -fc is sufficient.
+    -r             : Follow dependencies recursively starting from pattern.
     -v             : Verbose; print some stats.
     -h             : This help.
 
 Commands (unique prefix sufficient):
     == Parsing ==
     print          : Print AST matching pattern. -e : only files w/ parse errors
-    parse          : Parse all BUILD files from pattern the ones they depend on.
+    parse          : Parse all BUILD files from pattern. Follow deps with -r
                      Emit parse errors. Silent otherwise: No news are good news.
 
     == Extract facts == (Use -f to choose output format) ==
-    list-packages  : List all packages relevant for the pattern with their
-                     corresponding filename. Follows dependencies.
-                     → 2 column table: (package, buildfile)
     workspace      : Print external projects found in WORKSPACE.
                      → 3 column table: (project, version, path)
-    lib-headers    : Print the targets for each header file in the project.
+
+    -- Given '-r', the following also follow dependencies recursively --
+    list-packages  : List all packages matching pattern with their BUILD file.
+                     → 2 column table: (package, buildfile)
+    lib-headers    : Print headers provided by cc_library()s matching pattern.
                      → 2 column table: (header-filename, cc-library-target)
-    genrule-outputs: Print names of generated files and genrules creating them
+    genrule-outputs: Print generated files by genrule()s matching pattern.
                      → 2 column table: (filename, genrule-target)
 
     == Tools ==

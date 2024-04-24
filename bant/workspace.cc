@@ -30,13 +30,6 @@ namespace bant {
 static constexpr std::string_view kExternalBaseDir =
   "bazel-out/../../../external";
 
-// Some projects somewhat obfuscate the dependencies (looking at you, XLS), by
-// putting things in various bzl files instead of a simple toplevel
-// WORKSPACE or MODULE.bazel.
-// Do some fallback by checking these directories.
-// TODO: maybe only enable fallback with some flag.
-static constexpr bool kAttemptLoadingFromDirectoryStructure = true;
-
 /*static*/ std::optional<VersionedProject> VersionedProject::ParseFromDir(
   std::string_view dir) {
   if (dir.empty()) return std::nullopt;
@@ -64,7 +57,7 @@ std::optional<FilesystemPath> BazelWorkspace::FindPathByProject(
   return found->second;
 }
 
-static bool BestEffortAugmentProjectFromDir(BazelWorkspace &workspace) {
+bool BestEffortAugmentFromExternalDir(BazelWorkspace &workspace) {
   bool any_found = false;
   const std::string pattern = absl::StrCat(kExternalBaseDir, "/*");
   for (const FilesystemPath &project_dir : Glob(pattern)) {
@@ -149,9 +142,6 @@ std::optional<BazelWorkspace> LoadWorkspace(Session &session) {
         project.version = result.version;
         workspace.project_location[project] = path;
       });
-  }
-  if (kAttemptLoadingFromDirectoryStructure) {
-    workspace_found |= BestEffortAugmentProjectFromDir(workspace);
   }
   if (!workspace_found) return std::nullopt;
   return workspace;

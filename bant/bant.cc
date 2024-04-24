@@ -50,24 +50,26 @@ static int usage(const char *prog, const char *message, int exit_code) {
     -f <format>    : Output format, support depends on command. One of
                    : native (default), s-expr, plist, json, csv
                      Unique prefix ok, so -fs , -fp, -fj or -fc is sufficient.
+    -r             : Follow dependencies recursively starting from pattern.
     -v             : Verbose; print some stats.
     -h             : This help.
 
 Commands (unique prefix sufficient):
     %s== Parsing ==%s
     print          : Print AST matching pattern. -e : only files w/ parse errors
-    parse          : Parse all BUILD files from pattern the ones they depend on.
+    parse          : Parse all BUILD files from pattern. Follow deps with -r
                      Emit parse errors. Silent otherwise: No news are good news.
 
     %s== Extract facts ==%s (Use -f to choose output format) ==
-    list-packages  : List all packages relevant for the pattern with their
-                     corresponding filename. Follows dependencies.
-                     → 2 column table: (package, buildfile)
     workspace      : Print external projects found in WORKSPACE.
                      → 3 column table: (project, version, path)
-    lib-headers    : Print the targets for each header file in the project.
+
+    -- Given '-r', the following also follow dependencies recursively --
+    list-packages  : List all packages matching pattern with their BUILD file.
+                     → 2 column table: (package, buildfile)
+    lib-headers    : Print headers provided by cc_library()s matching pattern.
                      → 2 column table: (header-filename, cc-library-target)
-    genrule-outputs: Print names of generated files and genrules creating them
+    genrule-outputs: Print generated files by genrule()s matching pattern.
                      → 2 column table: (filename, genrule-target)
 
     %s== Tools ==%s
@@ -97,6 +99,10 @@ int main(int argc, char *argv[]) {
   bool verbose = false;
   bool print_ast = false;
   bool print_only_errors = false;
+  bool recurse_dependencies = false;
+
+  // TODO: make flag ?
+  constexpr bool kAugmentWorkspacdFromDirectoryStructure = true;
 
   enum class Command {
     kNone,
@@ -128,7 +134,7 @@ int main(int argc, char *argv[]) {
   using bant::TablePrinter;
   OutputFormat out_fmt = OutputFormat::kNative;
   int opt;
-  while ((opt = getopt(argc, argv, "C:qo:vhpecf:")) != -1) {
+  while ((opt = getopt(argc, argv, "C:qo:vhpecf:r")) != -1) {
     switch (opt) {
     case 'C': {
       std::error_code err;
@@ -157,6 +163,10 @@ int main(int argc, char *argv[]) {
         return 1;
       }
       primary_out = user_primary_out.get();
+      break;
+
+    case 'r':
+      recurse_dependencies = true;
       break;
 
       // "print" options
@@ -231,29 +241,46 @@ int main(int argc, char *argv[]) {
 
   bant::Session session(primary_out, info_out, verbose, out_fmt);
 
-  // -- TODO: a lot of the following functionality needs to move into each
-  // command itself. We don't have a 'Command' object yet, so linear here.
+  // -- TODO: a lot of the following functionality including choosing what
+  // data is needed needs to move into each command itself.
+  // We don't have a 'Command' object yet, so linear here.
   auto workspace_or = bant::LoadWorkspace(session);
   if (!workspace_or.has_value()) {
     std::cerr
       << "Didn't find any workspace file. Is this a bazel project root ?\n";
     return EXIT_FAILURE;
   }
+  if (kAugmentWorkspacdFromDirectoryStructure) {
+    BestEffortAugmentFromExternalDir(workspace_or.value());
+  }
   const bant::BazelWorkspace &workspace = workspace_or.value();
 
   bant::ParsedProject project(verbose);
-  project.FillFromPattern(session, workspace, pattern);
+  if (cmd != Command::kListWorkkspace) {
+    project.FillFromPattern(session, workspace, pattern);
+  }
 
   // TODO: move dependency graph creation to tools where needed.
   // Some also should also read _all_ the BUILD files from the workspace.
-  if (cmd == Command::kLibraryHeaders || cmd == Command::kGenruleOutputs ||
-      cmd == Command::kDependencyEdits || cmd == Command::kListPackages) {
+  if (cmd == Command::kDependencyEdits ||
+      (recurse_dependencies && (cmd == Command::kParse ||           //
+                                cmd == Command::kLibraryHeaders ||  //
+                                cmd == Command::kGenruleOutputs ||  //
+                                cmd == Command::kListPackages))) {
     const bant::DependencyGraph graph =
       bant::BuildDependencyGraph(session, workspace, pattern, &project);
     session.info() << "Found " << graph.depends_on.size()
                    << " Targets with dependencies; "
                    << graph.has_dependents.size() << " referenced by others.\n";
+    // Currently, we're not using the graph yet, just use it as a way to
+    // populate project.
   }
+
+  // library headers and genrule outputs just match the pattern unless
+  // recursive is chosen when we want to print everything the dependency graph
+  // gathered.
+  const bant::BazelPattern print_pattern =
+    recurse_dependencies ? bant::BazelPattern() : pattern;
 
   switch (cmd) {
   case Command::kPrint: print_ast = true; [[fallthrough]];
@@ -265,11 +292,11 @@ int main(int argc, char *argv[]) {
     }
     break;
   case Command::kLibraryHeaders:  //
-    bant::PrintProvidedSources(session, "header", pattern,
+    bant::PrintProvidedSources(session, "header", print_pattern,
                                ExtractHeaderToLibMapping(project, *info_out));
     break;
   case Command::kGenruleOutputs:
-    bant::PrintProvidedSources(session, "generated-file", pattern,
+    bant::PrintProvidedSources(session, "generated-file", print_pattern,
                                ExtractGeneratedFromGenrule(project, *info_out));
     break;
   case Command::kDependencyEdits:
