@@ -340,6 +340,7 @@ int main(int argc, char *argv[]) {
         if (!target_name.has_value()) {
           return;
         }
+        if (!print_pattern.Match(*target_name)) return;
         printer->AddRow({parsed->source.Loc(target.name),
                          std::string(target.rule),  //
                          target_name->ToString()});
