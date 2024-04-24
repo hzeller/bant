@@ -96,7 +96,7 @@ class SExprTablePrinter : public TablePrinter {
 class JSonTablePrinter : public TablePrinter {
  public:
   JSonTablePrinter(std::ostream &out, const std::vector<std::string> &headers)
-    : out_(out), headers_(headers) {}
+      : out_(out), headers_(headers) {}
 
   void AddRow(const std::vector<std::string> &row) final {
     out_ << "{";
