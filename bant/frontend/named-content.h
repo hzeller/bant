@@ -66,6 +66,9 @@ class NamedLineIndexedContent {
   // the location of that string view to stream;
   std::ostream &Loc(std::ostream &out, std::string_view s) const;
 
+  // Same, but returning a string.
+  std::string Loc(std::string_view s) const;
+
  private:
   std::string name_;
   std::string_view content_;

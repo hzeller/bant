@@ -118,8 +118,10 @@ Commands (unique prefix sufficient):
                      → 3 column table: (project, version, path)
 
     -- Given '-r', the following also follow dependencies recursively --
-    list-packages  : List all packages matching pattern with their BUILD file.
-                     → 2 column table: (package, buildfile)
+    list-packages  : List all BUILD files and the package they define
+                     → 2 column table: (buildfile, package)
+    list-targets   : List BUILD file locations of matching targets
+                     → 2 column table: (buildfile:location, target)
     lib-headers    : Print headers provided by cc_library()s matching pattern.
                      → 2 column table: (header-filename, cc-library-target)
     genrule-outputs: Print generated files by genrule()s matching pattern.

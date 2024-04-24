@@ -31,6 +31,7 @@
 #include "bant/tool/header-providers.h"
 #include "bant/types-bazel.h"
 #include "bant/util/dependency-graph.h"
+#include "bant/util/query-utils.h"
 #include "bant/util/table-printer.h"
 #include "bant/workspace.h"
 
@@ -65,8 +66,10 @@ Commands (unique prefix sufficient):
                      → 3 column table: (project, version, path)
 
     -- Given '-r', the following also follow dependencies recursively --
-    list-packages  : List all packages matching pattern with their BUILD file.
-                     → 2 column table: (package, buildfile)
+    list-packages  : List all BUILD files and the package they define
+                     → 2 column table: (buildfile, package)
+    list-targets   : List BUILD file locations of matching targets
+                     → 2 column table: (buildfile:location, target)
     lib-headers    : Print headers provided by cc_library()s matching pattern.
                      → 2 column table: (header-filename, cc-library-target)
     genrule-outputs: Print generated files by genrule()s matching pattern.
@@ -109,6 +112,7 @@ int main(int argc, char *argv[]) {
     kParse,
     kPrint,  // Like parse, but we narrow with pattern
     kListPackages,
+    kListTargets,
     kListWorkkspace,
     kLibraryHeaders,
     kGenruleOutputs,
@@ -119,6 +123,7 @@ int main(int argc, char *argv[]) {
     {"parse", Command::kParse},
     {"print", Command::kPrint},
     {"list-packages", Command::kListPackages},
+    {"list-targets", Command::kListTargets},
     {"workspace", Command::kListWorkkspace},
     {"lib-headers", Command::kLibraryHeaders},
     {"genrule-outputs", Command::kGenruleOutputs},
@@ -266,6 +271,7 @@ int main(int argc, char *argv[]) {
       (recurse_dependencies && (cmd == Command::kParse ||           //
                                 cmd == Command::kLibraryHeaders ||  //
                                 cmd == Command::kGenruleOutputs ||  //
+                                cmd == Command::kListTargets ||     //
                                 cmd == Command::kListPackages))) {
     const bant::DependencyGraph graph =
       bant::BuildDependencyGraph(session, workspace, pattern, &project);
@@ -311,12 +317,31 @@ int main(int argc, char *argv[]) {
     break;
   case Command::kListPackages: {
     auto printer = TablePrinter::Create(session.out(), session.output_format(),
-                                        {"package", "bazel-file"});
+                                        {"bazel-file", "package"});
     for (const auto &[package, parsed] : project.ParsedFiles()) {
-      printer->AddRow({package.ToString(), std::string(parsed->source.name())});
+      printer->AddRow({std::string(parsed->source.name()), package.ToString()});
     }
     printer->Finish();
   } break;
+  case Command::kListTargets: {
+    using namespace bant::query;
+    auto printer = TablePrinter::Create(session.out(), session.output_format(),
+                                        {"file-location", "target"});
+    for (const auto &[package, parsed] : project.ParsedFiles()) {
+      FindTargets(parsed->ast, {},  //
+                  [&](const Result &target) {
+                    auto target_name = bant::BazelTarget::ParseFrom(
+                      absl::StrCat(":", target.name), package);
+                    if (!target_name.has_value()) {
+                      return;
+                    }
+                    printer->AddRow({parsed->source.Loc(target.name),
+                                     target_name->ToString()});
+                  });
+    }
+    printer->Finish();
+  } break;
+
   case Command::kListWorkkspace: {
     // For now, we just load the workspace file in this command. We might need
     // it later also to resolve dependencies.

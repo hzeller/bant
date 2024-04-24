@@ -28,6 +28,7 @@ cc_binary(
         "//bant/tool:edit-callback",
         "//bant/tool:header-providers",
         "//bant/util:dependency-graph",
+        "//bant/util:query-utils",
         "//bant/util:table-printer",
     ],
 )

@@ -18,6 +18,7 @@
 #include "bant/frontend/named-content.h"
 
 #include <ostream>
+#include <sstream>
 #include <string_view>
 
 #include "absl/log/check.h"
@@ -29,6 +30,12 @@ std::ostream &NamedLineIndexedContent::Loc(std::ostream &out,
     << "Attempt to pass '" << s << "' which is not within " << name_;
   out << name_ << ":" << GetRange(s);
   return out;
+}
+
+std::string NamedLineIndexedContent::Loc(std::string_view s) const {
+  std::stringstream out;
+  Loc(out, s);
+  return out.str();
 }
 
 LineColumnRange NamedLineIndexedContent::GetRange(std::string_view text) const {
