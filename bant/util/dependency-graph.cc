@@ -90,8 +90,11 @@ DependencyGraph BuildDependencyGraph(Session &session,
                                      const BazelWorkspace &workspace,
                                      const BazelPattern &pattern,
                                      ParsedProject *project) {
-  const std::initializer_list<std::string_view> kRulesOfInterest = {
-    "cc_library", "cc_test", "cc_binary"};
+  // TODO: there will be some implicit dependencies: when using files, they
+  // might not come from deps we mention, but are provided by genrules.
+
+  // Follow all rules for now.
+  const std::initializer_list<std::string_view> kRulesOfInterest = {};
 
   std::vector<BazelPackage> error_packages;
   std::vector<BazelTarget> error_targets;
@@ -161,7 +164,7 @@ DependencyGraph BuildDependencyGraph(Session &session,
         });
     }
 
-    // Leftover todos are were not found.
+    // Leftover todos that were never used
     error_targets.insert(error_targets.end(), target_todo.begin(),
                          target_todo.end());
 

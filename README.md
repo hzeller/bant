@@ -120,8 +120,8 @@ Commands (unique prefix sufficient):
     -- Given '-r', the following also follow dependencies recursively --
     list-packages  : List all BUILD files and the package they define
                      → 2 column table: (buildfile, package)
-    list-targets   : List BUILD file locations of matching targets
-                     → 2 column table: (buildfile:location, target)
+    list-targets   : List BUILD file locations of rules with matching targets
+                     → 3 column table: (buildfile:location, ruletype, target)
     lib-headers    : Print headers provided by cc_library()s matching pattern.
                      → 2 column table: (header-filename, cc-library-target)
     genrule-outputs: Print generated files by genrule()s matching pattern.

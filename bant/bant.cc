@@ -68,8 +68,8 @@ Commands (unique prefix sufficient):
     -- Given '-r', the following also follow dependencies recursively --
     list-packages  : List all BUILD files and the package they define
                      → 2 column table: (buildfile, package)
-    list-targets   : List BUILD file locations of matching targets
-                     → 2 column table: (buildfile:location, target)
+    list-targets   : List BUILD file locations of rules with matching targets
+                     → 3 column table: (buildfile:location, ruletype, target)
     lib-headers    : Print headers provided by cc_library()s matching pattern.
                      → 2 column table: (header-filename, cc-library-target)
     genrule-outputs: Print generated files by genrule()s matching pattern.
@@ -297,24 +297,29 @@ int main(int argc, char *argv[]) {
                          print_only_errors);
     }
     break;
+
   case Command::kLibraryHeaders:  //
     bant::PrintProvidedSources(session, "header", print_pattern,
                                ExtractHeaderToLibMapping(project, *info_out));
     break;
+
   case Command::kGenruleOutputs:
     bant::PrintProvidedSources(session, "generated-file", print_pattern,
                                ExtractGeneratedFromGenrule(project, *info_out));
     break;
+
   case Command::kDependencyEdits:
     using bant::CreateBuildozerDepsEditCallback;
     bant::CreateDependencyEdits(session, project, pattern,
                                 CreateBuildozerDepsEditCallback(*primary_out));
     break;
+
   case Command::kCanonicalizeDeps:
     using bant::CreateCanonicalizeEdits;
     CreateCanonicalizeEdits(session, project, pattern,
                             CreateBuildozerDepsEditCallback(*primary_out));
     break;
+
   case Command::kListPackages: {
     auto printer = TablePrinter::Create(session.out(), session.output_format(),
                                         {"bazel-file", "package"});
@@ -323,21 +328,22 @@ int main(int argc, char *argv[]) {
     }
     printer->Finish();
   } break;
+
   case Command::kListTargets: {
     using namespace bant::query;
     auto printer = TablePrinter::Create(session.out(), session.output_format(),
-                                        {"file-location", "target"});
+                                        {"file-location", "rule", "target"});
     for (const auto &[package, parsed] : project.ParsedFiles()) {
-      FindTargets(parsed->ast, {},  //
-                  [&](const Result &target) {
-                    auto target_name = bant::BazelTarget::ParseFrom(
-                      absl::StrCat(":", target.name), package);
-                    if (!target_name.has_value()) {
-                      return;
-                    }
-                    printer->AddRow({parsed->source.Loc(target.name),
-                                     target_name->ToString()});
-                  });
+      FindTargets(parsed->ast, {}, [&](const Result &target) {
+        auto target_name =
+          bant::BazelTarget::ParseFrom(absl::StrCat(":", target.name), package);
+        if (!target_name.has_value()) {
+          return;
+        }
+        printer->AddRow({parsed->source.Loc(target.name),
+                         std::string(target.rule),  //
+                         target_name->ToString()});
+      });
     }
     printer->Finish();
   } break;
@@ -354,6 +360,7 @@ int main(int argc, char *argv[]) {
     }
     printer->Finish();
   } break;
+
   case Command::kNone:  // nop (implicitly done by parsing)
     ;
   }
