@@ -58,12 +58,10 @@ class TargetFinder : public BaseVisitor {
     if (!in_relevant_call_) return;  // can prune walk here
     if (!a->identifier() || !a->value()) return;
     const std::string_view lhs = a->identifier()->id();
-    if (Scalar *scalar = a->value()->CastAsScalar(); scalar) {
+    if (Scalar *scalar = a->value()->CastAsScalar()) {
       if (lhs == "name") {
         current_.name = scalar->AsString();
       } else if (lhs == "alwayslink") {
-        // Even if the follwing was given as 'True' constant, the constant
-        // expression eval will have flattened that to a scalar.
         current_.alwayslink = scalar->AsInt();
       } else if (lhs == "include_prefix") {
         current_.include_prefix = scalar->AsString();
@@ -85,6 +83,13 @@ class TargetFinder : public BaseVisitor {
         current_.includes_list = list;
       } else if (lhs == "outs") {
         current_.outs_list = list;
+      }
+    } else if (Identifier *id = a->value()->CastAsIdentifier()) {
+      // If alwayslink has been a 'True' constant, the constant expression
+      // eval will be flattening that to a scalar once implemented.
+      // But until then, we need to check for the constant symbol manually.
+      if (lhs == "alwayslink") {
+        current_.alwayslink = (id->id() == "True");
       }
     }
   }
