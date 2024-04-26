@@ -79,16 +79,17 @@ std::ostream &operator<<(std::ostream &o, const Token t) {
 }
 
 Scanner::Scanner(NamedLineIndexedContent &source)
-    : source_(source), content_(source.content()), pos_(content_.begin()) {
+    : source_(source),
+      end_(source.content().end()),
+      pos_(source.content().begin()) {
   CHECK(source.mutable_line_index()->empty());  // Already used ?
   source.mutable_line_index()->PushNewline(pos_);
 }
 
 inline Scanner::ContentPointer Scanner::SkipSpace() {
   bool in_comment = false;
-  const ContentPointer end = content_.end();
-  while (pos_ < end && (absl::ascii_isspace(*pos_) || *pos_ == '\\' ||
-                        *pos_ == '#' || in_comment)) {
+  while (pos_ < end_ && (absl::ascii_isspace(*pos_) || *pos_ == '\\' ||
+                         *pos_ == '#' || in_comment)) {
     if (*pos_ == '#') {
       in_comment = true;
     } else if (*pos_ == '\n') {
@@ -101,17 +102,16 @@ inline Scanner::ContentPointer Scanner::SkipSpace() {
 }
 
 static bool IsIdentifierChar(char c) {
-  return absl::ascii_isdigit(c) || absl::ascii_isalpha(c) || c == '_';
+  return absl::ascii_isalpha(c) || c == '_' || absl::ascii_isdigit(c);
 }
 
-// Check if the very next token would be 'in'; if so, consume up to that
-// pos_.
+// Check if the very next token would be 'in'; if so, consume up to that pos_.
 bool Scanner::ConsumeOptionalIn() {
   ContentPointer run = pos_;
-  while (run < content_.end() && absl::ascii_isspace(*run)) {
+  while (run < end_ && absl::ascii_isspace(*run)) {
     ++run;
   }
-  if (content_.end() - run >= 2 && run[0] == 'i' && run[1] == 'n') {
+  if (end_ - run >= 2 && run[0] == 'i' && run[1] == 'n') {
     pos_ = run + 2;
     return true;
   }
@@ -120,11 +120,10 @@ bool Scanner::ConsumeOptionalIn() {
 
 Token Scanner::HandleIdentifierKeywordRawStringOrInvalid() {
   const ContentPointer start = pos_;
-  const ContentPointer end = content_.end();
 
   // Raw string literals r"foo" start out looking like an identifier,
   // but the following quote gives it away.
-  if ((end - start) > 2 &&                     //
+  if ((end_ - start) > 2 &&                    //
       (start[0] == 'r' || start[0] == 'R') &&  //
       (start[1] == '"' || start[1] == '\'')) {
     return HandleString();
@@ -135,7 +134,7 @@ Token Scanner::HandleIdentifierKeywordRawStringOrInvalid() {
     ++pos_;
     return {TokenType::kError, {start, 1}};
   }
-  while (pos_ < end && IsIdentifierChar(*pos_)) {
+  while (pos_ < end_ && IsIdentifierChar(*pos_)) {
     ++pos_;
   }
   std::string_view text{start, (size_t)(pos_ - start)};
@@ -161,20 +160,20 @@ Token Scanner::HandleIdentifierKeywordRawStringOrInvalid() {
 Token Scanner::HandleString() {
   bool triple_quote = false;
   const ContentPointer start = pos_;
-  const ContentPointer end = content_.end();
 
   if (*pos_ == 'r' || *pos_ == 'R') {
     ++pos_;
   }
   const char str_quote = *pos_;
   pos_++;
-  if (pos_ + 1 < end && *pos_ == str_quote && *(pos_ + 1) == str_quote) {
+  if (pos_ + 1 < end_ && *pos_ == str_quote && *(pos_ + 1) == str_quote) {
     triple_quote = true;
     pos_ += 2;
   }
+
   int close_quote_count = triple_quote ? 3 : 1;
   bool last_was_escape = false;
-  while (pos_ < end) {
+  while (pos_ < end_) {
     if (*pos_ == str_quote && !last_was_escape) {
       --close_quote_count;
       if (close_quote_count == 0) break;
@@ -188,7 +187,7 @@ Token Scanner::HandleString() {
     }
     ++pos_;
   }
-  if (pos_ >= end) {
+  if (pos_ >= end_) {
     return {TokenType::kError, {start, (size_t)(pos_ - start)}};
   }
   ++pos_;
@@ -199,7 +198,7 @@ Token Scanner::HandleNumber() {
   const ContentPointer start = pos_;
   bool dot_seen = false;
   ++pos_;
-  while (pos_ < content_.end() && (isdigit(*pos_) || *pos_ == '.')) {
+  while (pos_ < end_ && (isdigit(*pos_) || *pos_ == '.')) {
     if (*pos_ == '.') {
       if (dot_seen) {
         return {TokenType::kError, {start, (size_t)(pos_ - start)}};
@@ -214,7 +213,7 @@ Token Scanner::HandleNumber() {
 Token Scanner::HandleAssignOrRelational() {
   const ContentPointer start = pos_;
   int type = *pos_++;
-  if (pos_ < content_.end() && *pos_ == '=') {
+  if (pos_ < end_ && *pos_ == '=') {
     type += 256, ++pos_;
   }
   return {static_cast<TokenType>(type), {start, (size_t)(pos_ - start)}};
@@ -223,7 +222,7 @@ Token Scanner::HandleAssignOrRelational() {
 Token Scanner::HandleNotOrNotEquals() {
   const ContentPointer start = pos_;
   int type = *pos_++;
-  if (pos_ < content_.end() && *pos_ == '=') {
+  if (pos_ < end_ && *pos_ == '=') {
     type += 256, ++pos_;
   }
   return {static_cast<TokenType>(type), {start, (size_t)(pos_ - start)}};
@@ -236,8 +235,8 @@ Token Scanner::Next() {
     return upcoming_;
   }
 
-  if (SkipSpace() == content_.end()) {
-    return {TokenType::kEof, {content_.end(), 0}};
+  if (SkipSpace() == end_) {
+    return {TokenType::kEof, {end_, 0}};
   }
   Token result;
   switch (*pos_) {

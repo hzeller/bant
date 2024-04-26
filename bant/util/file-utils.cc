@@ -62,11 +62,7 @@ std::string_view FilesystemPath::filename() const {
   if (filename_offset_ == std::string::npos) {
     std::string_view full_path(path_);
     auto last_slash = full_path.find_last_of('/');
-    if (last_slash != std::string::npos) {
-      filename_offset_ = last_slash + 1;
-    } else {
-      filename_offset_ = 0;
-    }
+    filename_offset_ = (last_slash != std::string::npos) ? last_slash + 1 : 0;
   }
   std::string_view filename = path_;
   return filename.substr(filename_offset_);

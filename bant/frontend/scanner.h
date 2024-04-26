@@ -82,17 +82,17 @@ std::ostream &operator<<(std::ostream &o, Token t);
 
 class Scanner {
  public:
-  // A scanner reading tokens from "content", updating "line_map".
-  // It will update the line_map with all newlines it encounters; does not
-  // take ownership of the LineColumnMap, so it can later be used any
-  // time to determine the position of a Token extractedf from the file.
-  // All tokens returned by the Scanner are substrings from the larger
-  // content; this keeps correspondence with the original.
+  // A scanner reading tokens from the content of source and updating
+  // the source-line index with newlines it encounters.
+  // All tokens returned by the Scanner are sub-string_views of the larger
+  // content; this allows correspondence with the original text to extract
+  // source.Loc() information.
   Scanner(NamedLineIndexedContent &source);
 
-  // Return next token.
+  // Advance to next token and return it.
   Token Next();
 
+  // Peek next token and return, but don't advance yet.
   Token Peek() {
     if (!has_upcoming_) {
       upcoming_ = Next();
@@ -116,7 +116,7 @@ class Scanner {
   Token HandleNotOrNotEquals();
 
   NamedLineIndexedContent &source_;
-  const std::string_view content_;  // Local copy of source_.content()
+  const ContentPointer end_;  // End of input.
 
   ContentPointer pos_;  // Current scanning location
 

@@ -107,7 +107,7 @@ std::optional<BazelWorkspace> LoadWorkspace(Session &session) {
 
         FilesystemPath path;
         bool project_dir_found = false;
-        for (std::string dir : search_dirs) {
+        for (const std::string_view dir : search_dirs) {
           path = FilesystemPath(kExternalBaseDir, dir);
           if (!path.is_directory() || !path.can_read()) continue;
           project_dir_found = true;

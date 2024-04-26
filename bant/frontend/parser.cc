@@ -27,7 +27,7 @@
 #include "bant/frontend/ast.h"
 #include "bant/frontend/scanner.h"
 
-// Set to 1 to get a parse tree trace. Not thread safe of course.
+// Set to 1 to get a parse tree trace. Not thread safe.
 #if 0
 static int sNodeNum = 0;
 static int sIndent = 0;

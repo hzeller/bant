@@ -51,7 +51,7 @@ std::optional<BazelWorkspace> LoadWorkspace(Session &session);
 // Some projects somewhat obfuscate the dependencies (looking at you, XLS), by
 // putting things in various bzl files instead of a simple toplevel
 // WORKSPACE or MODULE.bazel.
-// Do some fallback by checking these directories.
+// Do some fallback by checking the directories these projects end up.
 bool BestEffortAugmentFromExternalDir(BazelWorkspace &workspace);
 
 }  // namespace bant

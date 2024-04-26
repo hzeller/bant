@@ -66,12 +66,12 @@ class NamedLineIndexedContent {
   // the location of that string view to stream;
   std::ostream &Loc(std::ostream &out, std::string_view s) const;
 
-  // Same, but returning a string.
+  // Same, but instead of writing to stream, returning a string.
   std::string Loc(std::string_view s) const;
 
  private:
-  std::string name_;
-  std::string_view content_;
+  const std::string name_;
+  const std::string_view content_;
   LineColumnMap line_index_;
 };
 }  // namespace bant

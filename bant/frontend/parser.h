@@ -30,8 +30,7 @@ class Parser {
  public:
   // Create a Parser for bazel-like files, consuming tokens from "token_source".
   // Memory for nodes is alloctaed from given "allocator" arena.
-  // The "info_filename" is used to report errors, the "err_out" stream
-  // receives user-readable error messages.
+  // The "err_out" stream receives user-readable error messages.
   Parser(Scanner *token_source, Arena *allocator, std::ostream &err_out);
 
   ~Parser();
@@ -40,6 +39,9 @@ class Parser {
   // The toplevel returns a list of statements.
   // If there is an error, return at least partial tree to what
   // was possible to parse.
+  //
+  // All nodes are owned by the arena, all string_views are substrings of the
+  // original source.
   // Callling parse() more than once is not supported.
   List *parse();
 

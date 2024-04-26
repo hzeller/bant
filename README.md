@@ -145,7 +145,7 @@ Commands (unique prefix sufficient):
  bant list -x      # List BUILD files only in this project, no external.
  bant lib-headers  # For each header found in project, print exporting target.
  bant dwyu ...     # Look which headers are used and suggest add/remove deps
- . <(bant dwyu foo/...)  # fix dependencies in package foo/... in one line.
+ . <(bant dwyu foo/...)  # YOLO it: fix deps in package foo/... in one line.
 ```
 
 ### Development
@@ -159,6 +159,8 @@ To get a useful compilation database for `clangd` to be happy, run first
 ```
 scripts/make-compilation-db.sh
 ```
+
+Before submit, run `scripts/run-format.sh`.
 
 [bazel]: https://bazel.build/
 [buildozer]: https://github.com/bazelbuild/buildtools/blob/master/buildozer/README.md
