@@ -38,7 +38,7 @@ public:
     ++sNodeNum;
     ++sIndent;
     std::cerr << sNodeNum << std::string(2 * sIndent, '.') << fun
-              << " " << tok << "@" << sScanner->line_col().GetRange(tok.text)
+              << " " << tok << "@" << sScanner->source().GetRange(tok.text)
               << "\n";
   }
   ~NestingLogger() {
