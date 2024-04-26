@@ -99,7 +99,7 @@ DependencyGraph BuildDependencyGraph(Session &session,
   std::vector<BazelPackage> error_packages;
   std::vector<BazelTarget> error_targets;
 
-  std::set<BazelTarget> target_todo;
+  std::set<BazelTarget> deps_to_resolve_todo;
 
   Stat &stat = session.GetStatsFor("Dependency follow iterations", "rounds");
   ScopedTimer timer(&stat.duration);
@@ -113,27 +113,27 @@ DependencyGraph BuildDependencyGraph(Session &session,
                          auto target_or =
                            BazelTarget::ParseFrom(result.name, current_package);
                          if (!target_or || !pattern.Match(*target_or)) return;
-                         target_todo.insert(*target_or);
+                         deps_to_resolve_todo.insert(*target_or);
                        });
   }
 
   DependencyGraph graph;
   do {
     ++stat.count;
-    if (session.verbose()) {
-      // std::cerr << "-- target-todo with " << target_todo.size() << "
-      // items\n";
-    }
 
-    // Only need to look in a subset of packages requested by our target todo
+    // Only need to look in a subset of packages requested by our target todo.
+    // All these targets boil down to a set of packages that we need
+    // to have available in the project (and possibly parse if not yet).
     std::set<BazelPackage> scan_package;
-    for (const auto &t : target_todo) scan_package.insert(t.package);
+    for (const BazelTarget &t : deps_to_resolve_todo) {
+      scan_package.insert(t.package);
+    }
 
     // Make sure that we have parsed all packages we're looking through.
     FindAndParseMissingPackages(session, scan_package, workspace,
                                 &error_packages, project);
 
-    std::set<BazelTarget> next_target_todo;
+    std::set<BazelTarget> next_round_deps_to_resolve_todo;
     for (const BazelPackage &current_package : scan_package) {
       const auto *parsed = project->FindParsedOrNull(current_package);
       if (!parsed) continue;
@@ -141,10 +141,10 @@ DependencyGraph BuildDependencyGraph(Session &session,
         parsed->ast, kRulesOfInterest, [&](const query::Result &result) {
           auto target_or = BazelTarget::ParseFrom(result.name, current_package);
           if (!target_or.has_value()) return;
-          const bool interested = target_todo.erase(*target_or) == 1;
-          // std::cerr << (interested ? " * " : "   ") << *target_or << "\n";
+          const bool interested = (deps_to_resolve_todo.erase(*target_or) == 1);
           if (!interested) return;
-          // The list to insert to.
+
+          // The list to insert all the dependencies our current target has.
           std::vector<BazelTarget> &depends_on =
             graph.depends_on.insert({*target_or, {}}).first->second;
           for (auto dep : query::ExtractStringList(result.deps_list)) {
@@ -154,25 +154,26 @@ DependencyGraph BuildDependencyGraph(Session &session,
             // If this dependency is a target that we have not seen yet or will
             // see in this round, put in the next todo.
             if (!graph.depends_on.contains(*dependency_or) &&
-                !target_todo.contains(*dependency_or)) {
-              next_target_todo.insert(*dependency_or);
+                !deps_to_resolve_todo.contains(*dependency_or)) {
+              next_round_deps_to_resolve_todo.insert(*dependency_or);
             }
 
             depends_on.push_back(*dependency_or);
+            // ... and the reverse
             graph.has_dependents[*dependency_or].push_back(*target_or);
           }
         });
     }
 
-    // Leftover todos that were never used
-    error_targets.insert(error_targets.end(), target_todo.begin(),
-                         target_todo.end());
+    // Leftover dependencies that could not be resolved.
+    error_targets.insert(error_targets.end(), deps_to_resolve_todo.begin(),
+                         deps_to_resolve_todo.end());
 
-    target_todo = next_target_todo;
-  } while (!target_todo.empty());
+    deps_to_resolve_todo = next_round_deps_to_resolve_todo;
+  } while (!deps_to_resolve_todo.empty());
 
   if (!error_packages.empty()) {
-    PrintList(session.info(), "Trouble finding packages", error_packages);
+    PrintList(session.info(), "Trouble finding packages\n", error_packages);
   }
 
   if (session.verbose() && !error_targets.empty()) {

@@ -105,6 +105,8 @@ ProvidedFromTargetMap ExtractHeaderToLibMapping(const ParsedProject &project,
   }
 #endif
 
+  // TODO: break the following sections into separate functions.
+
   // cc_library()
   for (const auto &[_, file_content] : project.ParsedFiles()) {
     if (!file_content->ast) continue;
@@ -133,6 +135,9 @@ ProvidedFromTargetMap ExtractHeaderToLibMapping(const ParsedProject &project,
   }
 
   // proto_library(), cc_proto_library().
+  // Since we don't look into the *.bzl rule, we need to assemble the
+  // expected generated files here ourselves.
+  //
   // To find cc library for proto header foo.pb.h, we need two parts:
   //  1. find proto_library() and look at the srcs. x.proto -> x.pb
   //  2. find the cc_proto_library() that depends on (1). that is the library
@@ -147,14 +152,21 @@ ProvidedFromTargetMap ExtractHeaderToLibMapping(const ParsedProject &project,
       [&](const query::Result &params) {
         auto target =
           BazelTarget::ParseFrom(params.name, file_content->package);
+
+        // Collect proto libraries and remember the *.pb.h they create.
         if (params.rule == "proto_library") {
           std::vector<std::string_view> proto_srcs;
           query::ExtractStringList(params.srcs_list, proto_srcs);
-          for (const std::string_view proto : proto_srcs) {
+          for (std::string_view proto : proto_srcs) {
             if (!proto.ends_with(".proto")) {
               // possibly file list. Not handling that yet.
               continue;
             }
+            if (proto.starts_with(':')) {  // Also a way to name a local
+              proto.remove_prefix(1);
+            }
+
+            // Create a header file out of it. foo.proto becomes foo.pb.h
             std::string proto_header;
             auto dot_pos = proto.find_last_of('.');
             proto_header.append(proto.substr(0, dot_pos)).append(".pb.h");
@@ -163,6 +175,7 @@ ProvidedFromTargetMap ExtractHeaderToLibMapping(const ParsedProject &project,
           }
         }
 
+        // Collectg cc_proto_library() to know the library name others depend on
         else {
           // Look for all the dependencies that cc_proto_library() uses.
           std::vector<std::string_view> cc_proto_deps;
@@ -182,6 +195,8 @@ ProvidedFromTargetMap ExtractHeaderToLibMapping(const ParsedProject &project,
     if (found != proto_lib_inputTo_cc_proto.end()) {
       result.insert({proto_header, found->second});
     } else {
+      // This can happen if hte proto is never used in a cc_proto_library(),
+      // e.g. used in a py_proto_library() that is not interesting for headers.
       // info_out << "Don't know how to associate " << proto_header << "\n";
     }
   }
@@ -203,7 +218,7 @@ ProvidedFromTargetMap ExtractGeneratedFromGenrule(const ParsedProject &project,
           BazelTarget::ParseFrom(params.name, file_content->package);
         if (!target.has_value()) return;
 
-        for (std::string_view generated : genfiles) {
+        for (const std::string_view generated : genfiles) {
           std::string gen_fqn = file_content->package.QualifiedFile(generated);
           const auto &inserted = result.insert({gen_fqn, *target});
           if (!inserted.second && target != inserted.first->second) {
