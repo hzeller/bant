@@ -23,15 +23,15 @@
 #include <iostream>
 #include <map>
 
+#include "bant/explore/dependency-graph.h"
+#include "bant/explore/header-providers.h"
+#include "bant/explore/query-utils.h"
 #include "bant/frontend/project-parser.h"
 #include "bant/session.h"
 #include "bant/tool/canon-targets.h"
 #include "bant/tool/dwyu.h"
 #include "bant/tool/edit-callback.h"
-#include "bant/tool/header-providers.h"
 #include "bant/types-bazel.h"
-#include "bant/util/dependency-graph.h"
-#include "bant/util/query-utils.h"
 #include "bant/util/table-printer.h"
 #include "bant/workspace.h"
 

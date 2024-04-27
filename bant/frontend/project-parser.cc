@@ -24,10 +24,10 @@
 #include <vector>
 
 #include "absl/strings/str_cat.h"
+#include "bant/explore/query-utils.h"
 #include "bant/frontend/parser.h"
 #include "bant/types-bazel.h"
 #include "bant/util/file-utils.h"
-#include "bant/util/query-utils.h"
 
 namespace bant {
 namespace {

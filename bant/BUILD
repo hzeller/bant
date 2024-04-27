@@ -21,13 +21,13 @@ cc_binary(
         ":session",
         ":types-bazel",
         ":workspace",
+        "//bant/explore:dependency-graph",
+        "//bant/explore:header-providers",
+        "//bant/explore:query-utils",
         "//bant/frontend:project-parser",
         "//bant/tool:canon-targets",
         "//bant/tool:dwyu",
         "//bant/tool:edit-callback",
-        "//bant/tool:header-providers",
-        "//bant/util:dependency-graph",
-        "//bant/util:query-utils",
         "//bant/util:table-printer",
     ],
 )
@@ -71,10 +71,10 @@ cc_library(
     deps = [
         ":session",
         ":types",
+        "//bant/explore:query-utils",
         "//bant/frontend:parser",
         "//bant/util:file-utils",
         "//bant/util:memory",
-        "//bant/util:query-utils",
         "@abseil-cpp//absl/strings",
     ],
 )

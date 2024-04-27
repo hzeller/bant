@@ -15,17 +15,16 @@
 // with this program; if not, write to the Free Software Foundation, Inc.,
 // 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 
-#include "bant/util/dependency-graph.h"
+#include "bant/explore/dependency-graph.h"
 
 #include <initializer_list>
 #include <optional>
 #include <set>
 
-#include "absl/strings/str_cat.h"
+#include "bant/explore/query-utils.h"
 #include "bant/frontend/project-parser.h"
 #include "bant/types-bazel.h"
 #include "bant/util/file-utils.h"
-#include "bant/util/query-utils.h"
 #include "bant/workspace.h"
 
 namespace bant {

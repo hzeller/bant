@@ -15,16 +15,14 @@
 // with this program; if not, write to the Free Software Foundation, Inc.,
 // 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 
-#include "bant/tool/header-providers.h"
+#include "bant/explore/header-providers.h"
 
 #include <functional>
 #include <string_view>
 
-#include "absl/strings/str_format.h"
-#include "bant/frontend/ast.h"
+#include "bant/explore/query-utils.h"
 #include "bant/frontend/project-parser.h"
 #include "bant/types-bazel.h"
-#include "bant/util/query-utils.h"
 #include "bant/util/table-printer.h"
 
 // Inject dependency to gtest, as we don't glob() the files yet.

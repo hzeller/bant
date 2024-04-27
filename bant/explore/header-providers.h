@@ -21,7 +21,6 @@
 #include <ostream>
 #include <string>
 
-#include "absl/container/btree_map.h"
 #include "bant/frontend/project-parser.h"
 #include "bant/session.h"
 #include "bant/types.h"

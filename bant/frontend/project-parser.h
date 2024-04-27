@@ -18,17 +18,14 @@
 #ifndef BANT_PROJECT_PARDER_
 #define BANT_PROJECT_PARDER_
 
-#include <map>
 #include <ostream>
 #include <string>
-#include <vector>
 
 #include "bant/frontend/ast.h"
 #include "bant/frontend/named-content.h"
 #include "bant/session.h"
 #include "bant/types-bazel.h"
 #include "bant/util/file-utils.h"
-#include "bant/util/stat.h"
 #include "bant/workspace.h"
 
 namespace bant {

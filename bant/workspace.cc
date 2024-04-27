@@ -20,10 +20,10 @@
 #include <sstream>
 
 #include "absl/strings/str_cat.h"
+#include "bant/explore/query-utils.h"
 #include "bant/frontend/parser.h"
 #include "bant/frontend/scanner.h"
 #include "bant/util/arena.h"
-#include "bant/util/query-utils.h"
 
 namespace bant {
 

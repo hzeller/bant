@@ -17,8 +17,8 @@
 
 #include "bant/tool/canon-targets.h"
 
+#include "bant/explore/query-utils.h"
 #include "bant/types-bazel.h"
-#include "bant/util/query-utils.h"
 
 namespace bant {
 void CreateCanonicalizeEdits(Session &session, const ParsedProject &project,

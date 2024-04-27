@@ -87,9 +87,8 @@ cc_library(
         "//bant:session",
         "//bant:types-bazel",
         "//bant:workspace",
+        "//bant/explore:query-utils",
         "//bant/util:file-utils",
-        "//bant/util:query-utils",
-        "//bant/util:stat",
         "@abseil-cpp//absl/strings",
     ],
 )

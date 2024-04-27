@@ -33,13 +33,13 @@
 #include <vector>
 
 #include "absl/strings/str_cat.h"
+#include "bant/explore/header-providers.h"
+#include "bant/explore/query-utils.h"
 #include "bant/frontend/named-content.h"
 #include "bant/frontend/project-parser.h"
 #include "bant/tool/edit-callback.h"
-#include "bant/tool/header-providers.h"
 #include "bant/types-bazel.h"
 #include "bant/util/file-utils.h"
-#include "bant/util/query-utils.h"
 #include "bant/util/stat.h"
 #include "re2/re2.h"
 

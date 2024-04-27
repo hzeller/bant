@@ -4,16 +4,6 @@ package(
 )
 
 cc_library(
-    name = "query-utils",
-    srcs = ["query-utils.cc"],
-    hdrs = ["query-utils.h"],
-    deps = [
-        "//bant/frontend:parser",
-        "@abseil-cpp//absl/container:flat_hash_set",
-    ],
-)
-
-cc_library(
     name = "memory",
     hdrs = [
         "arena.h",
@@ -72,21 +62,5 @@ cc_test(
         ":file-utils",
         "@googletest//:gtest",
         "@googletest//:gtest_main",
-    ],
-)
-
-cc_library(
-    name = "dependency-graph",
-    srcs = ["dependency-graph.cc"],
-    hdrs = ["dependency-graph.h"],
-    deps = [
-        ":file-utils",
-        ":query-utils",
-        "//bant:session",
-        "//bant:types",
-        "//bant:types-bazel",
-        "//bant:workspace",
-        "//bant/frontend:project-parser",
-        "@abseil-cpp//absl/strings",
     ],
 )

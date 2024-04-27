@@ -13,35 +13,18 @@ cc_library(
 )
 
 cc_library(
-    name = "header-providers",
-    srcs = ["header-providers.cc"],
-    hdrs = ["header-providers.h"],
-    deps = [
-        "//bant:session",
-        "//bant:types",
-        "//bant:types-bazel",
-        "//bant/frontend:parser",
-        "//bant/frontend:project-parser",
-        "//bant/util:query-utils",
-        "//bant/util:table-printer",
-        "@abseil-cpp//absl/container:btree",
-        "@abseil-cpp//absl/strings:str_format",
-    ],
-)
-
-cc_library(
     name = "dwyu",
     srcs = ["dwyu.cc"],
     hdrs = ["dwyu.h"],
     deps = [
         ":edit-callback",
-        ":header-providers",
         "//bant:session",
         "//bant:types-bazel",
+        "//bant/explore:header-providers",
+        "//bant/explore:query-utils",
         "//bant/frontend:named-content",
         "//bant/frontend:project-parser",
         "//bant/util:file-utils",
-        "//bant/util:query-utils",
         "//bant/util:stat",
         "@abseil-cpp//absl/strings",
         "@re2",
@@ -55,8 +38,8 @@ cc_library(
     deps = [
         ":edit-callback",
         "//bant:types-bazel",
+        "//bant/explore:query-utils",
         "//bant/frontend:project-parser",
-        "//bant/util:query-utils",
     ],
 )
 
