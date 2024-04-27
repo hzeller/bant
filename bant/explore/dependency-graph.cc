@@ -146,7 +146,7 @@ DependencyGraph BuildDependencyGraph(Session &session,
           // The list to insert all the dependencies our current target has.
           std::vector<BazelTarget> &depends_on =
             graph.depends_on.insert({*target_or, {}}).first->second;
-          for (auto dep : query::ExtractStringList(result.deps_list)) {
+          for (const auto dep : query::ExtractStringList(result.deps_list)) {
             auto dependency_or = BazelTarget::ParseFrom(dep, current_package);
             if (!dependency_or.has_value()) continue;
 

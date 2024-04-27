@@ -41,10 +41,8 @@ static void IterateCCLibraryHeaders(const ParsedBuildFile &build_file,
       auto cc_library = BazelTarget::ParseFrom(cc_lib.name, build_file.package);
       if (!cc_library.has_value()) return;
 
-      std::vector<std::string_view> incdirs;
-      query::ExtractStringList(cc_lib.includes_list, incdirs);
-      std::vector<std::string_view> headers;
-      query::ExtractStringList(cc_lib.hdrs_list, headers);
+      const auto incdirs = query::ExtractStringList(cc_lib.includes_list);
+      const auto headers = query::ExtractStringList(cc_lib.hdrs_list);
 
       for (const std::string_view header : headers) {
         if (!cc_lib.include_prefix.empty()) {  // cc_library() dictates path.
@@ -139,8 +137,7 @@ static void AppendProtoLibraryHeaders(const ParsedBuildFile &build_file,
     build_file.ast, {"cc_proto_library"}, [&](const query::Result &cc_plib) {
       auto target = BazelTarget::ParseFrom(cc_plib.name, build_file.package);
       if (!target.has_value()) return;
-      std::vector<std::string_view> cc_proto_deps;
-      query::ExtractStringList(cc_plib.deps_list, cc_proto_deps);
+      const auto cc_proto_deps = query::ExtractStringList(cc_plib.deps_list);
       for (const std::string_view dep : cc_proto_deps) {
         auto proto_library = BazelTarget::ParseFrom(dep, build_file.package);
         if (!proto_library.has_value()) continue;
@@ -164,8 +161,7 @@ static void AppendProtoLibraryHeaders(const ParsedBuildFile &build_file,
 
       // Now, look through all *.proto files this proto_library() gets,
       // assemble the header filename from it and record in our result.
-      std::vector<std::string_view> proto_srcs;
-      query::ExtractStringList(proto_lib.srcs_list, proto_srcs);
+      const auto proto_srcs = query::ExtractStringList(proto_lib.srcs_list);
       for (std::string_view proto : proto_srcs) {
         if (!proto.ends_with(".proto")) {
           // possibly file list. Not handling that yet.
@@ -229,8 +225,7 @@ ProvidedFromTargetMap ExtractGeneratedFromGenrule(const ParsedProject &project,
     if (!file_content->ast) continue;
     query::FindTargets(
       file_content->ast, {"genrule"}, [&](const query::Result &params) {
-        std::vector<std::string_view> genfiles;
-        query::ExtractStringList(params.outs_list, genfiles);
+        const auto genfiles = query::ExtractStringList(params.outs_list);
 
         auto target =
           BazelTarget::ParseFrom(params.name, file_content->package);

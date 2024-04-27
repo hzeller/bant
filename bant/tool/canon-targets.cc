@@ -43,9 +43,8 @@ void CreateCanonicalizeEdits(Session &session, const ParsedProject &project,
         if (!pattern.Match(*self)) {
           return;
         }
-        std::vector<std::string_view> deps;
-        query::ExtractStringList(target.deps_list, deps);
 
+        const auto deps = query::ExtractStringList(target.deps_list);
         for (std::string_view dep_str : deps) {
           stats.count++;
           auto dep_target = BazelTarget::ParseFrom(dep_str, current_package);

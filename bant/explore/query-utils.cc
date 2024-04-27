@@ -124,7 +124,7 @@ void FindTargets(Node *ast,
   TargetFinder(rules_of_interest, cb).WalkNonNull(ast);
 }
 
-void ExtractStringList(List *list, std::vector<std::string_view> &append_to) {
+void AppendStringList(List *list, std::vector<std::string_view> &append_to) {
   if (list == nullptr) return;
   for (Node *n : *list) {
     Scalar *scalar = n->CastAsScalar();
@@ -137,7 +137,7 @@ void ExtractStringList(List *list, std::vector<std::string_view> &append_to) {
 
 std::vector<std::string_view> ExtractStringList(List *list) {
   std::vector<std::string_view> result;
-  ExtractStringList(list, result);
+  AppendStringList(list, result);
   return result;
 }
 }  // namespace query

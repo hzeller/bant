@@ -57,11 +57,14 @@ void FindTargets(Node *ast,
                  std::initializer_list<std::string_view> rules_of_interest,
                  const TargetFindCallback &cb);
 
-// Utility function: extract list of strings from list-node and append to
-// vector. The original string-views are preserved, so can be used to recover
+// Utility function: extract list of non-empty strings from list-node and
+// return as vector.
+// The original string-views are preserved, so can be used to recover the
 // location in file.
-void ExtractStringList(List *list, std::vector<std::string_view> &append_to);
 std::vector<std::string_view> ExtractStringList(List *list);
+
+// Similar to ExtractStringList(), but append to vector.
+void AppendStringList(List *list, std::vector<std::string_view> &append_to);
 
 }  // namespace query
 }  // namespace bant

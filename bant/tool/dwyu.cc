@@ -288,9 +288,9 @@ void CreateDependencyEdits(Session &session, const ParsedProject &project,
         // Looking at the include files the sources reference, map these back
         // to the dependencies that provide them: these are the deps we needed.
         bool all_header_deps_known = true;
-        std::vector<std::string_view> sources;
-        query::ExtractStringList(target.srcs_list, sources);
-        query::ExtractStringList(target.hdrs_list, sources);
+        auto sources = query::ExtractStringList(target.srcs_list);
+        query::AppendStringList(target.hdrs_list, sources);  // headers as well.
+
         auto deps_needed =
           DependenciesForIncludes(session, stats, *self, *parsed_package,  //
                                   sources, hdr_idx,                        //
@@ -298,8 +298,7 @@ void CreateDependencyEdits(Session &session, const ParsedProject &project,
 
         // Check all the dependencies that the build target requested and
         // verify we actually need them. If not: remove.
-        std::vector<std::string_view> deps;
-        query::ExtractStringList(target.deps_list, deps);
+        const auto deps = query::ExtractStringList(target.deps_list);
         for (std::string_view dependency_target : deps) {
           auto requested_target = BazelTarget::ParseFrom(dependency_target,  //
                                                          current_package);
