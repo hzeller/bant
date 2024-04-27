@@ -50,7 +50,8 @@ struct ParsedBuildFile {
 // A Parsed project contains all the parsed files of a project.
 class ParsedProject {
  public:
-  using File2Parsed = OneToOne<BazelPackage, std::unique_ptr<ParsedBuildFile>>;
+  using Package2Parsed =
+    OneToOne<BazelPackage, std::unique_ptr<ParsedBuildFile>>;
 
   ParsedProject(bool verbose);
 
@@ -63,8 +64,8 @@ class ParsedProject {
                                       const FilesystemPath &build_file,
                                       const BazelPackage &package);
 
-  // A map of filename -> ParsedBuildFile
-  const File2Parsed &ParsedFiles() const { return file_to_parsed_; }
+  // A map of Package -> ParsedBuildFile
+  const Package2Parsed &ParsedFiles() const { return file_to_parsed_; }
 
   // Look up parse file given the package, or nullptr, if not parsed (yet).
   const ParsedBuildFile *FindParsedOrNull(const BazelPackage &package) const;
@@ -75,15 +76,15 @@ class ParsedProject {
  private:
   // Same, auto-determine path (todo: should probably be deprecated)
   const ParsedBuildFile *AddBuildFile(Session &session,
-                                      const FilesystemPath &build_file);
-
-  const std::string external_prefix_;  // TODO: should come from workspace.
+                                      const FilesystemPath &build_file,
+                                      const BazelWorkspace &workspace,
+                                      std::string_view project);
 
   // Some stats.
   int error_count_ = 0;
 
   Arena arena_{1 << 20};
-  File2Parsed file_to_parsed_;
+  Package2Parsed file_to_parsed_;
 };
 
 // Convenience function to print a fully parsed project, recreated from the

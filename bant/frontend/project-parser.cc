@@ -43,22 +43,6 @@ std::string_view TargetPathFromBuildFile(std::string_view file) {
   return file;
 }
 
-// First foo/bar/baz/BUILD -> @foo//bar/baz
-std::optional<BazelPackage> PackageFromExternal(std::string_view path) {
-  path = TargetPathFromBuildFile(path);  // remove BUILD
-  return BazelPackage::ParseFrom(absl::StrCat("@", path));
-}
-
-// Assemble a path that points to the symbolik link bazel generates for
-// the external location.
-// TODO: get from workspace
-static FilesystemPath ExternalProjectDir() {
-  const std::string project_dir_name =
-    std::filesystem::current_path().filename().string();
-  const std::string external_base = absl::StrCat("./bazel-", project_dir_name);
-  return FilesystemPath(absl::StrCat(external_base, "/external"));
-}
-
 // Given a bazel pattern, find the start directory to recursively walk the
 // filesytem from.
 static std::optional<FilesystemPath> DetermineSearchDirFromPattern(
@@ -114,33 +98,37 @@ std::vector<FilesystemPath> CollectBuildFiles(Session &session,
 }
 }  // namespace
 
-ParsedProject::ParsedProject(bool verbose)
-    : external_prefix_(absl::StrCat(ExternalProjectDir().path(), "/")) {
-  arena_.SetVerbose(verbose);
-}
+ParsedProject::ParsedProject(bool verbose) { arena_.SetVerbose(verbose); }
 
 void ParsedProject::FillFromPattern(Session &session,
                                     const BazelWorkspace &workspace,
                                     const BazelPattern &pattern) {
   const auto build_files = CollectBuildFiles(session, workspace, pattern);
   for (const FilesystemPath &build_file : build_files) {
-    AddBuildFile(session, build_file);
+    AddBuildFile(session, build_file, workspace, pattern.project());
   }
 }
 
 const ParsedBuildFile *ParsedProject::AddBuildFile(
-  Session &session, const FilesystemPath &build_file) {
+  Session &session, const FilesystemPath &build_file,
+  const BazelWorkspace &workspace, std::string_view project) {
   const std::string &filename = build_file.path();
   BazelPackage package;
-  if (filename.starts_with(external_prefix_)) {
-    std::string_view project_extract(filename);
-    project_extract.remove_prefix(external_prefix_.size());
-    auto opt_package = PackageFromExternal(project_extract);
-    if (!opt_package.has_value()) {
-      std::cerr << filename << ": Can't parse as package\n";
-      return nullptr;
+  if (!project.empty()) {
+    package.project = project;
+
+    // Somewhat silly to reconstruct the path by asking the worksapce again,
+    // we have the iformation upstream, but it decays to a simple path.
+    // Should be fixed, but good enough for now.
+    auto prefix_or = workspace.FindPathByProject(project);
+    if (!prefix_or.has_value()) {
+      std::cerr << filename << ": Can't determine package.\n";
+      return nullptr;  // should not happen.
     }
-    package = *opt_package;
+    // Path to project is prefix, everything afterwards is the pack path
+    const std::string_view package_relevant =
+      std::string_view(filename).substr(prefix_or->path().length());
+    package.path = TargetPathFromBuildFile(package_relevant);
   } else {
     package.path = TargetPathFromBuildFile(filename);
   }
