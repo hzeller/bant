@@ -55,9 +55,10 @@ class ParsedProject {
 
   ParsedProject(bool verbose);
 
-  // Given a BazelPattern, collect all the matching BUILD files
-  void FillFromPattern(Session &session, const BazelWorkspace &workspace,
-                       const BazelPattern &pattern);
+  // Given a BazelPattern, collect all the matching BUILD files.
+  // Returns number of build-patterns loaded.
+  int FillFromPattern(Session &session, const BazelWorkspace &workspace,
+                      const BazelPattern &pattern);
 
   // Parse build file for given package.
   const ParsedBuildFile *AddBuildFile(Session &session,

@@ -51,7 +51,7 @@ static std::optional<FilesystemPath> DetermineSearchDirFromPattern(
   if (!pattern.project().empty()) {
     auto dir_or = workspace.FindPathByProject(pattern.project());
     if (!dir_or.has_value()) {
-      std::cerr << "Unknown project " << pattern.project() << "\n";
+      std::cerr << "Unknown project " << pattern.project() << ".\n";
       return std::nullopt;
     }
     start_dir = dir_or->path();
@@ -100,13 +100,14 @@ std::vector<FilesystemPath> CollectBuildFiles(Session &session,
 
 ParsedProject::ParsedProject(bool verbose) { arena_.SetVerbose(verbose); }
 
-void ParsedProject::FillFromPattern(Session &session,
-                                    const BazelWorkspace &workspace,
-                                    const BazelPattern &pattern) {
+int ParsedProject::FillFromPattern(Session &session,
+                                   const BazelWorkspace &workspace,
+                                   const BazelPattern &pattern) {
   const auto build_files = CollectBuildFiles(session, workspace, pattern);
   for (const FilesystemPath &build_file : build_files) {
     AddBuildFile(session, build_file, workspace, pattern.project());
   }
+  return build_files.size();
 }
 
 const ParsedBuildFile *ParsedProject::AddBuildFile(

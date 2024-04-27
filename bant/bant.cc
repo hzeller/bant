@@ -262,7 +262,9 @@ int main(int argc, char *argv[]) {
 
   bant::ParsedProject project(verbose);
   if (cmd != Command::kListWorkkspace) {
-    project.FillFromPattern(session, workspace, pattern);
+    if (project.FillFromPattern(session, workspace, pattern) == 0) {
+      session.error() << "Pattern did not match any dir with BUILD file.\n";
+    }
   }
 
   // TODO: move dependency graph creation to tools where needed.
