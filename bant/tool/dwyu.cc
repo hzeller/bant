@@ -97,7 +97,8 @@ std::set<BazelTarget> DependenciesForIncludes(
   for (std::string_view src_name : sources) {
     const std::string source_file = context.package.QualifiedFile(src_name);
 
-    // File could be in multiple locations, primary or generated. Use first.
+    // File could be in multiple locations, primary or generated.
+    // Use first we find.
     std::optional<std::string> src_content;
     bool generated_source = false;
     std::string src_concrete_filename;

@@ -32,29 +32,34 @@
 
 namespace bant {
 namespace {
-// Find cc_library and call callback for each header file it exports.
+// Go through cc_library()s and call callback for each header file it exports.
 using FindHeaderCallback =
-  std::function<void(std::string_view library_name, std::string_view hdr_loc,
+  std::function<void(const BazelTarget &library, std::string_view hdr_loc,
                      const std::string &header_fqn)>;
-static void FindCCLibraryHeaders(const ParsedBuildFile &file_content,
-                                 const FindHeaderCallback &cb) {
+static void IterateCCLibraryHeaders(const ParsedBuildFile &build_file,
+                                    const FindHeaderCallback &callback) {
   query::FindTargets(
-    file_content.ast, {"cc_library"}, [&](const query::Result &params) {
-      std::vector<std::string_view> incdirs;
-      query::ExtractStringList(params.includes_list, incdirs);
-      std::vector<std::string_view> headers;
-      query::ExtractStringList(params.hdrs_list, headers);
+    build_file.ast, {"cc_library"}, [&](const query::Result &cc_lib) {
+      auto cc_library = BazelTarget::ParseFrom(cc_lib.name, build_file.package);
+      if (!cc_library.has_value()) return;
 
-      for (std::string_view header : headers) {
-        if (!params.include_prefix.empty()) {  // cc_library() dictates path.
-          cb(params.name, header,
-             absl::StrCat(params.include_prefix, "/", header));
+      std::vector<std::string_view> incdirs;
+      query::ExtractStringList(cc_lib.includes_list, incdirs);
+      std::vector<std::string_view> headers;
+      query::ExtractStringList(cc_lib.hdrs_list, headers);
+
+      for (const std::string_view header : headers) {
+        if (!cc_lib.include_prefix.empty()) {  // cc_library() dictates path.
+          callback(*cc_library, header,
+             absl::StrCat(cc_lib.include_prefix, "/", header));
           continue;
         }
-        std::string header_fqn = file_content.package.QualifiedFile(header);
 
-        std::string_view strip_prefix = params.strip_include_prefix;
+        // Assemble the header filename as it can be #include'ed in sources.
+        const std::string header_fqn = build_file.package.QualifiedFile(header);
 
+        // There can be an include prefix to be removed (typically: "").
+        std::string_view strip_prefix = cc_lib.strip_include_prefix;
         // In protobuf, strip_include_prefix starts with '/' ???
         while (strip_prefix.starts_with('/')) strip_prefix.remove_prefix(1);
         while (strip_prefix.ends_with('/')) strip_prefix.remove_suffix(1);
@@ -63,23 +68,122 @@ static void FindCCLibraryHeaders(const ParsedBuildFile &file_content,
         if (strip_len > 0 && header_fqn.length() > strip_len &&
             header_fqn.starts_with(strip_prefix) &&
             header_fqn[strip_len] == '/') {
-          cb(params.name, header, header_fqn.substr(strip_len + 1));
+          callback(*cc_library, header, header_fqn.substr(strip_len + 1));
         } else {
-          cb(params.name, header, header_fqn);
+          callback(*cc_library, header, header_fqn);
         }
+
+        // The same header could also show up with different prefixes, all of
+        // them valid. e.g zlib.h and zlib/include/zlib.h. Emit all of these.
 
         // TODO: double check that the following is what incdirs is supposed to
         // do. Looks like it works for zlib.
         // Could also show up under shorter path with -I
-        for (std::string_view dir : incdirs) {
+        for (const std::string_view dir : incdirs) {
           std::string prefix(dir);
           if (!prefix.ends_with('/')) {
             prefix.append("/");
           }
           if (header_fqn.starts_with(prefix)) {
-            cb(params.name, header, header_fqn.substr(prefix.length()));
+            callback(*cc_library, header, header_fqn.substr(prefix.length()));
           }
         }
+      }
+    });
+}
+
+static void AppendCCLibraryHeaders(const ParsedBuildFile &build_file,
+                                   std::ostream &info_out,
+                                   ProvidedFromTargetMap *result) {
+  IterateCCLibraryHeaders(
+    build_file, [&](const BazelTarget &cc_library, std::string_view hdr_loc,
+                    const std::string &header_fqn) {
+      const auto &inserted = result->insert({header_fqn, cc_library});
+      if (!inserted.second && cc_library != inserted.first->second) {
+        // TODO: differentiate between info-log (external projects) and
+        // error-log (current project, as these are actionable).
+        // For now: just report errors.
+        const bool is_error = build_file.package.project.empty();
+        if (is_error) {
+          // TODO: Get file-position from other target which might be
+          // in a different file.
+          build_file.source.Loc(info_out, hdr_loc)
+            << " Header '" << header_fqn << "' in " << cc_library.ToString()
+            << " already provided by " << inserted.first->second.ToString()
+            << "\n";
+        }
+      }
+    });
+}
+
+// proto_library(), cc_proto_library().
+// Since we don't look into the *.bzl rule, we need to assemble the
+// expected generated files here ourselves.
+//
+// The cc_proto_library() provides the cc_library(), but the header-file
+// is derived from the *.proto file that in itself is given to proto_library().
+// So we need to look at both.
+// To find cc library for proto header foo.pb.h, we need two parts:
+//  1. find all the cc_proto_library()s and see what proto_library() they use.
+//  2. find all used proto_library()s that are mentioned in cc_proto_library()s,
+//     derive the header file from the *.proto file and store the mapping
+//     header->cc_library that we're after.
+static void AppendProtoLibraryHeaders(const ParsedBuildFile &build_file,
+                                      std::ostream &info_out,
+                                      ProvidedFromTargetMap *result) {
+  // TODO: once we wire the DependencyGraph through, we can make the look-up
+  // in one go. Also we wouldn't be limited to proto_library() and
+  // cc_proto_library() having to reside in one package.
+
+  // Find all cc_proto_library()s and remember what proto_library() the dep on.
+  std::map<BazelTarget, BazelTarget> proto_lib2cc_proto_lib;
+  query::FindTargets(
+    build_file.ast, {"cc_proto_library"}, [&](const query::Result &cc_plib) {
+      auto target = BazelTarget::ParseFrom(cc_plib.name, build_file.package);
+      if (!target.has_value()) return;
+      std::vector<std::string_view> cc_proto_deps;
+      query::ExtractStringList(cc_plib.deps_list, cc_proto_deps);
+      for (const std::string_view dep : cc_proto_deps) {
+        auto proto_library = BazelTarget::ParseFrom(dep, build_file.package);
+        if (!proto_library.has_value()) continue;
+        proto_lib2cc_proto_lib.insert({*proto_library, *target});
+      }
+    });
+
+  // Looking at the proto_library(), we can derive the header from the *.proto.
+  // Putting it all together.
+  query::FindTargets(
+    build_file.ast, {"proto_library"}, [&](const query::Result &proto_lib) {
+      auto target = BazelTarget::ParseFrom(proto_lib.name, build_file.package);
+      if (!target.has_value()) return;
+
+      // Is there a cc_proto_library() waiting for our info ?
+      auto found_cc_proto_lib = proto_lib2cc_proto_lib.find(*target);
+      if (found_cc_proto_lib == proto_lib2cc_proto_lib.end()) {
+        return;  // This proto lib is probably used for some other language.
+      }
+      const BazelTarget &cc_proto_lib = found_cc_proto_lib->second;
+
+      // Now, look through all *.proto files this proto_library() gets,
+      // assemble the header filename from it and record in our result.
+      std::vector<std::string_view> proto_srcs;
+      query::ExtractStringList(proto_lib.srcs_list, proto_srcs);
+      for (std::string_view proto : proto_srcs) {
+        if (!proto.ends_with(".proto")) {
+          // possibly file list. Not handling that yet.
+          continue;
+        }
+        if (proto.starts_with(':')) {  // Also a way to name a local
+          proto.remove_prefix(1);
+        }
+
+        // Create a header file out of it. foo.proto becomes foo.pb.h
+        auto dot_pos = proto.find_last_of('.');
+        const std::string_view stem = proto.substr(0, dot_pos);
+        std::string proto_header;
+        proto_header = absl::StrCat(stem, ".pb.h");
+        proto_header = build_file.package.QualifiedFile(proto_header);
+        result->insert({proto_header, cc_proto_lib});
       }
     });
 }
@@ -90,115 +194,31 @@ ProvidedFromTargetMap ExtractHeaderToLibMapping(const ParsedProject &project,
   ProvidedFromTargetMap result;
 
 #ifdef BANT_GTEST_HACK
-  // gtest hack (can't glob() the headers yet, so manually add these to
+  // gtest hack. We can't glob() the headers yet, so manually add these to
   // the first project that looks like it is googletest...
   for (const auto &[_, file_content] : project.ParsedFiles()) {
     if (file_content->package.project.find("googletest") == std::string::npos) {
       continue;
     }
+
     BazelTarget test_target;
     test_target.package.project = file_content->package.project;
     test_target.target_name = "gtest";
+    ProvidedFromTargetMap::mapped_type target_provide;
+    target_provide = test_target;
     result["gtest/gtest.h"] = test_target;
     result["gmock/gmock.h"] = test_target;
     break;
   }
 #endif
 
-  // TODO: break the following sections into separate functions.
+  for (const auto &[_, build_file] : project.ParsedFiles()) {
+    if (!build_file->ast) continue;
 
-  // cc_library()
-  for (const auto &[_, file_content] : project.ParsedFiles()) {
-    if (!file_content->ast) continue;
-    FindCCLibraryHeaders(
-      *file_content, [&](std::string_view lib_name, std::string_view hdr_loc,
-                         const std::string &header_fqn) {
-        auto target = BazelTarget::ParseFrom(lib_name, file_content->package);
-        if (!target.has_value()) return;
-
-        const auto &inserted = result.insert({header_fqn, *target});
-        if (!inserted.second && target != inserted.first->second) {
-          // TODO: differentiate between info-log (external projects) and
-          // error-log (current project, as these are actionable).
-          // For now: just report errors.
-          const bool is_error = file_content->package.project.empty();
-          if (is_error) {
-            // TODO: Get file-position from other target which might be
-            // in a different file.
-            file_content->source.Loc(info_out, hdr_loc)
-              << " Header '" << header_fqn << "' in " << target->ToString()
-              << " already provided by " << inserted.first->second.ToString()
-              << "\n";
-          }
-        }
-      });
-  }
-
-  // proto_library(), cc_proto_library().
-  // Since we don't look into the *.bzl rule, we need to assemble the
-  // expected generated files here ourselves.
-  //
-  // To find cc library for proto header foo.pb.h, we need two parts:
-  //  1. find proto_library() and look at the srcs. x.proto -> x.pb
-  //  2. find the cc_proto_library() that depends on (1). that is the library
-  //     that will export the header generated in 1.
-  //  Execution: gather both infos, then push in result.
-  ProvidedFromTargetMap header2proto_library;  // header created by protolib
-  std::map<BazelTarget, BazelTarget> proto_lib_inputTo_cc_proto;
-  for (const auto &[_, file_content] : project.ParsedFiles()) {
-    if (!file_content->ast) continue;
-    query::FindTargets(
-      file_content->ast, {"proto_library", "cc_proto_library"},
-      [&](const query::Result &params) {
-        auto target =
-          BazelTarget::ParseFrom(params.name, file_content->package);
-
-        // Collect proto libraries and remember the *.pb.h they create.
-        if (params.rule == "proto_library") {
-          std::vector<std::string_view> proto_srcs;
-          query::ExtractStringList(params.srcs_list, proto_srcs);
-          for (std::string_view proto : proto_srcs) {
-            if (!proto.ends_with(".proto")) {
-              // possibly file list. Not handling that yet.
-              continue;
-            }
-            if (proto.starts_with(':')) {  // Also a way to name a local
-              proto.remove_prefix(1);
-            }
-
-            // Create a header file out of it. foo.proto becomes foo.pb.h
-            std::string proto_header;
-            auto dot_pos = proto.find_last_of('.');
-            proto_header.append(proto.substr(0, dot_pos)).append(".pb.h");
-            proto_header = file_content->package.QualifiedFile(proto_header);
-            header2proto_library.insert({proto_header, *target});
-          }
-        }
-
-        // Collectg cc_proto_library() to know the library name others depend on
-        else {
-          // Look for all the dependencies that cc_proto_library() uses.
-          std::vector<std::string_view> cc_proto_deps;
-          query::ExtractStringList(params.deps_list, cc_proto_deps);
-          for (const std::string_view dep : cc_proto_deps) {
-            auto proto_library_target =
-              BazelTarget::ParseFrom(dep, file_content->package);
-            if (!proto_library_target.has_value()) continue;
-            proto_lib_inputTo_cc_proto.insert({*proto_library_target, *target});
-          }
-        }
-      });
-  }
-
-  for (const auto &[proto_header, proto_lib] : header2proto_library) {
-    auto found = proto_lib_inputTo_cc_proto.find(proto_lib);
-    if (found != proto_lib_inputTo_cc_proto.end()) {
-      result.insert({proto_header, found->second});
-    } else {
-      // This can happen if hte proto is never used in a cc_proto_library(),
-      // e.g. used in a py_proto_library() that is not interesting for headers.
-      // info_out << "Don't know how to associate " << proto_header << "\n";
-    }
+    // There are multiple rule types that behave like a cc library and
+    // provide header files.
+    AppendCCLibraryHeaders(*build_file, info_out, &result);
+    AppendProtoLibraryHeaders(*build_file, info_out, &result);
   }
 
   return result;

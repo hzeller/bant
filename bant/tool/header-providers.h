@@ -28,6 +28,7 @@
 namespace bant {
 
 // Map describing what file has been provided by which target.
+// This should be a 1:1 relationship.
 using ProvidedFromTargetMap = absl::btree_map<std::string, BazelTarget>;
 
 // Givent the "project", creates a mapping of all headers that are exported by
