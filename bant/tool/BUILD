@@ -1,7 +1,6 @@
 package(
     default_applicable_licenses = ["//:license"],
     default_visibility = ["//bant:__pkg__"],
-    features = ["layering_check"],
 )
 
 cc_library(

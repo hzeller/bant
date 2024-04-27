@@ -2,7 +2,6 @@ load("@rules_license//rules:license.bzl", "license")
 
 package(
     default_applicable_licenses = [":license"],
-    features = ["layering_check"],
 )
 
 # Machine-readable license specification.
