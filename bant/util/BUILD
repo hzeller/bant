@@ -83,6 +83,7 @@ cc_library(
         ":file-utils",
         ":query-utils",
         "//bant:session",
+        "//bant:types",
         "//bant:types-bazel",
         "//bant:workspace",
         "//bant/frontend:project-parser",

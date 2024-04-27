@@ -33,7 +33,6 @@
 #include <vector>
 
 #include "absl/strings/str_cat.h"
-#include "absl/time/clock.h"
 #include "bant/frontend/named-content.h"
 #include "bant/frontend/project-parser.h"
 #include "bant/tool/edit-callback.h"

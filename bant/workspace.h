@@ -18,12 +18,12 @@
 #ifndef BANT_WORKSPACE_
 #define BANT_WORKSPACE_
 
-#include <map>
 #include <optional>
 #include <string>
 #include <string_view>
 
 #include "bant/session.h"
+#include "bant/types.h"
 #include "bant/util/file-utils.h"
 
 namespace bant {
@@ -41,7 +41,7 @@ struct BazelWorkspace {
   std::optional<FilesystemPath> FindPathByProject(std::string_view name) const;
 
   // Project to directory.
-  std::map<VersionedProject, FilesystemPath> project_location;
+  OneToOne<VersionedProject, FilesystemPath> project_location;
 };
 
 // Scan current directory for workspace files and create an index of all

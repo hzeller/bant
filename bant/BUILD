@@ -33,6 +33,12 @@ cc_binary(
 )
 
 cc_library(
+    name = "types",
+    hdrs = ["types.h"],
+    deps = ["@abseil-cpp//absl/container:btree"],
+)
+
+cc_library(
     name = "types-bazel",
     srcs = [
         "types-bazel.cc",
@@ -46,12 +52,25 @@ cc_library(
     ],
 )
 
+cc_test(
+    name = "types-bazel_test",
+    size = "small",
+    srcs = ["types-bazel_test.cc"],
+    deps = [
+        ":types-bazel",
+        "@abseil-cpp//absl/log:check",
+        "@googletest//:gtest",
+        "@googletest//:gtest_main",
+    ],
+)
+
 cc_library(
     name = "workspace",
     srcs = ["workspace.cc"],
     hdrs = ["workspace.h"],
     deps = [
         ":session",
+        ":types",
         "//bant/frontend:parser",
         "//bant/util:file-utils",
         "//bant/util:memory",
@@ -66,17 +85,8 @@ cc_library(
         "output-format.h",
         "session.h",
     ],
-    deps = ["//bant/util:stat"],
-)
-
-cc_test(
-    name = "types-bazel_test",
-    size = "small",
-    srcs = ["types-bazel_test.cc"],
     deps = [
-        ":types-bazel",
-        "@abseil-cpp//absl/log:check",
-        "@googletest//:gtest",
-        "@googletest//:gtest_main",
+        ":types",
+        "//bant/util:stat",
     ],
 )

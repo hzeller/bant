@@ -18,6 +18,7 @@ cc_library(
     hdrs = ["header-providers.h"],
     deps = [
         "//bant:session",
+        "//bant:types",
         "//bant:types-bazel",
         "//bant/frontend:parser",
         "//bant/frontend:project-parser",
@@ -43,7 +44,6 @@ cc_library(
         "//bant/util:query-utils",
         "//bant/util:stat",
         "@abseil-cpp//absl/strings",
-        "@abseil-cpp//absl/time",
         "@re2",
     ],
 )

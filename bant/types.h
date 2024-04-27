@@ -15,27 +15,20 @@
 // with this program; if not, write to the Free Software Foundation, Inc.,
 // 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 
-#ifndef BANT_UTIL_RESOLVE_PACKAGES_
-#define BANT_UTIL_RESOLVE_PACKAGES_
+#ifndef BANT_TYPES_
+#define BANT_TYPES_
 
-#include "bant/frontend/project-parser.h"
-#include "bant/session.h"
-#include "bant/types-bazel.h"
-#include "bant/types.h"
-#include "bant/workspace.h"
+#include <vector>
 
-namespace bant {
-struct DependencyGraph {
-  OneToN<BazelTarget, BazelTarget> depends_on;
-  OneToN<BazelTarget, BazelTarget> has_dependents;
-};
+#include "absl/container/btree_map.h"
 
-// Build Dependency graph for all targets matching "pattern". Might update
-// "project" with new files to be parsed.
-DependencyGraph BuildDependencyGraph(Session &session,
-                                     const BazelWorkspace &workspace,
-                                     const BazelPattern &pattern,
-                                     ParsedProject *project);
-}  // namespace bant
+// Some convenient types to emphasize the relationship rather than the
+// implementation.
 
-#endif  // BANT_UTIL_RESOLVE_PACKAGES_
+template <typename K, typename V>
+using OneToOne = absl::btree_map<K, V>;
+
+template <typename K, typename V>
+using OneToN = absl::btree_map<K, std::vector<V>>;
+
+#endif  // BANT_TYPES_

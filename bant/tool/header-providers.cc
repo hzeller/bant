@@ -51,7 +51,7 @@ static void IterateCCLibraryHeaders(const ParsedBuildFile &build_file,
       for (const std::string_view header : headers) {
         if (!cc_lib.include_prefix.empty()) {  // cc_library() dictates path.
           callback(*cc_library, header,
-             absl::StrCat(cc_lib.include_prefix, "/", header));
+                   absl::StrCat(cc_lib.include_prefix, "/", header));
           continue;
         }
 
@@ -136,7 +136,7 @@ static void AppendProtoLibraryHeaders(const ParsedBuildFile &build_file,
   // cc_proto_library() having to reside in one package.
 
   // Find all cc_proto_library()s and remember what proto_library() the dep on.
-  std::map<BazelTarget, BazelTarget> proto_lib2cc_proto_lib;
+  OneToOne<BazelTarget, BazelTarget> proto_lib2cc_proto_lib;
   query::FindTargets(
     build_file.ast, {"cc_proto_library"}, [&](const query::Result &cc_plib) {
       auto target = BazelTarget::ParseFrom(cc_plib.name, build_file.package);

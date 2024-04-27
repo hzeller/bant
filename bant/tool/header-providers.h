@@ -24,12 +24,13 @@
 #include "absl/container/btree_map.h"
 #include "bant/frontend/project-parser.h"
 #include "bant/session.h"
+#include "bant/types.h"
 
 namespace bant {
 
 // Map describing what file has been provided by which target.
 // This should be a 1:1 relationship.
-using ProvidedFromTargetMap = absl::btree_map<std::string, BazelTarget>;
+using ProvidedFromTargetMap = OneToOne<std::string, BazelTarget>;
 
 // Givent the "project", creates a mapping of all headers that are exported by
 // cc_library() targets to their respective targets.

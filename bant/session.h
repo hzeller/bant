@@ -18,11 +18,11 @@
 #ifndef BANT_SESSION_H
 #define BANT_SESSION_H
 
-#include <map>
 #include <ostream>
 #include <string_view>
 
 #include "bant/output-format.h"
+#include "bant/types.h"
 #include "bant/util/stat.h"
 
 namespace bant {
@@ -30,7 +30,7 @@ namespace bant {
 // as well as access to streams for general output or error and info messages.
 class Session {
  public:
-  using StatMap = std::map<std::string_view, bant::Stat>;
+  using StatMap = OneToOne<std::string_view, bant::Stat>;
 
   Session(std::ostream *out, std::ostream *info, bool verbose, OutputFormat fmt)
       : out_(out), info_(info), verbose_(verbose), output_format_(fmt) {}
