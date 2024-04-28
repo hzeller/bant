@@ -22,7 +22,7 @@
 #include <string_view>
 #include <vector>
 
-#include "bant/frontend/project-parser.h"
+#include "bant/frontend/parsed-project.h"
 #include "bant/session.h"
 #include "bant/tool/edit-callback.h"
 #include "bant/types-bazel.h"

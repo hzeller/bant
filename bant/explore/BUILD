@@ -13,7 +13,7 @@ cc_library(
         "//bant:types",
         "//bant:types-bazel",
         "//bant:workspace",
-        "//bant/frontend:project-parser",
+        "//bant/frontend:parsed-project",
         "//bant/util:file-utils",
     ],
 )
@@ -34,7 +34,7 @@ cc_test(
     deps = [
         ":query-utils",
         "//bant/frontend:parsed-project_testutil",
-        "//bant/frontend:project-parser",
+        "//bant/frontend:parsed-project",
         "@googletest//:gtest",
         "@googletest//:gtest_main",
     ],
@@ -49,7 +49,7 @@ cc_library(
         "//bant:session",
         "//bant:types",
         "//bant:types-bazel",
-        "//bant/frontend:project-parser",
+        "//bant/frontend:parsed-project",
         "//bant/util:table-printer",
     ],
 )

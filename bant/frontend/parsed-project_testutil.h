@@ -19,7 +19,7 @@
 #define BANT_PARSED_PROJECT_TESTUTIL_
 
 #include "absl/strings/str_cat.h"
-#include "bant/frontend/project-parser.h"
+#include "bant/frontend/parsed-project.h"
 #include "bant/session.h"
 #include "bant/types-bazel.h"
 

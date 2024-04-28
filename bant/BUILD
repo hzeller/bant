@@ -24,7 +24,7 @@ cc_binary(
         "//bant/explore:dependency-graph",
         "//bant/explore:header-providers",
         "//bant/explore:query-utils",
-        "//bant/frontend:project-parser",
+        "//bant/frontend:parsed-project",
         "//bant/tool:canon-targets",
         "//bant/tool:dwyu",
         "//bant/tool:edit-callback",

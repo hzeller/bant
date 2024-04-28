@@ -23,7 +23,7 @@ cc_library(
         "//bant/explore:header-providers",
         "//bant/explore:query-utils",
         "//bant/frontend:named-content",
-        "//bant/frontend:project-parser",
+        "//bant/frontend:parsed-project",
         "//bant/util:file-utils",
         "//bant/util:stat",
         "@abseil-cpp//absl/strings",
@@ -39,7 +39,7 @@ cc_library(
         ":edit-callback",
         "//bant:types-bazel",
         "//bant/explore:query-utils",
-        "//bant/frontend:project-parser",
+        "//bant/frontend:parsed-project",
     ],
 )
 

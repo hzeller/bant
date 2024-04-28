@@ -18,7 +18,7 @@
 #ifndef BANT_UTIL_RESOLVE_PACKAGES_
 #define BANT_UTIL_RESOLVE_PACKAGES_
 
-#include "bant/frontend/project-parser.h"
+#include "bant/frontend/parsed-project.h"
 #include "bant/session.h"
 #include "bant/types-bazel.h"
 #include "bant/types.h"

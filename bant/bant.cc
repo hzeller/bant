@@ -26,7 +26,7 @@
 #include "bant/explore/dependency-graph.h"
 #include "bant/explore/header-providers.h"
 #include "bant/explore/query-utils.h"
-#include "bant/frontend/project-parser.h"
+#include "bant/frontend/parsed-project.h"
 #include "bant/session.h"
 #include "bant/tool/canon-targets.h"
 #include "bant/tool/dwyu.h"

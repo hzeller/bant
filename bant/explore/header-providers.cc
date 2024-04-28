@@ -21,7 +21,7 @@
 #include <string_view>
 
 #include "bant/explore/query-utils.h"
-#include "bant/frontend/project-parser.h"
+#include "bant/frontend/parsed-project.h"
 #include "bant/types-bazel.h"
 #include "bant/util/table-printer.h"
 

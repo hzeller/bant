@@ -78,9 +78,9 @@ cc_test(
 )
 
 cc_library(
-    name = "project-parser",
-    srcs = ["project-parser.cc"],
-    hdrs = ["project-parser.h"],
+    name = "parsed-project",
+    srcs = ["parsed-project.cc"],
+    hdrs = ["parsed-project.h"],
     deps = [
         ":named-content",
         ":parser",
@@ -98,7 +98,7 @@ cc_library(
     testonly = True,
     hdrs = ["parsed-project_testutil.h"],
     deps = [
-        ":project-parser",
+        ":parsed-project",
         "//bant:session",
         "//bant:types-bazel",
         "@abseil-cpp//absl/strings",

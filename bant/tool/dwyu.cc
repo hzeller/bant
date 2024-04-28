@@ -36,7 +36,7 @@
 #include "bant/explore/header-providers.h"
 #include "bant/explore/query-utils.h"
 #include "bant/frontend/named-content.h"
-#include "bant/frontend/project-parser.h"
+#include "bant/frontend/parsed-project.h"
 #include "bant/tool/edit-callback.h"
 #include "bant/types-bazel.h"
 #include "bant/util/file-utils.h"
