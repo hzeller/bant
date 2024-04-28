@@ -35,11 +35,12 @@ struct ParsedBuildFile {
       : content(std::move(c)), source(filename, content) {}
 
   // Can't be copied or moved as AST nodes can contain string_views
-  // owned by content.
+  // owned by content which must not change address (even move'ing content
+  // can be problematic due to small string optimization).
   ParsedBuildFile(ParsedBuildFile &&) = delete;
   ParsedBuildFile(const ParsedBuildFile &) = delete;
 
-  std::string content;
+  const std::string content;
   NamedLineIndexedContent source;
 
   BazelPackage package;
@@ -66,7 +67,7 @@ class ParsedProject {
                                       const BazelPackage &package);
 
   // A map of Package -> ParsedBuildFile
-  const Package2Parsed &ParsedFiles() const { return file_to_parsed_; }
+  const Package2Parsed &ParsedFiles() const { return package_to_parsed_; }
 
   // Look up parse file given the package, or nullptr, if not parsed (yet).
   const ParsedBuildFile *FindParsedOrNull(const BazelPackage &package) const;
@@ -85,7 +86,7 @@ class ParsedProject {
   int error_count_ = 0;
 
   Arena arena_{1 << 20};
-  Package2Parsed file_to_parsed_;
+  Package2Parsed package_to_parsed_;
 };
 
 // Convenience function to print a fully parsed project, recreated from the

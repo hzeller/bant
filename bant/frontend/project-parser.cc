@@ -113,26 +113,21 @@ int ParsedProject::FillFromPattern(Session &session,
 const ParsedBuildFile *ParsedProject::AddBuildFile(
   Session &session, const FilesystemPath &build_file,
   const BazelWorkspace &workspace, std::string_view project) {
-  const std::string &filename = build_file.path();
-  BazelPackage package;
+  std::string_view package_path = build_file.path();
   if (!project.empty()) {
-    package.project = project;
-
     // Somewhat silly to reconstruct the path by asking the worksapce again,
-    // we have the iformation upstream, but it decays to a simple path.
+    // we have the information upstream, but it decays to a simple path.
     // Should be fixed, but good enough for now.
     auto prefix_or = workspace.FindPathByProject(project);
     if (!prefix_or.has_value()) {
-      std::cerr << filename << ": Can't determine package.\n";
+      std::cerr << build_file.path() << ": Can't determine package.\n";
       return nullptr;  // should not happen.
     }
     // Path to project is prefix, everything afterwards is the pack path
-    const std::string_view package_relevant =
-      std::string_view(filename).substr(prefix_or->path().length());
-    package.path = TargetPathFromBuildFile(package_relevant);
-  } else {
-    package.path = TargetPathFromBuildFile(filename);
+    package_path = package_path.substr(prefix_or->path().length());
   }
+
+  BazelPackage package(project, TargetPathFromBuildFile(package_path));
   return AddBuildFile(session, build_file, package);
 }
 
@@ -150,7 +145,7 @@ const ParsedBuildFile *ParsedProject::AddBuildFile(
   }
 
   const std::string &filename = build_file.path();
-  auto inserted = file_to_parsed_.emplace(
+  auto inserted = package_to_parsed_.emplace(
     package, new ParsedBuildFile(filename, std::move(*content)));
   if (!inserted.second) {
     session.info() << filename << ": Already seen\n";
@@ -183,8 +178,8 @@ const ParsedBuildFile *ParsedProject::AddBuildFile(
 
 const ParsedBuildFile *ParsedProject::FindParsedOrNull(
   const BazelPackage &package) const {
-  auto found = file_to_parsed_.find(package);
-  if (found == file_to_parsed_.end()) return nullptr;
+  auto found = package_to_parsed_.find(package);
+  if (found == package_to_parsed_.end()) return nullptr;
   return found->second.get();
 }
 
