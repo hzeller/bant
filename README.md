@@ -95,9 +95,9 @@ are used, consider a bazel command that needs all of them, e.g.
 ```
 $ bazel-bin/bant/bant -h
 Copyright (c) 2024 Henner Zeller. This program is free software; license GPL 2.0.
-Usage: bant [options] <command> [pattern]
+Usage: bant [options] <command> [bazel-target-pattern]
 Options
-    -C <directory> : Change to project directory (default = '.')
+    -C <directory> : Change to this project directory first (default = '.')
     -q             : Quiet: don't print info messages to stderr.
     -o <filename>  : Instead of stdout, emit command primary output to file.
     -f <format>    : Output format, support depends on command. One of
@@ -135,17 +135,17 @@ Commands (unique prefix sufficient):
 ### Usage examples
 
 ```bash
- bant parse -p -v  # Read bazel project in current dir, print AST, and stats.
- bant parse -e     # Read project, print AST of files that couldn't be parsed.
+ bant parse -e -v  # Read bazel project, print AST for files with parse errors.
  bant parse -C ~/src/verible -v  # Read project in given directory.
- bant print //foo:bar  # Print specific target AST matching pattern
- bant print //foo/...  # Print all build files matching recursive pattern.
- bant workspace    # List all the external projects listed in workspace.
- bant list         # List all the build files including the referenced external
- bant list -x      # List BUILD files only in this project, no external.
- bant lib-headers  # For each header found in project, print exporting target.
- bant dwyu ...     # Look which headers are used and suggest add/remove deps
- . <(bant dwyu foo/...)  # YOLO it: fix deps in package foo/... in one line.
+ bant print //foo:bar   # Print specific target AST matching pattern
+ bant print //foo/...   # Print all build files matching recursive pattern.
+ bant workspace         # List all the external projects listed in workspace.
+ bant list-packages -r  # List all the build files, follow dependencies
+ bant list-targets ...  # List all targets in this project
+ bant lib-headers       # For each header found in project, print exporting lib
+ bant dwyu ...         # Look which headers are used and suggest add/remove deps
+ . <(bant dwyu foo/...)  # YOLO oneliner: build_clean deps in package foo/...
+                         # by sourcing the emitted buildozer edit script.
 ```
 
 ### Development

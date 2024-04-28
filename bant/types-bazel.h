@@ -87,6 +87,9 @@ inline std::ostream &operator<<(std::ostream &o, const BazelTarget &t) {
 // A bazel pattern such as //foo/... or //foo:all
 // But also for visibility rules :__pkg__ and :__subpackages__ as they are
 // essentially the same.
+// TODO: there are also relative patterns without leading '//' and also things
+//  like ...:all. Note with that, path() will need to be replace with something/
+//  yielding globbing results.
 class BazelPattern {
  public:
   // The default constructed pattern always matches anything.

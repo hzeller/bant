@@ -43,9 +43,10 @@ static int usage(const char *prog, const char *message, int exit_code) {
   fprintf(stderr,
           "Copyright (c) 2024 Henner Zeller. "
           "This program is free software; license GPL 2.0.\n");
-  fprintf(stderr, "Usage: %s [options] <command> [pattern]\n", prog);
+  fprintf(stderr, "Usage: %s [options] <command> [bazel-target-pattern]\n",
+          prog);
   fprintf(stderr, R"(Options
-    -C <directory> : Change to project directory (default = '.')
+    -C <directory> : Change to this project directory first (default = '.')
     -q             : Quiet: don't print info messages to stderr.
     -o <filename>  : Instead of stdout, emit command primary output to file.
     -f <format>    : Output format, support depends on command. One of
