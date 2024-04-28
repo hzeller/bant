@@ -25,6 +25,9 @@
 #include "bant/session.h"
 #include "bant/types.h"
 
+// TODO: Given that this not only provides HeaderToLibMapping but also
+// from Genrule, the name of this file is somewhat a misnomer.
+
 namespace bant {
 
 // Map describing what file has been provided by which target.

@@ -17,8 +17,8 @@
 
 #include "bant/explore/query-utils.h"
 
-#include "bant/frontend/parsed-project_testutil.h"
 #include "bant/frontend/parsed-project.h"
+#include "bant/frontend/parsed-project_testutil.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 

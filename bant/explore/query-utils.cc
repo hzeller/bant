@@ -57,12 +57,11 @@ class TargetFinder : public BaseVisitor {
     switch (in_relevant_call_) {
     case Relevancy::kPackage: ExtractPackageInfo(a); break;
     case Relevancy::kUserQuery: ExtractQueryInfo(a); break;
-    default:
-      break;
+    default: break;
     }
   }
 
-private:
+ private:
   enum class Relevancy { kNot, kUserQuery, kPackage };
 
   // Relevant info we're interested in the package.

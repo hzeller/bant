@@ -33,8 +33,8 @@ cc_test(
     srcs = ["query-utils_test.cc"],
     deps = [
         ":query-utils",
-        "//bant/frontend:parsed-project_testutil",
         "//bant/frontend:parsed-project",
+        "//bant/frontend:parsed-project_testutil",
         "@googletest//:gtest",
         "@googletest//:gtest_main",
     ],
@@ -51,5 +51,17 @@ cc_library(
         "//bant:types-bazel",
         "//bant/frontend:parsed-project",
         "//bant/util:table-printer",
+    ],
+)
+
+cc_test(
+    name = "header-providers_test",
+    srcs = ["header-providers_test.cc"],
+    deps = [
+        ":header-providers",
+        "//bant/frontend:parsed-project_testutil",
+        "@abseil-cpp//absl/log:check",
+        "@googletest//:gtest",
+        "@googletest//:gtest_main",
     ],
 )

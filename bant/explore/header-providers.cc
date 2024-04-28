@@ -41,9 +41,7 @@ static void IterateCCLibraryHeaders(const ParsedBuildFile &build_file,
       auto cc_library = BazelTarget::ParseFrom(cc_lib.name, build_file.package);
       if (!cc_library.has_value()) return;
 
-      const auto incdirs = query::ExtractStringList(cc_lib.includes_list);
       const auto headers = query::ExtractStringList(cc_lib.hdrs_list);
-
       for (const std::string_view header : headers) {
         if (!cc_lib.include_prefix.empty()) {  // cc_library() dictates path.
           callback(*cc_library, header,
@@ -75,6 +73,7 @@ static void IterateCCLibraryHeaders(const ParsedBuildFile &build_file,
         // TODO: double check that the following is what incdirs is supposed to
         // do. Looks like it works for zlib.
         // Could also show up under shorter path with -I
+        const auto incdirs = query::ExtractStringList(cc_lib.includes_list);
         for (const std::string_view dir : incdirs) {
           std::string prefix(dir);
           if (!prefix.ends_with('/')) {
