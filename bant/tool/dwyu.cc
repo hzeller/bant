@@ -324,6 +324,7 @@ void CreateDependencyEdits(Session &session, const ParsedProject &project,
 
         // Now, if there is still something we need, add them.
         for (const BazelTarget &need_add : deps_needed) {
+          // TODO: test visibility if *self can see need_add
           emit_deps_edit(EditRequest::kAdd, *self, "",
                          need_add.ToStringRelativeTo(current_package));
         }

@@ -42,4 +42,55 @@ cc_library(
     EXPECT_THAT(ExtractStringList(found.hdrs_list), ElementsAre("foo.h"));
   });
 }
+
+TEST(QueryUtils, VisibilityOnRule) {
+  ParsedProjectTestUtil pp;
+  const ParsedBuildFile *build_file = pp.Add("//", R"(
+cc_library(
+  name = "foo_lib",
+  visibility = ["//foo:__pkg__"],
+)
+cc_library(
+  name = "bar_lib",
+)
+)");
+  EXPECT_TRUE(build_file);
+  FindTargets(build_file->ast, {"cc_library"}, [](const query::Result &found) {
+    if (found.name == "foo_lib") {
+      EXPECT_THAT(ExtractStringList(found.visibility),
+                  ElementsAre("//foo:__pkg__"));
+    }
+    if (found.name == "bar_lib") {
+      EXPECT_TRUE(found.visibility == nullptr);
+    }
+  });
+}
+
+TEST(QueryUtils, VisibilityFallbackToDefaultVisibility) {
+  ParsedProjectTestUtil pp;
+  const ParsedBuildFile *build_file = pp.Add("//", R"(
+package(
+  default_visibility = ["//visibility:private"],
+)
+
+cc_library(
+  name = "foo_lib",
+  visibility = ["//foo:__pkg__"],
+)
+cc_library(
+  name = "bar_lib",
+)
+)");
+  EXPECT_TRUE(build_file);
+  FindTargets(build_file->ast, {"cc_library"}, [](const query::Result &found) {
+    if (found.name == "foo_lib") {
+      EXPECT_THAT(ExtractStringList(found.visibility),
+                  ElementsAre("//foo:__pkg__"));
+    }
+    if (found.name == "bar_lib") {
+      EXPECT_THAT(ExtractStringList(found.visibility),
+                  ElementsAre("//visibility:private"));
+    }
+  });
+}
 }  // namespace bant::query

@@ -25,9 +25,10 @@
 
 namespace bant {
 namespace query {
-// Typical parameters for for binaries, cc_libraries rules and other
-// 'function call' things we look at. Starts to get a bit crowded.
-// They typically have a name, and various lists with sources and dependencies.
+// A Smörgåsbord of keyword parameters found for binaries, cc_libraries rules
+// and other 'calls' to rules we look at. Starts to get a bit crowded (but
+// is also cheap, as a instance is re-used and only passed by reference).
+// Rules typically have a name, and various lists with sources and dependencies.
 struct Result {
   FunCall *node = nullptr;
   std::string_view rule;  // rule, sucha as cc_library, cc_binary,...
@@ -38,6 +39,7 @@ struct Result {
   List *hdrs_list = nullptr;
   List *deps_list = nullptr;
   List *outs_list = nullptr;              // genrule.
+  List *visibility = nullptr;             // from rule or default_visibility
   List *includes_list = nullptr;          // various ways ...
   std::string_view include_prefix;        // ... to manipulate the path ...
   std::string_view strip_include_prefix;  // ... files from hdrs are found.

@@ -33,29 +33,51 @@ class TargetFinder : public BaseVisitor {
                const TargetFindCallback &cb)
       : of_interest_(rules_of_interest), found_cb_(cb) {}
 
-  bool IsRelevant(std::string_view name) const {
-    if (of_interest_.empty()) return true;  // matchall
-    return of_interest_.contains(name);
-  }
-
   void VisitFunCall(FunCall *f) final {
-    if (in_relevant_call_) {
+    if (in_relevant_call_ != Relevancy::kNot) {
       return BaseVisitor::VisitFunCall(f);  // Nesting.
     }
     in_relevant_call_ = IsRelevant(f->identifier()->id());
-    if (!in_relevant_call_) return;  // Nothing interesting beyond here.
+    if (in_relevant_call_ == Relevancy::kNot) return;
+
     current_ = {};
     current_.node = f;
     current_.rule = f->identifier()->id();
     for (Node *element : *f->argument()) {
       WalkNonNull(element);
     }
-    InformCaller();
-    in_relevant_call_ = false;
+    if (in_relevant_call_ == Relevancy::kUserQuery) {
+      InformCaller();
+    }
+    in_relevant_call_ = Relevancy::kNot;
   }
 
+  // Assignment we see in a keyword argument inside a function call.
   void VisitAssignment(Assignment *a) final {
-    if (!in_relevant_call_) return;  // can prune walk here
+    switch (in_relevant_call_) {
+    case Relevancy::kPackage: ExtractPackageInfo(a); break;
+    case Relevancy::kUserQuery: ExtractQueryInfo(a); break;
+    default:
+      break;
+    }
+  }
+
+private:
+  enum class Relevancy { kNot, kUserQuery, kPackage };
+
+  // Relevant info we're interested in the package.
+  void ExtractPackageInfo(Assignment *a) {
+    if (!a->identifier() || !a->value()) return;
+    const std::string_view lhs = a->identifier()->id();
+    if (List *list = a->value()->CastAsList()) {
+      if (lhs == "default_visibility") {
+        package_default_visibility_ = list;
+      }
+    }
+  }
+
+  // Value extracted for the user query.
+  void ExtractQueryInfo(Assignment *a) {
     if (!a->identifier() || !a->value()) return;
     const std::string_view lhs = a->identifier()->id();
     if (Scalar *scalar = a->value()->CastAsScalar()) {
@@ -83,6 +105,8 @@ class TargetFinder : public BaseVisitor {
         current_.includes_list = list;
       } else if (lhs == "outs") {
         current_.outs_list = list;
+      } else if (lhs == "visibility") {
+        current_.visibility = list;
       }
     } else if (Identifier *id = a->value()->CastAsIdentifier()) {
       // If alwayslink has been a 'True' constant, the constant expression
@@ -94,7 +118,6 @@ class TargetFinder : public BaseVisitor {
     }
   }
 
- private:
   void InformCaller() {
     if (current_.name.empty()) return;
     // If we never got a hdrs list (or couldn't read it because
@@ -104,15 +127,29 @@ class TargetFinder : public BaseVisitor {
     if (current_.rule == "cc_library" && current_.hdrs_list == nullptr) {
       current_.alwayslink = true;
     }
+    if (current_.visibility == nullptr) {
+      current_.visibility = package_default_visibility_;
+    }
     found_cb_(current_);
   }
 
-  bool in_relevant_call_ = false;
+  Relevancy IsRelevant(std::string_view name) const {
+    if (name == "package") return Relevancy::kPackage;
+    if (of_interest_.empty()) return Relevancy::kUserQuery;
+    return of_interest_.contains(name) ? Relevancy::kUserQuery
+                                       : Relevancy::kNot;
+  }
+
+  // The package should come early in the file, so we should have gathered
+  // the default visibility once we hit an actual rule.
+  List *package_default_visibility_ = nullptr;
 
   // TODO: this assumes library call being a toplevel function; might need
-  // stack here if nested (maybe in tuples after for-expansion?)
+  // stack here if nested (though we might just deal with that in a separate
+  // transformation expanding list comprehensions).
   Result current_;
 
+  Relevancy in_relevant_call_ = Relevancy::kNot;
   const absl::flat_hash_set<std::string_view> of_interest_;
   const TargetFindCallback &found_cb_;
 };
