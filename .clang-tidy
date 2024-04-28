@@ -1,0 +1,43 @@
+# We're not using readability-braces-around-statements as we using
+# the google-* version of that which is more sensible (allows one-liners
+# without braces).
+#
+# NOTE: Below, there must be no comments, otherwise clang tidy silently ignores
+#       rules... (ask me how I know).
+###
+Checks: >
+  clang-diagnostic-*,
+  -clang-diagnostic-unknown-pragmas,
+  clang-analyzer-*,
+  abseil-*,
+  readability-*,
+  -readability-avoid-unconditional-preprocessor-if,
+  -readability-braces-around-statements,
+  -readability-function-cognitive-complexity,
+  -readability-identifier-length,
+  -readability-implicit-bool-conversion,
+  -readability-magic-numbers,
+  -readability-static-definition-in-anonymous-namespace,
+  -readability-uppercase-literal-suffix,
+  -readability-use-anyofallof,
+  google-*,
+  -google-readability-casting,
+  -google-readability-todo,
+  performance-*,
+  bugprone-*,
+  -bugprone-easily-swappable-parameters,
+  -bugprone-narrowing-conversions,
+  modernize-*,
+  -modernize-avoid-c-arrays,
+  -modernize-make-unique,
+  -modernize-use-auto,
+  -modernize-use-nodiscard,
+  -modernize-use-std-print,
+  -modernize-use-trailing-return-type,
+  misc-*,
+  -misc-no-recursion,
+  -misc-unused-parameters,
+  -misc-use-anonymous-namespace,
+
+ExtraArgs:
+  - -Wno-unknown-pragmas
