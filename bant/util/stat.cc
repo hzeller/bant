@@ -17,7 +17,11 @@
 
 #include "bant/util/stat.h"
 
+#include <cstdint>
+#include <string>
+
 #include "absl/strings/str_format.h"
+#include "absl/time/time.h"
 
 namespace bant {
 std::string Stat::ToString() const {

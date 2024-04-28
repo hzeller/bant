@@ -18,7 +18,14 @@
 #include "bant/frontend/ast.h"
 
 #include <charconv>
+#include <cstdint>
 #include <ostream>
+#include <string>
+#include <string_view>
+#include <system_error>
+
+#include "bant/frontend/scanner.h"
+#include "bant/util/arena.h"
 
 namespace bant {
 IntScalar *IntScalar::FromLiteral(Arena *arena, std::string_view literal) {
@@ -38,7 +45,7 @@ StringScalar *StringScalar::FromLiteral(Arena *arena,
     is_raw = true;
     literal.remove_prefix(1);
   }
-  if (literal.length() >= 6 && literal.substr(0, 3) == "\"\"\"") {
+  if (literal.length() >= 6 && literal.substr(0, 3) == R"(""")") {
     is_triple_quoted = true;
     literal = literal.substr(3);
     literal.remove_suffix(3);

@@ -17,6 +17,7 @@
 
 #include "bant/util/arena-container.h"
 
+#include "bant/util/arena.h"
 #include "gtest/gtest.h"
 
 namespace bant {
@@ -28,7 +29,7 @@ TEST(ArenaDeque, SimpleOps) {
   for (int i = 0; i < 300; ++i) {
     container.Append(i, &a);
     int count = 0;
-    for (int value : container) {
+    for (const int value : container) {
       EXPECT_EQ(value, count);
       count++;
     }

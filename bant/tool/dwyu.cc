@@ -26,6 +26,8 @@
 #include "bant/tool/dwyu.h"
 
 #include <array>
+#include <cstddef>
+#include <optional>
 #include <ostream>
 #include <set>
 #include <string>
@@ -37,6 +39,7 @@
 #include "bant/explore/query-utils.h"
 #include "bant/frontend/named-content.h"
 #include "bant/frontend/parsed-project.h"
+#include "bant/session.h"
 #include "bant/tool/edit-callback.h"
 #include "bant/types-bazel.h"
 #include "bant/util/file-utils.h"
@@ -66,7 +69,7 @@ bool IsHeaderInList(std::string_view header,
                     std::string_view prefix_path) {
   // The list items are provided without the full path in the cc_library(),
   // so we always need to prepend that prefix_path.
-  for (std::string_view list_item : list) {
+  for (const std::string_view list_item : list) {
     if (header.ends_with(list_item) &&  // cheap first test before strcat
         absl::StrCat(prefix_path, "/", list_item) == header) {
       return true;
@@ -93,7 +96,7 @@ std::set<BazelTarget> DependenciesForIncludes(
   std::ostream &info_out = session.info();
   size_t total_size = 0;
   std::set<BazelTarget> result;
-  for (std::string_view src_name : sources) {
+  for (const std::string_view src_name : sources) {
     const std::string source_file = context.package.QualifiedFile(src_name);
 
     // File could be in multiple locations, primary or generated.
@@ -101,7 +104,7 @@ std::set<BazelTarget> DependenciesForIncludes(
     std::optional<std::string> src_content;
     bool generated_source = false;
     std::string src_concrete_filename;
-    for (std::string_view search_path : kSourceLocations) {
+    for (const std::string_view search_path : kSourceLocations) {
       src_concrete_filename = absl::StrCat(search_path, source_file);
       src_content = ReadFileToString(FilesystemPath(src_concrete_filename));
       if (src_content.has_value()) break;
@@ -270,7 +273,7 @@ void CreateDependencyEdits(Session &session, const ParsedProject &project,
   hdr_idx.files_from_genrules = ExtractGeneratedFromGenrule(project, info_out);
   const std::set<BazelTarget> known_libs = ExtractKnownLibraries(project);
 
-  ScopedTimer timer(&stats.duration);
+  const ScopedTimer timer(&stats.duration);
   for (const auto &[_, parsed_package] : project.ParsedFiles()) {
     const BazelPackage &current_package = parsed_package->package;
     if (!pattern.Match(current_package)) {
@@ -299,7 +302,7 @@ void CreateDependencyEdits(Session &session, const ParsedProject &project,
         // Check all the dependencies that the build target requested and
         // verify we actually need them. If not: remove.
         const auto deps = query::ExtractStringList(target.deps_list);
-        for (std::string_view dependency_target : deps) {
+        for (const std::string_view dependency_target : deps) {
           auto requested_target = BazelTarget::ParseFrom(dependency_target,  //
                                                          current_package);
           if (!requested_target.has_value()) {
@@ -311,13 +314,13 @@ void CreateDependencyEdits(Session &session, const ParsedProject &project,
           // Strike off the dependency requested in the build file from the
           // dependendencies we independently determined from the #includes.
           // If it is not on that list, it is a canidate for removal.
-          bool requested_was_needed = deps_needed.erase(*requested_target);
+          const bool requested_needed = deps_needed.erase(*requested_target);
 
           const bool potential_remove_suggestion_safe =
             known_libs.contains(*requested_target) && all_header_deps_known;
 
           // Emit the edits.
-          if (!requested_was_needed && potential_remove_suggestion_safe) {
+          if (!requested_needed && potential_remove_suggestion_safe) {
             emit_deps_edit(EditRequest::kRemove, *self, dependency_target, "");
           }
         }

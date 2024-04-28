@@ -18,6 +18,7 @@
 #include "bant/util/table-printer.h"
 
 #include <algorithm>
+#include <cstddef>
 #include <memory>
 #include <ostream>
 #include <string>
@@ -48,8 +49,7 @@ class AlignedTextColumnPrinter : public TablePrinter {
   }
 
   void Finish() final {
-    for (size_t r = 0; r < buffer_.size(); ++r) {
-      const auto &row = buffer_[r];
+    for (const auto &row : buffer_) {
       for (size_t i = 0; i < widths_.size(); ++i) {
         out_ << absl::StrFormat("%*s", -widths_[i] - 1, row[i]);
       }

@@ -46,7 +46,7 @@ ProvidedFromTargetMap ExtractGeneratedFromGenrule(const ParsedProject &project,
 // Pretty provided files and targets they are coming from in two columns.
 void PrintProvidedSources(Session &session, const std::string &table_header,
                           const BazelPattern &pattern,
-                          const ProvidedFromTargetMap &header_to_lib);
+                          const ProvidedFromTargetMap &provided_from_lib);
 }  // namespace bant
 
 #endif  // BANT_TOOL_HEADER_PROVIDER_

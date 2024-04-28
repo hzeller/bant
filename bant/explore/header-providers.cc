@@ -17,12 +17,19 @@
 
 #include "bant/explore/header-providers.h"
 
+#include <cstddef>
 #include <functional>
+#include <ostream>
+#include <string>
 #include <string_view>
 
+#include "absl/strings/match.h"
+#include "absl/strings/str_cat.h"
 #include "bant/explore/query-utils.h"
 #include "bant/frontend/parsed-project.h"
+#include "bant/session.h"
 #include "bant/types-bazel.h"
+#include "bant/types.h"
 #include "bant/util/table-printer.h"
 
 // Inject dependency to gtest, as we don't glob() the files yet.
@@ -124,7 +131,6 @@ static void AppendCCLibraryHeaders(const ParsedBuildFile &build_file,
 //     derive the header file from the *.proto file and store the mapping
 //     header->cc_library that we're after.
 static void AppendProtoLibraryHeaders(const ParsedBuildFile &build_file,
-                                      std::ostream &info_out,
                                       ProvidedFromTargetMap *result) {
   // TODO: once we wire the DependencyGraph through, we can make the look-up
   // in one go. Also we wouldn't be limited to proto_library() and
@@ -190,7 +196,7 @@ ProvidedFromTargetMap ExtractHeaderToLibMapping(const ParsedProject &project,
   // gtest hack. We can't glob() the headers yet, so manually add these to
   // the first project that looks like it is googletest...
   for (const auto &[_, file_content] : project.ParsedFiles()) {
-    if (file_content->package.project.find("googletest") == std::string::npos) {
+    if (!absl::StrContains(file_content->package.project, "googletest")) {
       continue;
     }
 
@@ -211,7 +217,7 @@ ProvidedFromTargetMap ExtractHeaderToLibMapping(const ParsedProject &project,
     // There are multiple rule types that behave like a cc library and
     // provide header files.
     AppendCCLibraryHeaders(*build_file, info_out, &result);
-    AppendProtoLibraryHeaders(*build_file, info_out, &result);
+    AppendProtoLibraryHeaders(*build_file, &result);
   }
 
   return result;
@@ -231,7 +237,7 @@ ProvidedFromTargetMap ExtractGeneratedFromGenrule(const ParsedProject &project,
         if (!target.has_value()) return;
 
         for (const std::string_view generated : genfiles) {
-          std::string gen_fqn = file_content->package.QualifiedFile(generated);
+          const auto gen_fqn = file_content->package.QualifiedFile(generated);
           const auto &inserted = result.insert({gen_fqn, *target});
           if (!inserted.second && target != inserted.first->second) {
             // TODO: differentiate between info-log (external projects) and

@@ -15,6 +15,7 @@ cc_library(
         "//bant:workspace",
         "//bant/frontend:parsed-project",
         "//bant/util:file-utils",
+        "//bant/util:stat",
     ],
 )
 
@@ -51,6 +52,7 @@ cc_library(
         "//bant:types-bazel",
         "//bant/frontend:parsed-project",
         "//bant/util:table-printer",
+        "@abseil-cpp//absl/strings",
     ],
 )
 
@@ -59,6 +61,7 @@ cc_test(
     srcs = ["header-providers_test.cc"],
     deps = [
         ":header-providers",
+        "//bant:types-bazel",
         "//bant/frontend:parsed-project_testutil",
         "@abseil-cpp//absl/log:check",
         "@googletest//:gtest",

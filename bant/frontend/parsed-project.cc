@@ -17,17 +17,24 @@
 
 #include "bant/frontend/parsed-project.h"
 
-#include <filesystem>
+#include <cstddef>
+#include <iostream>
 #include <optional>
 #include <sstream>
 #include <string>
+#include <string_view>
+#include <utility>
 #include <vector>
 
-#include "absl/strings/str_cat.h"
 #include "bant/explore/query-utils.h"
+#include "bant/frontend/ast.h"
 #include "bant/frontend/parser.h"
+#include "bant/frontend/scanner.h"
+#include "bant/session.h"
 #include "bant/types-bazel.h"
 #include "bant/util/file-utils.h"
+#include "bant/util/stat.h"
+#include "bant/workspace.h"
 
 namespace bant {
 namespace {
@@ -70,7 +77,7 @@ std::vector<FilesystemPath> CollectBuildFiles(Session &session,
                                               const BazelPattern &pattern) {
   bant::Stat &walk_stats =
     session.GetStatsFor("BUILD file glob walk", "files/directories");
-  ScopedTimer timer(&walk_stats.duration);
+  const ScopedTimer timer(&walk_stats.duration);
 
   // Predicates to decide if files should be included.
   const bool allow_recursive_walking = pattern.is_recursive();
@@ -127,7 +134,7 @@ const ParsedBuildFile *ParsedProject::AddBuildFile(
     package_path = package_path.substr(prefix_or->path().length());
   }
 
-  BazelPackage package(project, TargetPathFromBuildFile(package_path));
+  const BazelPackage package(project, TargetPathFromBuildFile(package_path));
   return AddBuildFile(session, build_file, package);
 }
 
@@ -135,7 +142,7 @@ const ParsedBuildFile *ParsedProject::AddBuildFile(
   Session &session, const FilesystemPath &build_file,
   const BazelPackage &package) {
   Stat &parse_stat = session.GetStatsFor("Parsed", "BUILD files");
-  ScopedTimer timer(&parse_stat.duration);
+  const ScopedTimer timer(&parse_stat.duration);
   std::optional<std::string> content = ReadFileToString(build_file);
   if (!content.has_value()) {
     std::cerr << "Could not read " << build_file.path() << "\n";

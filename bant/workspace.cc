@@ -17,13 +17,20 @@
 
 #include "bant/workspace.h"
 
-#include <sstream>
+#include <optional>
+#include <string>
+#include <string_view>
+#include <vector>
 
 #include "absl/strings/str_cat.h"
 #include "bant/explore/query-utils.h"
+#include "bant/frontend/ast.h"
+#include "bant/frontend/named-content.h"
 #include "bant/frontend/parser.h"
 #include "bant/frontend/scanner.h"
+#include "bant/session.h"
 #include "bant/util/arena.h"
+#include "bant/util/file-utils.h"
 
 namespace bant {
 
@@ -50,7 +57,7 @@ std::optional<FilesystemPath> BazelWorkspace::FindPathByProject(
   std::string_view name) const {
   if (name.empty()) return std::nullopt;
   if (name[0] == '@') name.remove_prefix(1);
-  VersionedProject query{.project = std::string(name), .version = ""};
+  const VersionedProject query{.project = std::string(name), .version = ""};
   auto found = project_location.lower_bound(query);
   if (found == project_location.end()) return std::nullopt;
   if (found->first.project != name) return std::nullopt;
@@ -62,7 +69,7 @@ bool BestEffortAugmentFromExternalDir(BazelWorkspace &workspace) {
   const std::string pattern = absl::StrCat(kExternalBaseDir, "/*");
   for (const FilesystemPath &project_dir : Glob(pattern)) {
     if (!project_dir.is_directory()) continue;
-    std::string_view project_name = project_dir.filename();
+    const std::string_view project_name = project_dir.filename();
     auto project_or = VersionedProject::ParseFromDir(project_name);
     if (!project_or) continue;
     // If there is any version of that project already, don't bother.
@@ -78,7 +85,7 @@ std::optional<BazelWorkspace> LoadWorkspace(Session &session) {
   bool workspace_found = false;
   BazelWorkspace workspace;
   bool did_bazel_run_already_printed = false;
-  for (const auto ws :
+  for (const std::string_view ws :
        {"WORKSPACE", "WORKSPACE.bazel", "WORKSPACE.bzlmod", "MODULE.bazel"}) {
     std::optional<std::string> content = ReadFileToString(FilesystemPath(ws));
     if (!content.has_value()) continue;
@@ -88,7 +95,6 @@ std::optional<BazelWorkspace> LoadWorkspace(Session &session) {
     Arena arena(1 << 16);
 
     Scanner scanner(named_content);
-    std::stringstream error_collect;
     Parser parser(&scanner, &arena, session.info());
     Node *ast = parser.parse();
     if (ast) workspace_found = true;

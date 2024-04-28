@@ -18,9 +18,11 @@
 #include "bant/explore/header-providers.h"
 
 #include <sstream>
+#include <string_view>
 
 #include "absl/log/check.h"
 #include "bant/frontend/parsed-project_testutil.h"
+#include "bant/types-bazel.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 

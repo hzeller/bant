@@ -15,18 +15,36 @@
 // with this program; if not, write to the Free Software Foundation, Inc.,
 // 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 
-#include <unistd.h>
+// The following is to work around clang-tidy being confused and not
+// understanding that unistd.h indeed provides getopt(). So let's include
+// unistd.h for correctness, and then soothe clang-tidy with decls.
+// TODO: how make it just work with including unistd.h ?
+#include <unistd.h>                            // NOLINT
+extern "C" {                                   //
+extern char *optarg;                           // NOLINT
+extern int optind;                             // NOLINT
+int getopt(int, char *const *, const char *);  // NOLINT
+}
 
+#include <cstdio>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <iterator>
 #include <map>
+#include <memory>
+#include <sstream>
+#include <string>
+#include <string_view>
+#include <system_error>
 
+#include "absl/strings/str_cat.h"
 #include "bant/explore/dependency-graph.h"
 #include "bant/explore/header-providers.h"
 #include "bant/explore/query-utils.h"
 #include "bant/frontend/parsed-project.h"
+#include "bant/output-format.h"
 #include "bant/session.h"
 #include "bant/tool/canon-targets.h"
 #include "bant/tool/dwyu.h"
@@ -333,7 +351,8 @@ int main(int argc, char *argv[]) {
   } break;
 
   case Command::kListTargets: {
-    using namespace bant::query;
+    using bant::query::FindTargets;
+    using bant::query::Result;
     auto printer = TablePrinter::Create(session.out(), session.output_format(),
                                         {"file-location", "rule", "target"});
     for (const auto &[package, parsed] : project.ParsedFiles()) {
@@ -372,7 +391,7 @@ int main(int argc, char *argv[]) {
   if (verbose) {
     // If verbose explicitly chosen, we want to print this even if -q.
     // So not to info_out, but std::cerr
-    for (std::string_view subsystem : session.stat_keys()) {
+    for (const std::string_view subsystem : session.stat_keys()) {
       std::cerr << subsystem << " " << *session.stat(subsystem) << "\n";
     }
   }

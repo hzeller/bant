@@ -18,7 +18,9 @@
 #include "bant/frontend/linecolumn-map.h"
 
 #include <algorithm>
-#include <cassert>
+#include <cstddef>
+#include <ostream>
+#include <string_view>
 
 #include "absl/log/check.h"
 

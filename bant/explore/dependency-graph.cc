@@ -19,20 +19,25 @@
 
 #include <initializer_list>
 #include <optional>
+#include <ostream>
 #include <set>
+#include <string>
+#include <string_view>
+#include <vector>
 
 #include "bant/explore/query-utils.h"
 #include "bant/frontend/parsed-project.h"
+#include "bant/session.h"
 #include "bant/types-bazel.h"
 #include "bant/util/file-utils.h"
+#include "bant/util/stat.h"
 #include "bant/workspace.h"
 
 namespace bant {
 namespace {
 
 std::optional<FilesystemPath> PathForPackage(const BazelWorkspace &workspace,
-                                             const BazelPackage &package,
-                                             std::ostream &info_out) {
+                                             const BazelPackage &package) {
   std::string start_path;
   if (!package.project.empty()) {
     auto project_path_or = workspace.FindPathByProject(package.project);
@@ -65,7 +70,7 @@ void FindAndParseMissingPackages(Session &session,
     if (project->FindParsedOrNull(package) != nullptr) {
       continue;  // have it already.
     }
-    auto path = PathForPackage(workspace, package, session.info());
+    auto path = PathForPackage(workspace, package);
     if (!path.has_value()) {
       error_packages->push_back(package);
       continue;
@@ -101,7 +106,7 @@ DependencyGraph BuildDependencyGraph(Session &session,
   std::set<BazelTarget> deps_to_resolve_todo;
 
   Stat &stat = session.GetStatsFor("Dependency follow iterations", "rounds");
-  ScopedTimer timer(&stat.duration);
+  const ScopedTimer timer(&stat.duration);
 
   // Build the initial set of targets to follow from the pattern.
   for (const auto &[_, parsed] : project->ParsedFiles()) {

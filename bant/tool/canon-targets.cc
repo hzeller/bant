@@ -17,8 +17,15 @@
 
 #include "bant/tool/canon-targets.h"
 
+#include <ostream>
+#include <string_view>
+
 #include "bant/explore/query-utils.h"
+#include "bant/frontend/parsed-project.h"
+#include "bant/session.h"
+#include "bant/tool/edit-callback.h"
 #include "bant/types-bazel.h"
+#include "bant/util/stat.h"
 
 namespace bant {
 void CreateCanonicalizeEdits(Session &session, const ParsedProject &project,
@@ -26,7 +33,7 @@ void CreateCanonicalizeEdits(Session &session, const ParsedProject &project,
                              const EditCallback &emit_canon_edit) {
   std::ostream &info_out = session.info();
   Stat &stats = session.GetStatsFor("Canonicalization checked", "dependencies");
-  ScopedTimer timer(&stats.duration);
+  const ScopedTimer timer(&stats.duration);
 
   for (const auto &[_, parsed_package] : project.ParsedFiles()) {
     if (!pattern.Match(parsed_package->package)) {
@@ -45,7 +52,7 @@ void CreateCanonicalizeEdits(Session &session, const ParsedProject &project,
         }
 
         const auto deps = query::ExtractStringList(target.deps_list);
-        for (std::string_view dep_str : deps) {
+        for (const std::string_view dep_str : deps) {
           stats.count++;
           auto dep_target = BazelTarget::ParseFrom(dep_str, current_package);
           if (!dep_target.has_value()) {

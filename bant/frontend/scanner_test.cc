@@ -17,6 +17,9 @@
 
 #include "bant/frontend/scanner.h"
 
+#include <string_view>
+
+#include "bant/frontend/named-content.h"
 #include "gtest/gtest.h"
 
 namespace bant {
@@ -61,7 +64,7 @@ TEST(ScannerTest, SimpleTokens) {
     std::string_view input_text;
     TokenType expected;
   };
-  TestCase tests[] = {
+  constexpr TestCase tests[] = {
     {"(", TokenType::kOpenParen},
     {")", TokenType::kCloseParen},
     {"[", TokenType::kOpenSquare},

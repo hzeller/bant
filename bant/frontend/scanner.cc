@@ -17,12 +17,16 @@
 
 #include "bant/frontend/scanner.h"
 
+#include <cctype>
+#include <cstddef>
+#include <ostream>
 #include <string_view>
 
 #include "absl/log/check.h"
 #include "absl/strings/ascii.h"
 #include "absl/strings/escaping.h"
 #include "bant/frontend/linecolumn-map.h"
+#include "bant/frontend/named-content.h"
 
 namespace bant {
 std::ostream &operator<<(std::ostream &o, TokenType t) {
@@ -212,7 +216,7 @@ Token Scanner::HandleNumber() {
 
 Token Scanner::HandleAssignOrRelational() {
   const ContentPointer start = pos_;
-  int type = *pos_++;
+  int type = (unsigned char)(*pos_++);
   if (pos_ < end_ && *pos_ == '=') {
     type += 256, ++pos_;
   }
@@ -221,7 +225,7 @@ Token Scanner::HandleAssignOrRelational() {
 
 Token Scanner::HandleNotOrNotEquals() {
   const ContentPointer start = pos_;
-  int type = *pos_++;
+  int type = (unsigned char)(*pos_++);
   if (pos_ < end_ && *pos_ == '=') {
     type += 256, ++pos_;
   }

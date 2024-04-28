@@ -29,6 +29,7 @@ cc_binary(
         "//bant/tool:dwyu",
         "//bant/tool:edit-callback",
         "//bant/util:table-printer",
+        "@abseil-cpp//absl/strings",
     ],
 )
 
@@ -46,10 +47,7 @@ cc_library(
     hdrs = [
         "types-bazel.h",
     ],
-    deps = [
-        "@abseil-cpp//absl/log:check",
-        "@abseil-cpp//absl/strings",
-    ],
+    deps = ["@abseil-cpp//absl/strings"],
 )
 
 cc_test(
@@ -72,6 +70,7 @@ cc_library(
         ":session",
         ":types",
         "//bant/explore:query-utils",
+        "//bant/frontend:named-content",
         "//bant/frontend:parser",
         "//bant/util:file-utils",
         "//bant/util:memory",

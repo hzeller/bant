@@ -18,12 +18,15 @@
 #include "bant/frontend/parser.h"
 
 #include <initializer_list>
+#include <iostream>
 #include <sstream>
+#include <string>
 #include <string_view>
 #include <utility>
 
 #include "bant/frontend/ast.h"
 #include "bant/frontend/named-content.h"
+#include "bant/frontend/scanner.h"
 #include "bant/util/arena.h"
 #include "gtest/gtest.h"
 
@@ -93,7 +96,7 @@ class ParserTest : public testing::Test {
     return arena_.New<bant::ListComprehension>(type, for_expr);
   }
 
-  std::string Print(Node *n) {
+  static std::string Print(Node *n) {
     std::stringstream s;
     s << n;
     return s.str();
@@ -108,7 +111,7 @@ class ParserTest : public testing::Test {
   // but since this will run through all kinds of parsing situations,
   // this is a good place to test that our PrintVisitor outputs something
   // that can be parsed again to the same parse tree.
-  void RoundTripPrintParseAgainTest(bant::List *first_pass) {
+  static void RoundTripPrintParseAgainTest(bant::List *first_pass) {
     if (!first_pass) return;
 
     std::stringstream stringify1;
@@ -116,7 +119,7 @@ class ParserTest : public testing::Test {
       stringify1 << n << "\n";
     }
 
-    std::string source1 = stringify1.str();
+    const std::string source1 = stringify1.str();
     NamedLineIndexedContent source("<text-reprinted>", source1);
     Scanner scanner(source);
     Arena local_arena(4096);

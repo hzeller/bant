@@ -112,7 +112,7 @@ class BazelPattern {
  private:
   enum class MatchKind { kExact, kAllInPackage, kRecursive, kAlwaysMatch };
 
-  BazelPattern(const BazelTarget &pattern, MatchKind kind);
+  BazelPattern(BazelTarget pattern, MatchKind kind);
   BazelTarget target_pattern_;
   MatchKind kind_;
 };

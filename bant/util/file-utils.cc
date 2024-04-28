@@ -21,6 +21,7 @@
 #include <glob.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <unistd.h>
 
 #include <cstddef>
 #include <cstring>
@@ -29,6 +30,8 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <utility>
+#include <vector>
 
 #include "absl/cleanup/cleanup.h"
 #include "absl/container/flat_hash_set.h"
@@ -60,11 +63,11 @@ FilesystemPath::FilesystemPath(std::string_view path_up_to,
 
 std::string_view FilesystemPath::filename() const {
   if (filename_offset_ == std::string::npos) {
-    std::string_view full_path(path_);
+    const std::string_view full_path(path_);
     auto last_slash = full_path.find_last_of('/');
     filename_offset_ = (last_slash != std::string::npos) ? last_slash + 1 : 0;
   }
-  std::string_view filename = path_;
+  const std::string_view filename = path_;
   return filename.substr(filename_offset_);
 }
 
@@ -134,7 +137,7 @@ std::optional<std::string> ReadFileToString(const FilesystemPath &filename) {
       // Need to use filesize; alloced_size is >= requested.
       size_t bytes_left = filesize;
       while (bytes_left) {
-        ssize_t r = read(fd, buf, bytes_left);
+        const ssize_t r = read(fd, buf, bytes_left);
         if (r <= 0) break;
         bytes_left -= r;
         buf += r;

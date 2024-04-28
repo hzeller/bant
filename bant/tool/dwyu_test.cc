@@ -17,6 +17,10 @@
 
 #include "bant/tool/dwyu.h"
 
+#include <cstddef>
+#include <string_view>
+#include <vector>
+
 #include "absl/log/check.h"
 #include "bant/frontend/linecolumn-map.h"
 #include "bant/frontend/named-content.h"

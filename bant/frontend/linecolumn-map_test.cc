@@ -17,7 +17,9 @@
 
 #include "bant/frontend/linecolumn-map.h"
 
+#include <cstddef>
 #include <sstream>
+#include <string_view>
 
 #include "absl/log/check.h"
 #include "gtest/gtest.h"
@@ -68,9 +70,9 @@ TEST(LineColumnTextTest, PrintLineColumnRange) {
 // Find given string in "haystack" and return substring from that haystack.
 static std::string_view FindReturnSubstr(std::string_view needle,
                                          std::string_view haystack) {
-  size_t found = haystack.find(needle);
+  const size_t found = haystack.find(needle);
   CHECK_NE(found, std::string_view::npos);
-  return std::string_view(haystack.begin() + found, needle.length());
+  return std::string_view{haystack.begin() + found, needle.length()};
 }
 
 TEST(LineColumnTextTest, InitializeFromRange) {

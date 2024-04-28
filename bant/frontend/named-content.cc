@@ -19,9 +19,11 @@
 
 #include <ostream>
 #include <sstream>
+#include <string>
 #include <string_view>
 
 #include "absl/log/check.h"
+#include "bant/frontend/linecolumn-map.h"
 
 namespace bant {
 std::ostream &NamedLineIndexedContent::Loc(std::ostream &out,

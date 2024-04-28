@@ -58,6 +58,7 @@ cc_test(
     size = "small",
     srcs = ["scanner_test.cc"],
     deps = [
+        ":named-content",
         ":parser",
         "@googletest//:gtest",
         "@googletest//:gtest_main",
@@ -89,7 +90,7 @@ cc_library(
         "//bant:workspace",
         "//bant/explore:query-utils",
         "//bant/util:file-utils",
-        "@abseil-cpp//absl/strings",
+        "//bant/util:stat",
     ],
 )
 

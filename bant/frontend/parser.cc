@@ -21,11 +21,14 @@
 
 #include "bant/frontend/parser.h"
 
+#include <cassert>
 #include <functional>
 #include <iostream>
+#include <string_view>
 
 #include "bant/frontend/ast.h"
 #include "bant/frontend/scanner.h"
+#include "bant/util/arena.h"
 
 // Set to 1 to get a parse tree trace. Not thread safe.
 #if 0
@@ -127,7 +130,7 @@ class Parser::Impl {
     LOG_ENTER();
     Node *value = ParseExpression();
     if (value == nullptr) return nullptr;
-    Token upcoming = scanner_->Peek();
+    const Token upcoming = scanner_->Peek();
     if (auto *id = value->CastAsIdentifier(); id && upcoming.type == '=') {
       scanner_->Next();
       return ParseAssignmentRhs(id);
@@ -203,8 +206,8 @@ class Parser::Impl {
         return nullptr;
       }
       if (n == nullptr && rhs == nullptr) {
-        ErrAt(end)
-          << "Expected at least one valid expression before or after the ':'\n";
+        ErrAt(end) << "Expected at least one valid expression before or "
+                      "after the ':'\n";
         return nullptr;
       }
       return Make<BinOpNode>(n, rhs, TokenType::kColon);
@@ -252,7 +255,7 @@ class Parser::Impl {
     switch (scanner_->Peek().type) {
     case '-':
     case TokenType::kNot: {
-      Token tok = scanner_->Next();
+      const Token tok = scanner_->Next();
       n = Make<UnaryExpr>(tok.type, ParseExpression(can_be_optional));
       break;
     }
@@ -287,7 +290,7 @@ class Parser::Impl {
       case TokenType::kPipeOrBitwiseOr:
       case '.':    // scoped invocation
       case '%': {  // format expr.
-        Token op = scanner_->Next();
+        const Token op = scanner_->Next();
         return Make<BinOpNode>(n, ParseExpression(), op.type);
       }
       case '[': {
@@ -306,7 +309,7 @@ class Parser::Impl {
             << "Expected Identifier or array access left of array access\n";
           return nullptr;
         }
-        Token op = scanner_->Next();  // '[' operation.
+        const Token op = scanner_->Next();  // '[' operation.
         n = Make<BinOpNode>(n, ParseArrayOrSliceAccess(), op.type);
         // Suffix expression, maybe there is more. Don't return, continue.
         break;
@@ -342,7 +345,7 @@ class Parser::Impl {
     tuple->Append(node_arena_, exp);
 
     for (;;) {
-      Token separator = scanner_->Next();
+      const Token separator = scanner_->Next();
       if (separator.type == ')') break;
       if (separator.type != ',') {
         ErrAt(separator) << "expected `,` as tuple separator.\n";
@@ -392,7 +395,7 @@ class Parser::Impl {
     //   | expression 'for' list_comprehension        -> comprehension
     //   | expression ',' [rest-of-list] close_token  -> longer list
     const TokenType expected_close_token = EndTokenFor(type);
-    Token upcoming = scanner_->Peek();
+    const Token upcoming = scanner_->Peek();
     if (upcoming.type == expected_close_token) {
       scanner_->Next();
       return Make<List>(type);  // empty list/tuple/map
@@ -426,7 +429,7 @@ class Parser::Impl {
   Identifier *ParseOptionalIdentifier() {
     LOG_ENTER();
     if (scanner_->Peek().type == TokenType::kIdentifier) {
-      Token tok = scanner_->Next();
+      const Token tok = scanner_->Next();
       return Make<Identifier>(tok.text);
     }
     return nullptr;

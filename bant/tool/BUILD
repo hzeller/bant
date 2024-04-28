@@ -37,9 +37,11 @@ cc_library(
     hdrs = ["canon-targets.h"],
     deps = [
         ":edit-callback",
+        "//bant:session",
         "//bant:types-bazel",
         "//bant/explore:query-utils",
         "//bant/frontend:parsed-project",
+        "//bant/util:stat",
     ],
 )
 

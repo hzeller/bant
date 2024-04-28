@@ -17,6 +17,11 @@
 
 #include "bant/tool/edit-callback.h"
 
+#include <ostream>
+#include <string_view>
+
+#include "bant/types-bazel.h"
+
 namespace bant {
 EditCallback CreateBuildozerDepsEditCallback(std::ostream &out) {
   return [&out](EditRequest edit, const BazelTarget &target,

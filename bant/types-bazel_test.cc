@@ -17,6 +17,9 @@
 
 #include "bant/types-bazel.h"
 
+#include <optional>
+#include <string_view>
+
 #include "absl/log/check.h"
 #include "gtest/gtest.h"
 
@@ -102,15 +105,15 @@ TEST(TypesBazel, ParsePackage) {
 
 // bazel patterns can essentially be parsed with targets.
 TEST(TypesBazel, ParsePattern) {
-  BazelPackage root("", "");
+  const BazelPackage root("", "");
   {
-    const BazelTarget &t = TargetOrDie("//...", root);
+    const BazelTarget t = TargetOrDie("//...", root);
     EXPECT_EQ(t.package.project, "");
     EXPECT_EQ(t.package.path, "...");
     EXPECT_EQ(t.target_name, "...");
   }
   {
-    const BazelTarget &t = TargetOrDie("//foo:bar", root);
+    const BazelTarget t = TargetOrDie("//foo:bar", root);
     EXPECT_EQ(t.package.project, "");
     EXPECT_EQ(t.package.path, "foo");
     EXPECT_EQ(t.target_name, "bar");
@@ -119,21 +122,21 @@ TEST(TypesBazel, ParsePattern) {
 
 TEST(TypesBazel, PrintPackage) {
   {
-    BazelPackage p("", "foo/bar/baz");
+    const BazelPackage p("", "foo/bar/baz");
     EXPECT_EQ(p.ToString(), "//foo/bar/baz");
   }
   {
-    BazelPackage p("@absl", "foo/bar/baz");
+    const BazelPackage p("@absl", "foo/bar/baz");
     EXPECT_EQ(p.ToString(), "@absl//foo/bar/baz");
   }
   {
-    BazelPackage p("@foo", "");
+    const BazelPackage p("@foo", "");
     EXPECT_EQ(p.ToString(), "@foo//");
   }
 }
 
 TEST(TypesBazel, ParseTarget) {
-  BazelPackage context("", "foo/bar");
+  const BazelPackage context("", "foo/bar");
   {
     const BazelTarget t = TargetOrDie(":target", context);
     EXPECT_EQ(t.package, context);
@@ -177,15 +180,15 @@ TEST(TypesBazel, ParseTarget) {
     EXPECT_EQ(t.target_name, "toplevel");
   }
 
-  for (std::string_view test_case :
+  for (const std::string_view test_case :
        {"@absl//absl/strings:strings", "@absl//absl/strings"}) {
     const BazelTarget t = TargetOrDie(test_case, context);
     EXPECT_EQ(t.package, BazelPackage("@absl", "absl/strings"));
     EXPECT_EQ(t.target_name, "strings");
   }
 
-  BazelPackage project_context("@absl", "foo/bar");
-  for (std::string_view test_case :
+  const BazelPackage project_context("@absl", "foo/bar");
+  for (const std::string_view test_case :
        {"//absl/strings:strings", "//absl/strings"}) {
     const BazelTarget t = TargetOrDie(test_case, project_context);
     EXPECT_EQ(t.package, BazelPackage("@absl", "absl/strings"));
@@ -207,7 +210,7 @@ TEST(TypesBazel, PrintTarget) {
   EXPECT_EQ(baz.ToStringRelativeTo(p1), ":baz");
   EXPECT_EQ(baz.ToStringRelativeTo(p2), "//foo/bar/baz");
 
-  BazelPackage pack("@project", "");
+  const BazelPackage pack("@project", "");
   const BazelTarget pack_t1 = TargetOrDie("foo", pack);
   EXPECT_EQ(pack_t1.ToString(), "@project//:foo");
   EXPECT_EQ(pack_t1.ToStringRelativeTo(pack), ":foo");

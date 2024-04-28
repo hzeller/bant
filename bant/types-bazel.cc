@@ -17,10 +17,13 @@
 
 #include "bant/types-bazel.h"
 
-#include <iostream>
+#include <optional>
+#include <string>
 #include <string_view>
+#include <utility>
+#include <vector>
 
-#include "absl/log/check.h"
+#include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_split.h"
 
@@ -52,7 +55,7 @@ std::string BazelPackage::QualifiedFile(std::string_view relative_file) const {
   }
   while (!path.empty() && path.front() == '/') path.remove_prefix(1);
   while (!path.empty() && path.back() == '/') path.remove_suffix(1);
-  if (path.find("//") != std::string_view::npos) {
+  if (absl::StrContains(path, "//")) {
     return std::nullopt;  // Something is off.
   }
   auto tilde_pos = project.find_first_of('~');
@@ -65,7 +68,7 @@ std::string BazelPackage::QualifiedFile(std::string_view relative_file) const {
 
 /*static*/ std::optional<BazelTarget> BazelTarget::ParseFrom(
   std::string_view str, const BazelPackage &context) {
-  std::string_view project = context.project;
+  const std::string_view project = context.project;
   std::string_view package;
   std::string_view target;
 
@@ -175,8 +178,8 @@ std::optional<BazelPattern> BazelPattern::ParseFrom(std::string_view pattern) {
   return BazelPattern(target_pattern, kind);
 }
 
-BazelPattern::BazelPattern(const BazelTarget &pattern, MatchKind kind)
-    : target_pattern_(pattern), kind_(kind) {}
+BazelPattern::BazelPattern(BazelTarget pattern, MatchKind kind)
+    : target_pattern_(std::move(pattern)), kind_(kind) {}
 
 bool BazelPattern::Match(const BazelTarget &target) const {
   switch (kind_) {

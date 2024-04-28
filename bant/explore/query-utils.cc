@@ -18,12 +18,13 @@
 #include "bant/explore/query-utils.h"
 
 #include <initializer_list>
+#include <string_view>
+#include <vector>
 
 #include "absl/container/flat_hash_set.h"
 #include "bant/frontend/ast.h"
 
-namespace bant {
-namespace query {
+namespace bant::query {
 namespace {
 // TODO: these of course need to be configurable. Ideally with a simple
 // path query language.
@@ -165,7 +166,7 @@ void AppendStringList(List *list, std::vector<std::string_view> &append_to) {
   for (Node *n : *list) {
     Scalar *scalar = n->CastAsScalar();
     if (!scalar) continue;
-    if (std::string_view str = scalar->AsString(); !str.empty()) {
+    if (const std::string_view str = scalar->AsString(); !str.empty()) {
       append_to.push_back(str);
     }
   }
@@ -176,5 +177,4 @@ std::vector<std::string_view> ExtractStringList(List *list) {
   AppendStringList(list, result);
   return result;
 }
-}  // namespace query
-}  // namespace bant
+}  // namespace bant::query
