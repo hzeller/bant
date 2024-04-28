@@ -1,0 +1,130 @@
+name: ci
+
+on:
+  push:
+    branches:
+    - main
+  pull_request:
+    branches:
+    - main
+
+jobs:
+  Build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create Cache Timestamp
+        id: cache_timestamp
+        uses: nanzm/get-time-action@v2.0
+        with:
+          format: 'YYYY-MM-DD-HH-mm-ss'
+
+      - name: Mount bazel cache
+        uses: actions/cache@v4
+        with:
+          path: "~/.cache/bazel"
+          key: bazelcache_test_${{ steps.cache_timestamp.outputs.time }}
+          restore-keys: bazelcache_test_
+
+      - name: Test
+        run: |
+          export CC=gcc-13
+          export CXX=g++-13
+          bazel test --keep_going ...
+
+  MacOsBuild:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create Cache Timestamp
+        id: cache_timestamp
+        uses: nanzm/get-time-action@v2.0
+        with:
+          format: 'YYYY-MM-DD-HH-mm-ss'
+
+      - name: Mount bazel cache
+        uses: actions/cache@v4
+        with:
+          path: "/private/var/tmp/_bazel_runner"
+          key: bazelcache_mac_test_${{ steps.cache_timestamp.outputs.time }}
+          restore-keys: bazelcache_mac_test_
+
+      - name: Test
+        run: |
+          bazel test --keep_going ...
+
+  CodeFormatting:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Dependencies
+        run: |
+          sudo apt-get install clang-format-15
+          go install github.com/bazelbuild/buildtools/buildifier@latest
+          echo "PATH=$PATH:$(go env GOPATH)/bin/" >> $GITHUB_ENV
+
+      - name: Run formatting style check
+        run: |
+          scripts/run-format.sh
+          git diff > /tmp/format-diff
+          if [ -s "/tmp/format-diff" ]; then
+            echo "Difference to optimal formatting"
+            cat /tmp/format-diff
+            echo
+            echo "=================== To Fix ==========================="
+            echo "Run scripts/run-format.sh"
+            echo "then"
+            echo "  git commit -a --amend"
+            echo "  git push -f"
+            exit 1
+          fi
+
+  ClangTidy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create Cache Timestamp
+        id: cache_timestamp
+        uses: nanzm/get-time-action@v2.0
+        with:
+          format: 'YYYY-MM-DD-HH-mm-ss'
+
+      - name: Mount clang-tidy cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/clang-tidy
+            ~/.cache/bazel
+          key: clang-tidy-cache_${{ steps.cache_timestamp.outputs.time }}
+          restore-keys: clang-tidy-cache_
+
+      - name: Get latest clang-tidy
+        run: |
+          wget https://apt.llvm.org/llvm.sh
+          chmod +x ./llvm.sh
+          sudo ./llvm.sh 17
+          sudo apt-get install clang-tidy-17
+
+      - name: Build Compilation DB
+        run: |
+          scripts/make-compilation-db.sh
+
+      - name: Run clang-tidy
+        run: |
+          CLANG_TIDY=clang-tidy-17 scripts/run-clang-tidy-cached.cc

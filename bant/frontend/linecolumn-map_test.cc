@@ -83,8 +83,8 @@ line 3
   LineColumnMap line_col_map;
   line_col_map.InitializeFromStringView(kText);
   EXPECT_EQ(line_col_map.GetRange(FindReturnSubstr("line 2", kText)),
-            LineColumnRange({1, 0}, {1, 6}));  // Note: zero based.
+            LineColumnRange({.start = {1, 0}, .end = {1, 6}}));
   EXPECT_EQ(line_col_map.GetRange(FindReturnSubstr("line 4", kText)),
-            LineColumnRange({3, 2}, {3, 8}));
+            LineColumnRange({.start = {3, 2}, .end = {3, 8}}));
 }
 }  // namespace bant
