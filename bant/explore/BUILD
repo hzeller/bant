@@ -28,6 +28,18 @@ cc_library(
     ],
 )
 
+cc_test(
+    name = "query-utils_test",
+    srcs = ["query-utils_test.cc"],
+    deps = [
+        ":query-utils",
+        "//bant/frontend:parsed-project_testutil",
+        "//bant/frontend:project-parser",
+        "@googletest//:gtest",
+        "@googletest//:gtest_main",
+    ],
+)
+
 cc_library(
     name = "header-providers",
     srcs = ["header-providers.cc"],

@@ -132,8 +132,7 @@ const ParsedBuildFile *ParsedProject::AddBuildFile(
 }
 
 const ParsedBuildFile *ParsedProject::AddBuildFile(
-  Session &session,
-  const FilesystemPath &build_file,  //
+  Session &session, const FilesystemPath &build_file,
   const BazelPackage &package) {
   Stat &parse_stat = session.GetStatsFor("Parsed", "BUILD files");
   ScopedTimer timer(&parse_stat.duration);
@@ -144,34 +143,44 @@ const ParsedBuildFile *ParsedProject::AddBuildFile(
     return nullptr;
   }
 
-  const std::string &filename = build_file.path();
-  auto inserted = package_to_parsed_.emplace(
-    package, new ParsedBuildFile(filename, std::move(*content)));
-  if (!inserted.second) {
-    session.info() << filename << ": Already seen\n";
-    return inserted.first->second.get();
-  }
+  const ParsedBuildFile *result = AddBuildFileContent(session.streams(),  //
+                                                      package,
+                                                      build_file.path(),  //
+                                                      std::move(*content));
+  if (!result) return nullptr;
 
-  ParsedBuildFile &parse_result = *inserted.first->second;
   ++parse_stat.count;
-  const size_t bytes_processed = parse_result.source.size();
+  const size_t bytes_processed = result->source.size();
   if (parse_stat.bytes_processed.has_value()) {
     *parse_stat.bytes_processed += bytes_processed;
   } else {
     parse_stat.bytes_processed = bytes_processed;
   }
+  return result;
+}
 
-  parse_result.package = package;
+const ParsedBuildFile *ParsedProject::AddBuildFileContent(
+  SessionStreams &message_out, const BazelPackage &package,
+  std::string_view filename, std::string content) {
+  auto inserted = package_to_parsed_.emplace(
+    package, new ParsedBuildFile(filename, std::move(content)));
 
+  if (!inserted.second) {
+    message_out.info() << filename << ": Already seen\n";
+    return inserted.first->second.get();
+  }
+
+  ParsedBuildFile &parse_result = *inserted.first->second;
   Scanner scanner(parse_result.source);
   std::stringstream error_collect;
   Parser parser(&scanner, &arena_, error_collect);
   parse_result.ast = parser.parse();
   parse_result.errors = error_collect.str();
   if (parser.parse_error()) {
-    session.error() << error_collect.str();
+    message_out.error() << error_collect.str();
     ++error_count_;
   }
+  parse_result.package = package;
 
   return inserted.first->second.get();
 }

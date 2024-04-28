@@ -48,7 +48,7 @@ struct ParsedBuildFile {
   std::string errors;  // List of errors if observed (todo: make actual list)
 };
 
-// A Parsed project contains all the parsed files of a project.
+// A Parsed project contains all the parsed BUILD-files of a project.
 class ParsedProject {
  public:
   using Package2Parsed =
@@ -56,12 +56,13 @@ class ParsedProject {
 
   ParsedProject(bool verbose);
 
-  // Given a BazelPattern, collect all the matching BUILD files.
-  // Returns number of build-patterns loaded.
+  // Given a BazelPattern, collect all the matching BUILD files and add to
+  // project.
+  // Returns number of build-files added.
   int FillFromPattern(Session &session, const BazelWorkspace &workspace,
                       const BazelPattern &pattern);
 
-  // Parse build file for given package.
+  // Parse build file for given package reading from filename.
   const ParsedBuildFile *AddBuildFile(Session &session,
                                       const FilesystemPath &build_file,
                                       const BazelPackage &package);
@@ -76,15 +77,23 @@ class ParsedProject {
   int error_count() const { return error_count_; }
 
  private:
-  // Same, auto-determine path (todo: should probably be deprecated)
+  friend class ParsedProjectTestUtil;
+
+  // like AddBuildFile(..package), but extract package from (workspace, path).
+  // TODO: should not be needed, just an artifact of FillFromPattern() workings.
   const ParsedBuildFile *AddBuildFile(Session &session,
                                       const FilesystemPath &build_file,
                                       const BazelWorkspace &workspace,
                                       std::string_view project);
 
-  // Some stats.
-  int error_count_ = 0;
+  // Given package and content, parse. Main workhorse. Content is std::move()'d
+  // thus by value.
+  const ParsedBuildFile *AddBuildFileContent(SessionStreams &message_out,
+                                             const BazelPackage &package,
+                                             std::string_view filename,
+                                             std::string content);
 
+  int error_count_ = 0;
   Arena arena_{1 << 20};
   Package2Parsed package_to_parsed_;
 };

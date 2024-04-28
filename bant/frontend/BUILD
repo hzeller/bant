@@ -92,3 +92,15 @@ cc_library(
         "@abseil-cpp//absl/strings",
     ],
 )
+
+cc_library(
+    name = "parsed-project_testutil",
+    testonly = True,
+    hdrs = ["parsed-project_testutil.h"],
+    deps = [
+        ":project-parser",
+        "//bant:session",
+        "//bant:types-bazel",
+        "@abseil-cpp//absl/strings",
+    ],
+)

@@ -26,6 +26,21 @@
 #include "bant/util/stat.h"
 
 namespace bant {
+// Tuple of all output streams to talk to the user.
+class SessionStreams {
+ public:
+  SessionStreams(std::ostream *out, std::ostream *info)
+      : out_(out), info_(info) {}  // Currently no dedicated error stream.
+
+  std::ostream &out() { return *out_; }
+  std::ostream &info() { return *info_; }
+  std::ostream &error() { return *info_; }
+
+ private:
+  std::ostream *out_;
+  std::ostream *info_;
+};
+
 // A session contains some global settings such as output/verbose requests
 // as well as access to streams for general output or error and info messages.
 class Session {
@@ -33,11 +48,14 @@ class Session {
   using StatMap = OneToOne<std::string_view, bant::Stat>;
 
   Session(std::ostream *out, std::ostream *info, bool verbose, OutputFormat fmt)
-      : out_(out), info_(info), verbose_(verbose), output_format_(fmt) {}
+      : streams_(out, info), verbose_(verbose), output_format_(fmt) {}
 
-  std::ostream &out() { return *out_; }
-  std::ostream &info() { return *info_; }
-  std::ostream &error() { return *info_; }
+  SessionStreams &streams() { return streams_; }
+
+  // Convenience accessors.
+  std::ostream &out() { return streams_.out(); }
+  std::ostream &info() { return streams_.info(); }
+  std::ostream &error() { return streams_.error(); }
 
   bool verbose() const { return verbose_; }
   OutputFormat output_format() const { return output_format_; }
@@ -68,9 +86,7 @@ class Session {
  private:
   StatMap stats_;
   std::vector<std::string_view> stat_init_key_order_;
-
-  std::ostream *out_;
-  std::ostream *info_;
+  SessionStreams streams_;
   bool verbose_;
   OutputFormat output_format_;
 };
