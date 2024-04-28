@@ -91,6 +91,53 @@ jobs:
             exit 1
           fi
 
+  RunBantOnBant:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create Cache Timestamp
+        id: cache_timestamp
+        uses: nanzm/get-time-action@v2.0
+        with:
+          format: 'YYYY-MM-DD-HH-mm-ss'
+
+      - name: Mount clang-tidy cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/bazel
+          key: bant-on-bant_${{ steps.cache_timestamp.outputs.time }}
+          restore-keys: bant-on-bant_
+
+      - name: Build Compilation DB
+        run: |
+          scripts/make-compilation-db.sh
+
+      - name: Build bant
+        run: |
+          export CC=gcc-13
+          export CXX=g++-13
+          bazel build -c opt bant:bant
+
+      - name: Run bant on bant
+        run: |
+          bazel-bin/bant/bant dwyu ... -v -o/tmp/bant-output.txt
+          if [ -s "/tmp/bant-output.txt" ]; then
+            echo "Bant found changes to be made in BUILD files."
+            echo "======== Findings as buildozer edit script ==========="
+            echo
+            cat /tmp/bant-output.txt
+            echo
+            echo "=================== To Fix ==========================="
+            echo "Run"
+            echo "  . <(bazel-bin/bant/bant dwyu ...)"
+            exit 1
+          fi
+
   ClangTidy:
     runs-on: ubuntu-latest
     steps:
