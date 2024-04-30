@@ -40,11 +40,13 @@ Useful everyday commands
    exactly what `bant` sees). In general this is much faster than manually
    finding and opening the file, in particular when it is in some external
    project (consider `bant print @abseil-cpp//absl/strings`).
-   If you _want_ to open the file `bant list-target //foo/bar:baz`
+   If you _want_ to open the file, `bant list-target //foo/bar:baz`
    will output the filename and exact line/column range where the target
    resides.
- * Use `lib-headers` if you're unsure what exactly the library was to depend
-   on for a particular header file. Or, do that automatically with `dwyu`...
+
+ * Use `lib-headers` if you want to know the library to depend on
+   for a particular header file. Or, do that automatically with `dwyu`...
+
  * `dwyu` Depend on What You Use (DWYU): Determine which dependencies are
    needed in `cc_library()`, `cc_binary()`, and `cc_test()` targets.
    Greps through their declared sources to find which headers they include.
@@ -54,18 +56,20 @@ Useful everyday commands
    Note, `bant` can't currently see all sources of header included
    (e.g. glob() is not implemented yet). If unclear if a library can be
    removed, it is conservatively _not_ suggested for removal.
-   You can use this to clean up existing builds, or, while in the development
-   and you added/removed headers from your code, to update your BUILD files.
-   I usually just source the output of `bant` directly with `. <(bant dwyu ...)`
+   You can use this to clean up existing builds, or keep your BUILD files
+   up-to-date in development.
+   I usually just source the output of `bant` directly: `. <(bant dwyu ...)`
 
    Caveats:
-     * Does not take visibiliity into acccount yet, so it might suggest to
-      add more targets than available.
+     * Does not take visibiliity into account yet, so it might suggest to
+       add more targets than possible to use (to be fixed soon).
      * Always adds the direct dependency of a header, even if another dependency
-       exists that provides that header with one indirection. This is by design,
-       but maybe there should be an option to allow indirect dependencies ?
+       exists that provides that header with an indirection. This is by design,
+       but maybe there should be an option to allow indirect dependencies up
+       to N-levels apart ?
 
-   You could call this a simple `build_cleaner` ...
+   You could call this a simple CC-target [`build_cleaner`][build_cleaner]...
+
  * `canonicalize` emits edits to canonicalize targets, e.g.
     * `//foo/bar:baz` when already in package `//foo/bar` becomes `:baz`
     * `//foo:foo` becomes `//foo`
@@ -80,6 +84,7 @@ Useful everyday commands
   * Maybe a path query language to extract in a way that the output
     then can be used for scripting (though keeping it simple. Main goal is still
     to just dump things in a useful format for standard tools to post-process).
+  * language server for BUILD files.
   * ...
 
 ### Compile/Installation
@@ -201,3 +206,4 @@ not useful).
 [bazel]: https://bazel.build/
 [buildozer]: https://github.com/bazelbuild/buildtools/blob/master/buildozer/README.md
 [nix-devel-env]: https://nixos.wiki/wiki/Development_environment_with_nix-shell
+[build_cleaner]: https://github.com/bazelbuild/bazel/issues/6871
