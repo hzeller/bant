@@ -176,13 +176,15 @@ static void AppendProtoLibraryHeaders(const ParsedBuildFile &build_file,
           proto.remove_prefix(1);
         }
 
-        // Create a header file out of it. foo.proto becomes foo.pb.h
+        // Create a header file out of it. foo.proto becomes foo.pb.h or, in
+        // some environments, foo.proto.h
         auto dot_pos = proto.find_last_of('.');
         const std::string_view stem = proto.substr(0, dot_pos);
-        std::string proto_header;
-        proto_header = absl::StrCat(stem, ".pb.h");
-        proto_header = build_file.package.QualifiedFile(proto_header);
-        result->insert({proto_header, cc_proto_lib});
+        for (const std::string_view suffix : {".pb.h", ".proto.h"}) {
+          std::string proto_header = absl::StrCat(stem, suffix);
+          proto_header = build_file.package.QualifiedFile(proto_header);
+          result->insert({proto_header, cc_proto_lib});
+        }
       }
     });
 }

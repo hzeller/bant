@@ -114,6 +114,9 @@ cc_proto_library(
   EXPECT_THAT(header_map, Contains(Pair("ptest/data.pb.h", T("//ptest:foo"))));
   EXPECT_THAT(header_map,
               Contains(Pair("ptest/general.pb.h", T("//ptest:foo"))));
+  // Another possible suffix.
+  EXPECT_THAT(header_map,
+              Contains(Pair("ptest/general.proto.h", T("//ptest:foo"))));
 }
 
 TEST(HeaderToLibMapping, GenruleExtraction) {
@@ -124,7 +127,7 @@ genrule(
   outs = [
     "useful.txt",
     "hallucination.txt",
-    "lucy-🌈-💎.txt",         # jeez, going wild.
+    "lucy-🌈-💎.txt",         # jeez, that escalated quickly.
   ],
 )");
   std::stringstream log_absorb;
