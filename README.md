@@ -30,9 +30,21 @@ Some have extra command line options (e.g. for `parse`, `-p` prints AST).
 
 See `bant -h` for general [Synopsis](#synopsis). Play around with the
 various `-f` output formats of `workspace`, `list-packages` etc. for your
-preferred post-processing.
+preferred post-processing tools (default is just a plain table easy to process
+with e.g. `awk` and `grep`, but s-expressions and json are structured
+outputs interesting in other contexts).
 
-Tools that can help keep projects clean
+Useful everyday commands
+ * `print` is useful to just print a particular rule or rules matching a pattern
+   `bant print //foo/bar:baz` (it is re-created from the AST, so you see
+   exactly what `bant` sees). In general this is much faster than manually
+   finding and opening the file, in particular when it is in some external
+   project (consider `bant print @abseil-cpp//absl/strings`).
+   If you _want_ to open the file `bant list-target //foo/bar:baz`
+   will output the filename and exact line/column range where the target
+   resides.
+ * Use `lib-headers` if you're unsure what exactly the library was to depend
+   on for a particular header file. Or, do that automatically with `dwyu`...
  * `dwyu` Depend on What You Use (DWYU): Determine which dependencies are
    needed in `cc_library()`, `cc_binary()`, and `cc_test()` targets.
    Greps through their declared sources to find which headers they include.
@@ -43,23 +55,31 @@ Tools that can help keep projects clean
    (e.g. glob() is not implemented yet). If unclear if a library can be
    removed, it is conservatively _not_ suggested for removal.
    You can use this to clean up existing builds, or, while in the development
-   and you added/removed headers from your code, to update your BUILD files
-   using the ouptut of `bant dwyu`.
-   Note: does not take visibiliity into acccount yet.
+   and you added/removed headers from your code, to update your BUILD files.
+   I usually just source the output of `bant` directly with `. <(bant dwyu ...)`
+
+   Caveats:
+     * Does not take visibiliity into acccount yet, so it might suggest to
+      add more targets than available.
+     * Always adds the direct dependency of a header, even if another dependency
+       exists that provides that header with one indirection. This is by design,
+       but maybe there should be an option to allow indirect dependencies ?
+
    You could call this a simple `build_cleaner` ...
  * `canonicalize` emits edits to canonicalize targets, e.g.
-    * `//foo/bar:baz` when already in `//foo/bar` becomes `:baz`
+    * `//foo/bar:baz` when already in package `//foo/bar` becomes `:baz`
     * `//foo:foo` becomes `//foo`
     * `@foo//:foo` becomes `@foo`
     * `foo` without `:` prefix becomes `:foo`
-
 
 ### Nice-to-have/next steps/TODO
 
   * variable-expand and some const-evaluate expressions to flatten and
     see more relevant info (e.g. outputs from `glob()`).
+  * expand list-comprehensions
   * Maybe a path query language to extract in a way that the output
-    then can be used for scripting.
+    then can be used for scripting (though keeping it simple. Main goal is still
+    to just dump things in a useful format for standard tools to post-process).
   * ...
 
 ### Compile/Installation
@@ -163,12 +183,14 @@ your environment [with that automatically][nix-devel-env].
 
 To get a useful compilation database for `clangd` to be happy, run first
 
-```
+```bash
 scripts/make-compilation-db.sh
 ```
 
 Before submit, run
-```
+
+```bash
+. <(bant dwyu ...)
 scripts/run-format.sh
 scripts/run-clang-tidy-cached.cc
 ```
