@@ -98,7 +98,7 @@ are used, consider a bazel command that needs all of them, e.g.
 ```
 $ bazel-bin/bant/bant -h
 Copyright (c) 2024 Henner Zeller. This program is free software; license GPL 2.0.
-Usage: bant [options] <command> [bazel-target-pattern]
+Usage: bazel-bin/bant/bant [options] <command> [bazel-target-pattern]
 Options
     -C <directory> : Change to this project directory first (default = '.')
     -q             : Quiet: don't print info messages to stderr.
@@ -107,6 +107,10 @@ Options
                    : native (default), s-expr, plist, json, csv
                      Unique prefix ok, so -fs , -fp, -fj or -fc is sufficient.
     -r             : Follow dependencies recursively starting from pattern.
+                     Without parameter, follows dependencies to the end.
+                     An optional parameter allows to limit the nesting depth,
+                     e.g. -r2 just follows two levels after the toplevel
+                     pattern. -r0 is equivalent to not providing -r.
     -v             : Verbose; print some stats.
     -h             : This help.
 

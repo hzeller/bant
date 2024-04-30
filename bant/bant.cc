@@ -32,6 +32,7 @@ int getopt(int, char *const *, const char *);  // NOLINT
 #include <fstream>
 #include <iostream>
 #include <iterator>
+#include <limits>
 #include <map>
 #include <memory>
 #include <sstream>
@@ -71,6 +72,10 @@ static int usage(const char *prog, const char *message, int exit_code) {
                    : native (default), s-expr, plist, json, csv
                      Unique prefix ok, so -fs , -fp, -fj or -fc is sufficient.
     -r             : Follow dependencies recursively starting from pattern.
+                     Without parameter, follows dependencies to the end.
+                     An optional parameter allows to limit the nesting depth,
+                     e.g. -r2 just follows two levels after the toplevel
+                     pattern. -r0 is equivalent to not providing -r.
     -v             : Verbose; print some stats.
     -h             : This help.
 
@@ -121,11 +126,15 @@ int main(int argc, char *argv[]) {
   bool verbose = false;
   bool print_ast = false;
   bool print_only_errors = false;
-  bool recurse_dependencies = false;
+  int recurse_dependency_depth = 0;
 
-  // TODO: make flag ?
+  // TODO: make flag ? This is needed for projects that don't use a plain
+  // WORKSPACE but obfuscate the dependencies by loading a bunch of *.bzl
+  // files (looking at you, XLS...)
   constexpr bool kAugmentWorkspacdFromDirectoryStructure = true;
 
+  // Commands: right now just switch/casing over it in main, but they will
+  // become their own classes eventually.
   enum class Command {
     kNone,
     kParse,
@@ -158,7 +167,7 @@ int main(int argc, char *argv[]) {
   using bant::TablePrinter;
   OutputFormat out_fmt = OutputFormat::kNative;
   int opt;
-  while ((opt = getopt(argc, argv, "C:qo:vhpecf:r")) != -1) {
+  while ((opt = getopt(argc, argv, "C:qo:vhpecf:r::")) != -1) {
     switch (opt) {
     case 'C': {
       std::error_code err;
@@ -190,7 +199,9 @@ int main(int argc, char *argv[]) {
       break;
 
     case 'r':
-      recurse_dependencies = true;
+      recurse_dependency_depth = optarg  //
+                                   ? atoi(optarg)
+                                   : std::numeric_limits<int>::max();
       break;
 
       // "print" options
@@ -286,28 +297,40 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  // TODO: move dependency graph creation to tools where needed.
-  // Some also should also read _all_ the BUILD files from the workspace.
-  if (cmd == Command::kDependencyEdits ||
-      (recurse_dependencies && (cmd == Command::kParse ||           //
-                                cmd == Command::kLibraryHeaders ||  //
-                                cmd == Command::kGenruleOutputs ||  //
-                                cmd == Command::kListTargets ||     //
-                                cmd == Command::kListPackages))) {
-    const bant::DependencyGraph graph =
-      bant::BuildDependencyGraph(session, workspace, pattern, &project);
-    session.info() << "Found " << graph.depends_on.size()
-                   << " Targets with dependencies; "
-                   << graph.has_dependents.size() << " referenced by others.\n";
-    // Currently, we're not using the graph yet, just use it as a way to
-    // populate project.
+  if (recurse_dependency_depth <= 0 && cmd == Command::kDependencyEdits) {
+    recurse_dependency_depth = std::numeric_limits<int>::max();
+  }
+
+  // TODO: move dependency graph creation to tools once they are
+  // Command-objects.
+  switch (cmd) {
+  case Command::kDependencyEdits:
+  case Command::kParse:
+  case Command::kLibraryHeaders:
+  case Command::kGenruleOutputs:
+  case Command::kListTargets:
+  case Command::kListPackages:
+    if (recurse_dependency_depth > 0) {
+      const bant::DependencyGraph graph = bant::BuildDependencyGraph(
+        session, workspace, pattern, recurse_dependency_depth, &project);
+      if (session.verbose()) {
+        session.info() << "Found " << graph.depends_on.size()
+                       << " Targets with dependencies; "
+                       << graph.has_dependents.size()
+                       << " referenced by others.\n";
+        // Currently, we're not using the graph yet, just use it as a way to
+        // populate project.
+      }
+    }
+    break;
+  default:;
   }
 
   // library headers and genrule outputs just match the pattern unless
   // recursive is chosen when we want to print everything the dependency graph
   // gathered.
   const bant::BazelPattern print_pattern =
-    recurse_dependencies ? bant::BazelPattern() : pattern;
+    recurse_dependency_depth > 0 ? bant::BazelPattern() : pattern;
 
   switch (cmd) {
   case Command::kPrint: print_ast = true; [[fallthrough]];

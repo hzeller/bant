@@ -30,12 +30,16 @@ struct DependencyGraph {
   OneToN<BazelTarget, BazelTarget> has_dependents;
 };
 
-// Build Dependency graph for all targets matching "pattern". Might update
-// "project" with new files to be parsed.
+// Build Dependency graph for all targets matching "pattern".
+// Will follow up to "nesting_depth" recursion levels deep.
+// A nesting_depty of <= 0 will not follow any targets and only include
+// targets matched by pattern. With 1, all the dependencies of the 0-level
+// are followed etc..
+// Might update "project" with new files that had to be parsed.
 DependencyGraph BuildDependencyGraph(Session &session,
                                      const BazelWorkspace &workspace,
                                      const BazelPattern &pattern,
-                                     ParsedProject *project);
+                                     int nesting_depth, ParsedProject *project);
 }  // namespace bant
 
 #endif  // BANT_UTIL_RESOLVE_PACKAGES_

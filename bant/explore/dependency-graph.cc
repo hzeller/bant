@@ -93,6 +93,7 @@ void PrintList(std::ostream &out, const char *msg, const Container &c) {
 DependencyGraph BuildDependencyGraph(Session &session,
                                      const BazelWorkspace &workspace,
                                      const BazelPattern &pattern,
+                                     int nesting_depth,
                                      ParsedProject *project) {
   // TODO: there will be some implicit dependencies: when using files, they
   // might not come from deps we mention, but are provided by genrules.
@@ -174,7 +175,7 @@ DependencyGraph BuildDependencyGraph(Session &session,
                          deps_to_resolve_todo.end());
 
     deps_to_resolve_todo = next_round_deps_to_resolve_todo;
-  } while (!deps_to_resolve_todo.empty());
+  } while (!deps_to_resolve_todo.empty() && (nesting_depth-- > 0));
 
   if (!error_packages.empty()) {
     PrintList(session.info(), "Trouble finding packages\n", error_packages);
