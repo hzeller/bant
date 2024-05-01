@@ -44,6 +44,17 @@ cc_library(
     ],
 )
 
+cc_test(
+    name = "table-printer_test",
+    srcs = ["table-printer_test.cc"],
+    deps = [
+        ":table-printer",
+        "//bant:session",
+        "@googletest//:gtest",
+        "@googletest//:gtest_main",
+    ],
+)
+
 cc_library(
     name = "file-utils",
     srcs = ["file-utils.cc"],
