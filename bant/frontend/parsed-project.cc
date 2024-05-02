@@ -157,12 +157,7 @@ const ParsedBuildFile *ParsedProject::AddBuildFile(
   if (!result) return nullptr;
 
   ++parse_stat.count;
-  const size_t bytes_processed = result->source.size();
-  if (parse_stat.bytes_processed.has_value()) {
-    *parse_stat.bytes_processed += bytes_processed;
-  } else {
-    parse_stat.bytes_processed = bytes_processed;
-  }
+  parse_stat.AddBytesProcessed(result->source.size());
   return result;
 }
 

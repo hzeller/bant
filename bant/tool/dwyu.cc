@@ -200,11 +200,7 @@ std::set<BazelTarget> DependenciesForIncludes(
     }
   }
 
-  if (stats.bytes_processed.has_value()) {
-    stats.bytes_processed = *stats.bytes_processed + total_size;
-  } else {
-    stats.bytes_processed = total_size;
-  }
+  stats.AddBytesProcessed(total_size);
   return result;
 }
 

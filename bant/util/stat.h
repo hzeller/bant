@@ -47,6 +47,15 @@ struct Stat {
   absl::Duration duration;
   std::optional<size_t> bytes_processed;
 
+  // Add processed bytes, implicitly un-optionaling bytes_processed.
+  void AddBytesProcessed(size_t byte_count) {
+    if (bytes_processed.has_value()) {
+      bytes_processed = *bytes_processed + byte_count;
+    } else {
+      bytes_processed = byte_count;
+    }
+  }
+
   // Print readable string with "subject" used to describe the count.
   std::string ToString() const;
 };
