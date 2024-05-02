@@ -34,7 +34,21 @@ class TablePrinter {
     std::ostream &out, OutputFormat format,
     const std::vector<std::string> &headers);
   virtual ~TablePrinter() = default;
+
+  // A simple row with column number of strings to be printed.
   virtual void AddRow(const std::vector<std::string> &row) = 0;
+
+  // Print a row with the first column-1 elements fixed text and the last
+  // element a repeated value.
+  // Depending on the output format, this will be rendered differently:
+  // Plain formats such as table and CSV print multiple full rows, repeating
+  //  the first part.
+  // Structured outputs such as sexpr, json, and plists will print a repeated
+  //  element.
+  virtual void AddRowWithRepeatedLastColumn(
+    const std::vector<std::string> &row_prefix,
+    const std::vector<std::string> &repeat_col) {}
+
   virtual void Finish() = 0;
 };
 }  // namespace bant

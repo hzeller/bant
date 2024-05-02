@@ -17,6 +17,7 @@
 
 #include "bant/util/table-printer.h"
 
+#include <map>
 #include <sstream>
 #include <string_view>
 
@@ -49,6 +50,46 @@ TEST(TablePrinter, PlainTable) {
     auto printer = TablePrinter::Create(out, fmt, {"foo", "bar"});
     printer->AddRow({"short", "somevalue"});
     printer->AddRow({"somewhatlongtext", "xyz"});
+    printer->Finish();
+    EXPECT_EQ(expected, out.str()) << (int)fmt;
+  }
+}
+
+TEST(TablePrinter, TableWithRepeatedLastCol) {
+  const std::map<OutputFormat, std::string_view> kTests{
+    {OutputFormat::kNative,
+     // noval never emitted
+     "oneval   somevalue\n"
+     "threeval abc\n"
+     "threeval def\n"
+     "threeval xyz\n"},
+    {OutputFormat::kSExpr,
+     "((\"noval\" ())\n"
+     " (\"oneval\" (\"somevalue\"))\n"
+     " (\"threeval\" (\"abc\" \"def\" \"xyz\")))\n"},
+    {OutputFormat::kPList,
+     "((:foo \"noval\" :bar ())\n"
+     " (:foo \"oneval\" :bar (\"somevalue\"))\n"
+     " (:foo \"threeval\" :bar (\"abc\" \"def\" \"xyz\")))\n"},
+    {OutputFormat::kJSON,
+     "{\"foo\": \"noval\", \"bar\": []}\n"
+     "{\"foo\": \"oneval\", \"bar\": [\"somevalue\"]}\n"
+     "{\"foo\": \"threeval\", \"bar\": [\"abc\", \"def\", \"xyz\"]}\n"},
+    {OutputFormat::kCSV,
+     // noval never emitted
+     "\"foo\",\"bar\"\n"
+     "\"oneval\",\"somevalue\"\n"
+     "\"threeval\",\"abc\"\n"
+     "\"threeval\",\"def\"\n"
+     "\"threeval\",\"xyz\"\n"},
+  };
+
+  for (const auto [fmt, expected] : kTests) {
+    std::stringstream out;
+    auto printer = TablePrinter::Create(out, fmt, {"foo", "bar"});
+    printer->AddRowWithRepeatedLastColumn({"noval"}, {});
+    printer->AddRowWithRepeatedLastColumn({"oneval"}, {"somevalue"});
+    printer->AddRowWithRepeatedLastColumn({"threeval"}, {"abc", "def", "xyz"});
     printer->Finish();
     EXPECT_EQ(expected, out.str()) << (int)fmt;
   }

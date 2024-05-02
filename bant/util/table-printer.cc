@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <iterator>
 #include <memory>
 #include <ostream>
 #include <string>
@@ -46,6 +47,20 @@ class AlignedTextColumnPrinter : public TablePrinter {
       widths_[i] = std::max(widths_[i], (int)row[i].length());
     }
     buffer_.push_back(row);
+  }
+
+  // Denormalize data into multiple rows.
+  void AddRowWithRepeatedLastColumn(
+    const std::vector<std::string> &row_prefix,
+    const std::vector<std::string> &repeat_col) final {
+    CHECK_EQ(row_prefix.size(), widths_.size() - 1);
+    std::vector<std::string> row;
+    for (const std::string &last_col : repeat_col) {
+      row.clear();
+      std::copy(row_prefix.begin(), row_prefix.end(), std::back_inserter(row));
+      row.push_back(last_col);
+      AddRow(row);
+    }
   }
 
   void Finish() final {
@@ -84,6 +99,28 @@ class SExprTablePrinter : public TablePrinter {
     row_printed_ = true;
   }
 
+  void AddRowWithRepeatedLastColumn(
+    const std::vector<std::string> &row_prefix,
+    const std::vector<std::string> &repeat_col) final {
+    out_ << (row_printed_ ? "\n (" : "(");
+    size_t c = 0;
+    for (c = 0; c < row_prefix.size(); ++c) {
+      if (c != 0) out_ << " ";
+      if (as_plist_) out_ << ":" << headers_[c] << " ";
+      out_ << "\"" << absl::CEscape(row_prefix[c]) << "\"";
+    }
+    if (c != 0) out_ << " ";
+    if (as_plist_) out_ << ":" << headers_[c] << " ";
+    out_ << "(";
+    for (size_t rc = 0; rc < repeat_col.size(); ++rc) {
+      if (rc != 0) out_ << " ";
+      // TODO: newline and properly indent.
+      out_ << "\"" << absl::CEscape(repeat_col[rc]) << "\"";
+    }
+    out_ << "))";
+    row_printed_ = true;
+  }
+
   void Finish() final { out_ << ")\n"; }
 
  private:
@@ -106,6 +143,26 @@ class JSonTablePrinter : public TablePrinter {
       out_ << "\"" << absl::CEscape(row[c]) << "\"";
     }
     out_ << "}\n";
+  }
+
+  void AddRowWithRepeatedLastColumn(
+    const std::vector<std::string> &row_prefix,
+    const std::vector<std::string> &repeat_col) final {
+    out_ << "{";
+    size_t c = 0;
+    for (c = 0; c < row_prefix.size(); ++c) {
+      if (c != 0) out_ << ", ";
+      out_ << "\"" << absl::CEscape(headers_[c]) << "\": ";
+      out_ << "\"" << absl::CEscape(row_prefix[c]) << "\"";
+    }
+    if (c != 0) out_ << ", ";
+    out_ << "\"" << absl::CEscape(headers_[c]) << "\": ";
+    out_ << "[";
+    for (size_t rc = 0; rc < repeat_col.size(); ++rc) {
+      if (rc != 0) out_ << ", ";
+      out_ << "\"" << absl::CEscape(repeat_col[rc]) << "\"";
+    }
+    out_ << "]}\n";
   }
 
   void Finish() final {}
@@ -132,6 +189,19 @@ class CSVTablePrinter : public TablePrinter {
       out_ << "\"" << absl::CEscape(row[c]) << "\"";
     }
     out_ << "\n";
+  }
+
+  // Denormalize data into multiple rows.
+  void AddRowWithRepeatedLastColumn(
+    const std::vector<std::string> &row_prefix,
+    const std::vector<std::string> &repeat_col) final {
+    std::vector<std::string> row;
+    for (const std::string &last_col : repeat_col) {
+      row.clear();
+      std::copy(row_prefix.begin(), row_prefix.end(), std::back_inserter(row));
+      row.push_back(last_col);
+      AddRow(row);
+    }
   }
 
   void Finish() final {}
