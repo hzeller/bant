@@ -18,7 +18,6 @@
 #ifndef BANT_TOOL_DWYU_
 #define BANT_TOOL_DWYU_
 
-#include <ostream>
 #include <string_view>
 #include <vector>
 

@@ -10,3 +10,5 @@ perf.data*
 MODULE.bazel.lock
 compile_commands.json
 user.bazelrc
+bant_clang-tidy.out
+scripts/run-clang-tidy-cached

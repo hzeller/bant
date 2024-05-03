@@ -1,0 +1,75 @@
+// bant - Bazel Navigation Tool
+// Copyright (C) 2024 Henner Zeller <h.zeller@acm.org>
+//
+// This program is free software; you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation; either version 2 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License along
+// with this program; if not, write to the Free Software Foundation, Inc.,
+// 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
+
+#ifndef BANT_TOOL_DWYU_INTERNAL_
+#define BANT_TOOL_DWYU_INTERNAL_
+
+#include <set>
+
+#include "bant/explore/header-providers.h"
+#include "bant/explore/query-utils.h"
+#include "bant/frontend/parsed-project.h"
+#include "bant/session.h"
+#include "bant/tool/edit-callback.h"
+#include "bant/types-bazel.h"
+
+namespace bant {
+// The DWYUGenerator is the underlying implementation, for which
+// CreateDependencyEdits() is the façade. Typically not used directly,
+// just needed in tests.
+class DWYUGenerator {
+ public:
+  DWYUGenerator(Session &session, const ParsedProject &project,
+                EditCallback emit_deps_edit);
+  virtual ~DWYUGenerator() = default;
+
+  void CreateEditsForPattern(const BazelPattern &pattern);
+
+ protected:
+  // Extracted source file.
+  struct SourceFile {
+    std::string content;  // Content of the file
+    std::string path;     // Path relative to current directory.
+    bool is_generated;    // This is the output of some other rule.
+  };
+
+  // Try to find the given file in the soruce tree or the generated tree,
+  // and return content and path. Virtual, to make this class testable.
+  virtual std::optional<SourceFile> TryOpenFile(std::string_view source_file);
+
+ private:
+  std::set<BazelTarget> ExtractKnownLibraries() const;
+
+  std::set<BazelTarget> DependenciesForIncludes(
+    Stat &stats, const BazelTarget &target, const ParsedBuildFile &build_file,
+    const std::vector<std::string_view> &sources,
+    bool *all_headers_accounted_for);
+
+  void CreateEditsForTarget(Stat &stats, const BazelTarget &self,
+                            const query::Result &target,
+                            const ParsedBuildFile &parsed_package);
+
+  Session &session_;
+  const ParsedProject &project_;
+  const EditCallback emit_deps_edit_;
+  ProvidedFromTargetMap headers_from_libs_;
+  ProvidedFromTargetMap files_from_genrules_;
+  std::set<BazelTarget> known_libs_;
+};
+}  // namespace bant
+
+#endif  // BANT_TOOL_DWYU_INTERNAL_

@@ -13,9 +13,24 @@ cc_library(
 )
 
 cc_library(
+    name = "edit-callback_testutil",
+    testonly = True,
+    hdrs = ["edit-callback_testutil.h"],
+    deps = [
+        ":edit-callback",
+        "@abseil-cpp//absl/container:flat_hash_set",
+        "@abseil-cpp//absl/strings",
+        "@googletest//:gtest",
+    ],
+)
+
+cc_library(
     name = "dwyu",
     srcs = ["dwyu.cc"],
-    hdrs = ["dwyu.h"],
+    hdrs = [
+        "dwyu.h",
+        "dwyu-internal.h",
+    ],
     deps = [
         ":edit-callback",
         "//bant:session",
@@ -51,8 +66,14 @@ cc_test(
     srcs = ["dwyu_test.cc"],
     deps = [
         ":dwyu",
+        ":edit-callback_testutil",
+        "//bant:session",
+        "//bant:types-bazel",
         "//bant/frontend:linecolumn-map",
         "//bant/frontend:named-content",
+        "//bant/frontend:parsed-project",
+        "//bant/frontend:parsed-project_testutil",
+        "@abseil-cpp//absl/container:flat_hash_map",
         "@abseil-cpp//absl/log:check",
         "@googletest//:gtest",
         "@googletest//:gtest_main",
