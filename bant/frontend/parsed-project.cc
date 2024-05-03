@@ -17,7 +17,6 @@
 
 #include "bant/frontend/parsed-project.h"
 
-#include <cstddef>
 #include <iostream>
 #include <optional>
 #include <sstream>

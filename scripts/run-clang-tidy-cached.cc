@@ -83,6 +83,23 @@ std::string toHex(uint64_t value, int show_lower_nibbles = 16) {
   return out + (16 - show_lower_nibbles);
 }
 
+// Content-addressed path
+fs::path HashedPath(const fs::path &content_dir,
+                    const filepath_contenthash_t &c) {
+  // Name is human readable, the content hash makes it unique.
+  std::string name_with_contenthash = c.first.filename().string();
+  name_with_contenthash.append("-").append(toHex(c.second));
+  return content_dir / name_with_contenthash;
+}
+
+fs::path GetCacheDir() {
+  if (const char *from_env = getenv("CACHE_DIR")) return fs::path{from_env};
+  if (const char *home = getenv("HOME")) {
+    if (auto cdir = fs::path(home) / ".cache/"; fs::exists(cdir)) return cdir;
+  }
+  return fs::path{getenv("TMPDIR") ?: "/tmp"};
+}
+
 std::optional<std::string> ReadAndVerifyTidyConfig(const fs::path &config) {
   auto content = GetContent(config);
   auto start_config = content.find("\nChecks:");
@@ -97,15 +114,7 @@ std::optional<std::string> ReadAndVerifyTidyConfig(const fs::path &config) {
   return content.substr(start_config);
 }
 
-fs::path GetCacheDir() {
-  if (const char *from_env = getenv("CACHE_DIR")) return fs::path{from_env};
-  if (const char *home = getenv("HOME")) {
-    if (auto cdir = fs::path(home) / ".cache/"; fs::exists(cdir)) return cdir;
-  }
-  return fs::path{getenv("TMPDIR") ?: "/tmp"};
-}
-
-// Fix filename paths that are not emitted relative to project root.
+// Fix filename paths that are not emitted relative to project root in the log
 void CanonicalizeSourcePaths(const fs::path &infile, const fs::path &outfile) {
   static const std::regex sFixPathsRe = []() {
     std::string canonicalize_expr = "(^|\\n)(";  // fix names at start of line
@@ -141,7 +150,7 @@ void ClangTidyProcessFiles(const fs::path &content_dir, const std::string &cmd,
         work = work_queue->front();
         work_queue->pop_front();
       }
-      const fs::path final_out = content_dir / toHex(work.second);
+      const fs::path final_out = HashedPath(content_dir, work);
       const std::string tmp_out = final_out.string() + ".tmp";
       const std::string command = cmd + " '" + work.first.string() + "'" +
                                   "> '" + tmp_out + "' 2>/dev/null";
@@ -222,7 +231,7 @@ int main(int argc, char *argv[]) {
       continue;
     }
     if (auto ext = p.extension(); ext == ".cc" || ext == ".h") {
-      files_of_interest.emplace_back(p, 0);
+      files_of_interest.emplace_back(p, 0);  // <- hash to be filled later.
       if (ext == ".h") header_hashes[p.string()] = hash(GetContent(p));
     }
   }
@@ -239,7 +248,7 @@ int main(int argc, char *argv[]) {
       const std::string &header_path = (*it)[1].str();
       f.second ^= header_hashes[header_path];
     }
-    const fs::path content_hash_file = content_dir / toHex(f.second);
+    const fs::path content_hash_file = HashedPath(content_dir, f);
     // Recreate if we don't have it yet or if it contains messages but is
     // older than WORKSPACE or compilation db. Maybe something got fixed.
     if (!fs::exists(content_hash_file) ||
@@ -257,7 +266,7 @@ int main(int argc, char *argv[]) {
   std::map<std::string, int> checks_seen;
   std::ofstream tidy_collect(tidy_outfile);
   for (const filepath_contenthash_t &f : files_of_interest) {
-    const auto tidy = GetContent(content_dir / toHex(f.second));
+    const auto tidy = GetContent(HashedPath(content_dir, f));
     if (!tidy.empty()) tidy_collect << f.first.string() << ":\n" << tidy;
     for (ReIt it(tidy.begin(), tidy.end(), check_re); it != ReIt(); ++it) {
       checks_seen[(*it)[1].str()]++;
