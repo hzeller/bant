@@ -1,9 +1,6 @@
 # We're not using readability-braces-around-statements as we using
 # the google-* version of that which is more sensible (allows one-liners
 # without braces).
-#
-# NOTE: Below, there must be no comments, otherwise clang tidy silently ignores
-#       rules... (ask me how I know).
 ###
 Checks: >
   clang-diagnostic-*,
@@ -38,6 +35,3 @@ Checks: >
   -misc-no-recursion,
   -misc-unused-parameters,
   -misc-use-anonymous-namespace,
-
-ExtraArgs:
-  - -Wno-unknown-pragmas
