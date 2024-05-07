@@ -325,7 +325,6 @@ TEST(TypesBazel, CheckVisibilityTargetMatch) {
   EXPECT_TRUE(VisibilityOrDie("__subpackages__", p)
                 .Match(TargetOrDie("//foo/bar:hello")));
   EXPECT_TRUE(VisibilityOrDie("__subpackages__", p)
-              .Match(TargetOrDie("//foo/bar/baz/and/deep/belo:hello")));
-
+                .Match(TargetOrDie("//foo/bar/baz/and/deep/belo:hello")));
 }
 }  // namespace bant
