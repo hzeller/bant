@@ -38,6 +38,7 @@
 #include "absl/strings/str_cat.h"
 #include "bant/explore/header-providers.h"
 #include "bant/explore/query-utils.h"
+#include "bant/frontend/ast.h"
 #include "bant/frontend/named-content.h"
 #include "bant/frontend/parsed-project.h"
 #include "bant/session.h"
@@ -84,9 +85,13 @@ DWYUGenerator::DWYUGenerator(Session &session, const ParsedProject &project,
     : session_(session),
       project_(project),
       emit_deps_edit_(std::move(emit_deps_edit)) {
+  Stat &stats = session_.GetStatsFor("DWYU preparation", "indexed targets");
+  const ScopedTimer timer(&stats.duration);
+
   headers_from_libs_ = ExtractHeaderToLibMapping(project, session.info());
   files_from_genrules_ = ExtractGeneratedFromGenrule(project, session.info());
-  known_libs_ = ExtractKnownLibraries();
+  InitKnownLibraries();
+  stats.count = known_libs_.size();
 }
 
 void DWYUGenerator::CreateEditsForTarget(
@@ -121,7 +126,7 @@ void DWYUGenerator::CreateEditsForTarget(
     const bool requested_needed = deps_needed.erase(*requested_target);
 
     const bool potential_remove_suggestion_safe =
-      known_libs_.contains(*requested_target) && all_header_deps_known;
+      all_header_deps_known && !IsAlwayslink(*requested_target);
 
     // Emit the edits.
     if (!requested_needed && potential_remove_suggestion_safe) {
@@ -131,9 +136,10 @@ void DWYUGenerator::CreateEditsForTarget(
 
   // Now, if there is still something we need, add them.
   for (const BazelTarget &need_add : deps_needed) {
-    // TODO: test visibility if *self can see need_add
-    emit_deps_edit_(EditRequest::kAdd, self, "",
-                    need_add.ToStringRelativeTo(self.package));
+    if (CanSee(self, need_add)) {
+      emit_deps_edit_(EditRequest::kAdd, self, "",
+                      need_add.ToStringRelativeTo(self.package));
+    }
   }
 }
 
@@ -182,27 +188,45 @@ std::optional<DWYUGenerator::SourceFile> DWYUGenerator::TryOpenFile(
 
 // We can only confidently remove a target if we actually know about its
 // existence in the project. If not, be cautious.
-std::set<BazelTarget> DWYUGenerator::ExtractKnownLibraries() const {
-  std::set<BazelTarget> result;
+void DWYUGenerator::InitKnownLibraries() {
   for (const auto &[_, parsed_package] : project_.ParsedFiles()) {
     const BazelPackage &current_package = parsed_package->package;
     query::FindTargets(parsed_package->ast,
                        {"cc_library", "cc_proto_library"},  //
                        [&](const query::Result &target) {
-                         if (target.alwayslink) {
-                           // Don't include always-link targets: this makes
-                           // sure they are not accidentally removed.
-                           return;
-                         }
                          auto self = BazelTarget::ParseFrom(
                            absl::StrCat(":", target.name), current_package);
                          if (!self.has_value()) {
                            return;
                          }
-                         result.insert(*self);
+                         known_libs_.insert({*self, target});
                        });
   }
-  return result;
+}
+
+bool DWYUGenerator::IsAlwayslink(const BazelTarget &target) const {
+  auto found = known_libs_.find(target);
+  if (found == known_libs_.end()) return true;  // Unknown ? Be conservative.
+  // TODO: follow all libs we depend on ?
+  return found->second.alwayslink;
+}
+
+bool DWYUGenerator::CanSee(const BazelTarget &target,
+                           const BazelTarget &dep) const {
+  auto found = known_libs_.find(dep);
+  if (found == known_libs_.end()) return true;  // Unknown ? Be Bold.
+  const List *visibility_list = found->second.visibility;
+  if (!visibility_list) return true;
+  for (Node *entry : *visibility_list) {
+    const Scalar *str = entry->CastAsScalar();
+    if (!str) continue;
+    auto vis_or = BazelPattern::ParseVisibility(str->AsString(), dep.package);
+    if (!vis_or.has_value()) continue;
+    if (vis_or->Match(target)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 // Given the sources, grep for headers it uses and resolve their defining

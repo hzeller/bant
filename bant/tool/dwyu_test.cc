@@ -179,6 +179,89 @@ cc_library(
   }
 }
 
+TEST(DWYUTest, Add_MissingDependencyInDifferentPackage) {
+  ParsedProjectTestUtil pp;
+  pp.Add("//lib/path", R"(
+cc_library(
+  name = "foo",
+  srcs = ["foo.cc"],
+  hdrs = ["foo.h"],
+)
+)");
+
+  pp.Add("//some/path", R"(
+cc_library(
+  name = "bar",
+  srcs = ["bar.cc"],
+  # needed //lib/path:foo dependency not given
+)
+)");
+
+  DWYUTestFixture tester(pp.project());
+  tester.ExpectAdd("//lib/path:foo");
+  tester.AddSource("some/path/bar.cc", R"(
+#include "lib/path/foo.h"
+)");
+  tester.RunForTarget("//some/path:bar");
+}
+
+TEST(DWYUTest, DoNotAdd_IfNotVisible) {
+  ParsedProjectTestUtil pp;
+  pp.Add("//lib/path", R"(
+cc_library(
+  name = "foo",
+  srcs = ["foo.cc"],
+  hdrs = ["foo.h"],
+  visibility = ["//visibility:private"],  # Should not link outside
+)
+)");
+
+  pp.Add("//some/path", R"(
+cc_library(
+  name = "bar",
+  srcs = ["bar.cc"],
+  # needed //lib/path:foo dependency not given, but it is private
+)
+)");
+
+  DWYUTestFixture tester(pp.project());
+  // No add expected.
+  tester.AddSource("some/path/bar.cc", R"(
+#include "lib/path/foo.h"
+)");
+  tester.RunForTarget("//some/path:bar");
+}
+
+TEST(DWYUTest, DoNotAdd_IfNotVisibleDueToDefaultVisibility) {
+  ParsedProjectTestUtil pp;
+  pp.Add("//lib/path", R"(
+package(
+  default_visibility = ["//visibility:private"],  # :foo will inherit that
+)
+
+cc_library(
+  name = "foo",
+  srcs = ["foo.cc"],
+  hdrs = ["foo.h"],
+)
+)");
+
+  pp.Add("//some/path", R"(
+cc_library(
+  name = "bar",
+  srcs = ["bar.cc"],
+  # needed //lib/path:foo dependency not given, but it is private
+)
+)");
+
+  DWYUTestFixture tester(pp.project());
+  // No add expected.
+  tester.AddSource("some/path/bar.cc", R"(
+#include "lib/path/foo.h"
+)");
+  tester.RunForTarget("//some/path:bar");
+}
+
 TEST(DWYUTest, Remove_SuperfluousDependency) {
   ParsedProjectTestUtil pp;
   pp.Add("//some/path", R"(

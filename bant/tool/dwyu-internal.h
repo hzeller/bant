@@ -20,6 +20,7 @@
 
 #include <set>
 
+#include "absl/container/btree_map.h"
 #include "bant/explore/header-providers.h"
 #include "bant/explore/query-utils.h"
 #include "bant/frontend/parsed-project.h"
@@ -52,8 +53,12 @@ class DWYUGenerator {
   virtual std::optional<SourceFile> TryOpenFile(std::string_view source_file);
 
  private:
-  std::set<BazelTarget> ExtractKnownLibraries() const;
+  // Extract all the known targets in project and remember corresponding node
+  // in case later inspection is needed (e.g. for visibility).
+  void InitKnownLibraries();
 
+  // Given a bunch of sources, grep their content (using TryOpenFile() to
+  // get it), and look up all targets providing them.
   std::set<BazelTarget> DependenciesForIncludes(
     Stat &stats, const BazelTarget &target, const ParsedBuildFile &build_file,
     const std::vector<std::string_view> &sources,
@@ -63,12 +68,15 @@ class DWYUGenerator {
                             const query::Result &target,
                             const ParsedBuildFile &parsed_package);
 
+  bool IsAlwayslink(const BazelTarget &target) const;
+  bool CanSee(const BazelTarget &target, const BazelTarget &dep) const;
+
   Session &session_;
   const ParsedProject &project_;
   const EditCallback emit_deps_edit_;
   ProvidedFromTargetMap headers_from_libs_;
   ProvidedFromTargetMap files_from_genrules_;
-  std::set<BazelTarget> known_libs_;
+  absl::btree_map<BazelTarget, query::Result> known_libs_;
 };
 }  // namespace bant
 
