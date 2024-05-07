@@ -20,6 +20,7 @@ Checks: >
   google-*,
   -google-readability-casting,
   -google-readability-todo,
+  -google-readability-avoid-underscore-in-googletest-name,
   performance-*,
   bugprone-*,
   -bugprone-easily-swappable-parameters,

@@ -144,7 +144,7 @@ class DWYUTestFixture {
 };
 }  // namespace
 
-TEST(DWYUTest, AddMissingDependency) {
+TEST(DWYUTest, Add_MissingDependency) {
   ParsedProjectTestUtil pp;
   pp.Add("//some/path", R"(
 cc_library(
@@ -179,7 +179,7 @@ cc_library(
   }
 }
 
-TEST(DWYUTest, RemoveSuperfluousDependency) {
+TEST(DWYUTest, Remove_SuperfluousDependency) {
   ParsedProjectTestUtil pp;
   pp.Add("//some/path", R"(
 cc_library(
@@ -201,7 +201,30 @@ cc_library(
   tester.RunForTarget("//some/path:bar");
 }
 
-TEST(DWYUTest, DoNotRemoveAlwayslinkDependency) {
+TEST(DWYUTest, DoNotRemove_IfThereIsAHeaderThatIsUnaccounted) {
+  ParsedProjectTestUtil pp;
+  pp.Add("//some/path", R"(
+cc_library(
+  name = "foo",
+  srcs = ["foo.cc"],
+  hdrs = ["foo.h"],
+)
+
+cc_library(
+  name = "bar",
+  srcs = ["bar.cc"],
+  deps = [":foo"],   # Not nominally needed, but we can't be sure to remove.
+)
+)");
+
+  DWYUTestFixture tester(pp.project());
+  tester.AddSource("some/path/bar.cc", R"(
+#include "some/path/some-unaccounted-header.h"
+)");
+  tester.RunForTarget("//some/path:bar");
+}
+
+TEST(DWYUTest, DoNotRemove_AlwayslinkDependency) {
   ParsedProjectTestUtil pp;
   pp.Add("//some/path", R"(
 cc_library(
@@ -223,7 +246,7 @@ cc_library(
   tester.RunForTarget("//some/path:bar");
 }
 
-TEST(DWYUTest, LibraryWithoutHeaderConsideredAlwayslinkDependency) {
+TEST(DWYUTest, DoNotRemove_LibraryWithoutHeaderConsideredAlwayslinkDependency) {
   ParsedProjectTestUtil pp;
   pp.Add("//some/path", R"(
 cc_library(
@@ -244,7 +267,7 @@ cc_library(
   tester.RunForTarget("//some/path:bar");
 }
 
-TEST(DWYUTest, IncludedProtoHeaderSuggestsProtoLibrary) {
+TEST(DWYUTest, Add_ProtoLibraryForProtoInclude){
   ParsedProjectTestUtil pp;
   pp.Add("//some/path", R"(
 proto_library(
@@ -271,7 +294,7 @@ cc_library(
   tester.RunForTarget("//some/path:bar");
 }
 
-TEST(DWYUTest, RemoveUnncessaryProtoLibrary) {
+TEST(DWYUTest, Remove_UnncessaryProtoLibrary) {
   ParsedProjectTestUtil pp;
   pp.Add("//some/path", R"(
 proto_library(
