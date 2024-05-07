@@ -50,6 +50,14 @@ static BazelPattern PatternOrDie(std::string_view s) {
   return pattern_or.value();
 }
 
+static BazelPattern VisibilityOrDie(std::string_view s,
+                                    const BazelPackage &context) {
+  std::optional<BazelPattern> visibility_or =
+    BazelPattern::ParseVisibility(s, context);
+  CHECK(visibility_or.has_value()) << s;
+  return visibility_or.value();
+}
+
 TEST(TypesBazel, ParsePackage) {
   {
     const BazelPackage p = PackageOrDie("nodelimiter");
@@ -299,5 +307,25 @@ TEST(TypesBazel, CheckPatternTargetMatch) {
   EXPECT_TRUE(PatternOrDie("//foo/...").Match(TargetOrDie("//foo/")));
   // Should the following work ?
   // EXPECT_TRUE(PatternOrDie("//foo").Match(TargetOrDie("//foo/")));
+}
+
+TEST(TypesBazel, CheckVisibilityTargetMatch) {
+  const BazelPackage p = PackageOrDie("//foo/bar");
+  EXPECT_TRUE(VisibilityOrDie("//visibility:public", p).is_matchall());
+  EXPECT_FALSE(VisibilityOrDie("//visibility:private", p).is_matchall());
+
+  // Private means only packages in exactly the context package.
+  EXPECT_TRUE(VisibilityOrDie("//visibility:private", p)
+                .Match(TargetOrDie("//foo/bar:baz")));
+  EXPECT_FALSE(VisibilityOrDie("//visibility:private", p)
+                 .Match(TargetOrDie("//foo/bar/baz:quux")));
+
+  EXPECT_FALSE(VisibilityOrDie("__subpackages__", p).is_matchall());
+  EXPECT_TRUE(VisibilityOrDie("__subpackages__", p).is_recursive());
+  EXPECT_TRUE(VisibilityOrDie("__subpackages__", p)
+                .Match(TargetOrDie("//foo/bar:hello")));
+  EXPECT_TRUE(VisibilityOrDie("__subpackages__", p)
+              .Match(TargetOrDie("//foo/bar/baz/and/deep/belo:hello")));
+
 }
 }  // namespace bant

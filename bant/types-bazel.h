@@ -98,6 +98,11 @@ class BazelPattern {
   // Factory to parse BazelPattern that is returned as value if successful.
   static std::optional<BazelPattern> ParseFrom(std::string_view pattern);
 
+  // Very similar to ParseFrom, but taking sligth visibility pattern differences
+  // into account.
+  static std::optional<BazelPattern> ParseVisibility(
+    std::string_view pattern, const BazelPackage &context);
+
   bool is_recursive() const {
     return (kind_ == MatchKind::kRecursive || kind_ == MatchKind::kAlwaysMatch);
   }
@@ -111,6 +116,9 @@ class BazelPattern {
 
  private:
   enum class MatchKind { kExact, kAllInPackage, kRecursive, kAlwaysMatch };
+
+  static std::optional<BazelPattern> ParseFrom(std::string_view pattern,
+                                               const BazelPackage &context);
 
   BazelPattern(BazelTarget pattern, MatchKind kind);
   BazelTarget target_pattern_;

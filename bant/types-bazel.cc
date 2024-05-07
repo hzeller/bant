@@ -143,9 +143,27 @@ std::string BazelTarget::ToStringRelativeTo(
 
 BazelPattern::BazelPattern() : kind_(MatchKind::kAlwaysMatch) {}
 
+std::optional<BazelPattern> BazelPattern::ParseVisibility(
+  std::string_view pattern, const BazelPackage &context) {
+  if (pattern == "//visibility:public") {
+    return BazelPattern();  // always match
+  }
+  if (pattern == "//visibility:private") {
+    auto visibility_context = BazelTarget::ParseFrom("", context);
+    if (!visibility_context.has_value()) return std::nullopt;
+    return BazelPattern(*visibility_context, MatchKind::kAllInPackage);
+  }
+  return ParseFrom(pattern, context);
+}
+
 std::optional<BazelPattern> BazelPattern::ParseFrom(std::string_view pattern) {
   const BazelPackage empty_context("", "");
-  auto target = BazelTarget::ParseFrom(pattern, empty_context);
+  return ParseFrom(pattern, empty_context);
+}
+
+std::optional<BazelPattern> BazelPattern::ParseFrom(
+  std::string_view pattern, const BazelPackage &context) {
+  auto target = BazelTarget::ParseFrom(pattern, context);
   if (!target.has_value()) return std::nullopt;
 
   BazelTarget target_pattern = target.value();
