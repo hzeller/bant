@@ -55,7 +55,7 @@ class EditExpector {
                   std::string_view before, std::string_view after) {
       const std::string actual = Encode(op, before, after);
       auto erase_count = expected_edits_.erase(actual);
-      EXPECT_EQ(erase_count, 1) << "'" << actual << "' not in expectations";
+      EXPECT_TRUE(erase_count == 1) << "'" << actual << "' not in expectations";
     };
   }
 

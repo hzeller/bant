@@ -159,6 +159,7 @@ cc_library(
   # needed :foo dependency not given
 )
 )");
+
   {
     DWYUTestFixture tester(pp.project());
     tester.ExpectAdd(":foo");
@@ -184,7 +185,7 @@ TEST(DWYUTest, RemoveSuperfluousDependency) {
 cc_library(
   name = "foo",
   srcs = ["foo.cc"],
-  hdrs = ["foo.h"]
+  hdrs = ["foo.h"],
 )
 
 cc_library(
@@ -193,10 +194,106 @@ cc_library(
   deps = [":foo"],
 )
 )");
+
   DWYUTestFixture tester(pp.project());
   tester.ExpectRemove(":foo");
-  tester.AddSource("some/path/bar.cc", R"(
+  tester.AddSource("some/path/bar.cc", "/* no include */");
+  tester.RunForTarget("//some/path:bar");
+}
+
+TEST(DWYUTest, DoNotRemoveAlwayslinkDependency) {
+  ParsedProjectTestUtil pp;
+  pp.Add("//some/path", R"(
+cc_library(
+  name = "foo",
+  srcs = ["foo.cc"],
+  hdrs = ["foo.h"],
+  alwayslink = True
+)
+
+cc_library(
+  name = "bar",
+  srcs = ["bar.cc"],
+  deps = [":foo"],
+)
 )");
+
+  DWYUTestFixture tester(pp.project());
+  tester.AddSource("some/path/bar.cc", "/* no include */");
+  tester.RunForTarget("//some/path:bar");
+}
+
+TEST(DWYUTest, LibraryWithoutHeaderConsideredAlwayslinkDependency) {
+  ParsedProjectTestUtil pp;
+  pp.Add("//some/path", R"(
+cc_library(
+  name = "foo",
+  srcs = ["foo.cc"],
+  # no headers exported. So if referenced, we consider it alwayslink
+)
+
+cc_library(
+  name = "bar",
+  srcs = ["bar.cc"],
+  deps = [":foo"],
+)
+)");
+
+  DWYUTestFixture tester(pp.project());
+  tester.AddSource("some/path/bar.cc", "/* no include */");
+  tester.RunForTarget("//some/path:bar");
+}
+
+TEST(DWYUTest, IncludedProtoHeaderSuggestsProtoLibrary) {
+  ParsedProjectTestUtil pp;
+  pp.Add("//some/path", R"(
+proto_library(
+  name = "foo_proto",
+  srcs = ["foo.proto", "baz.proto"],
+)
+
+cc_proto_library(
+  name = "foo_proto_lib",
+  deps = [":foo_proto"],
+)
+
+cc_library(
+  name = "bar",
+  srcs = ["bar.cc"],
+)
+)");
+
+  DWYUTestFixture tester(pp.project());
+  tester.AddSource("some/path/bar.cc", R"(
+#include "some/path/baz.pb.h"
+)");
+  tester.ExpectAdd(":foo_proto_lib");
+  tester.RunForTarget("//some/path:bar");
+}
+
+TEST(DWYUTest, RemoveUnncessaryProtoLibrary) {
+  ParsedProjectTestUtil pp;
+  pp.Add("//some/path", R"(
+proto_library(
+  name = "foo_proto",
+  srcs = ["foo.proto", "baz.proto"],
+)
+
+cc_proto_library(
+  name = "foo_proto_lib",
+  deps = [":foo_proto"],
+)
+
+cc_library(
+  name = "bar",
+  srcs = ["bar.cc"],
+  deps = [":foo_proto_lib"],
+)
+)");
+
+  DWYUTestFixture tester(pp.project());
+  tester.AddSource("some/path/bar.cc", "/* no include */");
+  tester.ExpectRemove(":foo_proto_lib");
   tester.RunForTarget("//some/path:bar");
 }
 }  // namespace bant

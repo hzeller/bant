@@ -186,7 +186,8 @@ std::set<BazelTarget> DWYUGenerator::ExtractKnownLibraries() const {
   std::set<BazelTarget> result;
   for (const auto &[_, parsed_package] : project_.ParsedFiles()) {
     const BazelPackage &current_package = parsed_package->package;
-    query::FindTargets(parsed_package->ast, {"cc_library"},  //
+    query::FindTargets(parsed_package->ast,
+                       {"cc_library", "cc_proto_library"},  //
                        [&](const query::Result &target) {
                          if (target.alwayslink) {
                            // Don't include always-link targets: this makes
