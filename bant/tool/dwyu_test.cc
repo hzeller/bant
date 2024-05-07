@@ -267,7 +267,7 @@ cc_library(
   tester.RunForTarget("//some/path:bar");
 }
 
-TEST(DWYUTest, Add_ProtoLibraryForProtoInclude){
+TEST(DWYUTest, Add_ProtoLibraryForProtoInclude) {
   ParsedProjectTestUtil pp;
   pp.Add("//some/path", R"(
 proto_library(
