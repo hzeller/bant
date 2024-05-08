@@ -232,6 +232,34 @@ cc_library(
   tester.RunForTarget("//some/path:bar");
 }
 
+// We don't handle package groups properly yet, so should be treated
+// as //visibility:public
+TEST(DWYUTest, Add_IfVisibilityIsPackageGroup) {
+  ParsedProjectTestUtil pp;
+  pp.Add("//lib/path", R"(
+cc_library(
+  name = "foo",
+  srcs = ["foo.cc"],
+  hdrs = ["foo.h"],
+  visibility = ["//some/package:group"],  # Should be considered public for now
+)
+)");
+
+  pp.Add("//some/path", R"(
+cc_library(
+  name = "bar",
+  srcs = ["bar.cc"],
+)
+)");
+
+  DWYUTestFixture tester(pp.project());
+  tester.ExpectAdd("//lib/path:foo");  // until we understand package groups
+  tester.AddSource("some/path/bar.cc", R"(
+#include "lib/path/foo.h"
+)");
+  tester.RunForTarget("//some/path:bar");
+}
+
 TEST(DWYUTest, DoNotAdd_IfNotVisibleDueToDefaultVisibility) {
   ParsedProjectTestUtil pp;
   pp.Add("//lib/path", R"(

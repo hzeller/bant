@@ -153,6 +153,11 @@ std::optional<BazelPattern> BazelPattern::ParseVisibility(
     if (!visibility_context.has_value()) return std::nullopt;
     return BazelPattern(*visibility_context, MatchKind::kAllInPackage);
   }
+  // HACK for now: until we understand package_groups, let everything that
+  // does not look like a pattern be always-match
+  if (!pattern.ends_with("...") && !pattern.ends_with("__")) {
+    return BazelPattern();  // always match, essentially //visibility:public
+  }
   return ParseFrom(pattern, context);
 }
 
