@@ -192,16 +192,8 @@ To get a useful compilation database for `clangd` to be happy, run first
 scripts/make-compilation-db.sh
 ```
 
-Before submit, run
-
-```bash
-. <(bant dwyu ...)
-scripts/run-format.sh
-scripts/run-clang-tidy-cached.cc
-```
-
-... and fix potential `clang-tidy` issues (or update `.clang-tidy` if it is
-not useful).
+Before submit, run `scripts/before-submit.sh` ... and fix potential
+`clang-tidy` issues (or update `.clang-tidy` if it is not useful).
 
 [bazel]: https://bazel.build/
 [buildozer]: https://github.com/bazelbuild/buildtools/blob/master/buildozer/README.md
