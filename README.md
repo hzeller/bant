@@ -4,11 +4,12 @@
 bant - Build Analysis and Navigation Tool
 =========================================
 
-Quick-and-dirty hack for my personal projects that use [bazel]. Extracting a
-list of targets; finding which headers belong to them, DWYU ...
+Utility to support projects using the [bazel] build system.
+Clean up BUILD files with DWYU (build_cleaner), extracting list of targets,
+finding which headers belong to them...
 Outputs are for easy scripting with `grep`, `awk`, `buildozer` etc.
 
-Probably not too useful for anyone else.
+Useful hack for my personal projects, probably not too useful for anyone else.
 
  * Goal: Reading bazel-like BUILD files and doing useful things with content.
  * Non-Goal: parse full starlark (e.g. *.bzl files with `def`-initions)
@@ -61,8 +62,9 @@ Useful everyday commands
    I usually just source the output of `bant` directly: `. <(bant dwyu ...)`
 
    Caveats:
-     * Does not take visibiliity into account yet, so it might suggest to
-       add more targets than possible to use (to be fixed soon).
+     * Does not understand package groups in visibility yet; these will be
+       considered 'public' and might result in adding dependencies that bazel
+       would not allow.
      * Always adds the direct dependency of a header, even if another dependency
        exists that provides that header with an indirection. This is by design,
        but maybe there should be an option to allow indirect dependencies up
