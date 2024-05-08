@@ -39,6 +39,7 @@ int getopt(int, char *const *, const char *);  // NOLINT
 #include <string>
 #include <string_view>
 #include <system_error>
+#include <vector>
 
 #include "absl/strings/str_cat.h"
 #include "bant/explore/dependency-graph.h"
@@ -51,6 +52,7 @@ int getopt(int, char *const *, const char *);  // NOLINT
 #include "bant/tool/dwyu.h"
 #include "bant/tool/edit-callback.h"
 #include "bant/types-bazel.h"
+#include "bant/types.h"
 #include "bant/util/table-printer.h"
 #include "bant/workspace.h"
 
@@ -94,6 +96,10 @@ Commands (unique prefix sufficient):
                      → 2 column table: (buildfile, package)
     list-targets   : List BUILD file locations of rules with matching targets
                      → 3 column table: (buildfile:location, ruletype, target)
+    depends-on     : List cc library targets and the libraries they depend on
+                     → 2 column table: (target, dependency*)
+    has-dependent  : List cc library targets the libraries that depend on it
+                     → 2 column table: (target, dependent*)
     lib-headers    : Print headers provided by cc_library()s matching pattern.
                      → 2 column table: (header-filename, cc-library-target)
     genrule-outputs: Print generated files by genrule()s matching pattern.
@@ -111,6 +117,32 @@ Commands (unique prefix sufficient):
   return exit_code;
 }
 
+using bant::BazelPattern;
+using bant::BazelTarget;
+using bant::CreateBuildozerDepsEditCallback;
+using bant::CreateCanonicalizeEdits;
+using bant::OutputFormat;
+using bant::TablePrinter;
+using bant::query::FindTargets;
+using bant::query::Result;
+
+void PrintOneToN(bant::Session &session, const BazelPattern &pattern,
+                 const OneToN<BazelTarget, BazelTarget> &table,
+                 const std::string &header1, const std::string &header2) {
+  auto printer = TablePrinter::Create(session.out(), session.output_format(),
+                                      {header1, header2});
+  std::vector<std::string> repeat_print;
+  for (const auto &d : table) {
+    if (!pattern.Match(d.first)) continue;
+    repeat_print.clear();
+    for (const BazelTarget &t : d.second) {
+      repeat_print.emplace_back(t.ToString());
+    }
+    printer->AddRowWithRepeatedLastColumn({d.first.ToString()}, repeat_print);
+  }
+  printer->Finish();
+}
+
 // TODO: this is getting big, time to put Commands into their own objects.
 int main(int argc, char *argv[]) {
   // non-nullptr streams if chosen by user.
@@ -121,7 +153,7 @@ int main(int argc, char *argv[]) {
   std::ostream *primary_out = &std::cout;
   std::ostream *info_out = &std::cerr;
 
-  bant::BazelPattern pattern;
+  BazelPattern pattern;
 
   bool verbose = false;
   bool print_ast = false;
@@ -146,6 +178,8 @@ int main(int argc, char *argv[]) {
     kGenruleOutputs,
     kDependencyEdits,
     kCanonicalizeDeps,
+    kHasDependents,
+    kDependsOn,
   } cmd = Command::kNone;
   static const std::map<std::string_view, Command> kCommandNames = {
     {"parse", Command::kParse},
@@ -154,17 +188,17 @@ int main(int argc, char *argv[]) {
     {"list-targets", Command::kListTargets},
     {"workspace", Command::kListWorkkspace},
     {"lib-headers", Command::kLibraryHeaders},
+    {"depends-on", Command::kDependsOn},
+    {"has-dependents", Command::kHasDependents},
     {"genrule-outputs", Command::kGenruleOutputs},
     {"dwyu", Command::kDependencyEdits},
     {"canonicalize", Command::kCanonicalizeDeps},
   };
-  using bant::OutputFormat;
   static const std::map<std::string_view, OutputFormat> kFormatOutNames = {
     {"native", OutputFormat::kNative}, {"s-expr", OutputFormat::kSExpr},
     {"plist", OutputFormat::kPList},   {"csv", OutputFormat::kCSV},
     {"json", OutputFormat::kJSON},     {"graphviz", OutputFormat::kGraphviz},
   };
-  using bant::TablePrinter;
   OutputFormat out_fmt = OutputFormat::kNative;
   int opt;
   while ((opt = getopt(argc, argv, "C:qo:vhpecf:r::")) != -1) {
@@ -247,7 +281,7 @@ int main(int argc, char *argv[]) {
   }
 
   if (optind < argc) {
-    if (auto p = bant::BazelPattern::ParseFrom(argv[optind]); p.has_value()) {
+    if (auto p = BazelPattern::ParseFrom(argv[optind]); p.has_value()) {
       pattern = p.value();
     } else {
       std::stringstream sout;
@@ -297,12 +331,13 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  if (recurse_dependency_depth <= 0 && cmd == Command::kDependencyEdits) {
+  if (recurse_dependency_depth <= 0 && (cmd == Command::kDependencyEdits)) {
     recurse_dependency_depth = std::numeric_limits<int>::max();
   }
 
   // TODO: move dependency graph creation to tools once they are
   // Command-objects.
+  bant::DependencyGraph graph;
   switch (cmd) {
   case Command::kDependencyEdits:
   case Command::kParse:
@@ -310,9 +345,11 @@ int main(int argc, char *argv[]) {
   case Command::kGenruleOutputs:
   case Command::kListTargets:
   case Command::kListPackages:
-    if (recurse_dependency_depth > 0) {
-      const bant::DependencyGraph graph = bant::BuildDependencyGraph(
-        session, workspace, pattern, recurse_dependency_depth, &project);
+  case Command::kDependsOn:
+  case Command::kHasDependents:
+    if (recurse_dependency_depth >= 0) {
+      graph = bant::BuildDependencyGraph(session, workspace, pattern,
+                                         recurse_dependency_depth, &project);
       if (session.verbose()) {
         session.info() << "Found " << graph.depends_on.size()
                        << " Targets with dependencies; "
@@ -329,9 +366,10 @@ int main(int argc, char *argv[]) {
   // library headers and genrule outputs just match the pattern unless
   // recursive is chosen when we want to print everything the dependency graph
   // gathered.
-  const bant::BazelPattern print_pattern =
-    recurse_dependency_depth > 0 ? bant::BazelPattern() : pattern;
+  const BazelPattern print_pattern =
+    recurse_dependency_depth > 0 ? BazelPattern() : pattern;
 
+  // This will be all separate commands in their own class.
   switch (cmd) {
   case Command::kPrint: print_ast = true; [[fallthrough]];
   case Command::kParse:
@@ -353,13 +391,11 @@ int main(int argc, char *argv[]) {
     break;
 
   case Command::kDependencyEdits:
-    using bant::CreateBuildozerDepsEditCallback;
     bant::CreateDependencyEdits(session, project, pattern,
                                 CreateBuildozerDepsEditCallback(*primary_out));
     break;
 
   case Command::kCanonicalizeDeps:
-    using bant::CreateCanonicalizeEdits;
     CreateCanonicalizeEdits(session, project, pattern,
                             CreateBuildozerDepsEditCallback(*primary_out));
     break;
@@ -374,14 +410,12 @@ int main(int argc, char *argv[]) {
   } break;
 
   case Command::kListTargets: {
-    using bant::query::FindTargets;
-    using bant::query::Result;
     auto printer = TablePrinter::Create(session.out(), session.output_format(),
                                         {"file-location", "rule", "target"});
     for (const auto &[package, parsed] : project.ParsedFiles()) {
       FindTargets(parsed->ast, {}, [&](const Result &target) {
         auto target_name =
-          bant::BazelTarget::ParseFrom(absl::StrCat(":", target.name), package);
+          BazelTarget::ParseFrom(absl::StrCat(":", target.name), package);
         if (!target_name.has_value()) {
           return;
         }
@@ -406,6 +440,16 @@ int main(int argc, char *argv[]) {
     }
     printer->Finish();
   } break;
+
+  case Command::kDependsOn:
+    PrintOneToN(session, print_pattern, graph.depends_on, "library",
+                "depends-on");
+    break;
+
+  case Command::kHasDependents:
+    PrintOneToN(session, print_pattern, graph.has_dependents, "library",
+                "has-dependent");
+    break;
 
   case Command::kNone:  // nop (implicitly done by parsing)
     ;

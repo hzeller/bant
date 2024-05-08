@@ -19,6 +19,7 @@ cc_binary(
     ],
     deps = [
         ":session",
+        ":types",
         ":types-bazel",
         ":workspace",
         "//bant/explore:dependency-graph",
