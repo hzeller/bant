@@ -49,6 +49,8 @@
 #include "bant/util/stat.h"
 #include "re2/re2.h"
 
+static constexpr bool kNoisy = false;
+
 // Looking for source files directly in the source tree, but if not found
 // in the various locations generated files could be.
 #define LINK_PREFIX "bazel-"
@@ -129,8 +131,14 @@ void DWYUGenerator::CreateEditsForTarget(
       all_header_deps_known && !IsAlwayslink(*requested_target);
 
     // Emit the edits.
-    if (!requested_needed && potential_remove_suggestion_safe) {
-      emit_deps_edit_(EditRequest::kRemove, self, dependency_target, "");
+    if (!requested_needed) {
+      if (potential_remove_suggestion_safe) {
+        emit_deps_edit_(EditRequest::kRemove, self, dependency_target, "");
+      } else if (!all_header_deps_known && session_.verbose() && kNoisy) {
+        parsed_package.source.Loc(session_.info(), dependency_target)
+          << ": Probably not needed " << dependency_target
+          << ", but can't safely remove: not all headers accounted for.\n";
+      }
     }
   }
 
@@ -139,6 +147,9 @@ void DWYUGenerator::CreateEditsForTarget(
     if (CanSee(self, need_add)) {
       emit_deps_edit_(EditRequest::kAdd, self, "",
                       need_add.ToStringRelativeTo(self.package));
+    } else if (session_.verbose() && kNoisy) {
+      parsed_package.source.Loc(session_.info(), target.name)
+        << ": Would add " << need_add << ", but not visible\n";
     }
   }
 }
