@@ -204,10 +204,10 @@ void PrintProject(const BazelPattern &pattern, std::ostream &out,
       continue;
     }
 
-    out << "# " << file_content->source.name() << "\n";
     if (pattern.is_recursive()) {
+      out << "# " << file_content->source.name() << ": "
+          << file_content->package.ToString() << "\n";
       info_out << file_content->errors;
-      out << file_content->package.ToString() << " = ";
       PrintVisitor(out).WalkNonNull(file_content->ast);
       out << "\n";
     } else {
@@ -217,7 +217,11 @@ void PrintProject(const BazelPattern &pattern, std::ostream &out,
           if (!self.has_value() || !pattern.Match(*self)) {
             return;
           }
-          out << *self << " = ";
+          // TODO: instead of just marking the range of the function name,
+          // show the range the whole function covers until closed parenthesis.
+          out << "# "
+              << file_content->source.Loc(result.node->identifier()->id())
+              << "\n";
           PrintVisitor(out).WalkNonNull(result.node);
           out << "\n";
         });
