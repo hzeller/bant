@@ -104,17 +104,30 @@ class SExprTablePrinter : public TablePrinter {
     const std::vector<std::string> &repeat_col) final {
     out_ << (row_printed_ ? "\n (" : "(");
     size_t c = 0;
+    size_t indent_width = 0;  // to properly align repeated block.
     for (c = 0; c < row_prefix.size(); ++c) {
-      if (c != 0) out_ << " ";
-      if (as_plist_) out_ << ":" << headers_[c] << " ";
-      out_ << "\"" << absl::CEscape(row_prefix[c]) << "\"";
+      if (c != 0) {
+        out_ << " ";
+        ++indent_width;
+      }
+      if (as_plist_) {
+        out_ << ":" << headers_[c] << " ";
+        indent_width += headers_[c].size() + 2;
+      }
+      const std::string content = absl::CEscape(row_prefix[c]);
+      out_ << "\"" << content << "\"";
+      indent_width += content.size() + 2;
     }
     if (c != 0) out_ << " ";
-    if (as_plist_) out_ << ":" << headers_[c] << " ";
+    ++indent_width;
+    if (as_plist_) {
+      out_ << ":" << headers_[c] << " ";
+      indent_width += headers_[c].size() + 2;
+    }
+    const std::string indent(indent_width + 3, ' ');
     out_ << "(";
     for (size_t rc = 0; rc < repeat_col.size(); ++rc) {
-      if (rc != 0) out_ << " ";
-      // TODO: newline and properly indent.
+      if (rc != 0) out_ << "\n" << indent;
       out_ << "\"" << absl::CEscape(repeat_col[rc]) << "\"";
     }
     out_ << "))";

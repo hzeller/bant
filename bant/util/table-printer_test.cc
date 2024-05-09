@@ -66,11 +66,15 @@ TEST(TablePrinter, TableWithRepeatedLastCol) {
     {OutputFormat::kSExpr,
      "((\"noval\" ())\n"
      " (\"oneval\" (\"somevalue\"))\n"
-     " (\"threeval\" (\"abc\" \"def\" \"xyz\")))\n"},
+     " (\"threeval\" (\"abc\"\n"
+     "              \"def\"\n"
+     "              \"xyz\")))\n"},
     {OutputFormat::kPList,
      "((:foo \"noval\" :bar ())\n"
      " (:foo \"oneval\" :bar (\"somevalue\"))\n"
-     " (:foo \"threeval\" :bar (\"abc\" \"def\" \"xyz\")))\n"},
+     " (:foo \"threeval\" :bar (\"abc\"\n"
+     "                        \"def\"\n"
+     "                        \"xyz\")))\n"},
     {OutputFormat::kJSON,
      "{\"foo\": \"noval\", \"bar\": []}\n"
      "{\"foo\": \"oneval\", \"bar\": [\"somevalue\"]}\n"
