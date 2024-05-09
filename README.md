@@ -12,7 +12,7 @@ Outputs are for easy scripting with `grep`, `awk`, `buildozer` etc.
 Useful hack for my personal projects, probably not too useful for anyone else.
 
  * Goal: Reading bazel-like BUILD files and doing useful things with content.
- * Non-Goal: parse full starlark (e.g. *.bzl files with `def`-initions)
+ * Non-Goal: parse full starlark (e.g. *.bzl files with rule `def`-initions)
 
 Early Stages. WIP.
 

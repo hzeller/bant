@@ -30,7 +30,21 @@
 namespace bant {
 IntScalar *IntScalar::FromLiteral(Arena *arena, std::string_view literal) {
   int64_t val = 0;
-  auto result = std::from_chars(literal.begin(), literal.end(), val);
+  int base = 10;
+  if (literal.size() >= 2) {
+    switch (literal[1]) {
+    case 'o':
+      base = 8;
+      literal.remove_prefix(2);
+      break;
+    case 'x':
+      base = 16;
+      literal.remove_prefix(2);
+      break;
+    default:;
+    }
+  }
+  auto result = std::from_chars(literal.begin(), literal.end(), val, base);
   if (result.ec != std::errc{}) {
     return nullptr;
   }

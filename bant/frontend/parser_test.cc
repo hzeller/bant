@@ -44,7 +44,7 @@ class ParserTest : public testing::Test {
     return first_pass;
   }
 
-  // Some helpers to build ASTs to compre
+  // Some helpers to build ASTs to compare
   StringScalar *Str(std::string_view s, bool triple = false, bool raw = false) {
     return arena_.New<StringScalar>(s, triple, raw);
   }
@@ -174,21 +174,21 @@ funcall("Some {} str".format("baz"))
 }
 
 TEST_F(ParserTest, SimpleExpressions) {
-  Node *const expected = List({
-    Assign("a", Op('+', Int(40), Int(2))),
-    Assign("b", Op('/', Op('*', Int(30), Int(7)), Int(2))),
-    // note: no proper precedence yet, should be like 'e'
-    Assign("c", Op('/', Op('+', Int(30), Int(7)), Int(2))),
-    Assign("d", Op('/', Op('+', Int(30), Int(7)), Int(2))),
-    Assign("e", Op('+', Int(30), Op('/', Int(7), Int(2)))),
-    Assign("f", UnaryOp(TokenType::kMinus, Int(30))),
-    Assign("g", Op(TokenType::kEqualityComparison, Id("a"), Id("b"))),
-    Assign("h", UnaryOp(TokenType::kNot,
-                        Op(TokenType::kEqualityComparison, Id("a"), Id("b")))),
-    Assign("h1", UnaryOp(TokenType::kNot,
+  Node *const expected = List(
+    {Assign("a", Op('+', Int(40), Int(2))),
+     Assign("b", Op('/', Op('*', Int(30), Int(7)), Int(2))),
+     // note: no proper precedence yet, should be like 'e'
+     Assign("c", Op('/', Op('+', Int(30), Int(7)), Int(2))),
+     Assign("d", Op('/', Op('+', Int(30), Int(7)), Int(2))),
+     Assign("e", Op('+', Int(30), Op('/', Int(7), Int(2)))),
+     Assign("f", UnaryOp(TokenType::kMinus, Int(30))),
+     Assign("g", Op(TokenType::kEqualityComparison, Id("a"), Id("b"))),
+     Assign("h", UnaryOp(TokenType::kNot,
                          Op(TokenType::kEqualityComparison, Id("a"), Id("b")))),
-    Assign("i", Op(TokenType::kNotEqual, Id("a"), Id("b"))),
-  });
+     Assign("h1", UnaryOp(TokenType::kNot, Op(TokenType::kEqualityComparison,
+                                              Id("a"), Id("b")))),
+     Assign("i", Op(TokenType::kNotEqual, Id("a"), Id("b"))),
+     Assign("j", Int(0123)), Assign("k", Int(0xab))});
 
   EXPECT_EQ(Print(expected), Print(Parse(R"(
 a = 40 + 2
@@ -201,6 +201,8 @@ g = a == b
 h = not (a == b)
 h1 = !(a == b)
 i = a != b
+j = 0o123  # octal number
+k = 0xab   # hex number
 )")));
 }
 

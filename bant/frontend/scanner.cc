@@ -202,7 +202,24 @@ Token Scanner::HandleNumber() {
   const ContentPointer start = pos_;
   bool dot_seen = false;
   ++pos_;
-  while (pos_ < end_ && (isdigit(*pos_) || *pos_ == '.')) {
+
+  // 0x123 hex, 0o123 octal
+  int (*is_relevant_digit)(int) = isdigit;
+  if (pos_ < end_ && *start == '0') {
+    switch (*pos_) {
+    case 'x': {
+      is_relevant_digit = isxdigit;
+      ++pos_;
+    } break;
+    case 'o': {
+      // There is no isodigit(). Leave to IntScalr::FromLiteral
+      ++pos_;
+    } break;
+    default:;
+    }
+  }
+
+  while (pos_ < end_ && (is_relevant_digit(*pos_) || *pos_ == '.')) {
     if (*pos_ == '.') {
       if (dot_seen) {
         return {TokenType::kError, {start, (size_t)(pos_ - start)}};

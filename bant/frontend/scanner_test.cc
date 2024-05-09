@@ -107,8 +107,10 @@ TEST(ScannerTest, SimpleTokens) {
 }
 
 TEST(ScannerTest, NumberString) {
-  TEST_SCANNER(s, R"(42 "hello world")");
+  TEST_SCANNER(s, R"(42 0o42 0xff "hello world")");
   EXPECT_EQ(s.Next(), Token({TokenType::kNumberLiteral, "42"}));
+  EXPECT_EQ(s.Next(), Token({TokenType::kNumberLiteral, "0o42"}));
+  EXPECT_EQ(s.Next(), Token({TokenType::kNumberLiteral, "0xff"}));
   EXPECT_EQ(s.Next(), Token({TokenType::kStringLiteral, "\"hello world\""}));
   EXPECT_EQ(s.Next(), Token({TokenType::kEof, ""}));
 }
