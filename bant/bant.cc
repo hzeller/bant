@@ -98,7 +98,7 @@ Commands (unique prefix sufficient):
                      → 3 column table: (buildfile:location, ruletype, target)
     depends-on     : List cc library targets and the libraries they depend on
                      → 2 column table: (target, dependency*)
-    has-dependent  : List cc library targets the libraries that depend on it
+    has-dependent  : List cc library targets and the libraries that depend on it
                      → 2 column table: (target, dependent*)
     lib-headers    : Print headers provided by cc_library()s matching pattern.
                      → 2 column table: (header-filename, cc-library-target)
