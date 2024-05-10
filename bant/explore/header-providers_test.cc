@@ -38,6 +38,13 @@ static BazelTarget T(std::string_view s) {
   return *target_or;
 }
 
+// Same, but return as a set.
+static ProvidedFromTargetSet::mapped_type Ts(std::string_view s) {
+  auto target_or = BazelTarget::ParseFrom(s, BazelPackage());
+  CHECK(target_or.has_value());
+  return {*target_or};
+}
+
 TEST(HeaderToLibMapping, CCRuleExtraction) {
   ParsedProjectTestUtil pp;
   pp.Add("//some/path", R"(
@@ -78,20 +85,42 @@ cc_library(
   std::stringstream log_absorb;
   auto header_map = ExtractHeaderToLibMapping(pp.project(), log_absorb);
   EXPECT_THAT(header_map,
-              Contains(Pair("some/path/foo.h", T("//some/path:foo"))));
+              Contains(Pair("some/path/foo.h", Ts("//some/path:foo"))));
 
   EXPECT_THAT(header_map,
-              Contains(Pair("other/path/bar.h", T("//other/path:bar"))));
+              Contains(Pair("other/path/bar.h", Ts("//other/path:bar"))));
 
-  EXPECT_THAT(header_map, Contains(Pair("yolo/foo.h", T("//prefix/dir:foo"))));
-  EXPECT_THAT(header_map, Contains(Pair("dir/bar.h", T("//prefix/dir:bar"))));
+  EXPECT_THAT(header_map, Contains(Pair("yolo/foo.h", Ts("//prefix/dir:foo"))));
+  EXPECT_THAT(header_map, Contains(Pair("dir/bar.h", Ts("//prefix/dir:bar"))));
 
   // The header with includes = [...] is available via multiple possible paths.
-  EXPECT_THAT(header_map, Contains(Pair("baz.h", T("//prefix/dir:baz"))));
+  EXPECT_THAT(header_map, Contains(Pair("baz.h", Ts("//prefix/dir:baz"))));
   EXPECT_THAT(header_map,
-              Contains(Pair("subdir/baz.h", T("//prefix/dir:baz"))));
-  EXPECT_THAT(header_map,
-              Contains(Pair("prefix/dir/subdir/baz.h", T("//prefix/dir:baz"))));
+              Contains(Pair("subdir/baz.h", Ts("//prefix/dir:baz"))));
+  EXPECT_THAT(header_map, Contains(Pair("prefix/dir/subdir/baz.h",
+                                        Ts("//prefix/dir:baz"))));
+}
+
+// Sometimes two different libraries claim to export the same header.
+TEST(HeaderToLibMapping, MultipleCCLibsProvideSameHeader) {
+  ParsedProjectTestUtil pp;
+  pp.Add("//some/path", R"(
+cc_library(
+  name = "foo",
+  srcs = ["foo.cc"],
+  hdrs = ["foo.h"]
+)
+cc_library(
+  name = "bar",
+  srcs = ["bar.cc"],
+  hdrs = ["foo.h"]
+)
+)");
+  std::stringstream log_absorb;
+  auto header_map = ExtractHeaderToLibMapping(pp.project(), log_absorb);
+  const ProvidedFromTargetSet::mapped_type expected_set{T("//some/path:foo"),
+                                                        T("//some/path:bar")};
+  EXPECT_THAT(header_map, Contains(Pair("some/path/foo.h", expected_set)));
 }
 
 TEST(HeaderToLibMapping, ProtoLibraryExtraction) {
@@ -111,12 +140,12 @@ cc_proto_library(
 )");
   std::stringstream log_absorb;
   auto header_map = ExtractHeaderToLibMapping(pp.project(), log_absorb);
-  EXPECT_THAT(header_map, Contains(Pair("ptest/data.pb.h", T("//ptest:foo"))));
+  EXPECT_THAT(header_map, Contains(Pair("ptest/data.pb.h", Ts("//ptest:foo"))));
   EXPECT_THAT(header_map,
-              Contains(Pair("ptest/general.pb.h", T("//ptest:foo"))));
+              Contains(Pair("ptest/general.pb.h", Ts("//ptest:foo"))));
   // Another possible suffix.
   EXPECT_THAT(header_map,
-              Contains(Pair("ptest/general.proto.h", T("//ptest:foo"))));
+              Contains(Pair("ptest/general.proto.h", Ts("//ptest:foo"))));
 }
 
 TEST(HeaderToLibMapping, GenruleExtraction) {

@@ -22,6 +22,7 @@
 #include <ostream>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
@@ -96,25 +97,12 @@ static void IterateCCLibraryHeaders(const ParsedBuildFile &build_file,
 
 static void AppendCCLibraryHeaders(const ParsedBuildFile &build_file,
                                    std::ostream &info_out,
-                                   ProvidedFromTargetMap *result) {
+                                   ProvidedFromTargetSet &result) {
   IterateCCLibraryHeaders(
     build_file, [&](const BazelTarget &cc_library, std::string_view hdr_loc,
                     const std::string &header_fqn) {
-      const auto &inserted = result->insert({header_fqn, cc_library});
-      if (!inserted.second && cc_library != inserted.first->second) {
-        // TODO: differentiate between info-log (external projects) and
-        // error-log (current project, as these are actionable).
-        // For now: just report errors.
-        const bool is_error = build_file.package.project.empty();
-        if (is_error) {
-          // TODO: Get file-position from other target which might be
-          // in a different file.
-          build_file.source.Loc(info_out, hdr_loc)
-            << " Header '" << header_fqn << "' in " << cc_library.ToString()
-            << " already provided by " << inserted.first->second.ToString()
-            << "\n";
-        }
-      }
+      // Sometimes there can be multiple libraries exporting the same header.
+      result[header_fqn].insert(cc_library);
     });
 }
 
@@ -131,7 +119,7 @@ static void AppendCCLibraryHeaders(const ParsedBuildFile &build_file,
 //     derive the header file from the *.proto file and store the mapping
 //     header->cc_library that we're after.
 static void AppendProtoLibraryHeaders(const ParsedBuildFile &build_file,
-                                      ProvidedFromTargetMap *result) {
+                                      ProvidedFromTargetSet &result) {
   // TODO: once we wire the DependencyGraph through, we can make the look-up
   // in one go. Also we wouldn't be limited to proto_library() and
   // cc_proto_library() having to reside in one package.
@@ -183,16 +171,16 @@ static void AppendProtoLibraryHeaders(const ParsedBuildFile &build_file,
         for (const std::string_view suffix : {".pb.h", ".proto.h"}) {
           std::string proto_header = absl::StrCat(stem, suffix);
           proto_header = build_file.package.QualifiedFile(proto_header);
-          result->insert({proto_header, cc_proto_lib});
+          result[proto_header].insert(cc_proto_lib);
         }
       }
     });
 }
 }  // namespace
 
-ProvidedFromTargetMap ExtractHeaderToLibMapping(const ParsedProject &project,
+ProvidedFromTargetSet ExtractHeaderToLibMapping(const ParsedProject &project,
                                                 std::ostream &info_out) {
-  ProvidedFromTargetMap result;
+  ProvidedFromTargetSet result;
 
 #ifdef BANT_GTEST_HACK
   // gtest hack. We can't glob() the headers yet, so manually add these to
@@ -205,10 +193,8 @@ ProvidedFromTargetMap ExtractHeaderToLibMapping(const ParsedProject &project,
     BazelTarget test_target;
     test_target.package.project = file_content->package.project;
     test_target.target_name = "gtest";
-    ProvidedFromTargetMap::mapped_type target_provide;
-    target_provide = test_target;
-    result["gtest/gtest.h"] = test_target;
-    result["gmock/gmock.h"] = test_target;
+    result["gtest/gtest.h"].insert(test_target);
+    result["gmock/gmock.h"].insert(test_target);
     break;
   }
 #endif
@@ -218,16 +204,16 @@ ProvidedFromTargetMap ExtractHeaderToLibMapping(const ParsedProject &project,
 
     // There are multiple rule types that behave like a cc library and
     // provide header files.
-    AppendCCLibraryHeaders(*build_file, info_out, &result);
-    AppendProtoLibraryHeaders(*build_file, &result);
+    AppendCCLibraryHeaders(*build_file, info_out, result);
+    AppendProtoLibraryHeaders(*build_file, result);
   }
 
   return result;
 }
 
-ProvidedFromTargetMap ExtractGeneratedFromGenrule(const ParsedProject &project,
-                                                  std::ostream &info_out) {
-  ProvidedFromTargetMap result;
+ProvidedFromTarget ExtractGeneratedFromGenrule(const ParsedProject &project,
+                                               std::ostream &info_out) {
+  ProvidedFromTarget result;
   for (const auto &[_, file_content] : project.ParsedFiles()) {
     if (!file_content->ast) continue;
     query::FindTargets(
@@ -263,12 +249,27 @@ ProvidedFromTargetMap ExtractGeneratedFromGenrule(const ParsedProject &project,
 
 void PrintProvidedSources(Session &session, const std::string &table_header,
                           const BazelPattern &pattern,
-                          const ProvidedFromTargetMap &provided_from_lib) {
+                          const ProvidedFromTarget &provided_from_lib) {
   auto printer = TablePrinter::Create(session.out(), session.output_format(),
                                       {table_header, "providing-rule"});
   for (const auto &[provided, lib] : provided_from_lib) {
     if (!pattern.Match(lib)) continue;
     printer->AddRow({provided, lib.ToString()});
+  }
+  printer->Finish();
+}
+
+void PrintProvidedSources(Session &session, const std::string &table_header,
+                          const BazelPattern &pattern,
+                          const ProvidedFromTargetSet &provided_from_lib) {
+  auto printer = TablePrinter::Create(session.out(), session.output_format(),
+                                      {table_header, "providing-rule"});
+  for (const auto &[provided, libs] : provided_from_lib) {
+    std::vector<std::string> list;
+    for (const BazelTarget &target : libs) {
+      if (pattern.Match(target)) list.push_back(target.ToString());
+    }
+    printer->AddRowWithRepeatedLastColumn({provided}, list);
   }
   printer->Finish();
 }

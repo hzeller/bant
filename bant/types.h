@@ -21,12 +21,16 @@
 #include <vector>
 
 #include "absl/container/btree_map.h"
+#include "absl/container/btree_set.h"
 
 // Some convenient types to emphasize the relationship rather than the
 // implementation.
 
 template <typename K, typename V>
 using OneToOne = absl::btree_map<K, V>;
+
+template <typename K, typename V>
+using OneToNSet = absl::btree_map<K, absl::btree_set<V>>;
 
 template <typename K, typename V>
 using OneToN = absl::btree_map<K, std::vector<V>>;

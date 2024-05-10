@@ -21,6 +21,7 @@
 #include <set>
 
 #include "absl/container/btree_map.h"
+#include "absl/container/btree_set.h"
 #include "bant/explore/header-providers.h"
 #include "bant/explore/query-utils.h"
 #include "bant/frontend/parsed-project.h"
@@ -59,14 +60,19 @@ class DWYUGenerator {
 
   // Given a bunch of sources, grep their content (using TryOpenFile() to
   // get it), and look up all targets providing them.
-  std::set<BazelTarget> DependenciesForIncludes(
-    Stat &stats, const BazelTarget &target, const ParsedBuildFile &build_file,
+  // For some, there can be alternatives, so this is a vector of sets.
+  // Report in "all_headers_accounted_for", that we found
+  // a library for each of the headers we have seen.
+  // This is important as only then we can confidently suggest removals in that
+  // target.
+  std::vector<absl::btree_set<BazelTarget>> DependenciesNeededBySources(
+    const BazelTarget &target, const ParsedBuildFile &build_file,
     const std::vector<std::string_view> &sources,
     bool *all_headers_accounted_for);
 
-  void CreateEditsForTarget(Stat &stats, const BazelTarget &self,
-                            const query::Result &target,
-                            const ParsedBuildFile &parsed_package);
+  void CreateEditsForTarget(const BazelTarget &target,
+                            const query::Result &details,
+                            const ParsedBuildFile &build_file);
 
   bool IsAlwayslink(const BazelTarget &target) const;
   bool CanSee(const BazelTarget &target, const BazelTarget &dep) const;
@@ -74,8 +80,8 @@ class DWYUGenerator {
   Session &session_;
   const ParsedProject &project_;
   const EditCallback emit_deps_edit_;
-  ProvidedFromTargetMap headers_from_libs_;
-  ProvidedFromTargetMap files_from_genrules_;
+  ProvidedFromTargetSet headers_from_libs_;
+  ProvidedFromTarget files_from_genrules_;
   absl::btree_map<BazelTarget, query::Result> known_libs_;
 };
 }  // namespace bant

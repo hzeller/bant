@@ -18,8 +18,8 @@
 #include "bant/tool/dwyu.h"
 
 #include <cstddef>
-#include <iostream>
 #include <optional>
+#include <sstream>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -39,6 +39,7 @@
 #include "gtest/gtest.h"
 
 using ::testing::ElementsAre;
+using ::testing::HasSubstr;
 
 namespace bant {
 
@@ -112,8 +113,15 @@ class TestableDWYUGenerator : public bant::DWYUGenerator {
 class DWYUTestFixture {
  public:
   explicit DWYUTestFixture(const ParsedProject &project)
-      : session_(MkSession()),
+      : session_{&log_messages_, &log_messages_, true, OutputFormat::kNative},
         dwyu_(session_, project, edit_expector_.checker()){};
+
+  ~DWYUTestFixture() {
+    // Make sure that if there is a log output that the test will look for it.
+    EXPECT_TRUE(log_content_requested_ || log_messages_.str().empty())
+      << "Encountered messages, but never requested output to check\n"
+      << log_messages_.str();
+  }
 
   EditExpector &ExpectAdd(std::string_view target) {
     return edit_expector_.ExpectAdd(target);
@@ -133,14 +141,17 @@ class DWYUTestFixture {
     dwyu_.CreateEditsForPattern(*pattern_or);
   }
 
- private:
-  static Session MkSession() {
-    return {&std::cerr, &std::cerr, true, OutputFormat::kNative};
+  std::string LogContent() {
+    log_content_requested_ = true;
+    return log_messages_.str();
   }
 
+ private:
+  std::stringstream log_messages_;
   Session session_;
   EditExpector edit_expector_;
   TestableDWYUGenerator dwyu_;
+  bool log_content_requested_{false};
 };
 }  // namespace
 
@@ -155,6 +166,7 @@ cc_library(
 
 cc_library(
   name = "bar",
+  hdrs = ["bar.h"],   # make sure to not self-add :bar
   srcs = ["bar.cc"],
   # needed :foo dependency not given
 )
@@ -163,8 +175,10 @@ cc_library(
   {
     DWYUTestFixture tester(pp.project());
     tester.ExpectAdd(":foo");
+    tester.AddSource("some/path/bar.h", "");
     tester.AddSource("some/path/bar.cc", R"(
 #include "some/path/foo.h"
+#include "some/path/bar.h"
 )");
     tester.RunForTarget("//some/path:bar");
   }
@@ -172,10 +186,85 @@ cc_library(
   {  // Files relative to current directory are properly handled.
     DWYUTestFixture tester(pp.project());
     tester.ExpectAdd(":foo");
+    tester.AddSource("some/path/bar.h", "");
     tester.AddSource("some/path/bar.cc", R"(
 #include "foo.h"
 )");
     tester.RunForTarget("//some/path:bar");
+    EXPECT_THAT(tester.LogContent(), HasSubstr("Consider FQN"));
+  }
+}
+
+TEST(DWYUTest, RequestUserGuidanceIfThereAreMultipleAlternatives) {
+  // Sometimes, there are multiple libraries providing the same
+  // header.
+
+  ParsedProjectTestUtil pp;
+  pp.Add("//path", R"(
+cc_library(
+  name = "foo-1",
+  hdrs = ["foo.h"]
+)
+
+cc_library(
+  name = "foo-2",
+  hdrs = ["foo.h"]   # provides the _same_ header as foo-1
+)
+
+cc_library(
+  name = "usefoo-1",
+  srcs = ["usefoo-1.cc"],
+  deps = [":foo-1"],    # choice of one of the alternatives
+)
+
+cc_library(
+  name = "usefoo-2",
+  srcs = ["usefoo-2.cc"],
+  deps = [":foo-2"],    # choice of one of the alternatives
+)
+
+cc_library(
+  name = "usefoo-all",
+  srcs = ["usefoo-all.cc"],
+  deps = [
+     ":foo-1",
+     ":foo-2",     # overconstrained, but will not be able to do anything about
+  ],
+)
+
+cc_library(
+  name = "usefoo-undecided",
+  srcs = ["usefoo-undecided.cc"],
+  # No deps added. Bant will also not be able to help.
+)
+)");
+
+  {
+    DWYUTestFixture tester(pp.project());
+    // No expects of add, as "foo-1" is used and it provides header.
+    tester.AddSource("path/usefoo-1.cc", R"(#include "path/foo.h")");
+    tester.RunForTarget("//path:usefoo-1");
+  }
+  {
+    DWYUTestFixture tester(pp.project());
+    // No expects of add, as "foo-2" is used and it provides header.
+    tester.AddSource("path/usefoo-2.cc", R"(#include "path/foo.h")");
+    tester.RunForTarget("//path:usefoo-2");
+  }
+
+  {
+    DWYUTestFixture tester(pp.project());
+    tester.AddSource("path/usefoo-all.cc", R"(#include "path/foo.h")");
+    tester.RunForTarget("//path:usefoo-all");
+    EXPECT_THAT(tester.LogContent(), HasSubstr("in a different dependency"));
+  }
+
+  {
+    DWYUTestFixture tester(pp.project());
+    // No expects of add, as it needs to be a user choice.
+    tester.AddSource("path/usefoo-undecided.cc", R"(#include "path/foo.h")");
+    tester.RunForTarget("//path:usefoo-undecided");
+    EXPECT_THAT(tester.LogContent(), HasSubstr("Alternatives are"));
   }
 }
 
@@ -357,6 +446,8 @@ cc_library(
 #include "some/path/some-unaccounted-header.h"
 )");
   tester.RunForTarget("//some/path:bar");
+  EXPECT_THAT(tester.LogContent(),
+              HasSubstr("some-unaccounted-header.h unaccounted for"));
 }
 
 TEST(DWYUTest, DoNotRemove_AlwayslinkDependency) {

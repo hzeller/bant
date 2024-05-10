@@ -28,6 +28,7 @@
 
 namespace bant {
 
+// Add time encountered in the scope to duration.
 class ScopedTimer {
  public:
   ScopedTimer(absl::Duration *to_update)
