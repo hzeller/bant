@@ -180,6 +180,7 @@ Commands (unique prefix sufficient):
  bant workspace         # List all the external projects listed in workspace.
  bant list-packages -r  # List all the build files, follow dependencies
  bant list-targets ...  # List all targets in this project
+ bant list-targets ... | grep cc_binary   # find all binaries built by project
  bant lib-headers       # For each header found in project, print exporting lib
  bant dwyu ...         # Look which headers are used and suggest add/remove deps
  . <(bant dwyu foo/...)  # YOLO oneliner: build_clean deps in package foo/...
