@@ -124,7 +124,8 @@ class TargetFinder : public BaseVisitor {
     // it was a glob), assume this is an alwayslink library, so it wouldn't be
     // considered for removal by DWYU (e.g. :gtest_main)
     // TODO: figure out what the actual semantics is in bazel.
-    if (current_.rule == "cc_library" && current_.hdrs_list == nullptr) {
+    if (current_.rule == "cc_library" &&
+        (!current_.hdrs_list || current_.hdrs_list->empty())) {
       current_.alwayslink = true;
     }
     if (current_.visibility == nullptr) {

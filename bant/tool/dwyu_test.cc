@@ -369,13 +369,22 @@ cc_library(
 cc_library(
   name = "bar",
   srcs = ["bar.cc"],
-  deps = [":foo"],
+  hdrs = [],   # list there, but empty.
+)
+
+cc_library(
+  name = "baz",
+  srcs = ["baz.cc"],
+  deps = [
+    ":foo",
+    ":bar",
+  ]
 )
 )");
 
   DWYUTestFixture tester(pp.project());
-  tester.AddSource("some/path/bar.cc", "/* no include */");
-  tester.RunForTarget("//some/path:bar");
+  tester.AddSource("some/path/baz.cc", "/* no include */");
+  tester.RunForTarget("//some/path:baz");
 }
 
 TEST(DWYUTest, Add_ProtoLibraryForProtoInclude) {
