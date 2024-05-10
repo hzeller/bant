@@ -54,23 +54,31 @@ class Scalar : public Node {
  public:
   enum class ScalarType { kInt, kString };
 
-  virtual std::string_view AsString() const { return ""; }
+  // Even if this is a number, this will contain the string representation
+  // as found in the file (or empty string if Scalar synthesized).
+  std::string_view AsString() const { return string_rep_; }
   virtual int64_t AsInt() const { return 0; }
 
   void Accept(Visitor *v) final;
   Scalar *CastAsScalar() final { return this; }
 
   virtual ScalarType type() = 0;
+
+ protected:
+  explicit Scalar(std::string_view value) : string_rep_(value) {}
+
+ private:
+  const std::string_view string_rep_;
 };
 
 class StringScalar : public Scalar {
  public:
   static StringScalar *FromLiteral(Arena *arena, std::string_view literal);
 
-  // Note: quotes around are removed, but potential escaping internally is
-  // preserved in this view and points to the original span in the file.
+  // Note: The return value of AsString() has quotes around removed,
+  // but potential escaping internally is preserved in this view and points
+  // to the original span in the file.
   // Depending on is_raw(), the consumer can make unescape decisions.
-  std::string_view AsString() const final { return value_; }
 
   // This is a raw string, i.e. all escape characters shall not be interpreted.
   bool is_raw() const { return is_raw_; }
@@ -81,9 +89,8 @@ class StringScalar : public Scalar {
  private:
   friend class Arena;
   StringScalar(std::string_view value, bool is_triple_quoted, bool is_raw)
-      : value_(value), is_triple_quoted_(is_triple_quoted), is_raw_(is_raw) {}
+      : Scalar(value), is_triple_quoted_(is_triple_quoted), is_raw_(is_raw) {}
 
-  std::string_view value_;
   bool is_triple_quoted_;
   bool is_raw_;
 };
@@ -92,12 +99,14 @@ class IntScalar : public Scalar {
  public:
   static IntScalar *FromLiteral(Arena *arena, std::string_view literal);
 
+  // AsString() will return the string representation as found in the file.
   int64_t AsInt() const final { return value_; }
   ScalarType type() final { return ScalarType::kInt; }
 
  private:
   friend class Arena;
-  explicit IntScalar(int64_t value) : value_(value) {}
+  IntScalar(std::string_view string_rep, int64_t value)
+      : Scalar(string_rep), value_(value) {}
 
   int64_t value_;
 };
@@ -155,14 +164,16 @@ class BinNode : public Node {
 // Operator is just the corresponding Token.
 class BinOpNode : public BinNode {
  public:
-  void Accept(Visitor *v) final;
+  void Accept(Visitor *v) override;
   TokenType op() const { return op_; }
 
   BinOpNode *CastAsBinOp() final { return this; }
 
+ protected:
+  BinOpNode(Node *lhs, Node *rhs, TokenType op) : BinNode(lhs, rhs), op_(op) {}
+
  private:
   friend class Arena;
-  BinOpNode(Node *lhs, Node *rhs, TokenType op) : BinNode(lhs, rhs), op_(op) {}
 
   const TokenType op_;
 };
@@ -228,7 +239,7 @@ class Ternary : public Node {
 };
 
 // Simple assignment: the only allowed lvalue is an identifier.
-class Assignment : public BinNode {
+class Assignment : public BinOpNode {
  public:
   Identifier *identifier() { return static_cast<Identifier *>(left_); }
   Node *value() { return right_; }
@@ -238,7 +249,7 @@ class Assignment : public BinNode {
  private:
   friend class Arena;
   Assignment(Identifier *identifier, Node *value)
-      : BinNode(identifier, value) {}
+      : BinOpNode(identifier, value, TokenType::kAssign) {}
 };
 
 // Function call.

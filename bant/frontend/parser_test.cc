@@ -24,6 +24,7 @@
 #include <string_view>
 #include <utility>
 
+#include "absl/log/die_if_null.h"
 #include "bant/frontend/ast.h"
 #include "bant/frontend/named-content.h"
 #include "bant/frontend/scanner.h"
@@ -48,7 +49,10 @@ class ParserTest : public testing::Test {
   StringScalar *Str(std::string_view s, bool triple = false, bool raw = false) {
     return arena_.New<StringScalar>(s, triple, raw);
   }
-  IntScalar *Int(int num) { return arena_.New<IntScalar>(num); }
+  IntScalar *Int(int num) { return arena_.New<IntScalar>("", num); }
+  IntScalar *Number(std::string_view fancy_literal) {
+    return IntScalar::FromLiteral(&arena_, fancy_literal);
+  }
   Identifier *Id(std::string_view i) { return arena_.New<Identifier>(i); }
   BinOpNode *Op(char op, Node *a, Node *b) {
     return Op(static_cast<TokenType>(op), a, b);
@@ -144,6 +148,19 @@ TEST_F(ParserTest, ParseEmpty) {
   EXPECT_TRUE(Parse("# just a comment without newline")->empty());
 }
 
+// Extract the scalar on the rhs of the assignment found in list [a = 123]
+static Scalar *ExtractScalar(bant::List *list) {
+  Node *first_element = ABSL_DIE_IF_NULL(*list->begin());
+  BinOpNode *assign = ABSL_DIE_IF_NULL(first_element->CastAsBinOp());
+  Node *rhs = ABSL_DIE_IF_NULL(assign->right());
+  return ABSL_DIE_IF_NULL(rhs->CastAsScalar());
+}
+
+TEST_F(ParserTest, IntConversion) {
+  EXPECT_EQ(ExtractScalar(Parse("a=0o123"))->AsInt(), 0123);
+  EXPECT_EQ(ExtractScalar(Parse("a=0xabc"))->AsInt(), 0xabc);
+}
+
 TEST_F(ParserTest, Assignments) {
   Node *const expected = List({
     Assign("foo", Str("regular_string", false, false)),
@@ -188,7 +205,7 @@ TEST_F(ParserTest, SimpleExpressions) {
      Assign("h1", UnaryOp(TokenType::kNot, Op(TokenType::kEqualityComparison,
                                               Id("a"), Id("b")))),
      Assign("i", Op(TokenType::kNotEqual, Id("a"), Id("b"))),
-     Assign("j", Int(0123)), Assign("k", Int(0xab))});
+     Assign("j", Number("0o123")), Assign("k", Number("0xab"))});
 
   EXPECT_EQ(Print(expected), Print(Parse(R"(
 a = 40 + 2

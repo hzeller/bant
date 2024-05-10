@@ -30,6 +30,7 @@
 namespace bant {
 IntScalar *IntScalar::FromLiteral(Arena *arena, std::string_view literal) {
   int64_t val = 0;
+  const std::string_view string_rep = literal;
   int base = 10;
   if (literal.size() >= 2) {
     switch (literal[1]) {
@@ -48,7 +49,7 @@ IntScalar *IntScalar::FromLiteral(Arena *arena, std::string_view literal) {
   if (result.ec != std::errc{}) {
     return nullptr;
   }
-  return arena->New<IntScalar>(val);
+  return arena->New<IntScalar>(string_rep, val);
 }
 
 StringScalar *StringScalar::FromLiteral(Arena *arena,
@@ -166,7 +167,11 @@ void PrintVisitor::VisitTernary(Ternary *t) {
 
 void PrintVisitor::VisitScalar(Scalar *s) {
   if (s->type() == Scalar::ScalarType::kInt) {
-    out_ << s->AsInt();
+    if (s->AsString().empty()) {
+      out_ << s->AsInt();
+    } else {
+      out_ << s->AsString();  // Keep original representation intact if avail.
+    }
   } else {
     const StringScalar *str = static_cast<StringScalar *>(s);
     if (str->is_raw()) out_ << "r";
