@@ -36,11 +36,12 @@ cc_library(
   name = "foo",
   srcs = ["foo.cc"],
   deps = [
-    "//some/path:bar",       # local package, so keep local :bar
-    "baz",                   # add colon prefix
-    "//flubber:flubber",     # can be shortened to //flubber
-    "//other/package:quux",  # should not change
-    "@foobar//:foobar",      # can be shortended to @foobar
+    "//some/path:bar",        # local package, so keep local :bar
+    "baz",                    # add colon prefix
+    "//flubber:flubber",      # can be shortened to //flubber
+    "//other/package:waldo",  # should not change
+    "@//other/package:qux",   # This has a superfluous '@' in front.
+    "@foobar//:foobar",       # can be shortended to @foobar
   ]
 )
 )");
@@ -50,6 +51,7 @@ cc_library(
   edit_expector.ExpectRename("baz", ":baz");
   edit_expector.ExpectRename("//some/path:bar", ":bar");
   edit_expector.ExpectRename("//flubber:flubber", "//flubber");
+  edit_expector.ExpectRename("@//other/package:qux", "//other/package:qux");
   edit_expector.ExpectRename("@foobar//:foobar", "@foobar");
   CreateCanonicalizeEdits(session, pp.project(), BazelPattern(),
                           edit_expector.checker());

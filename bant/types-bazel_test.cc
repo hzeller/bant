@@ -109,6 +109,13 @@ TEST(TypesBazel, ParsePackage) {
     auto q = BazelPackage::ParseFrom("@foo/bar/baz//abc");
     ASSERT_FALSE(q.has_value());
   }
+
+  // Empty project is just the regular project
+  {
+    const BazelPackage p = PackageOrDie("@//bar/baz");
+    EXPECT_EQ(p.project, "");
+    EXPECT_EQ(p.path, "bar/baz");
+  }
 }
 
 // bazel patterns can essentially be parsed with targets.

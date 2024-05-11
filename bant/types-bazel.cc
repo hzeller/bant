@@ -49,6 +49,9 @@ std::string BazelPackage::QualifiedFile(std::string_view relative_file) const {
   if (str[0] == '@') {
     project = str.substr(0, str.find_first_of('/'));
     path = str.substr(project.length());
+    if (project == "@") {
+      project = "";  // This is just our project package.
+    }
   } else {
     project = "";
     path = str;
