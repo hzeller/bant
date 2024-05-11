@@ -41,8 +41,7 @@ void CreateCanonicalizeEdits(Session &session, const ParsedProject &project,
     }
     const BazelPackage &current_package = parsed_package->package;
     query::FindTargets(
-      parsed_package->ast, {"cc_library", "cc_binary", "cc_test"},
-      [&](const query::Result &target) {
+      parsed_package->ast, {}, [&](const query::Result &target) {
         auto self = BazelTarget::ParseFrom(target.name, current_package);
         if (!self.has_value()) {
           return;

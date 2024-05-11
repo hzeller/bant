@@ -63,6 +63,21 @@ cc_library(
 )
 
 cc_test(
+    name = "canon-targets_test",
+    srcs = ["canon-targets_test.cc"],
+    deps = [
+        ":canon-targets",
+        ":edit-callback_testutil",
+        "//bant:session",
+        "//bant:types-bazel",
+        "//bant/frontend:parsed-project",
+        "//bant/frontend:parsed-project_testutil",
+        "@googletest//:gtest",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
     name = "dwyu_test",
     size = "small",
     srcs = ["dwyu_test.cc"],
