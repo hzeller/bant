@@ -224,6 +224,10 @@ bool DWYUGenerator::IsAlwayslink(const BazelTarget &target) const {
 
 bool DWYUGenerator::CanSee(const BazelTarget &target,
                            const BazelTarget &dep) const {
+  if (target.package == dep.package) {
+    // We can implicitly see all the targets in the same package.
+    return true;
+  }
   auto found = known_libs_.find(dep);
   if (found == known_libs_.end()) return true;  // Unknown ? Be Bold.
   const List *visibility_list = found->second.visibility;

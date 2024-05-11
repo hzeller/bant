@@ -260,6 +260,30 @@ cc_library(
   tester.RunForTarget("//some/path:bar");
 }
 
+TEST(DWYUTest, Add_AlwaysConsiderLocalPackagesVisible) {
+  ParsedProjectTestUtil pp;
+  pp.Add("//lib/path", R"(
+cc_library(
+  name = "foo",
+  srcs = ["foo.cc"],
+  hdrs = ["foo.h"],
+  visibility = ["//some/package:__pkg__"],   # but we should still see locally
+)
+
+cc_library(
+  name = "bar",
+  srcs = ["bar.cc"],
+
+)");
+
+  DWYUTestFixture tester(pp.project());
+  tester.ExpectAdd(":foo");
+  tester.AddSource("lib/path/bar.cc", R"(
+#include "lib/path/foo.h"
+)");
+  tester.RunForTarget("//lib/path:bar");
+}
+
 TEST(DWYUTest, DoNotAdd_IfNotVisibleDueToDefaultVisibility) {
   ParsedProjectTestUtil pp;
   pp.Add("//lib/path", R"(
