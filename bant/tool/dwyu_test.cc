@@ -273,7 +273,7 @@ cc_library(
 cc_library(
   name = "bar",
   srcs = ["bar.cc"],
-
+)
 )");
 
   DWYUTestFixture tester(pp.project());
