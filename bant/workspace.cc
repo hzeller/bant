@@ -17,7 +17,11 @@
 
 #include "bant/workspace.h"
 
+#include <array>
+#include <cstddef>
 #include <optional>
+#include <ostream>
+#include <sstream>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -84,9 +88,19 @@ bool BestEffortAugmentFromExternalDir(BazelWorkspace &workspace) {
 std::optional<BazelWorkspace> LoadWorkspace(Session &session) {
   bool workspace_found = false;
   BazelWorkspace workspace;
-  bool did_bazel_run_already_printed = false;
-  for (const std::string_view ws :
-       {"WORKSPACE", "WORKSPACE.bazel", "WORKSPACE.bzlmod", "MODULE.bazel"}) {
+
+  constexpr std::array<std::string_view, 4> ws_files = {
+    "WORKSPACE", "WORKSPACE.bazel",  //
+    "WORKSPACE.bzlmod", "MODULE.bazel"};
+
+  // We collect messages for old and new style workspaces separately.
+  std::stringstream old_workspace_msg;
+  std::stringstream new_workspace_msg;
+
+  for (size_t i = 0; i < ws_files.size(); ++i) {
+    const std::string_view ws = ws_files[i];
+    std::ostream &msg_stream = i < 2 ? old_workspace_msg : new_workspace_msg;
+
     std::optional<std::string> content = ReadFileToString(FilesystemPath(ws));
     if (!content.has_value()) continue;
     // TODO: maybe store the names_content for later use. Right now we only
@@ -132,13 +146,8 @@ std::optional<BazelWorkspace> LoadWorkspace(Session &session) {
         }
 
         if (!project_dir_found) {
-          named_content.Loc(session.info(), result.name)
+          named_content.Loc(msg_stream, result.name)
             << " Can't find extracted project '" << result.name << "'\n";
-          if (!did_bazel_run_already_printed) {
-            session.info() << "Note: need to run a bazel build at least once "
-                              "to extract external projects\n";
-            did_bazel_run_already_printed = true;
-          }
           return;
         }
 
@@ -148,6 +157,16 @@ std::optional<BazelWorkspace> LoadWorkspace(Session &session) {
         project.version = result.version;
         workspace.project_location[project] = path;
       });
+  }
+
+  // Only if there are issues in old _and_ new workspace set-up, it indicates
+  // that workspace have not be expanded yet by bazel.
+  if (!old_workspace_msg.str().empty() && !new_workspace_msg.str().empty()) {
+    // Old and new workspace both had issues.
+    session.info() << old_workspace_msg.str();
+    session.info() << new_workspace_msg.str();
+    session.info() << "Note: need to run a bazel build at least once "
+                      "to extract external projects\n";
   }
   if (!workspace_found) return std::nullopt;
   return workspace;
