@@ -93,6 +93,8 @@ class TargetFinder : public BaseVisitor {
         current_.version = scalar->AsString();
       } else if (lhs == "repo_name") {
         current_.repo_name = scalar->AsString();
+      } else if (lhs == "actual") {
+        current_.actual = scalar->AsString();
       }
     } else if (List *list = a->value()->CastAsList()) {
       if (lhs == "hdrs") {

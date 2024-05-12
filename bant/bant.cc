@@ -42,6 +42,7 @@ int getopt(int, char *const *, const char *);  // NOLINT
 #include <vector>
 
 #include "absl/strings/str_cat.h"
+#include "bant/explore/aliased-by.h"
 #include "bant/explore/dependency-graph.h"
 #include "bant/explore/header-providers.h"
 #include "bant/explore/query-utils.h"
@@ -96,6 +97,8 @@ Commands (unique prefix sufficient):
                      → 2 column table: (buildfile, package)
     list-targets   : List BUILD file locations of rules with matching targets
                      → 3 column table: (buildfile:location, ruletype, target)
+    aliased-by     : List targets and the various aliases pointing to it.
+                     → 2 column table: (actual, alias*)
     depends-on     : List cc library targets and the libraries they depend on
                      → 2 column table: (target, dependency*)
     has-dependent  : List cc library targets and the libraries that depend on it
@@ -175,6 +178,7 @@ int main(int argc, char *argv[]) {
     kListTargets,
     kListWorkkspace,
     kLibraryHeaders,
+    kAliasedBy,
     kGenruleOutputs,
     kDependencyEdits,
     kCanonicalizeDeps,
@@ -188,6 +192,7 @@ int main(int argc, char *argv[]) {
     {"list-targets", Command::kListTargets},
     {"workspace", Command::kListWorkkspace},
     {"lib-headers", Command::kLibraryHeaders},
+    {"aliased-by", Command::kAliasedBy},
     {"depends-on", Command::kDependsOn},
     {"has-dependents", Command::kHasDependents},
     {"genrule-outputs", Command::kGenruleOutputs},
@@ -441,14 +446,19 @@ int main(int argc, char *argv[]) {
     printer->Finish();
   } break;
 
+  case Command::kAliasedBy:
+    PrintOneToN(session, print_pattern, bant::ExtractAliasedBy(project),  //
+                "actual", "aliased-by");
+    break;
+
   case Command::kDependsOn:
-    PrintOneToN(session, print_pattern, graph.depends_on, "library",
-                "depends-on");
+    PrintOneToN(session, print_pattern, graph.depends_on,  //
+                "library", "depends-on");
     break;
 
   case Command::kHasDependents:
-    PrintOneToN(session, print_pattern, graph.has_dependents, "library",
-                "has-dependent");
+    PrintOneToN(session, print_pattern, graph.has_dependents,  //
+                "library", "has-dependent");
     break;
 
   case Command::kNone:  // nop (implicitly done by parsing)

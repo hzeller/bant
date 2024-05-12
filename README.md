@@ -156,6 +156,8 @@ Commands (unique prefix sufficient):
                      → 2 column table: (buildfile, package)
     list-targets   : List BUILD file locations of rules with matching targets
                      → 3 column table: (buildfile:location, ruletype, target)
+    aliased-by     : List targets and the various aliases pointing to it.
+                     → 2 column table: (actual, alias*)
     depends-on     : List cc library targets and the libraries they depend on
                      → 2 column table: (target, dependency*)
     has-dependent  : List cc library targets and the libraries that depend on it

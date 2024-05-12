@@ -41,10 +41,17 @@ cc_test(
     ],
 )
 
+# TODO: rename header-providers source and the overall library
 cc_library(
     name = "header-providers",
-    srcs = ["header-providers.cc"],
-    hdrs = ["header-providers.h"],
+    srcs = [
+        "aliased-by.cc",
+        "header-providers.cc",
+    ],
+    hdrs = [
+        "aliased-by.h",
+        "header-providers.h",
+    ],
     deps = [
         ":query-utils",
         "//bant:session",
