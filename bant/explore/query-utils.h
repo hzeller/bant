@@ -36,6 +36,7 @@ struct Result {
   std::string_view actual;     // for aliases.
   std::string_view version;    // in bazel_dep()
   std::string_view repo_name;  // in bazel_dep()
+  std::string_view deprecation;
   List *srcs_list = nullptr;
   List *hdrs_list = nullptr;
   List *textual_hdrs = nullptr;

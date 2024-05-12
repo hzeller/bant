@@ -287,6 +287,42 @@ cc_library(
   }
 }
 
+// A typical situation: using an alias to point to a new library, and mark
+// that alias deprecated. Even though the library and the alias are now
+// an alternative, this keeps the new library the only viable alternative.
+TEST(DWYUTest, ChooseNonDeprecatedAlternative) {
+  ParsedProjectTestUtil pp;
+  pp.Add("//some/lib", R"(
+alias(
+  name = "deprecated_foo",
+  actual = ":new_foo",
+  deprecation = "This note makes sure it is not considered an alternative",
+)
+
+cc_library(
+  name = "new_foo",
+  srcs = ["foo.cc"],
+  hdrs = ["foo.h"],
+)
+)");
+
+  pp.Add("//user", R"(
+cc_binary(
+   name = "hello",
+   srcs = ["hello.cc"],
+   deps = ["//some/lib:deprecated_foo"],
+)
+)");
+
+  {
+    DWYUTestFixture tester(pp.project());
+    tester.ExpectAdd("//some/lib:new_foo");
+    tester.ExpectRemove("//some/lib:deprecated_foo");
+    tester.AddSource("user/hello.cc", R"(#include "some/lib/foo.h")");
+    tester.RunForTarget("//user:hello");
+  }
+}
+
 TEST(DWYUTest, Add_MissingDependencyInDifferentPackage) {
   ParsedProjectTestUtil pp;
   pp.Add("//lib/path", R"(

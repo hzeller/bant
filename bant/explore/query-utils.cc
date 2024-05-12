@@ -95,6 +95,8 @@ class TargetFinder : public BaseVisitor {
         current_.repo_name = scalar->AsString();
       } else if (lhs == "actual") {
         current_.actual = scalar->AsString();
+      } else if (lhs == "deprecation") {
+        current_.deprecation = scalar->AsString();
       }
     } else if (List *list = a->value()->CastAsList()) {
       if (lhs == "hdrs") {

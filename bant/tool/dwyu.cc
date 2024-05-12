@@ -250,7 +250,7 @@ void DWYUGenerator::InitKnownLibraries() {
   for (const auto &[_, parsed_package] : project_.ParsedFiles()) {
     const BazelPackage &current_package = parsed_package->package;
     query::FindTargets(parsed_package->ast,
-                       {"cc_library", "cc_proto_library"},  //
+                       {"cc_library", "cc_proto_library", "alias"},  //
                        [&](const query::Result &target) {
                          auto self = BazelTarget::ParseFrom(
                            absl::StrCat(":", target.name), current_package);
@@ -277,6 +277,10 @@ bool DWYUGenerator::CanSee(const BazelTarget &target,
   }
   auto found = known_libs_.find(dep);
   if (found == known_libs_.end()) return true;  // Unknown ? Be Bold.
+  if (!found->second.deprecation.empty()) {
+    // Consider a library with a deprecation as not visible.
+    return false;
+  }
   const List *visibility_list = found->second.visibility;
   if (!visibility_list) return true;
   for (Node *entry : *visibility_list) {
