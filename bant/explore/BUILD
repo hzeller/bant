@@ -52,6 +52,7 @@ cc_library(
         "//bant:types-bazel",
         "//bant/frontend:parsed-project",
         "//bant/util:table-printer",
+        "@abseil-cpp//absl/container:btree",
         "@abseil-cpp//absl/strings",
     ],
 )

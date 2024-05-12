@@ -37,6 +37,7 @@ struct Result {
   std::string_view repo_name;  // in bazel_dep()
   List *srcs_list = nullptr;
   List *hdrs_list = nullptr;
+  List *textual_hdrs = nullptr;
   List *deps_list = nullptr;
   List *outs_list = nullptr;              // genrule.
   List *visibility = nullptr;             // from rule or default_visibility

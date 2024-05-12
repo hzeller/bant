@@ -107,6 +107,8 @@ class TargetFinder : public BaseVisitor {
         current_.outs_list = list;
       } else if (lhs == "visibility") {
         current_.visibility = list;
+      } else if (lhs == "textual_hdrs") {
+        current_.textual_hdrs = list;
       }
     } else if (Identifier *id = a->value()->CastAsIdentifier()) {
       // If alwayslink has been a 'True' constant, the constant expression

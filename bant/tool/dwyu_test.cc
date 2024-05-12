@@ -573,4 +573,49 @@ cc_library(
   tester.ExpectRemove(":foo_proto_lib");
   tester.RunForTarget("//some/path:bar");
 }
+
+// In absl/strings:string_view, there is the string_view.h exported.
+// But it is _also_ exported by absl/strings:strings but with the remark
+// that this is only there for backward compatibility. In fact, it is
+// mentioned twice, in hdrs and in textual_hdrs.
+// We use this fact for bant to correctly suggest the :string_view
+// library. Below, situation re-created.
+TEST(DWYUTest, Add_AbslStringViewWorkaround) {
+  ParsedProjectTestUtil pp;
+  pp.Add("//lsba", R"(
+cc_library(
+  name = "string_view",
+  hdrs = ["string_view.h"]  # The actual place definining header
+)
+
+cc_library(
+  name = "strings",
+  hdrs = [
+    "str_cat.h",
+    "string_view.h"         # But also defined here
+  ],
+  textual_hdrs = [
+    "string_view.h"         # ... also here. This is how we detect.
+  ],
+)
+
+cc_binary(
+  name = "string-user",
+  srcs = ["string-user.cc"],
+  # expecting deps added
+)
+)");
+
+  {
+    DWYUTestFixture tester(pp.project());
+    tester.ExpectAdd(":strings");
+    tester.ExpectAdd(":string_view");
+    tester.AddSource("lsba/string-user.cc", R"(
+#include "lsba/str_cat.h"
+#include "lsba/string_view.h"
+)");
+    tester.RunForTarget("//lsba:string-user");
+  }
+}
+
 }  // namespace bant

@@ -24,6 +24,7 @@
 #include <string_view>
 #include <vector>
 
+#include "absl/container/btree_set.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "bant/explore/query-utils.h"
@@ -49,8 +50,23 @@ static void IterateCCLibraryHeaders(const ParsedBuildFile &build_file,
       auto cc_library = BazelTarget::ParseFrom(cc_lib.name, build_file.package);
       if (!cc_library.has_value()) return;
 
+      // HACK...
+      // In absl/strings:string_view, there is the string_view.h exported.
+      // But it is _also_ exported by absl/strings:strings but with the remark
+      // that this is only there for backward compatibility. In fact, it is
+      // mentioned twice, in hdrs and in textual_hdrs.
+      // We use this fact below to skip headers mentiond in hdrs and _also_
+      // mentioned in textual_hdrs to essentially disregard them.
+      // This way, we get the desired behavior of bant suggesting to use
+      // the :string_view library.
+      const auto textual_hdrs = query::ExtractStringList(cc_lib.textual_hdrs);
+      const absl::btree_set<std::string_view> absl_fudge(textual_hdrs.begin(),
+                                                         textual_hdrs.end());
+
       const auto headers = query::ExtractStringList(cc_lib.hdrs_list);
       for (const std::string_view header : headers) {
+        if (absl_fudge.contains(header)) continue;
+
         if (!cc_lib.include_prefix.empty()) {  // cc_library() dictates path.
           callback(*cc_library, header,
                    absl::StrCat(cc_lib.include_prefix, "/", header));
