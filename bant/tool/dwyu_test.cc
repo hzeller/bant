@@ -233,19 +233,29 @@ cc_library(
 )
 
 cc_library(
+  name = "usefoo-duplicate",
+  srcs = ["usefoo-duplicate.cc"],
+  deps = [
+     ":foo-1",
+     ":foo-1",    # duplicate
+  ],
+)
+
+cc_library(
   name = "usefoo-undecided",
   srcs = ["usefoo-undecided.cc"],
   # No deps added. Bant will also not be able to help.
 )
 )");
 
-  {
+  { // Uses one of the libraries providing foo.h header. Satisfied.
     DWYUTestFixture tester(pp.project());
     // No expects of add, as "foo-1" is used and it provides header.
     tester.AddSource("path/usefoo-1.cc", R"(#include "path/foo.h")");
     tester.RunForTarget("//path:usefoo-1");
   }
-  {
+
+  {  // Uses the other of the libraries providing foo.h header. Satisfied.
     DWYUTestFixture tester(pp.project());
     // No expects of add, as "foo-2" is used and it provides header.
     tester.AddSource("path/usefoo-2.cc", R"(#include "path/foo.h")");
@@ -253,13 +263,22 @@ cc_library(
   }
 
   {
+    // Attempt to add same dependency twice.
     DWYUTestFixture tester(pp.project());
-    tester.AddSource("path/usefoo-all.cc", R"(#include "path/foo.h")");
-    tester.RunForTarget("//path:usefoo-all");
-    EXPECT_THAT(tester.LogContent(), HasSubstr("in a different dependency"));
+    tester.AddSource("path/usefoo-duplicate.cc", R"(#include "path/foo.h")");
+    tester.RunForTarget("//path:usefoo-duplicate");
+    EXPECT_THAT(tester.LogContent(), HasSubstr("mentioned multiple times"));
   }
 
   {
+    // Add _all_ dependencies that provide the same header. Maybe not intended ?
+    DWYUTestFixture tester(pp.project());
+    tester.AddSource("path/usefoo-all.cc", R"(#include "path/foo.h")");
+    tester.RunForTarget("//path:usefoo-all");
+    EXPECT_THAT(tester.LogContent(), HasSubstr("in dependency //path:foo-1"));
+  }
+
+  { // Known dependencies, but they are alternatives. Need to delegate to user.
     DWYUTestFixture tester(pp.project());
     // No expects of add, as it needs to be a user choice.
     tester.AddSource("path/usefoo-undecided.cc", R"(#include "path/foo.h")");

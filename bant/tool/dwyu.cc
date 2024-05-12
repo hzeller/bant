@@ -112,13 +112,15 @@ void DWYUGenerator::CreateEditsForTarget(const BazelTarget &target,
   // Grep for all includes they use to determine which deps we need
   auto deps_needed = DependenciesNeededBySources(target, build_file, sources,
                                                  &all_header_deps_known);
-  absl::btree_set<BazelTarget> checked_off;
+  OneToOne<BazelTarget, BazelTarget> checked_off_by;
 
   auto IsNeededInSourcesAndCheckOff = [&](const BazelTarget &target) -> bool {
     for (auto it = deps_needed.begin(); it != deps_needed.end(); ++it) {
       if (it->contains(target)) {
-        checked_off.insert(it->begin(), it->end());
-        deps_needed.erase(it);  // Remove the whole alternative set.
+        for (const BazelTarget &check : *it) {
+          checked_off_by.insert({check, target});  // remember what checked off.
+        }
+        deps_needed.erase(it);  // alternatives satisifed. Remove.
         return true;
       }
     }
@@ -146,12 +148,18 @@ void DWYUGenerator::CreateEditsForTarget(const BazelTarget &target,
       continue;
     }
 
-    if (checked_off.contains(*requested_target)) {
-      build_file.source.Loc(session_.info(), dependency_target)
-        << ": " << dependency_target
-        << " provides headers already provided in a different "
-        << "dependency before. "
-        << "Multiple libraries providing the same headers ?\n";
+    if (checked_off_by.contains(*requested_target)) {
+      const BazelTarget &previously = checked_off_by[*requested_target];
+      if (previously == *requested_target) {
+        build_file.source.Loc(session_.info(), dependency_target)
+          << ": " << dependency_target
+          << " same dependency mentioned multiple times. Run buildifier\n";
+      } else {
+        build_file.source.Loc(session_.info(), dependency_target)
+          << ": " << dependency_target
+          << " provides headers already provided in dependency " << previously
+          << " before. Multiple libraries providing the same headers ?\n";
+      }
       continue;
     }
 
