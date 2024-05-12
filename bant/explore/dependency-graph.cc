@@ -177,15 +177,19 @@ DependencyGraph BuildDependencyGraph(Session &session,
     deps_to_resolve_todo = next_round_deps_to_resolve_todo;
   } while (!deps_to_resolve_todo.empty() && (nesting_depth-- > 0));
 
-  if (!error_packages.empty()) {
-    PrintList(session.info(), "Trouble finding packages\n", error_packages);
-  }
-
-  if (session.verbose() && !error_targets.empty()) {
+  if (session.verbose()) {
     // Currently, we have a lot of targets that we don't deal with yet, such as
     // genrules or protobuffer rules. Goal: should be zero.
     // But for now: hide behind 'verbose' flag, to not be too noisy.
-    PrintList(session.info(), "Could not find these Targets\n", error_targets);
+    if (!error_packages.empty()) {
+      PrintList(session.info(), "Dependcy graph: Did not find these packages\n",
+                error_packages);
+    }
+    if (!error_targets.empty()) {
+      PrintList(session.info(),
+                "Dependency graph: Did not find these targets\n",
+                error_targets);
+    }
   }
 
   return graph;
