@@ -36,6 +36,7 @@
 
 #include "absl/container/btree_set.h"
 #include "absl/strings/str_cat.h"
+#include "bant/explore/aliased-by.h"
 #include "bant/explore/header-providers.h"
 #include "bant/explore/query-utils.h"
 #include "bant/frontend/ast.h"
@@ -94,6 +95,7 @@ DWYUGenerator::DWYUGenerator(Session &session, const ParsedProject &project,
 
   headers_from_libs_ = ExtractHeaderToLibMapping(project, session.info());
   files_from_genrules_ = ExtractGeneratedFromGenrule(project, session.info());
+  aliased_by_ = ExtractAliasedBy(project);
   InitKnownLibraries();
   stats.count = known_libs_.size();
 }
@@ -310,10 +312,28 @@ DWYUGenerator::DependenciesNeededBySources(
     for (const BazelTarget &t : alternatives) {
       any_already_provided |= !already_provided.insert(t).second;
     }
-    if (!any_already_provided) {
-      result.emplace_back(alternatives);
+    if (any_already_provided) return;
+
+    auto &result_set = result.emplace_back();
+    // Add all visible alternatives as well as all aliases pointing to these.
+    for (const BazelTarget &t : alternatives) {
+      if (CanSee(target, t)) {
+        result_set.insert(t);
+      }
+      const auto &found_alias = aliased_by_.find(t);
+      if (found_alias != aliased_by_.end()) {
+        for (const BazelTarget &alias : found_alias->second) {
+          if (CanSee(target, alias)) {
+            result_set.insert(alias);
+          }
+        }
+      }
+    }
+    if (result_set.empty()) {  // No visible targets.
+      result.pop_back();
     }
   };
+
   for (const std::string_view src_name : sources) {
     const std::string source_file = build_file.package.QualifiedFile(src_name);
     auto source_content = TryOpenFile(source_file);
