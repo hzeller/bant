@@ -18,10 +18,13 @@
 #ifndef BANT_TYPES_BAZEL_
 #define BANT_TYPES_BAZEL_
 
+#include <memory>
 #include <optional>
 #include <ostream>
 #include <string>
 #include <string_view>
+
+#include "re2/re2.h"
 
 namespace bant {
 // Something like //foo/bar or @baz//foo/bar
@@ -108,20 +111,27 @@ class BazelPattern {
   }
   bool is_matchall() const { return kind_ == MatchKind::kAlwaysMatch; }
 
-  const std::string &path() const { return target_pattern_.package.path; }
-  const std::string &project() const { return target_pattern_.package.project; }
+  const std::string &path() const { return match_pattern_.package.path; }
+  const std::string &project() const { return match_pattern_.package.project; }
 
   bool Match(const BazelTarget &target) const;
-  bool Match(const BazelPackage &target) const;
+  bool Match(const BazelPackage &package) const;
 
  private:
-  enum class MatchKind { kExact, kAllInPackage, kRecursive, kAlwaysMatch };
+  enum class MatchKind {
+    kExact,
+    kTargetRegex,
+    kAllTargetInPackage,
+    kRecursive,
+    kAlwaysMatch
+  };
 
   static std::optional<BazelPattern> ParseFrom(std::string_view pattern,
                                                const BazelPackage &context);
 
-  BazelPattern(BazelTarget pattern, MatchKind kind);
-  BazelTarget target_pattern_;
+  BazelPattern(BazelTarget pattern, MatchKind kind, std::unique_ptr<RE2> regex);
+  BazelTarget match_pattern_;
+  std::shared_ptr<RE2> regex_pattern_;  // shared: makes it copyable.
   MatchKind kind_;
 };
 }  // namespace bant

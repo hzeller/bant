@@ -185,6 +185,7 @@ Commands (unique prefix sufficient):
  bant list-targets ... | grep cc_binary   # find all binaries built by project
  bant lib-headers       # For each header found in project, print exporting lib
  bant dwyu ...         # Look which headers are used and suggest add/remove deps
+ bant print bant/tool:*_test  # Print all targets ending with _test
  . <(bant dwyu foo/...)  # YOLO oneliner: build_clean deps in package foo/...
                          # by sourcing the emitted buildozer edit script.
 ```

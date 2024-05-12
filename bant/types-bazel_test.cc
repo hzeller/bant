@@ -312,6 +312,41 @@ TEST(TypesBazel, CheckPatternTargetMatch) {
 
   EXPECT_TRUE(PatternOrDie("//foo").Match(TargetOrDie("//foo")));
   EXPECT_TRUE(PatternOrDie("//foo/...").Match(TargetOrDie("//foo/")));
+
+  // All in package match
+  EXPECT_TRUE(PatternOrDie("//foo:all").Match(TargetOrDie("//foo:bar")));
+  EXPECT_TRUE(PatternOrDie("//foo:all").Match(TargetOrDie("//foo:baz")));
+  EXPECT_TRUE(PatternOrDie("//foo:*").Match(TargetOrDie("//foo:baz")));
+  EXPECT_TRUE(PatternOrDie("//foo:__pkg__").Match(TargetOrDie("//foo:baz")));
+
+  // Exact match
+  EXPECT_TRUE(PatternOrDie("//foo:bar").Match(TargetOrDie("//foo:bar")));
+  EXPECT_FALSE(PatternOrDie("//foo:bar").Match(TargetOrDie("//foo:baz")));
+
+  // Globbing match
+  EXPECT_TRUE(PatternOrDie("//foo:*bar").Match(TargetOrDie("//foo:bar")));
+  EXPECT_FALSE(PatternOrDie("//foo:*bar").Match(TargetOrDie("//foo:baz")));
+  EXPECT_TRUE(PatternOrDie("//foo:*bar").Match(TargetOrDie("//foo:foobar")));
+  EXPECT_TRUE(PatternOrDie("//foo:*bar").Match(TargetOrDie("//foo:whiskybar")));
+  EXPECT_FALSE(PatternOrDie("//foo:*bar").Match(TargetOrDie("//foo:barquux")));
+
+  // At end.
+  EXPECT_TRUE(PatternOrDie("//foo:ba*").Match(TargetOrDie("//foo:bar")));
+  EXPECT_TRUE(PatternOrDie("//foo:ba*").Match(TargetOrDie("//foo:baz")));
+  EXPECT_FALSE(PatternOrDie("//foo:ba*").Match(TargetOrDie("//foo:quux")));
+
+  // Middle.
+  EXPECT_TRUE(PatternOrDie("//foo:b*r").Match(TargetOrDie("//foo:bar")));
+  EXPECT_TRUE(PatternOrDie("//foo:b*r").Match(TargetOrDie("//foo:bazaar")));
+  EXPECT_FALSE(PatternOrDie("//foo:b*r").Match(TargetOrDie("//foo:baz")));
+
+  // Multiple.
+  EXPECT_TRUE(PatternOrDie("//foo:b*r*k").Match(TargetOrDie("//foo:break")));
+  EXPECT_TRUE(
+    PatternOrDie("//foo:b*r*k").Match(TargetOrDie("//foo:be_right_back")));
+  EXPECT_FALSE(
+    PatternOrDie("//foo:b*r*k").Match(TargetOrDie("//foo:ill_be_back")));
+
   // Should the following work ?
   // EXPECT_TRUE(PatternOrDie("//foo").Match(TargetOrDie("//foo/")));
 }

@@ -17,6 +17,9 @@
 
 #include "bant/types-bazel.h"
 
+#include <cstddef>
+#include <iostream>
+#include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -26,6 +29,7 @@
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_split.h"
+#include "re2/re2.h"
 
 namespace bant {
 std::string BazelPackage::ToString() const {
@@ -154,7 +158,8 @@ std::optional<BazelPattern> BazelPattern::ParseVisibility(
   if (pattern == "//visibility:private") {
     auto visibility_context = BazelTarget::ParseFrom("", context);
     if (!visibility_context.has_value()) return std::nullopt;
-    return BazelPattern(*visibility_context, MatchKind::kAllInPackage);
+    return BazelPattern(*visibility_context, MatchKind::kAllTargetInPackage,
+                        nullptr);
   }
   // HACK for now: until we understand package_groups, let everything that
   // does not look like a pattern be always-match
@@ -169,18 +174,37 @@ std::optional<BazelPattern> BazelPattern::ParseFrom(std::string_view pattern) {
   return ParseFrom(pattern, empty_context);
 }
 
+static std::unique_ptr<RE2> GlobbingToRE2(std::string_view glob) {
+  std::string assembled;
+  bool is_first = true;
+  for (;;) {
+    const size_t pos = glob.find_first_of('*');
+    if (pos == std::string_view::npos) break;
+    absl::StrAppend(&assembled, RE2::QuoteMeta(glob.substr(0, pos)));
+    if (is_first || pos > 0) {  // suppress multiple ** in a row.
+      absl::StrAppend(&assembled, ".*");
+    }
+    glob = glob.substr(pos + 1);
+    is_first = false;
+  }
+  absl::StrAppend(&assembled, glob);
+  return std::make_unique<RE2>(assembled);
+}
+
 std::optional<BazelPattern> BazelPattern::ParseFrom(
   std::string_view pattern, const BazelPackage &context) {
   auto target = BazelTarget::ParseFrom(pattern, context);
   if (!target.has_value()) return std::nullopt;
 
+  std::unique_ptr<RE2> regex;
   BazelTarget target_pattern = target.value();
   MatchKind kind = MatchKind::kExact;
-  if (target_pattern.target_name == "__pkg__" ||
-      target_pattern.target_name == "all") {
+  if (target_pattern.target_name == "__pkg__" ||  // typical in visibility
+      target_pattern.target_name == "all" ||      // typical in cmd line
+      target_pattern.target_name == "*") {        // trivial glob pattern
     target_pattern.target_name.clear();
-    kind = MatchKind::kAllInPackage;
-  } else if (target_pattern.target_name == "__subpackages__") {
+    kind = MatchKind::kAllTargetInPackage;
+  } else if (target_pattern.target_name == "__subpackages__") {  // visibility
     target_pattern.target_name.clear();
     kind = MatchKind::kRecursive;
   } else if (target_pattern.package.path == "..." ||
@@ -191,47 +215,71 @@ std::optional<BazelPattern> BazelPattern::ParseFrom(
     }
     target_pattern.target_name.clear();
     kind = MatchKind::kRecursive;
-  } else if (target_pattern.target_name == "...") {
+  } else if (target_pattern.target_name == "...") {  // toplevel project match
     if (!target_pattern.package.path.empty()) {
-      return std::nullopt;
+      // The following should probably not be needed.
+      return std::nullopt;  // Don't allow external packages.
     }
     target_pattern.target_name.clear();
     kind = MatchKind::kRecursive;
+  } else if (target_pattern.target_name.contains('*')) {
+    // Allow simplified globbing pattern.
+    regex = GlobbingToRE2(target_pattern.target_name);
+    if (!regex->ok()) {
+      std::cerr << "Pattern issue " << regex->error() << "\n";
+      return std::nullopt;
+    }
+    target_pattern.target_name.clear();
+    kind = MatchKind::kTargetRegex;
   } else {
     kind = MatchKind::kExact;
   }
 
-  return BazelPattern(target_pattern, kind);
+  return BazelPattern(target_pattern, kind, std::move(regex));
 }
 
-BazelPattern::BazelPattern(BazelTarget pattern, MatchKind kind)
-    : target_pattern_(std::move(pattern)), kind_(kind) {}
+BazelPattern::BazelPattern(BazelTarget pattern, MatchKind kind,
+                           std::unique_ptr<RE2> regex)
+    : match_pattern_(std::move(pattern)),
+      regex_pattern_(std::move(regex)),
+      kind_(kind) {}
 
 bool BazelPattern::Match(const BazelTarget &target) const {
   switch (kind_) {
   case MatchKind::kAlwaysMatch:  //
     return true;
-  case MatchKind::kExact: return target == target_pattern_;
-  case MatchKind::kAllInPackage:
-    return target.package == target_pattern_.package;
+  case MatchKind::kExact: {
+    return target == match_pattern_;
+  }
+  case MatchKind::kTargetRegex:
+    if (target.package != match_pattern_.package) {
+      return false;
+    }
+    return RE2::FullMatch(target.target_name, *regex_pattern_);
+  case MatchKind::kAllTargetInPackage: {
+    return target.package == match_pattern_.package;
+  }
   case MatchKind::kRecursive: return Match(target.package);
   }
   return false;
 }
 
-bool BazelPattern::Match(const BazelPackage &target) const {
+bool BazelPattern::Match(const BazelPackage &package) const {
   switch (kind_) {
   case MatchKind::kAlwaysMatch:  //
     return true;
   case MatchKind::kExact:
-  case MatchKind::kAllInPackage: return target == target_pattern_.package;
+  case MatchKind::kTargetRegex:  // Target matches don't affect package match.
+  case MatchKind::kAllTargetInPackage: {
+    return package == match_pattern_.package;
+  }
   case MatchKind::kRecursive: {
-    if (target.project != target_pattern_.package.project) {
+    if (package.project != match_pattern_.package.project) {
       return false;
     }
-    const std::string &me = target_pattern_.package.path;
+    const std::string &me = match_pattern_.package.path;
     if (me.empty()) return true;
-    const std::string &to_match = target.path;
+    const std::string &to_match = package.path;
     return to_match.starts_with(me) && (me.length() == to_match.length() ||
                                         to_match.at(me.length()) == '/');
   }

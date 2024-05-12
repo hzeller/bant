@@ -48,7 +48,10 @@ cc_library(
     hdrs = [
         "types-bazel.h",
     ],
-    deps = ["@abseil-cpp//absl/strings"],
+    deps = [
+        "@abseil-cpp//absl/strings",
+        "@re2",
+    ],
 )
 
 cc_test(
