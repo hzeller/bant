@@ -45,6 +45,7 @@
 #include "bant/tool/dwyu-internal.h"
 #include "bant/tool/edit-callback.h"
 #include "bant/types-bazel.h"
+#include "bant/types.h"
 #include "bant/util/file-utils.h"
 #include "bant/util/stat.h"
 #include "re2/re2.h"

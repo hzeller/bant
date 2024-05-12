@@ -34,6 +34,7 @@ cc_library(
     deps = [
         ":edit-callback",
         "//bant:session",
+        "//bant:types",
         "//bant:types-bazel",
         "//bant/explore:header-providers",
         "//bant/explore:query-utils",

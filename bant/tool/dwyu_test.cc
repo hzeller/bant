@@ -248,7 +248,7 @@ cc_library(
 )
 )");
 
-  { // Uses one of the libraries providing foo.h header. Satisfied.
+  {  // Uses one of the libraries providing foo.h header. Satisfied.
     DWYUTestFixture tester(pp.project());
     // No expects of add, as "foo-1" is used and it provides header.
     tester.AddSource("path/usefoo-1.cc", R"(#include "path/foo.h")");
@@ -278,7 +278,7 @@ cc_library(
     EXPECT_THAT(tester.LogContent(), HasSubstr("in dependency //path:foo-1"));
   }
 
-  { // Known dependencies, but they are alternatives. Need to delegate to user.
+  {  // Known dependencies, but they are alternatives. Need to delegate to user.
     DWYUTestFixture tester(pp.project());
     // No expects of add, as it needs to be a user choice.
     tester.AddSource("path/usefoo-undecided.cc", R"(#include "path/foo.h")");
