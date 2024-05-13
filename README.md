@@ -8,7 +8,7 @@ Utility to support projects using the [bazel] build system, in particular C++
 projects.
 
 Bant helps
-  * Cleaning up BUILD files by adding missing, and removing superflous
+  * Cleaning up BUILD files by adding missing, and removing superflous,
     dependencies (build_cleaner). Outputs `buildozer` script.
   * Extract interesting project information such as the dependency graph,
     headers provided by which libraries .... (outputs simple tables for
@@ -102,11 +102,13 @@ bant list-targets -r ...  # also following all dependencies
 
 Note, `bant` can only find external projects if `bazel` has set up the
 workspace, and fetched, unpacked and made visible these into
-`bazel-out/../../../external`
+`bazel-out/../../../external`.
 
-Bant never does any fetching, it just observes the existing workspace. Given
-that `bazel` adapts the visible external projecgts depending on what targets
-are used, consider a bazel command that needs all of them, e.g.
+Bant never does any fetching, it just observes the existing workspace. This
+means you need to run a `bazel` build before to have the workspace set up,
+and possibly generated files produced, for `bant` to be most useful.
+Given that `bazel` adapts the visible external projecgts depending on what
+targets are used, consider a bazel command that needs all of them, e.g.
 `bazel test ...` before running `bant`.
 
 ### Synopsis
