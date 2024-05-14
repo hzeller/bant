@@ -498,11 +498,11 @@ cc_library(
 
   DWYUTestFixture tester(pp.project());
   tester.AddSource("some/path/bar.cc", R"(
-#include "some/path/some-unaccounted-header.h"
+#include "some/path/unaccounted-header.h"
 )");
   tester.RunForTarget("//some/path:bar");
   EXPECT_THAT(tester.LogContent(),
-              HasSubstr("some-unaccounted-header.h unaccounted for"));
+              HasSubstr("unknown provider for some/path/unaccounted-header.h"));
 }
 
 TEST(DWYUTest, DoNotRemove_AlwayslinkDependency) {

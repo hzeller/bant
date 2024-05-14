@@ -424,9 +424,8 @@ DWYUGenerator::DependenciesNeededBySources(
       if (session_.verbose()) {
         // Until we have a glob() implementation, this is pretty noisy at this
         // point. So wrap only show it if verbose enabled.
-        source.Loc(info_out, inc_file)
-          << " " << inc_file << " unaccounted for; "
-          << "glob()'ed ? lib missing ? bazel build needed ?\n";
+        source.Loc(info_out, inc_file) << " unknown provider for " << inc_file
+                                       << " -- glob()'ed ? lib missing ?\n";
         need_in_source_referenced_message = true;
       }
     }
