@@ -55,7 +55,7 @@ void CreateCanonicalizeEdits(Session &session, const ParsedProject &project,
           stats.count++;
           auto dep_target = BazelTarget::ParseFrom(dep_str, current_package);
           if (!dep_target.has_value()) {
-            parsed_package->source.Loc(info_out, dep_str)
+            project.Loc(info_out, dep_str)
               << " Invalid target name '" << dep_str << "'\n";
             continue;
           }

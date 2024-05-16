@@ -26,21 +26,20 @@
 #include "bant/frontend/linecolumn-map.h"
 
 namespace bant {
-std::ostream &NamedLineIndexedContent::Loc(std::ostream &out,
-                                           std::string_view s) const {
-  CHECK(s.begin() >= content().begin() && s.end() <= content().end())
-    << "Attempt to pass '" << s << "' which is not within " << name_;
-  out << name_ << ":" << GetRange(s);
+std::ostream &SourceLocator::Loc(std::ostream &out, std::string_view s) const {
+  out << name() << ":" << GetRange(s);
   return out;
 }
 
-std::string NamedLineIndexedContent::Loc(std::string_view s) const {
+std::string SourceLocator::Loc(std::string_view s) const {
   std::stringstream out;
   Loc(out, s);
   return out.str();
 }
 
 LineColumnRange NamedLineIndexedContent::GetRange(std::string_view text) const {
+  CHECK(text.begin() >= content().begin() && text.end() <= content().end())
+    << "Attempt to pass '" << text << "' which is not within " << name();
   return line_index_.GetRange(text);
 }
 

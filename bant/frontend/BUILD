@@ -90,8 +90,10 @@ cc_library(
         "//bant:types-bazel",
         "//bant:workspace",
         "//bant/explore:query-utils",
+        "//bant/util:disjoint-range-map",
         "//bant/util:file-utils",
         "//bant/util:stat",
+        "@abseil-cpp//absl/log:check",
     ],
 )
 

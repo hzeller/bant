@@ -44,6 +44,22 @@ cc_library(
     ],
 )
 
+cc_library(
+    name = "disjoint-range-map",
+    hdrs = ["disjoint-range-map.h"],
+    deps = ["@abseil-cpp//absl/container:btree"],
+)
+
+cc_test(
+    name = "disjoint-range-map_test",
+    srcs = ["disjoint-range-map_test.cc"],
+    deps = [
+        ":disjoint-range-map",
+        "@googletest//:gtest",
+        "@googletest//:gtest_main",
+    ],
+)
+
 cc_test(
     name = "table-printer_test",
     srcs = ["table-printer_test.cc"],

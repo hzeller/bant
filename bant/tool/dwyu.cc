@@ -139,7 +139,7 @@ void DWYUGenerator::CreateEditsForTarget(const BazelTarget &target,
     auto requested_target = BazelTarget::ParseFrom(dependency_target,  //
                                                    target.package);
     if (!requested_target.has_value()) {
-      build_file.source.Loc(session_.info(), dependency_target)
+      project_.Loc(session_.info(), dependency_target)
         << " Invalid target name '" << dependency_target << "'\n";
       continue;
     }
@@ -154,11 +154,11 @@ void DWYUGenerator::CreateEditsForTarget(const BazelTarget &target,
     if (checked_off_by.contains(*requested_target)) {
       const BazelTarget &previously = checked_off_by[*requested_target];
       if (previously == *requested_target) {
-        build_file.source.Loc(session_.info(), dependency_target)
+        project_.Loc(session_.info(), dependency_target)
           << ": " << dependency_target
           << " same dependency mentioned multiple times. Run buildifier\n";
       } else {
-        build_file.source.Loc(session_.info(), dependency_target)
+        project_.Loc(session_.info(), dependency_target)
           << ": " << dependency_target
           << " provides headers already provided in dependency " << previously
           << " before. Multiple libraries providing the same headers ?\n";
@@ -174,7 +174,7 @@ void DWYUGenerator::CreateEditsForTarget(const BazelTarget &target,
     if (potential_remove_suggestion_safe) {
       emit_deps_edit_(EditRequest::kRemove, target, dependency_target, "");
     } else if (!all_header_deps_known && session_.verbose() && kNoisy) {
-      build_file.source.Loc(session_.info(), dependency_target)
+      project_.Loc(session_.info(), dependency_target)
         << ": Probably not needed " << dependency_target
         << ", but can't safely remove: not all headers accounted for.\n";
     }
@@ -184,7 +184,7 @@ void DWYUGenerator::CreateEditsForTarget(const BazelTarget &target,
   for (const auto &need_add_alternatives : deps_needed) {
     // Only possible to auto-add if there is exactly one alternative.
     if (need_add_alternatives.size() > 1) {
-      build_file.source.Loc(session_.info(), details.name)
+      project_.Loc(session_.info(), details.name)
         << " Can't auto-decide: Referenced headers in " << target
         << " need exactly one of multiple choices\nAlternatives are:\n";
       for (const BazelTarget &target : need_add_alternatives) {
@@ -198,7 +198,7 @@ void DWYUGenerator::CreateEditsForTarget(const BazelTarget &target,
       emit_deps_edit_(EditRequest::kAdd, target, "",
                       need_add.ToStringRelativeTo(target.package));
     } else if (session_.verbose() && kNoisy) {
-      build_file.source.Loc(session_.info(), details.name)
+      project_.Loc(session_.info(), details.name)
         << ": Would add " << need_add << ", but not visible\n";
     }
   }
@@ -344,7 +344,7 @@ DWYUGenerator::DependenciesNeededBySources(
     const std::string source_file = build_file.package.QualifiedFile(src_name);
     auto source_content = TryOpenFile(source_file);
     if (!source_content.has_value()) {
-      build_file.source.Loc(info_out, src_name)
+      project_.Loc(info_out, src_name)
         << " Can not read source '" << source_file << "' referenced in "
         << target.ToString() << " Missing ? Generated ?\n";
       *all_headers_accounted_for = false;
@@ -431,7 +431,7 @@ DWYUGenerator::DependenciesNeededBySources(
     }
 
     if (need_in_source_referenced_message) {
-      build_file.source.Loc(info_out, src_name)
+      project_.Loc(info_out, src_name)
         << " ^... in source referenced by " << target.ToString() << "\n";
     }
   }

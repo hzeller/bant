@@ -251,7 +251,7 @@ ProvidedFromTarget ExtractGeneratedFromGenrule(const ParsedProject &project,
             if (is_error) {
               // TODO: Get file-position from other target which might be
               // in a different file.
-              file_content->source.Loc(info_out, generated)
+              project.Loc(info_out, generated)
                 << " '" << gen_fqn << "' in " << target->ToString()
                 << " also created by " << inserted.first->second.ToString()
                 << "\n";

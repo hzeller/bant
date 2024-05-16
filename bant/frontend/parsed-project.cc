@@ -25,6 +25,7 @@
 #include <utility>
 #include <vector>
 
+#include "absl/log/check.h"
 #include "bant/explore/query-utils.h"
 #include "bant/frontend/ast.h"
 #include "bant/frontend/parser.h"
@@ -156,7 +157,7 @@ const ParsedBuildFile *ParsedProject::AddBuildFile(
   if (!result) return nullptr;
 
   ++parse_stat.count;
-  parse_stat.AddBytesProcessed(result->source.size());
+  parse_stat.AddBytesProcessed(result->source_.size());
   return result;
 }
 
@@ -171,13 +172,13 @@ const ParsedBuildFile *ParsedProject::AddBuildFileContent(
     // Should typically not happen, but maybe both BUILD and BUILD.bazel are
     // there ? Report for the user to figure out.
     message_out.info() << filename << ": Package " << package
-                       << " already seen before in " << existing->source.name()
+                       << " already seen before in " << existing->source_.name()
                        << "\n";
     return existing;
   }
 
   ParsedBuildFile &parse_result = *inserted.first->second;
-  Scanner scanner(parse_result.source);
+  Scanner scanner(parse_result.source_);
   std::stringstream error_collect;
   Parser parser(&scanner, &arena_, error_collect);
   parse_result.ast = parser.parse();
@@ -188,7 +189,20 @@ const ParsedBuildFile *ParsedProject::AddBuildFileContent(
   }
   parse_result.package = package;
 
+  location_maps_.Insert(parse_result.source_.content(), &parse_result.source_);
   return inserted.first->second.get();
+}
+
+std::ostream &ParsedProject::Loc(std::ostream &out, std::string_view s) const {
+  auto found = location_maps_.FindBySubrange(s);
+  CHECK(found.has_value()) << s;
+  return found.value()->Loc(out, s);
+}
+
+std::string ParsedProject::Loc(std::string_view s) const {
+  auto found = location_maps_.FindBySubrange(s);
+  CHECK(found.has_value()) << s;
+  return found.value()->Loc(s);
 }
 
 const ParsedBuildFile *ParsedProject::FindParsedOrNull(
@@ -210,7 +224,7 @@ void PrintProject(const BazelPattern &pattern, std::ostream &out,
     }
 
     if (pattern.is_recursive()) {
-      out << "# " << file_content->source.name() << ": "
+      out << "# " << file_content->name() << ": "
           << file_content->package.ToString() << "\n";
       info_out << file_content->errors;
       PrintVisitor(out).WalkNonNull(file_content->ast);
@@ -224,9 +238,7 @@ void PrintProject(const BazelPattern &pattern, std::ostream &out,
           }
           // TODO: instead of just marking the range of the function name,
           // show the range the whole function covers until closed parenthesis.
-          out << "# "
-              << file_content->source.Loc(result.node->identifier()->id())
-              << "\n";
+          out << "# " << project.Loc(result.node->identifier()->id()) << "\n";
           PrintVisitor(out).WalkNonNull(result.node);
           out << "\n";
         });

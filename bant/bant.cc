@@ -409,7 +409,7 @@ int main(int argc, char *argv[]) {
     auto printer = TablePrinter::Create(session.out(), session.output_format(),
                                         {"bazel-file", "package"});
     for (const auto &[package, parsed] : project.ParsedFiles()) {
-      printer->AddRow({std::string(parsed->source.name()), package.ToString()});
+      printer->AddRow({std::string(parsed->name()), package.ToString()});
     }
     printer->Finish();
   } break;
@@ -425,7 +425,7 @@ int main(int argc, char *argv[]) {
           return;
         }
         if (!print_pattern.Match(*target_name)) return;
-        printer->AddRow({parsed->source.Loc(target.name),
+        printer->AddRow({project.Loc(target.name),
                          std::string(target.rule),  //
                          target_name->ToString()});
       });

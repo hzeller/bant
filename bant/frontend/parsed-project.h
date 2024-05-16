@@ -25,14 +25,16 @@
 #include "bant/frontend/named-content.h"
 #include "bant/session.h"
 #include "bant/types-bazel.h"
+#include "bant/util/disjoint-range-map.h"
 #include "bant/util/file-utils.h"
 #include "bant/workspace.h"
 
 namespace bant {
 
-struct ParsedBuildFile {
+class ParsedBuildFile {
+ public:
   ParsedBuildFile(std::string_view filename, std::string c)
-      : content(std::move(c)), source(filename, content) {}
+      : content_(std::move(c)), source_(filename, content_) {}
 
   // Can't be copied or moved as AST nodes can contain string_views
   // owned by content which must not change address (even move'ing content
@@ -40,12 +42,16 @@ struct ParsedBuildFile {
   ParsedBuildFile(ParsedBuildFile &&) = delete;
   ParsedBuildFile(const ParsedBuildFile &) = delete;
 
-  const std::string content;
-  NamedLineIndexedContent source;
+  std::string_view name() const { return source_.name(); }
 
   BazelPackage package;
   List *ast;           // parsed AST. Content owned by arena in ParsedProject
   std::string errors;  // List of errors if observed (todo: make actual list)
+
+ private:
+  friend class ParsedProject;  // It is allowed to access source_ directly.
+  const std::string content_;
+  NamedLineIndexedContent source_;
 };
 
 // A Parsed project contains all the parsed BUILD-files of a project.
@@ -54,7 +60,7 @@ class ParsedProject {
   using Package2Parsed =
     OneToOne<BazelPackage, std::unique_ptr<ParsedBuildFile>>;
 
-  ParsedProject(bool verbose);
+  explicit ParsedProject(bool verbose);
 
   // Given a BazelPattern, collect all the matching BUILD files and add to
   // project.
@@ -72,6 +78,14 @@ class ParsedProject {
 
   // Look up parse file given the package, or nullptr, if not parsed (yet).
   const ParsedBuildFile *FindParsedOrNull(const BazelPackage &package) const;
+
+  // Given the string_view of any content of any of the BUILD files we parsed,
+  // print the <file>:<line>:<col> location of that string view to stream;
+  // Must only be called with valid ranges.
+  std::ostream &Loc(std::ostream &out, std::string_view s) const;
+
+  // Same, but instead of writing to stream, returning a string.
+  std::string Loc(std::string_view s) const;
 
   // Some stats.
   int error_count() const { return error_count_; }
@@ -96,6 +110,7 @@ class ParsedProject {
   int error_count_ = 0;
   Arena arena_{1 << 20};
   Package2Parsed package_to_parsed_;
+  DisjointRangeMap<std::string_view, const SourceLocator *> location_maps_;
 };
 
 // Convenience function to print a fully parsed project, recreated from the
