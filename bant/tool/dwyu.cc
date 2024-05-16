@@ -204,26 +204,6 @@ void DWYUGenerator::CreateEditsForTarget(const BazelTarget &target,
   }
 }
 
-void DWYUGenerator::CreateEditsForPattern(const BazelPattern &pattern) {
-  for (const auto &[_, parsed_package] : project_.ParsedFiles()) {
-    const BazelPackage &current_package = parsed_package->package;
-    if (!pattern.Match(current_package)) {
-      continue;
-    }
-    query::FindTargets(
-      parsed_package->ast, {"cc_library", "cc_binary", "cc_test"},
-      [&](const query::Result &details) {
-        auto target = BazelTarget::ParseFrom(absl::StrCat(":", details.name),
-                                             current_package);
-        if (!target.has_value() || !pattern.Match(*target)) {
-          return;
-        }
-
-        CreateEditsForTarget(*target, details, *parsed_package);
-      });
-  }
-}
-
 // Open the given file an return an line-indexed content or nullptr if file
 // not found.
 std::optional<DWYUGenerator::SourceFile> DWYUGenerator::TryOpenFile(
@@ -469,10 +449,45 @@ std::vector<std::string_view> ExtractCCIncludes(NamedLineIndexedContent *src) {
   return result;
 }
 
-void CreateDependencyEdits(Session &session, const ParsedProject &project,
-                           const BazelPattern &pattern,
-                           const EditCallback &emit_deps_edit) {
-  DWYUGenerator gen(session, project, emit_deps_edit);
-  gen.CreateEditsForPattern(pattern);
+size_t DWYUGenerator::CreateEditsForPattern(const BazelPattern &pattern) {
+  size_t matching_patterns = 0;
+  for (const auto &[_, parsed_package] : project_.ParsedFiles()) {
+    const BazelPackage &current_package = parsed_package->package;
+    if (!pattern.Match(current_package)) {
+      continue;
+    }
+    query::FindTargets(
+      parsed_package->ast, {"cc_library", "cc_binary", "cc_test"},
+      [&](const query::Result &details) {
+        auto target = BazelTarget::ParseFrom(absl::StrCat(":", details.name),
+                                             current_package);
+        if (!target.has_value() || !pattern.Match(*target)) {
+          return;
+        }
+        ++matching_patterns;
+        CreateEditsForTarget(*target, details, *parsed_package);
+      });
+  }
+  return matching_patterns;
+}
+
+size_t CreateDependencyEdits(Session &session, const ParsedProject &project,
+                             const BazelPattern &pattern,
+                             const EditCallback &emit_deps_edit) {
+  size_t edits_emitted = 0;
+  const EditCallback edit_counting_forwarder =
+    [&](EditRequest op, const BazelTarget &target,  //
+        std::string_view before, std::string_view after) {
+      ++edits_emitted;
+      emit_deps_edit(op, target, before, after);
+    };
+  DWYUGenerator gen(session, project, edit_counting_forwarder);
+  const size_t target_count = gen.CreateEditsForPattern(pattern);
+  session.info() << "Checked DWYU on " << target_count << " targets.";
+  if (edits_emitted) {
+    session.info() << " Emitted " << edits_emitted << " edits.";
+  }
+  session.info() << "\n";
+  return edits_emitted;
 }
 }  // namespace bant

@@ -39,7 +39,8 @@ class DWYUGenerator {
                 EditCallback emit_deps_edit);
   virtual ~DWYUGenerator() = default;
 
-  void CreateEditsForPattern(const BazelPattern &pattern);
+  // Return number of targets that matched pattern and have been processed.
+  size_t CreateEditsForPattern(const BazelPattern &pattern);
 
  protected:
   // Extracted source file.
