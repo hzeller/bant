@@ -325,8 +325,14 @@ DWYUGenerator::DependenciesNeededBySources(
     auto source_content = TryOpenFile(source_file);
     if (!source_content.has_value()) {
       project_.Loc(info_out, src_name)
-        << " Can not read source '" << source_file << "' referenced in "
-        << target.ToString() << " Missing ? Generated ?\n";
+        << " Can not read source '" << source_file << "' for target " << target;
+      const auto from_genrule = files_from_genrules_.find(source_file);
+      if (from_genrule != files_from_genrules_.end()) {
+        info_out << "; Run genrule `bazel build " << from_genrule->second
+                 << "` first.\n";
+      } else {
+        info_out << " -- Missing ?\n";
+      }
       *all_headers_accounted_for = false;
       continue;
     }
