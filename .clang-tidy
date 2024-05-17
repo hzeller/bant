@@ -6,6 +6,7 @@ Checks: >
   clang-diagnostic-*,
   -clang-diagnostic-unknown-pragmas,
   clang-analyzer-*,
+  -clang-analyzer-optin.core.EnumCastOutOfRange,
   abseil-*,
   readability-*,
   -readability-avoid-unconditional-preprocessor-if,
