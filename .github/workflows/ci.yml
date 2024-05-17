@@ -76,7 +76,7 @@ jobs:
 
       - name: Run formatting style check
         run: |
-          CLANG_FORMAT=clang-format-15 scripts/run-format.sh
+          CLANG_FORMAT=clang-format-18 scripts/run-format.sh
           git diff > /tmp/format-diff
           if [ -s "/tmp/format-diff" ]; then
             echo "Difference to optimal formatting"
@@ -160,17 +160,10 @@ jobs:
           key: clang-tidy-cache_${{ steps.cache_timestamp.outputs.time }}
           restore-keys: clang-tidy-cache_
 
-      - name: Get latest clang-tidy
-        run: |
-          wget https://apt.llvm.org/llvm.sh
-          chmod +x ./llvm.sh
-          sudo ./llvm.sh 17
-          sudo apt-get install clang-tidy-17
-
       - name: Build Compilation DB
         run: |
           scripts/make-compilation-db.sh
 
       - name: Run clang-tidy
         run: |
-          CLANG_TIDY=clang-tidy-17 scripts/run-clang-tidy-cached.cc
+          CLANG_TIDY=clang-tidy-18 scripts/run-clang-tidy-cached.cc

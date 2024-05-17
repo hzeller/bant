@@ -22,6 +22,7 @@ Checks: >
   -google-readability-todo,
   -google-readability-avoid-underscore-in-googletest-name,
   performance-*,
+  -performance-enum-size,
   bugprone-*,
   -bugprone-easily-swappable-parameters,
   -bugprone-narrowing-conversions,

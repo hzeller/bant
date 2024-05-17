@@ -35,11 +35,12 @@ class TargetFinder : public BaseVisitor {
       : of_interest_(rules_of_interest), found_cb_(cb) {}
 
   void VisitFunCall(FunCall *f) final {
-    if (in_relevant_call_ != Relevancy::kNot) {
-      return BaseVisitor::VisitFunCall(f);  // Nesting.
+    if (in_relevant_call_ != Relevancy::kNotRelevant) {
+      BaseVisitor::VisitFunCall(f);  // Nesting.
+      return;
     }
     in_relevant_call_ = IsRelevant(f->identifier()->id());
-    if (in_relevant_call_ == Relevancy::kNot) return;
+    if (in_relevant_call_ == Relevancy::kNotRelevant) return;
 
     current_ = {};
     current_.node = f;
@@ -50,20 +51,24 @@ class TargetFinder : public BaseVisitor {
     if (in_relevant_call_ == Relevancy::kUserQuery) {
       InformCaller();
     }
-    in_relevant_call_ = Relevancy::kNot;
+    in_relevant_call_ = Relevancy::kNotRelevant;
   }
 
   // Assignment we see in a keyword argument inside a function call.
   void VisitAssignment(Assignment *a) final {
     switch (in_relevant_call_) {
-    case Relevancy::kPackage: ExtractPackageInfo(a); break;
+    case Relevancy::kPackageInfo: ExtractPackageInfo(a); break;
     case Relevancy::kUserQuery: ExtractQueryInfo(a); break;
     default: break;
     }
   }
 
  private:
-  enum class Relevancy { kNot, kUserQuery, kPackage };
+  enum class Relevancy {
+    kNotRelevant,  // Not currently in any interesting function call.
+    kUserQuery,    // Function call interesting because user asked for it.
+    kPackageInfo   // Interesting because it contains package info.
+  };
 
   // Relevant info we're interested in the package.
   void ExtractPackageInfo(Assignment *a) {
@@ -141,10 +146,10 @@ class TargetFinder : public BaseVisitor {
   }
 
   Relevancy IsRelevant(std::string_view name) const {
-    if (name == "package") return Relevancy::kPackage;
+    if (name == "package") return Relevancy::kPackageInfo;
     if (of_interest_.empty()) return Relevancy::kUserQuery;
     return of_interest_.contains(name) ? Relevancy::kUserQuery
-                                       : Relevancy::kNot;
+                                       : Relevancy::kNotRelevant;
   }
 
   // The package should come early in the file, so we should have gathered
@@ -156,7 +161,7 @@ class TargetFinder : public BaseVisitor {
   // transformation expanding list comprehensions).
   Result current_;
 
-  Relevancy in_relevant_call_ = Relevancy::kNot;
+  Relevancy in_relevant_call_ = Relevancy::kNotRelevant;
   const absl::flat_hash_set<std::string_view> of_interest_;
   const TargetFindCallback &found_cb_;
 };

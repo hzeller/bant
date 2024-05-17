@@ -10,7 +10,7 @@ bant_used_stdenv.mkDerivation {
       bazel_6
       jdk11
 
-      clang-tools_17    # clang-format, clang-tidy
+      clang-tools_18    # clang-format, clang-tidy
       bazel-buildtools  # buildifier, buildozer
     ];
 }
