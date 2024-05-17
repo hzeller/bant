@@ -73,15 +73,15 @@ jobs:
         run: |
           wget https://apt.llvm.org/llvm.sh
           chmod +x ./llvm.sh
-          sudo ./llvm.sh 18
-          sudo apt-get install clang-format-18
+          sudo ./llvm.sh 17
+          sudo apt-get install clang-format-17
           go install github.com/bazelbuild/buildtools/buildifier@latest
           echo "PATH=$PATH:$(go env GOPATH)/bin/" >> $GITHUB_ENV
 
       - name: Run formatting style check
         run: |
-          clang-format-18 --version
-          CLANG_FORMAT=clang-format-18 scripts/run-format.sh
+          clang-format-17 --version
+          CLANG_FORMAT=clang-format-17 scripts/run-format.sh
           git diff > /tmp/format-diff
           if [ -s "/tmp/format-diff" ]; then
             echo "Difference to optimal formatting"

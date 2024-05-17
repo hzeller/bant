@@ -10,7 +10,12 @@ bant_used_stdenv.mkDerivation {
       bazel_6
       jdk11
 
-      clang-tools_18    # clang-format, clang-tidy
+      clang-tools_18    # clang-tidy (clang-format: see below)
       bazel-buildtools  # buildifier, buildozer
     ];
+  shellHook = ''
+      # There is too much volatility between even micro-versions of
+      # clang-format 18. Let's use 17 for now.
+      export CLANG_FORMAT=${pkgs.clang-tools_17}/bin/clang-format
+  '';
 }

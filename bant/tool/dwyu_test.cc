@@ -114,7 +114,7 @@ class DWYUTestFixture {
  public:
   explicit DWYUTestFixture(const ParsedProject &project)
       : session_{&log_messages_, &log_messages_, true, OutputFormat::kNative},
-        dwyu_(session_, project, edit_expector_.checker()) {};
+        dwyu_(session_, project, edit_expector_.checker()){};
 
   ~DWYUTestFixture() {
     // Make sure that if there is a log output that the test will look for it.
