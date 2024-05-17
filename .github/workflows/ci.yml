@@ -10,7 +10,7 @@ on:
 
 jobs:
   Build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -62,7 +62,7 @@ jobs:
           bazel test --keep_going ...
 
   CodeFormatting:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -71,13 +71,12 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          sudo apt-get install clang-format-15
           go install github.com/bazelbuild/buildtools/buildifier@latest
           echo "PATH=$PATH:$(go env GOPATH)/bin/" >> $GITHUB_ENV
 
       - name: Run formatting style check
         run: |
-          scripts/run-format.sh
+          CLANG_FORMAT=clang-format-15 scripts/run-format.sh
           git diff > /tmp/format-diff
           if [ -s "/tmp/format-diff" ]; then
             echo "Difference to optimal formatting"
@@ -92,7 +91,7 @@ jobs:
           fi
 
   RunBantOnBant:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
