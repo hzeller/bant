@@ -57,11 +57,24 @@ B=${0%%.cc}; [ "$B" -nt "$0" ] || c++ -std=c++17 -o"$B" "$0" && exec "$B" "$@";
 static const std::string kProjectCachePrefix = "bant_";
 static constexpr std::string_view kWorkspaceFile = "MODULE.bazel";
 
-static constexpr std::string_view kSearchDir = "bant/";
-static const std::string kFileExcludeRe = ".git/|.github/|scripts/";
+// Choices of what files to include and exclude to run clang-tidy on.
+static constexpr std::string_view kStartDirectory = "bant/";
+static constexpr std::string_view kFileIncludeRe = "";
+static constexpr std::string_view kFileExcludeRe = ".git/|.github/|scripts/";
+inline bool ConsiderExtension(const std::string &extension) {
+  return extension == ".cc" || extension == ".h";
+}
 
+// Configuration of clang-tidy itself.
 static constexpr std::string_view kClangConfigFile = ".clang-tidy";
 static constexpr std::string_view kExtraArgs[] = {"-Wno-unknown-pragmas"};
+
+// When the compilation DB changed, it might be worthwhile revisiting
+// sources that previously had issues. This flag enables that.
+// It is worthwhile to set if the projectt is 'clean' and there are only a
+// few problematic sources to begin with, otherwise every update of the
+// compilation DB will re-trigger revisiting all of them.
+static constexpr bool kRevisitBrokenFilesIfCompilationDBNewer = true;
 
 namespace fs = std::filesystem;
 using file_time = std::filesystem::file_time_type;
@@ -127,11 +140,14 @@ class ContentAddressedStore {
   bool NeedsRefresh(const filepath_contenthash_t &c,
                     file_time min_freshness) const {
     const fs::path content_hash_file = PathFor(c);
-    // Recreate if we don't have it yet or if it contains messages but is
-    // older than WORKSPACE or compilation db. Maybe something got fixed.
-    return (!fs::exists(content_hash_file) ||
-            (fs::file_size(content_hash_file) > 0 &&
-             fs::last_write_time(content_hash_file) < min_freshness));
+    if (!fs::exists(content_hash_file)) return true;
+
+    // If file exists but is broken (i.e. has a non-zero size with messages),
+    // consider recreating if if older than compilation db.
+    const bool timestamp_trigger = kRevisitBrokenFilesIfCompilationDBNewer &&
+      (fs::file_size(content_hash_file) > 0 &&
+       fs::last_write_time(content_hash_file) < min_freshness);
+    return timestamp_trigger;
   }
 
  private:
@@ -229,7 +245,7 @@ class ClangTidyRunner {
     // Make sure directory filename depends on .clang-tidy content.
     return cache_dir /
            fs::path(kProjectCachePrefix + "v" + major_version + "_" +
-                    toHex(hash(version + clang_tidy_ + clang_tidy_args_) ^
+                    toHex(hash(version + clang_tidy_args_) ^
                             hash(GetContent(kClangConfigFile)),
                           8));
   }
@@ -270,18 +286,28 @@ class FileGatherer {
   // paths that need refreshing.
   std::list<filepath_contenthash_t> BuildWorkList(file_time min_freshness) {
     // Gather all *.cc and *.h files; remember content hashes of includes.
-    const std::regex exclude_re(kFileExcludeRe);
+    static const std::regex include_re(std::string{kFileIncludeRe});
+    static const std::regex exclude_re(std::string{kFileExcludeRe});
     std::map<std::string, hash_t> header_hashes;
     for (const auto &dir_entry : fs::recursive_directory_iterator(root_dir_)) {
       const fs::path &p = dir_entry.path().lexically_normal();
       if (!fs::is_regular_file(p)) continue;
+      if (!kFileIncludeRe.empty() &&
+          !std::regex_search(p.string(), include_re)) {
+        continue;
+      }
       if (!kFileExcludeRe.empty() &&
           std::regex_search(p.string(), exclude_re)) {
         continue;
       }
-      if (auto ext = p.extension(); ext == ".cc" || ext == ".h") {
+      const auto extension = p.extension();
+      if (ConsiderExtension(extension)) {
         files_of_interest_.emplace_back(p, 0);  // <- hash to be filled later.
-        if (ext == ".h") header_hashes[p.string()] = hash(GetContent(p));
+      }
+      // Remember content hash of header, so that we can make changed headers
+      // influence the hash of a file including this.
+      if (extension == ".h") {
+        header_hashes[p.string()] = hash(GetContent(p));
       }
     }
     std::cerr << files_of_interest_.size() << " files of interest.\n";
@@ -358,7 +384,7 @@ int main(int argc, char *argv[]) {
   ContentAddressedStore store(runner.project_cache_dir());
   std::cerr << "Cache dir " << runner.project_cache_dir() << "\n";
 
-  FileGatherer cc_file_gatherer(store, kSearchDir);
+  FileGatherer cc_file_gatherer(store, kStartDirectory);
   auto work_list = cc_file_gatherer.BuildWorkList(build_env_latest_change);
   runner.RunClangTidyOn(store, work_list);
   auto checks_seen =
