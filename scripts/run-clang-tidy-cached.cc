@@ -25,7 +25,7 @@ B=${0%%.cc}; [ "$B" -nt "$0" ] || c++ -std=c++17 -o"$B" "$0" && exec "$B" "$@";
 // to clang-tidy as-is. Typical use could be for instance
 //   run-clang-tidy-cached.cc --checks="-*,modernize-use-override" --fix
 //
-// Note: usefule environment variables to configure are
+// Note: useful environment variables to configure are
 //  CLANG_TIDY = binary to run; default would just be clang-tidy.
 //  CACHE_DIR  = where to put the cached content; default ~/.cache
 
@@ -54,12 +54,12 @@ B=${0%%.cc}; [ "$B" -nt "$0" ] || c++ -std=c++17 -o"$B" "$0" && exec "$B" "$@";
 #include <vector>
 
 // Some configuration for this project.
-static const std::string kProjectCachePrefix = "bant_";
+static constexpr std::string_view kProjectCachePrefix = "bant_";
 static constexpr std::string_view kWorkspaceFile = "MODULE.bazel";
 
 // Choices of what files to include and exclude to run clang-tidy on.
 static constexpr std::string_view kStartDirectory = "bant/";
-static constexpr std::string_view kFileIncludeRe = "";
+static constexpr std::string_view kFileIncludeRe = ".*";
 static constexpr std::string_view kFileExcludeRe = ".git/|.github/|scripts/";
 inline bool ConsiderExtension(const std::string &extension) {
   return extension == ".cc" || extension == ".h";
@@ -69,17 +69,21 @@ inline bool ConsiderExtension(const std::string &extension) {
 static constexpr std::string_view kClangConfigFile = ".clang-tidy";
 static constexpr std::string_view kExtraArgs[] = {"-Wno-unknown-pragmas"};
 
-// When the compilation DB changed, it might be worthwhile revisiting
+// If the compilation DB changed, it might be worthwhile revisiting
 // sources that previously had issues. This flag enables that.
-// It is worthwhile to set if the projectt is 'clean' and there are only a
+//
+// It is good to set if the project is 'clean' and there are only a
 // few problematic sources to begin with, otherwise every update of the
 // compilation DB will re-trigger revisiting all of them.
 static constexpr bool kRevisitBrokenFilesIfCompilationDBNewer = true;
 
+namespace {
+
 namespace fs = std::filesystem;
 using file_time = std::filesystem::file_time_type;
 using ReIt = std::sregex_iterator;
-using filepath_contenthash_t = std::pair<fs::path, uint64_t>;
+using hash_t = uint64_t;
+using filepath_contenthash_t = std::pair<fs::path, hash_t>;
 
 // Some helpers
 std::string GetContent(FILE *f) {
@@ -107,9 +111,8 @@ std::string GetCommandOutput(const std::string &prog) {
   return GetContent(popen(prog.c_str(), "r"));  // NOLINT
 }
 
-using hash_t = uint64_t;
-hash_t hash(const std::string &s) { return std::hash<std::string>()(s); }
-std::string toHex(uint64_t value, int show_lower_nibbles = 16) {
+hash_t hashContent(const std::string &s) { return std::hash<std::string>()(s); }
+std::string ToHex(uint64_t value, int show_lower_nibbles = 16) {
   char out[16 + 1];
   snprintf(out, sizeof(out), "%016" PRIx64, value);
   return out + (16 - show_lower_nibbles);
@@ -127,7 +130,7 @@ class ContentAddressedStore {
   fs::path PathFor(const filepath_contenthash_t &c) const {
     // Name is human readable, the content hash makes it unique.
     std::string name_with_contenthash = c.first.filename().string();
-    name_with_contenthash.append("-").append(toHex(c.second));
+    name_with_contenthash.append("-").append(ToHex(c.second));
     return content_dir / name_with_contenthash;
   }
 
@@ -144,7 +147,8 @@ class ContentAddressedStore {
 
     // If file exists but is broken (i.e. has a non-zero size with messages),
     // consider recreating if if older than compilation db.
-    const bool timestamp_trigger = kRevisitBrokenFilesIfCompilationDBNewer &&
+    const bool timestamp_trigger =
+      kRevisitBrokenFilesIfCompilationDBNewer &&
       (fs::file_size(content_hash_file) > 0 &&
        fs::last_write_time(content_hash_file) < min_freshness);
     return timestamp_trigger;
@@ -242,12 +246,13 @@ class ClangTidyRunner {
       std::regex_search(version, version_match, std::regex{"version ([0-9]+)"})
         ? version_match[1].str()
         : "UNKNOWN";
+
     // Make sure directory filename depends on .clang-tidy content.
+    hash_t cache_unique_id = hashContent(version + clang_tidy_args_);
+    cache_unique_id ^= hashContent(GetContent(kClangConfigFile));
     return cache_dir /
-           fs::path(kProjectCachePrefix + "v" + major_version + "_" +
-                    toHex(hash(version + clang_tidy_args_) ^
-                            hash(GetContent(kClangConfigFile)),
-                          8));
+           fs::path(std::string{kProjectCachePrefix} + "v" + major_version +
+                    "_" + ToHex(cache_unique_id, 8));
   }
 
   // Fix filename paths found in logfiles that are not emitted relative to
@@ -291,13 +296,14 @@ class FileGatherer {
     std::map<std::string, hash_t> header_hashes;
     for (const auto &dir_entry : fs::recursive_directory_iterator(root_dir_)) {
       const fs::path &p = dir_entry.path().lexically_normal();
-      if (!fs::is_regular_file(p)) continue;
-      if (!kFileIncludeRe.empty() &&
-          !std::regex_search(p.string(), include_re)) {
+      if (!fs::is_regular_file(p)) {
         continue;
       }
-      if (!kFileExcludeRe.empty() &&
-          std::regex_search(p.string(), exclude_re)) {
+      const std::string file = p.string();
+      if (!kFileIncludeRe.empty() && !std::regex_search(file, include_re)) {
+        continue;
+      }
+      if (!kFileExcludeRe.empty() && std::regex_search(file, exclude_re)) {
         continue;
       }
       const auto extension = p.extension();
@@ -307,7 +313,7 @@ class FileGatherer {
       // Remember content hash of header, so that we can make changed headers
       // influence the hash of a file including this.
       if (extension == ".h") {
-        header_hashes[p.string()] = hash(GetContent(p));
+        header_hashes[file] = hashContent(GetContent(p));
       }
     }
     std::cerr << files_of_interest_.size() << " files of interest.\n";
@@ -319,7 +325,7 @@ class FileGatherer {
     const std::regex inc_re("\"([0-9a-zA-Z_/-]+\\.h)\"");  // match include
     for (filepath_contenthash_t &f : files_of_interest_) {
       const auto content = GetContent(f.first);
-      f.second = hash(content);
+      f.second = hashContent(content);
       for (ReIt it(content.begin(), content.end(), inc_re); it != ReIt();
            ++it) {
         const std::string &header_path = (*it)[1].str();
@@ -362,10 +368,9 @@ class FileGatherer {
   const std::string root_dir_;
   std::vector<filepath_contenthash_t> files_of_interest_;
 };
+}  // namespace
 
 int main(int argc, char *argv[]) {
-  const std::string kTidySymlink = kProjectCachePrefix + "clang-tidy.out";
-
   // Test that key files exist and remember their last change.
   std::error_code ec;
   const auto workspace_ts = fs::last_write_time(kWorkspaceFile, ec);
@@ -386,7 +391,12 @@ int main(int argc, char *argv[]) {
 
   FileGatherer cc_file_gatherer(store, kStartDirectory);
   auto work_list = cc_file_gatherer.BuildWorkList(build_env_latest_change);
+
+  // Now the expensive part...
   runner.RunClangTidyOn(store, work_list);
+
+  const std::string kTidySymlink =
+    std::string{kProjectCachePrefix} + "clang-tidy.out";
   auto checks_seen =
     cc_file_gatherer.CreateReport(runner.project_cache_dir(), kTidySymlink);
 
