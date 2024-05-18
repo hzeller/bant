@@ -27,7 +27,8 @@
 #include "bant/util/arena.h"
 
 namespace bant {
-class Visitor;
+class VoidVisitor;
+class NodeVisitor;
 class Identifier;
 class Scalar;
 class List;
@@ -41,28 +42,32 @@ class BinOpNode;
 class Node {
  public:
   virtual ~Node() = default;
-  virtual void Accept(Visitor *v) = 0;
 
   // Poor man's RTTI (also: cheaper). Return non-null if of that type.
   virtual Identifier *CastAsIdentifier() { return nullptr; }
   virtual Scalar *CastAsScalar() { return nullptr; }
   virtual List *CastAsList() { return nullptr; }
   virtual BinOpNode *CastAsBinOp() { return nullptr; }
+
+  virtual void Accept(VoidVisitor *v) = 0;
+  virtual Node *Accept(NodeVisitor *v) = 0;
 };
 
 class Scalar : public Node {
  public:
   enum class ScalarType { kInt, kString };
 
+  virtual ScalarType type() = 0;
+
   // Even if this is a number, this will contain the string representation
   // as found in the file (or empty string if Scalar synthesized).
   std::string_view AsString() const { return string_rep_; }
   virtual int64_t AsInt() const { return 0; }
 
-  void Accept(Visitor *v) final;
   Scalar *CastAsScalar() final { return this; }
 
-  virtual ScalarType type() = 0;
+  void Accept(VoidVisitor *v) final;
+  Node *Accept(NodeVisitor *v) final;
 
  protected:
   explicit Scalar(std::string_view value) : string_rep_(value) {}
@@ -115,8 +120,10 @@ class Identifier : public Node {
  public:
   std::string_view id() const { return id_; }
 
-  void Accept(Visitor *v) final;
   Identifier *CastAsIdentifier() final { return this; }
+
+  void Accept(VoidVisitor *v) final;
+  Node *Accept(NodeVisitor *v) final;
 
  private:
   friend class Arena;
@@ -133,10 +140,12 @@ class UnaryExpr : public Node {
   Node *node() { return node_; }
   TokenType op() const { return op_; }
 
-  void Accept(Visitor *v) final;
+  void Accept(VoidVisitor *v) final;
+  Node *Accept(NodeVisitor *v) final;
 
  protected:
   friend class Arena;
+  friend class BaseNodeReplacementVisitor;
   explicit UnaryExpr(TokenType op, Node *n) : node_(n), op_(op) {}
 
   Node *node_;
@@ -149,6 +158,7 @@ class BinNode : public Node {
   Node *right() { return right_; }
 
  protected:
+  friend class BaseNodeReplacementVisitor;
   BinNode(Node *lhs, Node *rhs) : left_(lhs), right_(rhs) {}
 
   Node *left_;
@@ -164,10 +174,12 @@ class BinNode : public Node {
 // Operator is just the corresponding Token.
 class BinOpNode : public BinNode {
  public:
-  void Accept(Visitor *v) override;
   TokenType op() const { return op_; }
 
   BinOpNode *CastAsBinOp() final { return this; }
+
+  void Accept(VoidVisitor *v) override;
+  Node *Accept(NodeVisitor *v) override;
 
  protected:
   BinOpNode(Node *lhs, Node *rhs, TokenType op) : BinNode(lhs, rhs), op_(op) {}
@@ -191,11 +203,14 @@ class List : public Node {
   ArenaDeque<Node *>::const_iterator begin() const { return list_.begin(); }
   ArenaDeque<Node *>::const_iterator end() const { return list_.end(); }
 
-  void Accept(Visitor *v) final;
   List *CastAsList() final { return this; }
+
+  void Accept(VoidVisitor *v) final;
+  Node *Accept(NodeVisitor *v) final;
 
  private:
   friend class Arena;
+  friend class BaseNodeReplacementVisitor;
   explicit List(Type t) : type_(t) {}
 
   const Type type_;
@@ -209,10 +224,12 @@ class ListComprehension : public Node {
   BinOpNode *for_node() { return for_node_; }
   List::Type type() const { return type_; }
 
-  void Accept(Visitor *v) final;
+  void Accept(VoidVisitor *v) final;
+  Node *Accept(NodeVisitor *v) final;
 
  private:
   friend class Arena;
+  friend class BaseNodeReplacementVisitor;
   ListComprehension(List::Type type, BinOpNode *for_node)
       : type_(type), for_node_(for_node) {}
 
@@ -226,10 +243,12 @@ class Ternary : public Node {
   Node *positive() { return positive_; }
   Node *negative() { return negative_; }
 
-  void Accept(Visitor *v) final;
+  void Accept(VoidVisitor *v) final;
+  Node *Accept(NodeVisitor *v) final;
 
  private:
   friend class Arena;
+  friend class BaseNodeReplacementVisitor;
   Ternary(Node *condition, Node *positive, Node *negative)
       : condition_(condition), positive_(positive), negative_(negative) {}
 
@@ -244,7 +263,8 @@ class Assignment : public BinOpNode {
   Identifier *identifier() { return static_cast<Identifier *>(left_); }
   Node *value() { return right_; }
 
-  void Accept(Visitor *v) final;
+  void Accept(VoidVisitor *v) final;
+  Node *Accept(NodeVisitor *v) final;
 
  private:
   friend class Arena;
@@ -257,7 +277,9 @@ class FunCall : public BinNode {
  public:
   Identifier *identifier() { return static_cast<Identifier *>(left_); }
   List *argument() { return static_cast<List *>(right_); }
-  void Accept(Visitor *v) final;
+
+  void Accept(VoidVisitor *v) final;
+  Node *Accept(NodeVisitor *v) final;
 
  private:
   friend class Arena;
@@ -266,9 +288,9 @@ class FunCall : public BinNode {
       : BinNode(identifier, argument_list) {}
 };
 
-class Visitor {
+class VoidVisitor {
  public:
-  ~Visitor() = default;
+  virtual ~VoidVisitor() = default;
   virtual void VisitAssignment(Assignment *) = 0;
   virtual void VisitFunCall(FunCall *) = 0;
   virtual void VisitList(List *) = 0;
@@ -288,7 +310,7 @@ class Visitor {
 };
 
 // Simple implementation: recursively walk the whole AST.
-class BaseVisitor : public Visitor {
+class BaseVoidVisitor : public VoidVisitor {
  public:
   void VisitAssignment(Assignment *a) override { WalkNonNull(a->right()); }
   void VisitFunCall(FunCall *f) override { WalkNonNull(f->right()); }
@@ -316,7 +338,85 @@ class BaseVisitor : public Visitor {
   void VisitIdentifier(Identifier *) override {}  // Leaf
 };
 
-class PrintVisitor : public BaseVisitor {
+// A visitor that returns a node. Typically to be use to replace a subtree.
+class NodeVisitor {
+ public:
+  virtual ~NodeVisitor() = default;
+  virtual Node *VisitAssignment(Assignment *) = 0;
+  virtual Node *VisitFunCall(FunCall *) = 0;
+  virtual Node *VisitList(List *) = 0;
+  virtual Node *VisitBinOpNode(BinOpNode *) = 0;
+  virtual Node *VisitUnaryExpr(UnaryExpr *) = 0;
+  virtual Node *VisitListComprehension(ListComprehension *) = 0;
+  virtual Node *VisitTernary(Ternary *t) = 0;
+
+  virtual Node *VisitScalar(Scalar *) = 0;          // Leaf.
+  virtual Node *VisitIdentifier(Identifier *) = 0;  // Leaf.
+
+  // Utility function: if node exists, walk and return valud from visit.
+  inline Node *WalkNonNull(Node *node) {
+    return node ? node->Accept(this) : node;
+  }
+};
+
+// Replace nodes with whatever walk on that node yielded.
+// Friends with all the owners of nodes, so allowed to assign to private nodes.
+// Basis for all kinds of expression eval stuff.
+class BaseNodeReplacementVisitor : public NodeVisitor {
+ public:
+  Node *VisitAssignment(Assignment *a) override {
+    ReplaceWalk(&a->left_);
+    ReplaceWalk(&a->right_);
+    return a;
+  }
+
+  Node *VisitFunCall(FunCall *f) override {
+    ReplaceWalk(&f->left_);
+    ReplaceWalk(&f->right_);
+    return f;
+  }
+
+  Node *VisitList(List *l) override {
+    // TODO: implement non-cost list iterator
+    return l;
+  }
+
+  Node *VisitUnaryExpr(UnaryExpr *e) override {
+    ReplaceWalk(&e->node_);
+    return e;
+  }
+
+  Node *VisitBinOpNode(BinOpNode *b) override {
+    ReplaceWalk(&b->left_);
+    ReplaceWalk(&b->right_);
+    return b;
+  }
+
+  Node *VisitListComprehension(ListComprehension *lh) override {
+    // Dance around that we actually don't know if a BinOp comes back.
+    if (Node *walk_result = WalkNonNull(lh->for_node_)) {
+      if (BinOpNode *binop = walk_result->CastAsBinOp()) {
+        lh->for_node_ = binop;
+      }
+    }
+    return lh;
+  }
+
+  Node *VisitTernary(Ternary *t) override {
+    ReplaceWalk(&t->condition_);
+    ReplaceWalk(&t->positive_);
+    ReplaceWalk(&t->negative_);
+    return t;
+  }
+
+  Node *VisitScalar(Scalar *s) override { return s; }
+  Node *VisitIdentifier(Identifier *i) override { return i; }
+
+ private:
+  inline void ReplaceWalk(Node **n) { *n = WalkNonNull(*n); }
+};
+
+class PrintVisitor : public BaseVoidVisitor {
  public:
   explicit PrintVisitor(std::ostream &out) : out_(out) {}
   void VisitAssignment(Assignment *a) final;
@@ -338,17 +438,39 @@ class PrintVisitor : public BaseVisitor {
 
 std::ostream &operator<<(std::ostream &o, Node *n);
 
-inline void Assignment::Accept(Visitor *v) { v->VisitAssignment(this); }
-inline void FunCall::Accept(Visitor *v) { v->VisitFunCall(this); }
-inline void List::Accept(Visitor *v) { v->VisitList(this); }
-inline void UnaryExpr::Accept(Visitor *v) { v->VisitUnaryExpr(this); }
-inline void BinOpNode::Accept(Visitor *v) { v->VisitBinOpNode(this); }
-inline void ListComprehension::Accept(Visitor *v) {
+// VoidVisitor Accept()ors
+inline void Assignment::Accept(VoidVisitor *v) { v->VisitAssignment(this); }
+inline void FunCall::Accept(VoidVisitor *v) { v->VisitFunCall(this); }
+inline void List::Accept(VoidVisitor *v) { v->VisitList(this); }
+inline void UnaryExpr::Accept(VoidVisitor *v) { v->VisitUnaryExpr(this); }
+inline void BinOpNode::Accept(VoidVisitor *v) { v->VisitBinOpNode(this); }
+inline void ListComprehension::Accept(VoidVisitor *v) {
   v->VisitListComprehension(this);
 }
-inline void Ternary::Accept(Visitor *v) { v->VisitTernary(this); }
-inline void Scalar::Accept(Visitor *v) { v->VisitScalar(this); }
-inline void Identifier::Accept(Visitor *v) { v->VisitIdentifier(this); }
+inline void Ternary::Accept(VoidVisitor *v) { v->VisitTernary(this); }
+inline void Scalar::Accept(VoidVisitor *v) { v->VisitScalar(this); }
+inline void Identifier::Accept(VoidVisitor *v) { v->VisitIdentifier(this); }
+
+// NodeVisitor Accept()ors
+inline Node *Assignment::Accept(NodeVisitor *v) {
+  return v->VisitAssignment(this);
+}
+inline Node *FunCall::Accept(NodeVisitor *v) { return v->VisitFunCall(this); }
+inline Node *List::Accept(NodeVisitor *v) { return v->VisitList(this); }
+inline Node *UnaryExpr::Accept(NodeVisitor *v) {
+  return v->VisitUnaryExpr(this);
+}
+inline Node *BinOpNode::Accept(NodeVisitor *v) {
+  return v->VisitBinOpNode(this);
+}
+inline Node *ListComprehension::Accept(NodeVisitor *v) {
+  return v->VisitListComprehension(this);
+}
+inline Node *Ternary::Accept(NodeVisitor *v) { return v->VisitTernary(this); }
+inline Node *Scalar::Accept(NodeVisitor *v) { return v->VisitScalar(this); }
+inline Node *Identifier::Accept(NodeVisitor *v) {
+  return v->VisitIdentifier(this);
+}
 
 }  // namespace bant
 #endif  // BANT_AST_H_

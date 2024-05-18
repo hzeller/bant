@@ -78,12 +78,12 @@ StringScalar *StringScalar::FromLiteral(Arena *arena,
 
 void PrintVisitor::VisitAssignment(Assignment *a) {
   out_ << a->identifier()->id() << " = ";
-  BaseVisitor::VisitAssignment(a);
+  BaseVoidVisitor::VisitAssignment(a);
 }
 
 void PrintVisitor::VisitFunCall(FunCall *f) {
   out_ << f->identifier()->id();
-  BaseVisitor::VisitFunCall(f);
+  BaseVoidVisitor::VisitFunCall(f);
   out_ << "\n" << std::string(indent_, ' ');
 }
 

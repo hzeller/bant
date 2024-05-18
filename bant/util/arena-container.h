@@ -83,7 +83,7 @@ class ArenaDeque {
 
   class const_iterator {
    public:
-    const T &operator*() {
+    const T &operator*() const {
       assert(block_ != nullptr);
       return block_->value[pos_];
     }

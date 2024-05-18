@@ -28,7 +28,7 @@ namespace bant::query {
 namespace {
 // TODO: these of course need to be configurable. Ideally with a simple
 // path query language.
-class TargetFinder : public BaseVisitor {
+class TargetFinder : public BaseVoidVisitor {
  public:
   TargetFinder(std::initializer_list<std::string_view> rules_of_interest,
                const TargetFindCallback &cb)
@@ -36,7 +36,7 @@ class TargetFinder : public BaseVisitor {
 
   void VisitFunCall(FunCall *f) final {
     if (in_relevant_call_ != Relevancy::kNotRelevant) {
-      BaseVisitor::VisitFunCall(f);  // Nesting.
+      BaseVoidVisitor::VisitFunCall(f);  // Nesting.
       return;
     }
     in_relevant_call_ = IsRelevant(f->identifier()->id());
