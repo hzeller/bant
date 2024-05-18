@@ -108,3 +108,29 @@ cc_library(
         "@abseil-cpp//absl/strings",
     ],
 )
+
+cc_library(
+    name = "elaboration",
+    srcs = ["elaboration.cc"],
+    hdrs = ["elaboration.h"],
+    deps = [
+        ":parsed-project",
+        ":parser",
+        "//bant:session",
+        "//bant/util:stat",
+        "@abseil-cpp//absl/container:flat_hash_map",
+        "@abseil-cpp//absl/log:check",
+    ],
+)
+
+cc_test(
+    name = "elaboration_test",
+    srcs = ["elaboration_test.cc"],
+    deps = [
+        ":elaboration",
+        ":parsed-project",
+        ":parsed-project_testutil",
+        "@googletest//:gtest",
+        "@googletest//:gtest_main",
+    ],
+)

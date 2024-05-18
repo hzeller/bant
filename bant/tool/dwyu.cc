@@ -261,7 +261,7 @@ bool DWYUGenerator::CanSee(const BazelTarget &target,
     // Consider a library with a deprecation as not visible.
     return false;
   }
-  const List *visibility_list = found->second.visibility;
+  List *visibility_list = found->second.visibility;
   if (!visibility_list) return true;
   for (Node *entry : *visibility_list) {
     const Scalar *str = entry->CastAsScalar();

@@ -200,8 +200,8 @@ class List : public Node {
   bool empty() const { return list_.size() == 0; }
 
   void Append(Arena *arena, Node *value) { list_.Append(value, arena); }
-  ArenaDeque<Node *>::const_iterator begin() const { return list_.begin(); }
-  ArenaDeque<Node *>::const_iterator end() const { return list_.end(); }
+  ArenaDeque<Node *>::iterator begin() { return list_.begin(); }
+  ArenaDeque<Node *>::iterator end() { return list_.end(); }
 
   List *CastAsList() final { return this; }
 
@@ -365,7 +365,7 @@ class NodeVisitor {
 class BaseNodeReplacementVisitor : public NodeVisitor {
  public:
   Node *VisitAssignment(Assignment *a) override {
-    ReplaceWalk(&a->left_);
+    // Not visiting the identifier; lhs regarded immutable.
     ReplaceWalk(&a->right_);
     return a;
   }
@@ -377,7 +377,9 @@ class BaseNodeReplacementVisitor : public NodeVisitor {
   }
 
   Node *VisitList(List *l) override {
-    // TODO: implement non-cost list iterator
+    for (Node *&list_element : *l) {
+      ReplaceWalk(&list_element);
+    }
     return l;
   }
 

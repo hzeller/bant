@@ -81,13 +81,14 @@ class ArenaDeque {
 
   size_t size() const { return size_; }
 
-  class const_iterator {
+  class iterator {
    public:
-    const T &operator*() const {
+    T &operator*() {
       assert(block_ != nullptr);
       return block_->value[pos_];
     }
-    const_iterator &operator++() {
+
+    iterator &operator++() {
       ++pos_;
       if (pos_ >= block_size_.current()) {
         block_ = block_->next;
@@ -96,26 +97,24 @@ class ArenaDeque {
       }
       return *this;
     }
-    bool operator==(const const_iterator &other) const {
+    bool operator==(const iterator &other) const {
       return other.block_ == block_ && other.pos_ == pos_;
     }
-    bool operator!=(const const_iterator &other) const {
-      return !(*this == other);
-    }
+    bool operator!=(const iterator &other) const { return !(*this == other); }
 
    private:
     friend class ArenaDeque;
-    const_iterator(const Block *block, size_t pos) : block_(block), pos_(pos) {}
-    const Block *block_;
+    iterator(Block *block, size_t pos) : block_(block), pos_(pos) {}
+    Block *block_;
     size_t pos_;
     BlockSizeTracker block_size_;
   };
 
-  const_iterator begin() const { return const_iterator(&top_, 0); }
-  const_iterator end() const {
+  iterator begin() { return iterator(&top_, 0); }
+  iterator end() {
     return next_block_pos_ == block_size_.current()
-             ? const_iterator(nullptr, 0)
-             : const_iterator(current_, next_block_pos_);
+             ? iterator(nullptr, 0)
+             : iterator(current_, next_block_pos_);
   }
 
  private:

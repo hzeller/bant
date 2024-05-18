@@ -46,6 +46,7 @@ int getopt(int, char *const *, const char *);  // NOLINT
 #include "bant/explore/dependency-graph.h"
 #include "bant/explore/header-providers.h"
 #include "bant/explore/query-utils.h"
+#include "bant/frontend/elaboration.h"
 #include "bant/frontend/parsed-project.h"
 #include "bant/output-format.h"
 #include "bant/session.h"
@@ -85,6 +86,7 @@ static int usage(const char *prog, const char *message, int exit_code) {
 Commands (unique prefix sufficient):
     %s== Parsing ==%s
     print          : Print AST matching pattern. -e : only files w/ parse errors
+                   : -b : elaBorate
     parse          : Parse all BUILD files from pattern. Follow deps with -r
                      Emit parse errors. Silent otherwise: No news are good news.
 
@@ -161,6 +163,7 @@ int main(int argc, char *argv[]) {
   bool verbose = false;
   bool print_ast = false;
   bool print_only_errors = false;
+  bool elaborate = false;
   int recurse_dependency_depth = 0;
 
   // TODO: make flag ? This is needed for projects that don't use a plain
@@ -206,7 +209,7 @@ int main(int argc, char *argv[]) {
   };
   OutputFormat out_fmt = OutputFormat::kNative;
   int opt;
-  while ((opt = getopt(argc, argv, "C:qo:vhpecf:r::")) != -1) {
+  while ((opt = getopt(argc, argv, "C:qo:vhpecbf:r::")) != -1) {
     switch (opt) {
     case 'C': {
       std::error_code err;
@@ -246,6 +249,7 @@ int main(int argc, char *argv[]) {
       // "print" options
     case 'p': print_ast = true; break;
     case 'e': print_only_errors = true; break;
+    case 'b': elaborate = true; break;  // TODO: we need long options.
     case 'f': {
       auto found = kFormatOutNames.lower_bound(optarg);
       if (found == kFormatOutNames.end() || !found->first.starts_with(optarg)) {
@@ -366,6 +370,10 @@ int main(int argc, char *argv[]) {
     }
     break;
   default:;
+  }
+
+  if (elaborate) {
+    bant::Elaborate(session, &project);
   }
 
   // library headers and genrule outputs just match the pattern unless
