@@ -23,26 +23,38 @@
 #include <utility>
 
 #include "bant/frontend/parsed-project.h"
+#include "bant/explore/query-utils.h"
 #include "bant/frontend/parsed-project_testutil.h"
 #include "gtest/gtest.h"
 
 namespace bant {
 
-static std::pair<std::string, std::string> ElabAndPrint(
-  std::string_view to_elaborate, std::string_view expected) {
-  ParsedProjectTestUtil pp;
-  const ParsedBuildFile *elab_parsed = pp.Add("//elab", to_elaborate);
-  const ParsedBuildFile *expected_parsed = pp.Add("//expected", expected);
+class ElaborationTest : public testing::Test {
+protected:
+  std::pair<std::string, std::string> ElabAndPrint(
+    std::string_view to_elaborate, std::string_view expected) {
+    elaborated_ = pp_.Add("//elab", to_elaborate);
+    const ParsedBuildFile *expected_parsed = pp_.Add("//expected", expected);
 
-  std::stringstream elab_print;
-  elab_print << bant::Elaborate(&pp.project(), elab_parsed->ast);
+    std::stringstream elab_print;
+    elab_print << bant::Elaborate(&pp_.project(), elaborated_->ast);
 
-  std::stringstream expect_print;
-  expect_print << expected_parsed->ast;
-  return {elab_print.str(), expect_print.str()};
-}
+    std::stringstream expect_print;
+    expect_print << expected_parsed->ast;
+    return {elab_print.str(), expect_print.str()};
+  }
 
-TEST(ElaborationTest, ExpandVariables) {
+  // Returns the last elaborated file.
+  const ParsedBuildFile *elaborated() { return elaborated_; }
+
+  ParsedProject &project() { return pp_.project(); }
+
+private:
+  ParsedProjectTestUtil pp_;
+  const ParsedBuildFile *elaborated_ = nullptr;
+};
+
+TEST_F(ElaborationTest, ExpandVariables) {
   auto result = ElabAndPrint(
     R"(
 BAR = "bar.cc"
@@ -70,7 +82,7 @@ cc_library(
   EXPECT_EQ(result.first, result.second);
 }
 
-TEST(ElaborationTest, ConcatLists) {
+TEST_F(ElaborationTest, ConcatLists) {
   auto result = ElabAndPrint(
     R"(
 FOO = ["baz.cc", "qux.cc"]
@@ -88,5 +100,42 @@ cc_library(
 )");
 
   EXPECT_EQ(result.first, result.second);
+}
+
+TEST_F(ElaborationTest, ConcatStrings) {
+  auto result = ElabAndPrint(
+    R"(
+BAZ = "baz"
+cc_library(
+  name = "foo" + "bar" + BAZ,
+  include_prefix = ("foo" + "bar") + "qux",
+)
+)",
+    R"(
+BAZ = "baz"
+cc_library(
+  name = "foobarbaz",
+  include_prefix = "foobarqux",
+)
+)");
+
+  EXPECT_EQ(result.first, result.second);
+
+  // Let's see that the 'location' of the assembled string points to the
+  // original '+' operand.
+  //
+  // Unlike one would expect intuitively, the way the parser currently handles
+  // '+' is right-associative, so evaluation happens from right to left:
+  // "foo" + ("bar" + BAZ)).
+  // Since string-concat is assoicative that is a perfectly fine.
+  // But this is why the first, not last, '+' is shown as file location.
+  query::FindTargets(elaborated()->ast, {}, [&](const query::Result &result) {
+    EXPECT_EQ(result.name, "foobarbaz");
+    EXPECT_EQ(project().Loc(result.name), "//elab/BUILD:4:16:");
+
+    // Parenthesis around second expression: Second plus is 'location'
+    EXPECT_EQ(result.include_prefix, "foobarqux");
+    EXPECT_EQ(project().Loc(result.include_prefix), "//elab/BUILD:5:36:");
+  });
 }
 }  // namespace bant

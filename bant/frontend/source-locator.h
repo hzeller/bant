@@ -69,5 +69,20 @@ class SourceLocator {
   std::string Loc(std::string_view s) const;
 };
 
+class FixedSourceLocator : public SourceLocator {
+public:
+ // Note: Location (with string_view to filename) must stay valid for the
+  // life-time of this object.
+ explicit FixedSourceLocator(const FileLocation &location)
+     : location_(location) {}
+
+  FileLocation GetLocation(std::string_view text) const final {
+    return location_;  // Unconditional fixed location.
+  }
+
+private:
+  const FileLocation location_;
+};
+
 }  // namespace bant
 #endif  // BANT_SOURCE_LOCATOR_

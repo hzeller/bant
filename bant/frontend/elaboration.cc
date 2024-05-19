@@ -23,6 +23,7 @@
 #include "absl/log/check.h"
 #include "bant/frontend/ast.h"
 #include "bant/frontend/parsed-project.h"
+#include "bant/frontend/source-locator.h"
 #include "bant/session.h"
 #include "bant/util/stat.h"
 
@@ -67,12 +68,23 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     if (!bin_op) return post_visit;
     switch (bin_op->op()) {
     case '+': {
-      List *left = bin_op->left()->CastAsList();
-      List *right = bin_op->right()->CastAsList();
-      if (left && right && left->type() == right->type()) {
-        return ConcatLists(left, right);
+      {
+        List *left = bin_op->left()->CastAsList();
+        List *right = bin_op->right()->CastAsList();
+        if (left && right && left->type() == right->type()) {
+          return ConcatLists(left, right);
+        }
       }
-      return bin_op;
+      {
+        Scalar *left = bin_op->left()->CastAsScalar();
+        Scalar *right = bin_op->right()->CastAsScalar();
+        if (left && right && left->type() == right->type() &&
+            left->type() == Scalar::ScalarType::kString) {
+          return ConcatStrings(project_->GetLocation(bin_op->source_range()),
+                               left->AsString(), right->AsString());
+        }
+      }
+      return bin_op;  // Unimplemented op. Return as-is.
     }
     default: return bin_op;
     }
@@ -92,6 +104,22 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     for (Node *n : *right) {
       result->Append(project_->arena(), n);
     }
+    return result;
+  }
+
+  StringScalar *ConcatStrings(const FileLocation &op_location,
+                              std::string_view left, std::string_view right) {
+    const size_t new_length = left.size() + right.size();
+    char *new_str = static_cast<char *>(project_->arena()->Alloc(new_length));
+    memcpy(new_str, left.data(), left.size());
+    memcpy(new_str + left.size(), right.data(), right.size());
+    std::string_view assembled{new_str, new_length};
+    StringScalar *result = Make<StringScalar>(assembled, false, false);
+
+    // Whenever anyone is asking for where this string is coming from, tell
+    // them the original location where the operation is coming from.
+    project_->RegisterLocationRange(assembled,
+                                    Make<FixedSourceLocator>(op_location));
     return result;
   }
 
