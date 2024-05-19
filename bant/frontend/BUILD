@@ -128,6 +128,7 @@ cc_library(
     deps = [
         ":parsed-project",
         ":parser",
+        ":source-locator",
         "//bant:session",
         "//bant/util:stat",
         "@abseil-cpp//absl/container:flat_hash_map",
@@ -142,6 +143,7 @@ cc_test(
         ":elaboration",
         ":parsed-project",
         ":parsed-project_testutil",
+        "//bant/explore:query-utils",
         "@googletest//:gtest",
         "@googletest//:gtest_main",
     ],

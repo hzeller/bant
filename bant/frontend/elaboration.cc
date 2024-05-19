@@ -17,6 +17,8 @@
 
 #include "bant/frontend/elaboration.h"
 
+#include <cstddef>
+#include <cstring>
 #include <string_view>
 
 #include "absl/container/flat_hash_map.h"
@@ -113,14 +115,14 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     char *new_str = static_cast<char *>(project_->arena()->Alloc(new_length));
     memcpy(new_str, left.data(), left.size());
     memcpy(new_str + left.size(), right.data(), right.size());
-    std::string_view assembled{new_str, new_length};
-    StringScalar *result = Make<StringScalar>(assembled, false, false);
+    const std::string_view assembled{new_str, new_length};
 
     // Whenever anyone is asking for where this string is coming from, tell
     // them the original location where the operation is coming from.
     project_->RegisterLocationRange(assembled,
                                     Make<FixedSourceLocator>(op_location));
-    return result;
+
+    return Make<StringScalar>(assembled, false, false);
   }
 
   template <typename T, class... U>

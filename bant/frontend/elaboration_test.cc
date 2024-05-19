@@ -22,15 +22,15 @@
 #include <string_view>
 #include <utility>
 
-#include "bant/frontend/parsed-project.h"
 #include "bant/explore/query-utils.h"
+#include "bant/frontend/parsed-project.h"
 #include "bant/frontend/parsed-project_testutil.h"
 #include "gtest/gtest.h"
 
 namespace bant {
 
 class ElaborationTest : public testing::Test {
-protected:
+ protected:
   std::pair<std::string, std::string> ElabAndPrint(
     std::string_view to_elaborate, std::string_view expected) {
     elaborated_ = pp_.Add("//elab", to_elaborate);
@@ -49,7 +49,7 @@ protected:
 
   ParsedProject &project() { return pp_.project(); }
 
-private:
+ private:
   ParsedProjectTestUtil pp_;
   const ParsedBuildFile *elaborated_ = nullptr;
 };

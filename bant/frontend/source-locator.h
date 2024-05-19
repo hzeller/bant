@@ -70,17 +70,17 @@ class SourceLocator {
 };
 
 class FixedSourceLocator : public SourceLocator {
-public:
- // Note: Location (with string_view to filename) must stay valid for the
+ public:
+  // Note: Location (with string_view to filename) must stay valid for the
   // life-time of this object.
- explicit FixedSourceLocator(const FileLocation &location)
-     : location_(location) {}
+  explicit FixedSourceLocator(const FileLocation &location)
+      : location_(location) {}
 
   FileLocation GetLocation(std::string_view text) const final {
     return location_;  // Unconditional fixed location.
   }
 
-private:
+ private:
   const FileLocation location_;
 };
 
