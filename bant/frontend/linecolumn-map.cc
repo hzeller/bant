@@ -23,6 +23,7 @@
 #include <string_view>
 
 #include "absl/log/check.h"
+#include "bant/frontend/source-locator.h"
 
 namespace bant {
 void LineColumnMap::PushNewline(std::string_view::const_iterator newline_pos) {

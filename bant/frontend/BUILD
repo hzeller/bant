@@ -4,10 +4,19 @@ package(
 )
 
 cc_library(
+    name = "source-locator",
+    srcs = ["source-locator.cc"],
+    hdrs = ["source-locator.h"],
+)
+
+cc_library(
     name = "linecolumn-map",
     srcs = ["linecolumn-map.cc"],
     hdrs = ["linecolumn-map.h"],
-    deps = ["@abseil-cpp//absl/log:check"],
+    deps = [
+        ":source-locator",
+        "@abseil-cpp//absl/log:check",
+    ],
 )
 
 cc_test(
@@ -16,6 +25,7 @@ cc_test(
     srcs = ["linecolumn-map_test.cc"],
     deps = [
         ":linecolumn-map",
+        ":source-locator",
         "@abseil-cpp//absl/log:check",
         "@googletest//:gtest",
         "@googletest//:gtest_main",
@@ -28,6 +38,7 @@ cc_library(
     hdrs = ["named-content.h"],
     deps = [
         ":linecolumn-map",
+        ":source-locator",
         "@abseil-cpp//absl/log:check",
     ],
 )
@@ -86,6 +97,7 @@ cc_library(
     deps = [
         ":named-content",
         ":parser",
+        ":source-locator",
         "//bant:session",
         "//bant:types-bazel",
         "//bant:workspace",

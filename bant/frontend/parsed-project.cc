@@ -172,7 +172,7 @@ const ParsedBuildFile *ParsedProject::AddBuildFileContent(
     // Should typically not happen, but maybe both BUILD and BUILD.bazel are
     // there ? Report for the user to figure out.
     message_out.info() << filename << ": Package " << package
-                       << " already seen before in " << existing->source_.name()
+                       << " already seen before in " << existing->source_.source_name()
                        << "\n";
     return existing;
   }

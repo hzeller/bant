@@ -18,33 +18,14 @@
 #ifndef BANT_LINE_COLUMN_MAP_
 #define BANT_LINE_COLUMN_MAP_
 
-#include <ostream>
 #include <vector>
+
+#include "bant/frontend/source-locator.h"  // Provides LineColumn/Range
 
 // A utility to map positions in a string_view to a human-consumable
 // line/column representation.
 
 namespace bant {
-// Zero-based line and column.
-struct LineColumn {
-  int line;
-  int col;
-
-  bool operator==(const LineColumn &) const = default;
-};
-
-// Print line and column; one-based for easier human consumption.
-std::ostream &operator<<(std::ostream &out, LineColumn);
-
-struct LineColumnRange {
-  LineColumn start;  // inclusive
-  LineColumn end;    // exclusive
-
-  bool operator==(const LineColumnRange &) const = default;
-};
-
-std::ostream &operator<<(std::ostream &out, const LineColumnRange &);
-
 // A line column map has to be fed with positions of newlines. It can answer
 // questions of a position of a particular std::string_view within the
 // larger string view.

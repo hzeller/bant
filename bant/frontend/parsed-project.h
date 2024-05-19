@@ -23,6 +23,7 @@
 
 #include "bant/frontend/ast.h"
 #include "bant/frontend/named-content.h"
+#include "bant/frontend/source-locator.h"
 #include "bant/session.h"
 #include "bant/types-bazel.h"
 #include "bant/util/disjoint-range-map.h"
@@ -42,7 +43,7 @@ class ParsedBuildFile {
   ParsedBuildFile(ParsedBuildFile &&) = delete;
   ParsedBuildFile(const ParsedBuildFile &) = delete;
 
-  std::string_view name() const { return source_.name(); }
+  std::string_view name() const { return source_.source_name(); }
 
   BazelPackage package;
   List *ast;           // parsed AST. Content owned by arena in ParsedProject
@@ -51,7 +52,7 @@ class ParsedBuildFile {
  private:
   friend class ParsedProject;  // It is allowed to access source_ directly.
   const std::string content_;
-  NamedLineIndexedContent source_;
+  NamedLineIndexedContent source_;  // SourceLocator: always vis ParsedProject
 };
 
 // A Parsed project contains all the parsed BUILD-files of a project.

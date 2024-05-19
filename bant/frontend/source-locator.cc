@@ -15,19 +15,22 @@
 // with this program; if not, write to the Free Software Foundation, Inc.,
 // 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 
-#include "bant/frontend/named-content.h"
-
-#include <string_view>
-
-#include "absl/log/check.h"
-#include "bant/frontend/linecolumn-map.h"
 #include "bant/frontend/source-locator.h"
 
+#include <ostream>
+#include <sstream>
+#include <string>
+#include <string_view>
+
 namespace bant {
-LineColumnRange NamedLineIndexedContent::GetLocation(std::string_view text) const {
-  CHECK(text.begin() >= content().begin() && text.end() <= content().end())
-    << "Attempt to pass '" << text << "' which is not within " << source_name();
-  return line_index_.GetRange(text);
+std::ostream &SourceLocator::Loc(std::ostream &out, std::string_view s) const {
+  out << source_name() << ":" << GetLocation(s);
+  return out;
 }
 
+std::string SourceLocator::Loc(std::string_view s) const {
+  std::stringstream out;
+  Loc(out, s);
+  return out.str();
+}
 }  // namespace bant

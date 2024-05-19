@@ -22,6 +22,7 @@
 #include <string_view>
 
 #include "absl/log/check.h"
+#include "bant/frontend/source-locator.h"
 #include "gtest/gtest.h"
 
 namespace bant {

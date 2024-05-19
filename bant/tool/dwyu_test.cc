@@ -26,10 +26,10 @@
 
 #include "absl/container/flat_hash_map.h"
 #include "absl/log/check.h"
-#include "bant/frontend/linecolumn-map.h"
 #include "bant/frontend/named-content.h"
 #include "bant/frontend/parsed-project.h"
 #include "bant/frontend/parsed-project_testutil.h"
+#include "bant/frontend/source-locator.h"
 #include "bant/output-format.h"
 #include "bant/session.h"
 #include "bant/tool/dwyu-internal.h"
@@ -47,7 +47,7 @@ static LineColumn PosOfPart(const NamedLineIndexedContent &src,
                             const std::vector<std::string_view> &parts,
                             size_t i) {
   CHECK(i <= parts.size());
-  return src.GetRange(parts[i]).start;
+  return src.GetLocation(parts[i]).start;
 }
 
 // Inception deception:
