@@ -90,6 +90,8 @@ class ParsedProject {
   // Some stats.
   int error_count() const { return error_count_; }
 
+  Arena *arena() { return &arena_; }
+
  private:
   friend class ParsedProjectTestUtil;
 

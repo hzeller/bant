@@ -39,6 +39,8 @@ class NestCounter {
 
 class SimpleElaborator : public BaseNodeReplacementVisitor {
  public:
+  explicit SimpleElaborator(ParsedProject *project) : project_(project) {}
+
   Node *VisitFunCall(FunCall *f) final {
     const NestCounter c(&nest_level_);
     return BaseNodeReplacementVisitor::VisitFunCall(f);
@@ -58,19 +60,54 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     return result;
   }
 
+  // Very narrow of operations actually supported. Only what we typically need.
+  Node *VisitBinOpNode(BinOpNode *b) final {
+    Node *post_visit = BaseNodeReplacementVisitor::VisitBinOpNode(b);
+    BinOpNode *bin_op = post_visit->CastAsBinOp();  // still binop ?
+    if (!bin_op) return post_visit;
+    switch (bin_op->op()) {
+    case '+': {
+      List *left = bin_op->left()->CastAsList();
+      List *right = bin_op->right()->CastAsList();
+      if (left && right && left->type() == right->type()) {
+        return ConcatLists(left, right);
+      }
+      return bin_op;
+    }
+    default: return bin_op;
+    }
+  }
+
   Node *VisitIdentifier(Identifier *i) final {
     auto found = global_variables_.find(i->id());
     return found != global_variables_.end() ? found->second : i;
   }
 
  private:
+  List *ConcatLists(List *left, List *right) {
+    List *result = Make<List>(left->type());
+    for (Node *n : *left) {
+      result->Append(project_->arena(), n);
+    }
+    for (Node *n : *right) {
+      result->Append(project_->arena(), n);
+    }
+    return result;
+  }
+
+  template <typename T, class... U>
+  T *Make(U &&...args) {
+    return project_->arena()->New<T>(std::forward<U>(args)...);
+  }
+
+  ParsedProject *const project_;
   int nest_level_ = 0;
   absl::flat_hash_map<std::string_view, Node *> global_variables_;
 };
 }  // namespace
 
 Node *Elaborate(ParsedProject *project, Node *ast) {
-  SimpleElaborator elaborator;
+  SimpleElaborator elaborator(project);
   return elaborator.WalkNonNull(ast);
 }
 

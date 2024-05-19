@@ -53,7 +53,8 @@ cc_library(
   name = "foo",
   srcs = SOURCES,    # global variable SOURCES should be expanded
   baz = name,        # nested symbol 'name' should not be expanded
-))",
+)
+)",
     R"(
 BAR = "bar.cc"
 BAR_REF = "bar.cc"   # ... indirections resolved
@@ -63,7 +64,28 @@ cc_library(
   name = "foo",
   srcs = ["foo.cc", "bar.cc"],  # <- expanded
   baz = name,                   # <- not expanded
-))");
+)
+)");
+
+  EXPECT_EQ(result.first, result.second);
+}
+
+TEST(ElaborationTest, ConcatLists) {
+  auto result = ElabAndPrint(
+    R"(
+FOO = ["baz.cc", "qux.cc"]
+cc_library(
+  name = "foo",
+  srcs = [ "foo.cc" ] + [ "bar.cc" ] + FOO
+)
+)",
+    R"(
+FOO = ["baz.cc", "qux.cc"]
+cc_library(
+  name = "foo",
+  srcs = [ "foo.cc", "bar.cc", "baz.cc", "qux.cc" ],
+)
+)");
 
   EXPECT_EQ(result.first, result.second);
 }
