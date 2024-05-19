@@ -181,13 +181,19 @@ class BinOpNode : public BinNode {
   void Accept(VoidVisitor *v) override;
   Node *Accept(NodeVisitor *v) override;
 
+  // Approximate range covered, for file location reporting. Best effort,
+  // can even be empty.
+  std::string_view source_range() const { return range_; }
+
  protected:
-  BinOpNode(Node *lhs, Node *rhs, TokenType op) : BinNode(lhs, rhs), op_(op) {}
+  BinOpNode(Node *lhs, Node *rhs, TokenType op, std::string_view range)
+      : BinNode(lhs, rhs), op_(op), range_(range) {}
 
  private:
   friend class Arena;
 
   const TokenType op_;
+  const std::string_view range_;  // non-empty if known
 };
 
 // List, maps and tuples are all lists.
@@ -268,8 +274,8 @@ class Assignment : public BinOpNode {
 
  private:
   friend class Arena;
-  Assignment(Identifier *identifier, Node *value)
-      : BinOpNode(identifier, value, TokenType::kAssign) {}
+  Assignment(Identifier *identifier, Node *value, std::string_view range)
+      : BinOpNode(identifier, value, TokenType::kAssign, range) {}
 };
 
 // Function call.

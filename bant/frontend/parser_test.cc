@@ -58,7 +58,7 @@ class ParserTest : public testing::Test {
     return Op(static_cast<TokenType>(op), a, b);
   }
   BinOpNode *Op(TokenType op, Node *a, Node *b) {
-    return arena_.New<BinOpNode>(a, b, op);
+    return arena_.New<BinOpNode>(a, b, op, "");
   }
   BinOpNode *In(Node *a, Node *b) { return Op(TokenType::kIn, a, b); }
   BinOpNode *NotIn(Node *a, Node *b) { return Op(TokenType::kNotIn, a, b); }
@@ -70,7 +70,7 @@ class ParserTest : public testing::Test {
     return arena_.New<UnaryExpr>(op, n);
   }
   Assignment *Assign(std::string_view id, Node *b) {
-    return arena_.New<Assignment>(Id(id), b);
+    return arena_.New<Assignment>(Id(id), b, "");
   }
   FunCall *Call(std::string_view id, List *args) {
     return arena_.New<FunCall>(Id(id), args);

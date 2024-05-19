@@ -30,6 +30,16 @@
 #include "bant/frontend/scanner.h"
 #include "bant/util/arena.h"
 
+// TODO: for all BinOpNodes and Assignment, invest more effort to extract
+// the range the full expression covers. Right now, it is mostly just the
+// operator itself. Rarely needed, but it is used to report the artificial
+// file location of evaluated expressions.
+// So "foo" + "bar" will yield the string "foobar" after expr. eval
+// and the reported location of that constructed string that is not in itself
+// in the file will just be the operator '+' right now while it would be more
+// natural if the whole text-range of the expression would be be reported.
+
+//
 // Set to 1 to get a parse tree trace. Not thread safe.
 #if 0
 static int sNodeNum = 0;
@@ -101,16 +111,18 @@ class Parser::Impl {
       const Token after_id = scanner_->Next();
       switch (after_id.type) {
       case TokenType::kAssign:
-        statement_list->Append(node_arena_,
-                               ParseAssignmentRhs(Make<Identifier>(tok.text)));
+        statement_list->Append(
+          node_arena_,
+          ParseAssignmentRhs(Make<Identifier>(tok.text), after_id.text));
         break;
       case TokenType::kOpenParen:
         statement_list->Append(node_arena_, ParseFunCall(tok));
         break;
       case TokenType::kDot:
         statement_list->Append(
-          node_arena_, Make<BinOpNode>(Make<Identifier>(tok.text),
-                                       ParseExpression(), TokenType::kDot));
+          node_arena_,
+          Make<BinOpNode>(Make<Identifier>(tok.text), ParseExpression(),
+                          TokenType::kDot, after_id.text));
         break;
       default:
         ErrAt(after_id) << "expected `(` or `=`\n";
@@ -120,10 +132,15 @@ class Parser::Impl {
     return statement_list;
   }
 
-  Assignment *ParseAssignmentRhs(Identifier *id) {
+  Assignment *ParseAssignmentRhs(Identifier *id, std::string_view assign_tok) {
     LOG_ENTER();
     // '=' already consumed
-    return Make<Assignment>(id, ParseExpression());
+    Node *rhs = ParseExpression();
+    // TODO: ideally, we have a range up to the end of the rhs, but we would
+    // get the whitespace until the next token if we just looked at
+    // scanner_->Peek().text.begin(). So for now, just cover range up to =.
+    const std::string_view text_range{id->id().begin(), assign_tok.end()};
+    return Make<Assignment>(id, rhs, text_range);
   }
 
   Node *ExpressionOrAssignment() {
@@ -133,7 +150,7 @@ class Parser::Impl {
     const Token upcoming = scanner_->Peek();
     if (auto *id = value->CastAsIdentifier(); id && upcoming.type == '=') {
       scanner_->Next();
-      return ParseAssignmentRhs(id);
+      return ParseAssignmentRhs(id, upcoming.text);
     }
     return value;
   }
@@ -210,7 +227,7 @@ class Parser::Impl {
                       "after the ':'\n";
         return nullptr;
       }
-      return Make<BinOpNode>(n, rhs, TokenType::kColon);
+      return Make<BinOpNode>(n, rhs, TokenType::kColon, separator_or_end.text);
     }
     default: ErrAt(separator_or_end) << "Expected ':' or ']'\n"; return nullptr;
     }
@@ -291,7 +308,7 @@ class Parser::Impl {
       case '.':    // scoped invocation
       case '%': {  // format expr.
         const Token op = scanner_->Next();
-        return Make<BinOpNode>(n, ParseExpression(), op.type);
+        return Make<BinOpNode>(n, ParseExpression(), op.type, op.text);
       }
       case '[': {
         // This is a bit handwavy. We want to disambiguate an array access
@@ -310,7 +327,7 @@ class Parser::Impl {
           return nullptr;
         }
         const Token op = scanner_->Next();  // '[' operation.
-        n = Make<BinOpNode>(n, ParseArrayOrSliceAccess(), op.type);
+        n = Make<BinOpNode>(n, ParseArrayOrSliceAccess(), op.type, op.text);
         // Suffix expression, maybe there is more. Don't return, continue.
         break;
       }
@@ -378,7 +395,8 @@ class Parser::Impl {
       ErrAt(separator) << "expected `:` in map-tuple\n";
       return nullptr;
     }
-    return Make<BinOpNode>(lhs, ParseExpression(), TokenType::kColon);
+    return Make<BinOpNode>(lhs, ParseExpression(), TokenType::kColon,
+                           separator.text);
   }
 
   // Parse list, use ListElementParse function to parse elements.
@@ -445,7 +463,8 @@ class Parser::Impl {
 
     // 'for' seen, but not consumed yet.
     while (scanner_->Peek().type == TokenType::kFor) {
-      scanner_->Next();
+      const Token start_of_for = scanner_->Next();
+
       List *variable_tuple = nullptr;
       // There can be multipole variables in the list, so they are a tuple.
 
@@ -465,9 +484,15 @@ class Parser::Impl {
           Make<List>(List::Type::kTuple),
           [&]() { return ParseOptionalIdentifier(); }, TokenType::kIn);
       }
-      BinOpNode *const range =
-        Make<BinOpNode>(variable_tuple, ParseExpression(), TokenType::kIn);
-      for_tree = Make<BinOpNode>(iterate_target, range, TokenType::kFor);
+
+      Node *values_to_iterate_over = ParseExpression();
+      const Token after_pos = scanner_->Peek();
+      const std::string_view text_range{start_of_for.text.end(),
+                                        after_pos.text.begin()};
+      BinOpNode *const range = Make<BinOpNode>(
+        variable_tuple, values_to_iterate_over, TokenType::kIn, text_range);
+      for_tree = Make<BinOpNode>(iterate_target, range, TokenType::kFor,
+                                 start_of_for.text);
       iterate_target = for_tree;  // Nested loops.
     }
 
