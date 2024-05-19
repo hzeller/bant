@@ -59,13 +59,12 @@ class NamedLineIndexedContent : public SourceLocator {
   // The index to be filled by the scanning process.
   LineColumnMap *mutable_line_index() { return &line_index_; }
 
+  std::string_view source_name() const { return name_; }
+
   // -- SourceLocator interface
 
-  // Name of this content, typically the filename.
-  std::string_view source_name() const final { return name_; }
-
-  // Given "text", that must be a substring of content(), return range.
-  LineColumnRange GetLocation(std::string_view text) const final;
+  // Given "text", that must be a substring of content(), return location.
+  FileLocation GetLocation(std::string_view text) const final;
 
  private:
   const std::string name_;

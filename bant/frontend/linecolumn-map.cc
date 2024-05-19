@@ -19,7 +19,6 @@
 
 #include <algorithm>
 #include <cstddef>
-#include <ostream>
 #include <string_view>
 
 #include "absl/log/check.h"
@@ -29,28 +28,6 @@ namespace bant {
 void LineColumnMap::PushNewline(std::string_view::const_iterator newline_pos) {
   CHECK(line_map_.empty() || line_map_.back() <= newline_pos);
   line_map_.push_back(newline_pos);
-}
-
-std::ostream &operator<<(std::ostream &out, LineColumn line_column) {
-  out << (line_column.line + 1) << ":" << (line_column.col + 1);
-  return out;
-}
-
-std::ostream &operator<<(std::ostream &out, const LineColumnRange &r) {
-  // Unlike 'technical' representation where we point the end pos one past
-  // the relevant range, for human consumption we want to point to the last
-  // character.
-  LineColumn right = r.end;
-  right.col--;
-  out << r.start;
-  // Only if we cover more than a single character, print range of columns.
-  if (r.start.line == right.line) {
-    if (right.col > r.start.col) out << '-' << right.col + 1;
-  } else {
-    out << ':' << right;
-  }
-  out << ':';
-  return out;
 }
 
 LineColumn LineColumnMap::GetPos(std::string_view::const_iterator pos) const {

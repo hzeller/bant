@@ -181,8 +181,8 @@ class BinOpNode : public BinNode {
   void Accept(VoidVisitor *v) override;
   Node *Accept(NodeVisitor *v) override;
 
-  // Approximate range covered, for file location reporting.
-  // Best effort; if range unknown, this is empty().
+  // Approximate range covered, for file location reporting. Best effort,
+  // but should be a valid location and non-empty (except in tests maybe).
   std::string_view source_range() const { return range_; }
 
  protected:

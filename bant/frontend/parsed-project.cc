@@ -30,6 +30,7 @@
 #include "bant/frontend/ast.h"
 #include "bant/frontend/parser.h"
 #include "bant/frontend/scanner.h"
+#include "bant/frontend/source-locator.h"
 #include "bant/session.h"
 #include "bant/types-bazel.h"
 #include "bant/util/file-utils.h"
@@ -172,8 +173,8 @@ const ParsedBuildFile *ParsedProject::AddBuildFileContent(
     // Should typically not happen, but maybe both BUILD and BUILD.bazel are
     // there ? Report for the user to figure out.
     message_out.info() << filename << ": Package " << package
-                       << " already seen before in " << existing->source_.source_name()
-                       << "\n";
+                       << " already seen before in "
+                       << existing->source_.source_name() << "\n";
     return existing;
   }
 
@@ -189,20 +190,20 @@ const ParsedBuildFile *ParsedProject::AddBuildFileContent(
   }
   parse_result.package = package;
 
-  location_maps_.Insert(parse_result.source_.content(), &parse_result.source_);
+  RegisterLocationRange(parse_result.source_.content(), &parse_result.source_);
   return inserted.first->second.get();
 }
 
-std::ostream &ParsedProject::Loc(std::ostream &out, std::string_view s) const {
-  auto found = location_maps_.FindBySubrange(s);
-  CHECK(found.has_value()) << s;
-  return found.value()->Loc(out, s);
+void ParsedProject::RegisterLocationRange(std::string_view range,
+                                          const SourceLocator *source_locator) {
+  location_maps_.Insert(range, source_locator);
 }
 
-std::string ParsedProject::Loc(std::string_view s) const {
-  auto found = location_maps_.FindBySubrange(s);
-  CHECK(found.has_value()) << s;
-  return found.value()->Loc(s);
+FileLocation ParsedProject::GetLocation(std::string_view text) const {
+  auto found = location_maps_.FindBySubrange(text);
+  CHECK(found.has_value())
+    << "Not in any of the files managed by ParsedProject '" << text << "'";
+  return found.value()->GetLocation(text);
 }
 
 const ParsedBuildFile *ParsedProject::FindParsedOrNull(

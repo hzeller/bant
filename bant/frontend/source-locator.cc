@@ -23,14 +23,41 @@
 #include <string_view>
 
 namespace bant {
+std::ostream &operator<<(std::ostream &out, LineColumn line_column) {
+  out << (line_column.line + 1) << ":" << (line_column.col + 1);
+  return out;
+}
+
+std::ostream &operator<<(std::ostream &out, const LineColumnRange &r) {
+  // Unlike 'technical' representation where we point the end pos one past
+  // the relevant range, for human consumption we want to point to the last
+  // character.
+  LineColumn right = r.end;
+  right.col--;
+  out << r.start;
+  // Only if we cover more than a single character, print range of columns.
+  if (r.start.line == right.line) {
+    if (right.col > r.start.col) out << '-' << right.col + 1;
+  } else {
+    out << ':' << right;
+  }
+  out << ':';
+  return out;
+}
+
+std::ostream &operator<<(std::ostream &out, const FileLocation &floc) {
+  out << floc.filename << ":" << floc.line_column_range;
+  return out;
+}
+
 std::ostream &SourceLocator::Loc(std::ostream &out, std::string_view s) const {
-  out << source_name() << ":" << GetLocation(s);
+  out << GetLocation(s);
   return out;
 }
 
 std::string SourceLocator::Loc(std::string_view s) const {
   std::stringstream out;
-  Loc(out, s);
+  out << GetLocation(s);
   return out.str();
 }
 }  // namespace bant

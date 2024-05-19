@@ -47,7 +47,7 @@ static LineColumn PosOfPart(const NamedLineIndexedContent &src,
                             const std::vector<std::string_view> &parts,
                             size_t i) {
   CHECK(i <= parts.size());
-  return src.GetLocation(parts[i]).start;
+  return src.GetLocation(parts[i]).line_column_range.start;
 }
 
 // Inception deception:

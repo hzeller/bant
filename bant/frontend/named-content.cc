@@ -24,10 +24,10 @@
 #include "bant/frontend/source-locator.h"
 
 namespace bant {
-LineColumnRange NamedLineIndexedContent::GetLocation(std::string_view text) const {
+FileLocation NamedLineIndexedContent::GetLocation(std::string_view text) const {
   CHECK(text.begin() >= content().begin() && text.end() <= content().end())
-    << "Attempt to pass '" << text << "' which is not within " << source_name();
-  return line_index_.GetRange(text);
+    << "Attempt to pass '" << text << "' which is not within " << name_;
+  return {name_, line_index_.GetRange(text)};
 }
 
 }  // namespace bant

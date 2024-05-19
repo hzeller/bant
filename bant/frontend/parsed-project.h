@@ -56,7 +56,7 @@ class ParsedBuildFile {
 };
 
 // A Parsed project contains all the parsed BUILD-files of a project.
-class ParsedProject {
+class ParsedProject : public SourceLocator {
  public:
   using Package2Parsed =
     OneToOne<BazelPackage, std::unique_ptr<ParsedBuildFile>>;
@@ -80,18 +80,21 @@ class ParsedProject {
   // Look up parse file given the package, or nullptr, if not parsed (yet).
   const ParsedBuildFile *FindParsedOrNull(const BazelPackage &package) const;
 
-  // Given the string_view of any content of any of the BUILD files we parsed,
-  // print the <file>:<line>:<col> location of that string view to stream;
-  // Must only be called with valid ranges.
-  std::ostream &Loc(std::ostream &out, std::string_view s) const;
-
-  // Same, but instead of writing to stream, returning a string.
-  std::string Loc(std::string_view s) const;
-
   // Some stats.
   int error_count() const { return error_count_; }
 
+  // Arena all Nodes and intermediate data is allocated in.
   Arena *arena() { return &arena_; }
+
+  // Register the "source_locator" for given given string-view range.
+  // Range must be disjoint from all other ranges. Ownership of
+  // "source_locator" is not taken over, ParsedProject just keeps track of
+  // what ranges to delegate to for our own GetLocation() implementation.
+  void RegisterLocationRange(std::string_view range,
+                             const SourceLocator *source_locator);
+
+  // -- SourceLocator implementation
+  FileLocation GetLocation(std::string_view text) const final;
 
  private:
   friend class ParsedProjectTestUtil;
