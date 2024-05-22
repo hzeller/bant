@@ -18,6 +18,7 @@
 // Expression evaluation for some const-evaluatable things that are useful
 // for later stages, like expanding variables, list concatenations or
 // glob() calls. Not fully fledged evaluation, let's call it elaboration.
+
 #ifndef BANT_ELABORATION_H
 #define BANT_ELABORATION_H
 
@@ -27,12 +28,13 @@
 
 namespace bant {
 
-// Elaborate given AST in the context of the parsed project. The project
-// supplies the arena to allocate possibly new nodes and to provide
+// Elaborate and modify given AST in the context of the parsed project.
+// The project supplies the arena to allocate possibly new nodes and to provide
 // SourceLocator services to query and register.
 //
 // Returns (possibly modified) AST.
-Node *Elaborate(ParsedProject *project, Node *ast);
+Node *Elaborate(Session &session, ParsedProject *project,
+                const BazelPackage &package, Node *ast);
 
 // Elaborate all files in the given project.
 void Elaborate(Session &session, ParsedProject *project);

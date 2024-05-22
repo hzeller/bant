@@ -19,14 +19,20 @@
 
 #include <cstddef>
 #include <cstring>
+#include <string>
 #include <string_view>
+#include <vector>
 
 #include "absl/container/flat_hash_map.h"
 #include "absl/log/check.h"
+#include "bant/explore/query-utils.h"
 #include "bant/frontend/ast.h"
 #include "bant/frontend/parsed-project.h"
 #include "bant/frontend/source-locator.h"
 #include "bant/session.h"
+#include "bant/types-bazel.h"
+#include "bant/util/file-utils.h"
+#include "bant/util/glob-match-builder.h"
 #include "bant/util/stat.h"
 
 namespace bant {
@@ -42,11 +48,17 @@ class NestCounter {
 
 class SimpleElaborator : public BaseNodeReplacementVisitor {
  public:
-  explicit SimpleElaborator(ParsedProject *project) : project_(project) {}
+  SimpleElaborator(Session &session, ParsedProject *project,
+                   const BazelPackage &package)
+      : session_(session), project_(project), package_(package) {}
 
   Node *VisitFunCall(FunCall *f) final {
     const NestCounter c(&nest_level_);
-    return BaseNodeReplacementVisitor::VisitFunCall(f);
+    BaseNodeReplacementVisitor::VisitFunCall(f);
+    if (f->identifier()->id() == "glob") {
+      return HandleGlob(f);
+    }
+    return f;
   }
 
   Node *VisitList(List *l) final {
@@ -61,6 +73,12 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
       global_variables_[a->identifier()->id()] = a->value();
     }
     return result;
+  }
+
+  // Variable substituion with value if known.
+  Node *VisitIdentifier(Identifier *i) final {
+    auto found = global_variables_.find(i->id());
+    return found != global_variables_.end() ? found->second : i;
   }
 
   // Very narrow of operations actually supported. Only what we typically need.
@@ -92,11 +110,6 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     }
   }
 
-  Node *VisitIdentifier(Identifier *i) final {
-    auto found = global_variables_.find(i->id());
-    return found != global_variables_.end() ? found->second : i;
-  }
-
  private:
   List *ConcatLists(List *left, List *right) {
     List *result = Make<List>(left->type());
@@ -125,28 +138,141 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     return Make<StringScalar>(assembled, false, false);
   }
 
+  Node *HandleGlob(FunCall *fun) {
+    // Extract arguments. include_list is allowed to be a positional parameter.
+    List *include_list = nullptr;
+    List *exclude_list = nullptr;
+    for (Node *arg : *fun->argument()) {
+      if (List *as_list = arg->CastAsList()) {
+        include_list = as_list;  // include_list is positional parameter.
+        continue;
+      }
+      if (Assignment *kwarg = arg->CastAsAssignment()) {
+        const std::string_view kw = kwarg->identifier()->id();
+        if (kw == "include") {
+          include_list = kwarg->value()->CastAsList();
+        } else if (kw == "exclude") {
+          exclude_list = kwarg->value()->CastAsList();
+        }
+      }
+    }
+
+    // Find directory to start the glob()-ing.
+    // TODO: QualifiedFile() should deal with package paths by themslves
+    std::string root_dir;
+    auto package_path =
+      project_->workspace().FindPathByProject(package_.project);
+    if (package_path.has_value()) {
+      root_dir = package_path->path();
+    }
+    if (!root_dir.empty()) root_dir.append("/");
+    root_dir.append(package_.QualifiedFile("."));
+
+    const std::vector<FilesystemPath> glob_result =
+      MultiGlob(root_dir, query::ExtractStringList(include_list),
+                query::ExtractStringList(exclude_list));
+
+    // Allocate buffer enough to hold all the strings; we don't need the
+    // root_dir prefix, so don't account for that part.
+    const size_t skip_offset = root_dir.length() + 1;
+    size_t glob_strings_size = 0;
+    for (const auto &f : glob_result) {
+      CHECK_LT(skip_offset, f.path().length());
+      glob_strings_size += f.path().length() - skip_offset;
+    }
+    char *const glob_strings_blob =
+      static_cast<char *>(project_->arena()->Alloc(glob_strings_size));
+
+    // Assemble result list, copying the filesystem paths to arena block and
+    // collect in a list.
+    List *glob_result_list = Make<List>(List::Type::kList);
+    char *element_begin = glob_strings_blob;
+    for (const auto &f : glob_result) {
+      const size_t copy_len = f.path().length() - skip_offset;
+      memcpy(element_begin, f.path().data() + skip_offset, copy_len);  // NOLINT
+      const std::string_view permanent_string{element_begin, copy_len};
+      auto *string_scalar = Make<StringScalar>(permanent_string, false, false);
+      glob_result_list->Append(project_->arena(), string_scalar);
+      element_begin += permanent_string.length();
+    }
+
+    // Any string within our allocated blob can be located back to come from
+    // the original glob() function call.
+    const FileLocation fun_location =
+      project_->GetLocation(fun->identifier()->id());
+    const std::string_view glob_location_range{glob_strings_blob,
+                                               glob_strings_size};
+    project_->RegisterLocationRange(glob_location_range,
+                                    Make<FixedSourceLocator>(fun_location));
+
+    return glob_result_list;
+  }
+
+  // Globbing that allows for include and exclude lists, as well as ** glob
+  // characters. Combining GlobMatchBuilder and CollectFilesRecursive().
+  std::vector<FilesystemPath> MultiGlob(
+    std::string_view start_dir,  //
+    const std::vector<std::string_view> &include,
+    const std::vector<std::string_view> &exclude) {
+    bant::Stat &glob_stats =
+      session_.GetStatsFor("  - of which glob() walking", "files");
+    const ScopedTimer timer(&glob_stats.duration);
+
+    GlobMatchBuilder match_builder;
+    for (const std::string_view i : include) {
+      match_builder.AddIncludePattern(i);
+    }
+    for (const std::string_view e : exclude) {
+      match_builder.AddExcludePattern(e);
+    }
+    auto dir_matcher = match_builder.BuildDirectoryMatchPredicate();
+    auto file_matcher = match_builder.BuildFileMatchPredicate();
+
+    // The glob pattern does not know about the full path up to this point,
+    // just relative to that. This is the prefix we need to skip when matching.
+    const size_t skip_prefix = start_dir.length() + 1;  // w/ slash.
+
+    size_t checked_files = 0;
+    auto result = CollectFilesRecursive(
+      FilesystemPath(start_dir),
+      [&](const FilesystemPath &dir) {
+        return dir_matcher(std::string_view(dir.path()).substr(skip_prefix));
+      },
+      [&](const FilesystemPath &file) {
+        ++checked_files;
+        return file_matcher(std::string_view(file.path()).substr(skip_prefix));
+      });
+    glob_stats.count += checked_files;
+    return result;
+  }
+
+  // Convenience method to allocate some object in our Arena.
   template <typename T, class... U>
   T *Make(U &&...args) {
     return project_->arena()->New<T>(std::forward<U>(args)...);
   }
 
+  Session &session_;
   ParsedProject *const project_;
+  const BazelPackage &package_;
   int nest_level_ = 0;
   absl::flat_hash_map<std::string_view, Node *> global_variables_;
 };
+
 }  // namespace
 
-Node *Elaborate(ParsedProject *project, Node *ast) {
-  SimpleElaborator elaborator(project);
+Node *Elaborate(Session &session, ParsedProject *project,
+                const BazelPackage &package, Node *ast) {
+  SimpleElaborator elaborator(session, project, package);
   return elaborator.WalkNonNull(ast);
 }
 
 void Elaborate(Session &session, ParsedProject *project) {
-  bant::Stat &elab_stats = session.GetStatsFor("Elaborated", "files");
+  bant::Stat &elab_stats = session.GetStatsFor("Elaborated", "packages");
   const ScopedTimer timer(&elab_stats.duration);
 
-  for (const auto &[_, build_file] : project->ParsedFiles()) {
-    Node *const result = Elaborate(project, build_file->ast);
+  for (const auto &[package, build_file] : project->ParsedFiles()) {
+    Node *const result = Elaborate(session, project, package, build_file->ast);
     CHECK_EQ(result, build_file->ast) << "Toplevel should never be replaced";
     ++elab_stats.count;
   }

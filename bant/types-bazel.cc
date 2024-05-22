@@ -36,6 +36,7 @@ std::string BazelPackage::ToString() const {
   return absl::StrCat(project, "//", path);
 }
 
+// TODO: take workspace into account for prefix.
 std::string BazelPackage::QualifiedFile(std::string_view relative_file) const {
   if (path.empty()) return std::string(relative_file);
   return absl::StrCat(path, "/", relative_file);

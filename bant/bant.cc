@@ -333,9 +333,9 @@ int main(int argc, char *argv[]) {
   }
   const bant::BazelWorkspace &workspace = workspace_or.value();
 
-  bant::ParsedProject project(verbose);
+  bant::ParsedProject project(workspace, verbose);
   if (cmd != Command::kListWorkkspace) {
-    if (project.FillFromPattern(session, workspace, pattern) == 0) {
+    if (project.FillFromPattern(session, pattern) == 0) {
       session.error() << "Pattern did not match any dir with BUILD file.\n";
     }
   }

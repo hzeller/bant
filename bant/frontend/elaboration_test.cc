@@ -17,6 +17,7 @@
 
 #include "bant/frontend/elaboration.h"
 
+#include <iostream>
 #include <sstream>
 #include <string>
 #include <string_view>
@@ -25,6 +26,8 @@
 #include "bant/explore/query-utils.h"
 #include "bant/frontend/parsed-project.h"
 #include "bant/frontend/parsed-project_testutil.h"
+#include "bant/output-format.h"
+#include "bant/session.h"
 #include "gtest/gtest.h"
 
 namespace bant {
@@ -36,8 +39,10 @@ class ElaborationTest : public testing::Test {
     elaborated_ = pp_.Add("//elab", to_elaborate);
     const ParsedBuildFile *expected_parsed = pp_.Add("//expected", expected);
 
+    Session session{&std::cerr, &std::cerr, true, OutputFormat::kNative};
     std::stringstream elab_print;
-    elab_print << bant::Elaborate(&pp_.project(), elaborated_->ast);
+    elab_print << bant::Elaborate(session, &pp_.project(), elaborated_->package,
+                                  elaborated_->ast);
 
     std::stringstream expect_print;
     expect_print << expected_parsed->ast;

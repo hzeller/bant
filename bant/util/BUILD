@@ -91,3 +91,24 @@ cc_test(
         "@googletest//:gtest_main",
     ],
 )
+
+cc_library(
+    name = "glob-match-builder",
+    srcs = ["glob-match-builder.cc"],
+    hdrs = ["glob-match-builder.h"],
+    deps = [
+        "@abseil-cpp//absl/strings",
+        "@re2",
+    ],
+)
+
+cc_test(
+    name = "glob-match-builder_test",
+    size = "small",
+    srcs = ["glob-match-builder_test.cc"],
+    deps = [
+        ":glob-match-builder",
+        "@googletest//:gtest",
+        "@googletest//:gtest_main",
+    ],
+)

@@ -30,6 +30,7 @@ namespace bant {
 class VoidVisitor;
 class NodeVisitor;
 class Identifier;
+class Assignment;
 class Scalar;
 class List;
 class BinOpNode;
@@ -45,6 +46,7 @@ class Node {
 
   // Poor man's RTTI (also: cheaper). Return non-null if of that type.
   virtual Identifier *CastAsIdentifier() { return nullptr; }
+  virtual Assignment *CastAsAssignment() { return nullptr; }
   virtual Scalar *CastAsScalar() { return nullptr; }
   virtual List *CastAsList() { return nullptr; }
   virtual BinOpNode *CastAsBinOp() { return nullptr; }
@@ -271,6 +273,8 @@ class Assignment : public BinOpNode {
 
   void Accept(VoidVisitor *v) final;
   Node *Accept(NodeVisitor *v) final;
+
+  Assignment *CastAsAssignment() final { return this; }
 
  private:
   friend class Arena;

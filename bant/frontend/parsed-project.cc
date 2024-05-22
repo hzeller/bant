@@ -106,27 +106,29 @@ std::vector<FilesystemPath> CollectBuildFiles(Session &session,
 }
 }  // namespace
 
-ParsedProject::ParsedProject(bool verbose) { arena_.SetVerbose(verbose); }
+ParsedProject::ParsedProject(BazelWorkspace workspace, bool verbose)
+    : workspace_(std::move(workspace)) {
+  arena_.SetVerbose(verbose);
+}
 
 int ParsedProject::FillFromPattern(Session &session,
-                                   const BazelWorkspace &workspace,
                                    const BazelPattern &pattern) {
-  const auto build_files = CollectBuildFiles(session, workspace, pattern);
+  const auto build_files = CollectBuildFiles(session, workspace(), pattern);
   for (const FilesystemPath &build_file : build_files) {
-    AddBuildFile(session, build_file, workspace, pattern.project());
+    AddBuildFile(session, build_file, pattern.project());
   }
   return build_files.size();
 }
 
 const ParsedBuildFile *ParsedProject::AddBuildFile(
   Session &session, const FilesystemPath &build_file,
-  const BazelWorkspace &workspace, std::string_view project) {
+  std::string_view project) {
   std::string_view package_path = build_file.path();
   if (!project.empty()) {
     // Somewhat silly to reconstruct the path by asking the worksapce again,
     // we have the information upstream, but it decays to a simple path.
     // Should be fixed, but good enough for now.
-    auto prefix_or = workspace.FindPathByProject(project);
+    auto prefix_or = workspace().FindPathByProject(project);
     if (!prefix_or.has_value()) {
       std::cerr << build_file.path() << ": Can't determine package.\n";
       return nullptr;  // should not happen.

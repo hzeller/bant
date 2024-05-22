@@ -42,7 +42,7 @@ class ParsedProjectTestUtil {
   ParsedProject &project() { return project_; }
 
  private:
-  ParsedProject project_{false};
+  ParsedProject project_{{}, false};
 };
 }  // namespace bant
 

@@ -61,13 +61,12 @@ class ParsedProject : public SourceLocator {
   using Package2Parsed =
     OneToOne<BazelPackage, std::unique_ptr<ParsedBuildFile>>;
 
-  explicit ParsedProject(bool verbose);
+  ParsedProject(BazelWorkspace workspace, bool verbose);
 
   // Given a BazelPattern, collect all the matching BUILD files and add to
   // project.
   // Returns number of build-files added.
-  int FillFromPattern(Session &session, const BazelWorkspace &workspace,
-                      const BazelPattern &pattern);
+  int FillFromPattern(Session &session, const BazelPattern &pattern);
 
   // Parse build file for given package reading from filename.
   const ParsedBuildFile *AddBuildFile(Session &session,
@@ -86,6 +85,8 @@ class ParsedProject : public SourceLocator {
   // Arena all Nodes and intermediate data is allocated in.
   Arena *arena() { return &arena_; }
 
+  const BazelWorkspace &workspace() const { return workspace_; }
+
   // Register the "source_locator" for given given string-view range.
   // Range must be disjoint from all other ranges. Ownership of
   // "source_locator" is not taken over, ParsedProject just keeps track of
@@ -103,7 +104,6 @@ class ParsedProject : public SourceLocator {
   // TODO: should not be needed, just an artifact of FillFromPattern() workings.
   const ParsedBuildFile *AddBuildFile(Session &session,
                                       const FilesystemPath &build_file,
-                                      const BazelWorkspace &workspace,
                                       std::string_view project);
 
   // Given package and content, parse. Main workhorse. Content is std::move()'d
@@ -113,8 +113,9 @@ class ParsedProject : public SourceLocator {
                                              std::string_view filename,
                                              std::string content);
 
-  int error_count_ = 0;
   Arena arena_{1 << 20};
+  const BazelWorkspace workspace_;
+  int error_count_ = 0;
   Package2Parsed package_to_parsed_;
   DisjointRangeMap<std::string_view, const SourceLocator *> location_maps_;
 };
