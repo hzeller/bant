@@ -18,6 +18,7 @@
 #ifndef BANT_SESSION_H
 #define BANT_SESSION_H
 
+#include <memory>
 #include <ostream>
 #include <string_view>
 
@@ -45,7 +46,7 @@ class SessionStreams {
 // as well as access to streams for general output or error and info messages.
 class Session {
  public:
-  using StatMap = OneToOne<std::string_view, bant::Stat>;
+  using StatMap = OneToOne<std::string_view, std::unique_ptr<bant::Stat>>;
 
   Session(std::ostream *out, std::ostream *info, bool verbose, OutputFormat fmt)
       : streams_(out, info), verbose_(verbose), output_format_(fmt) {}
@@ -65,11 +66,12 @@ class Session {
   // Both strings needs to outlive this session object, so typically a regular
   // compile-time string constant.
   Stat &GetStatsFor(std::string_view subsystem_name, std::string_view subject) {
-    auto inserted = stats_.insert({subsystem_name, {subject}});
+    auto inserted =
+      stats_.insert({subsystem_name, std::make_unique<Stat>(subject)});
     if (inserted.second) {
       stat_init_key_order_.push_back(subsystem_name);
     }
-    return inserted.first->second;
+    return *inserted.first->second;
   }
 
   // Return stat keys in the sequence they have been added.
@@ -80,7 +82,7 @@ class Session {
   // Get stat for subsystem or nullptr, if there is no such stat.
   const Stat *stat(std::string_view subsystem_name) const {
     auto found = stats_.find(subsystem_name);
-    return (found != stats_.end()) ? &found->second : nullptr;
+    return (found != stats_.end()) ? found->second.get() : nullptr;
   }
 
  private:
