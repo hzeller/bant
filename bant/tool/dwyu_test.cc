@@ -71,12 +71,15 @@ R"(
 ")
 #include    "w/space.h"        // even strange spacing should work
 #include /* foo */ "this-is-silly.h"  // Some things are too far :)
+#include "../dotdot.h"         // mmh, who is doing this ?
+#include "more-special-c++.h"  // other characters used.
 )";
   NamedLineIndexedContent scanned_src("<text>", kTestContent);
   const auto includes = ExtractCCIncludes(&scanned_src);
   EXPECT_THAT(includes, ElementsAre("CaSe-dash_underscore.h", "but-this.h",
                                     "with/suffix.hh", "with/suffix.pb.h",
-                                    "with/suffix.inc", "w/space.h"));
+                                    "with/suffix.inc", "w/space.h",
+                                    "../dotdot.h", "more-special-c++.h"));
   EXPECT_EQ(PosOfPart(scanned_src, includes, 0), (LineColumn{2, 10}));
   EXPECT_EQ(PosOfPart(scanned_src, includes, 1), (LineColumn{5, 13}));
 
