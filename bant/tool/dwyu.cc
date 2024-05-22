@@ -15,13 +15,6 @@
 // with this program; if not, write to the Free Software Foundation, Inc.,
 // 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 
-// TODO:
-//   - some won't find includes yet because they are the result of a glob()
-//     operation, e.g. gtest/gtest.h.
-//   - generated sources: add heuristic. Check out = "..." fields. Or
-//     proto buffers.
-//
-
 #include "bant/tool/dwyu.h"
 
 #include <array>
@@ -408,10 +401,11 @@ DWYUGenerator::DependenciesNeededBySources(
       // No luck. Source includes it, but we don't know where it is.
       // Be careful with remove suggestion, so consider 'not accounted for'.
       if (session_.verbose()) {
-        // Until we have a glob() implementation, this is pretty noisy at this
-        // point. So wrap only show it if verbose enabled.
-        source.Loc(info_out, inc_file) << " unknown provider for " << inc_file
-                                       << " -- glob()'ed ? lib missing ?\n";
+        // Until all common reasons why we don't find a provider is resolved,
+        // keep this hidden behind verbose.
+        source.Loc(info_out, inc_file)
+          << " unknown provider for " << inc_file
+          << " -- Missing or from other bazel-rule ?\n";
         need_in_source_referenced_message = true;
       }
     }

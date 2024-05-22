@@ -183,7 +183,7 @@ int main(int argc, char *argv[]) {
     kLibraryHeaders,
     kAliasedBy,
     kGenruleOutputs,
-    kDependencyEdits,
+    kDWYU,
     kCanonicalizeDeps,
     kHasDependents,
     kDependsOn,
@@ -199,7 +199,7 @@ int main(int argc, char *argv[]) {
     {"depends-on", Command::kDependsOn},
     {"has-dependents", Command::kHasDependents},
     {"genrule-outputs", Command::kGenruleOutputs},
-    {"dwyu", Command::kDependencyEdits},
+    {"dwyu", Command::kDWYU},
     {"canonicalize", Command::kCanonicalizeDeps},
   };
   static const std::map<std::string_view, OutputFormat> kFormatOutNames = {
@@ -308,7 +308,7 @@ int main(int argc, char *argv[]) {
   }
 
   // Don't look through everything for these.
-  if (cmd == Command::kCanonicalizeDeps || cmd == Command::kDependencyEdits ||
+  if (cmd == Command::kCanonicalizeDeps || cmd == Command::kDWYU ||
       cmd == Command::kPrint) {
     if (pattern.is_matchall()) {
       std::cerr << "Please provide a bazel pattern for this command.\n"
@@ -340,7 +340,7 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  if (recurse_dependency_depth <= 0 && (cmd == Command::kDependencyEdits)) {
+  if (recurse_dependency_depth <= 0 && (cmd == Command::kDWYU)) {
     recurse_dependency_depth = std::numeric_limits<int>::max();
   }
 
@@ -348,7 +348,7 @@ int main(int argc, char *argv[]) {
   // Command-objects.
   bant::DependencyGraph graph;
   switch (cmd) {
-  case Command::kDependencyEdits:
+  case Command::kDWYU:
   case Command::kParse:
   case Command::kLibraryHeaders:
   case Command::kGenruleOutputs:
@@ -372,7 +372,7 @@ int main(int argc, char *argv[]) {
   default:;
   }
 
-  if (elaborate) {
+  if (elaborate || cmd == Command::kDWYU) {
     bant::Elaborate(session, &project);
   }
 
@@ -403,7 +403,7 @@ int main(int argc, char *argv[]) {
                                ExtractGeneratedFromGenrule(project, *info_out));
     break;
 
-  case Command::kDependencyEdits:
+  case Command::kDWYU:
     bant::CreateDependencyEdits(session, project, pattern,
                                 CreateBuildozerDepsEditCallback(*primary_out));
     break;

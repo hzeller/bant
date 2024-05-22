@@ -25,7 +25,6 @@
 #include <vector>
 
 #include "absl/container/btree_set.h"
-#include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "bant/explore/query-utils.h"
 #include "bant/frontend/parsed-project.h"
@@ -33,9 +32,6 @@
 #include "bant/types-bazel.h"
 #include "bant/types.h"
 #include "bant/util/table-printer.h"
-
-// Inject dependency to gtest, as we don't glob() the files yet.
-#define BANT_GTEST_HACK
 
 namespace bant {
 namespace {
@@ -197,23 +193,6 @@ static void AppendProtoLibraryHeaders(const ParsedBuildFile &build_file,
 ProvidedFromTargetSet ExtractHeaderToLibMapping(const ParsedProject &project,
                                                 std::ostream &info_out) {
   ProvidedFromTargetSet result;
-
-#ifdef BANT_GTEST_HACK
-  // gtest hack. We can't glob() the headers yet, so manually add these to
-  // the first project that looks like it is googletest...
-  for (const auto &[_, file_content] : project.ParsedFiles()) {
-    if (!absl::StrContains(file_content->package.project, "googletest")) {
-      continue;
-    }
-
-    BazelTarget test_target;
-    test_target.package.project = file_content->package.project;
-    test_target.target_name = "gtest";
-    result["gtest/gtest.h"].insert(test_target);
-    result["gmock/gmock.h"].insert(test_target);
-    break;
-  }
-#endif
 
   for (const auto &[_, build_file] : project.ParsedFiles()) {
     if (!build_file->ast) continue;
