@@ -91,6 +91,12 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
       {
         List *left = bin_op->left()->CastAsList();
         List *right = bin_op->right()->CastAsList();
+        // If there are undefined values on one side of the expression (e.g.
+        // unknown variable), just return the part that is a list - it will
+        // be better and more useful downstream.
+        if (left && !right) return left;
+        if (!left && right) return right;
+
         if (left && right && left->type() == right->type()) {
           return ConcatLists(left, right);
         }

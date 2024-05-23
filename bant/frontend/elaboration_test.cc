@@ -107,6 +107,25 @@ cc_library(
   EXPECT_EQ(result.first, result.second);
 }
 
+TEST_F(ElaborationTest, ConcatListWithUndefinedValue) {
+  auto result = ElabAndPrint(
+    R"(
+# UNDEFINED_VALUE
+cc_library(
+  name = "foo",
+  srcs = [ "foo.cc" ] + UNDEFINED + [ "bar.cc" ],
+)
+)",
+    R"(
+cc_library(
+  name = "foo",
+  srcs = [ "foo.cc", "bar.cc" ]    # best effort result
+)
+)");
+
+  EXPECT_EQ(result.first, result.second);
+}
+
 TEST_F(ElaborationTest, ConcatStrings) {
   auto result = ElabAndPrint(
     R"(
