@@ -133,6 +133,7 @@ cc_library(
   name = "foo",
   srcs = select({
      ":foo"                 : ["abc.cc"],
+     [ "not-a-string"]      : ["baz.cc"],
      "//conditions:default" : ["def.cc"],
    })
 )

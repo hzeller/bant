@@ -162,7 +162,7 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
         BinOpNode *map_item = item->CastAsBinOp();
         if (!map_item || map_item->op() != ':') continue;
         Scalar *key = map_item->left()->CastAsScalar();
-        if (conditions_.contains(key->AsString())) {
+        if (key && conditions_.contains(key->AsString())) {
           return map_item->right();
         }
       }
