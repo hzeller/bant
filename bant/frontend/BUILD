@@ -136,6 +136,7 @@ cc_library(
         "//bant/util:glob-match-builder",
         "//bant/util:stat",
         "@abseil-cpp//absl/container:flat_hash_map",
+        "@abseil-cpp//absl/container:flat_hash_set",
         "@abseil-cpp//absl/log:check",
     ],
 )

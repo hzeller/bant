@@ -126,6 +126,27 @@ cc_library(
   EXPECT_EQ(result.first, result.second);
 }
 
+TEST_F(ElaborationTest, SelectChoosesConditionDefault) {
+  auto result = ElabAndPrint(
+    R"(
+cc_library(
+  name = "foo",
+  srcs = select({
+     ":foo"                 : ["abc.cc"],
+     "//conditions:default" : ["def.cc"],
+   })
+)
+)",
+    R"(
+cc_library(
+  name = "foo",
+  srcs = ["def.cc"]   # We don't have conditions yet, choosing default
+)
+)");
+
+  EXPECT_EQ(result.first, result.second);
+}
+
 TEST_F(ElaborationTest, ConcatStrings) {
   auto result = ElabAndPrint(
     R"(

@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "absl/container/flat_hash_map.h"
+#include "absl/container/flat_hash_set.h"
 #include "absl/log/check.h"
 #include "bant/explore/query-utils.h"
 #include "bant/frontend/ast.h"
@@ -50,13 +51,22 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
  public:
   SimpleElaborator(Session &session, ParsedProject *project,
                    const BazelPackage &package)
-      : session_(session), project_(project), package_(package) {}
+      : session_(session), project_(project), package_(package) {
+    // TODO: provide a way to set conditions
+    // https://bazel.build/docs/configurable-attributes
+    // For now, we only support the 'default' condition.
+    conditions_.insert("//conditions:default");
+  }
 
   Node *VisitFunCall(FunCall *f) final {
     const NestCounter c(&nest_level_);
     BaseNodeReplacementVisitor::VisitFunCall(f);
-    if (f->identifier()->id() == "glob") {
+    const std::string_view fun_name = f->identifier()->id();
+    if (fun_name == "glob") {
       return HandleGlob(f);
+    }
+    if (fun_name == "select") {
+      return HandleSelect(f);
     }
     return f;
   }
@@ -142,6 +152,22 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
                                     Make<FixedSourceLocator>(op_location));
 
     return Make<StringScalar>(assembled, false, false);
+  }
+
+  Node *HandleSelect(FunCall *fun) {
+    for (Node *arg : *fun->argument()) {
+      List *const select_map = arg->CastAsList();
+      if (!select_map || select_map->type() != List::Type::kMap) continue;
+      for (Node *item : *select_map) {
+        BinOpNode *map_item = item->CastAsBinOp();
+        if (!map_item || map_item->op() != ':') continue;
+        Scalar *key = map_item->left()->CastAsScalar();
+        if (conditions_.contains(key->AsString())) {
+          return map_item->right();
+        }
+      }
+    }
+    return fun;
   }
 
   Node *HandleGlob(FunCall *fun) {
@@ -263,6 +289,7 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
   const BazelPackage &package_;
   int nest_level_ = 0;
   absl::flat_hash_map<std::string_view, Node *> global_variables_;
+  absl::flat_hash_set<std::string> conditions_;
 };
 
 }  // namespace
