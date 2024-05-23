@@ -17,6 +17,7 @@
 
 #include "bant/explore/header-providers.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <functional>
 #include <ostream>
@@ -46,6 +47,9 @@ static void IterateCCLibraryHeaders(const ParsedBuildFile &build_file,
       auto cc_library = BazelTarget::ParseFrom(cc_lib.name, build_file.package);
       if (!cc_library.has_value()) return;
 
+      auto hdrs = query::ExtractStringList(cc_lib.hdrs_list);
+      const auto textual_hdrs = query::ExtractStringList(cc_lib.textual_hdrs);
+
       // HACK...
       // In absl/strings:string_view, there is the string_view.h exported.
       // But it is _also_ exported by absl/strings:strings but with the remark
@@ -55,13 +59,18 @@ static void IterateCCLibraryHeaders(const ParsedBuildFile &build_file,
       // mentioned in textual_hdrs to essentially disregard them.
       // This way, we get the desired behavior of bant suggesting to use
       // the :string_view library.
-      const auto textual_hdrs = query::ExtractStringList(cc_lib.textual_hdrs);
-      const absl::btree_set<std::string_view> absl_fudge(textual_hdrs.begin(),
-                                                         textual_hdrs.end());
+      // Narrow this hack to the very specific library.
+      bool absl_string_view_skip = (build_file.package.path == "absl/strings");
+      if (absl_string_view_skip) {
+        absl_string_view_skip =
+          std::find(hdrs.begin(), hdrs.end(), "string_view.h") != hdrs.end() &&
+          std::find(textual_hdrs.begin(), textual_hdrs.end(),
+                    "string_view.h") != textual_hdrs.end();
+      }
 
-      const auto headers = query::ExtractStringList(cc_lib.hdrs_list);
-      for (const std::string_view header : headers) {
-        if (absl_fudge.contains(header)) continue;
+      hdrs.insert(hdrs.end(), textual_hdrs.begin(), textual_hdrs.end());
+      for (const std::string_view header : hdrs) {
+        if (absl_string_view_skip && header == "string_view.h") continue;
 
         if (!cc_lib.include_prefix.empty()) {  // cc_library() dictates path.
           callback(*cc_library, header,

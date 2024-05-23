@@ -621,7 +621,7 @@ cc_library(
 // library. Below, situation re-created.
 TEST(DWYUTest, Add_AbslStringViewWorkaround) {
   ParsedProjectTestUtil pp;
-  pp.Add("//lsba", R"(
+  pp.Add("//absl/strings", R"(
 cc_library(
   name = "string_view",
   hdrs = ["string_view.h"]  # The actual place definining header
@@ -649,11 +649,11 @@ cc_binary(
     DWYUTestFixture tester(pp.project());
     tester.ExpectAdd(":strings");
     tester.ExpectAdd(":string_view");
-    tester.AddSource("lsba/string-user.cc", R"(
-#include "lsba/str_cat.h"
-#include "lsba/string_view.h"
+    tester.AddSource("absl/strings/string-user.cc", R"(
+#include "absl/strings/str_cat.h"
+#include "absl/strings/string_view.h"
 )");
-    tester.RunForTarget("//lsba:string-user");
+    tester.RunForTarget("//absl/strings:string-user");
   }
 }
 
