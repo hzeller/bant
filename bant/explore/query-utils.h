@@ -19,6 +19,7 @@
 #define BANT_QUERY_UTILS_
 
 #include <functional>
+#include <initializer_list>
 #include <string_view>
 
 #include "bant/frontend/ast.h"
@@ -40,6 +41,7 @@ struct Result {
   List *srcs_list = nullptr;
   List *hdrs_list = nullptr;
   List *textual_hdrs = nullptr;
+  List *public_hdrs = nullptr;
   List *deps_list = nullptr;
   List *outs_list = nullptr;              // genrule.
   List *visibility = nullptr;             // from rule or default_visibility

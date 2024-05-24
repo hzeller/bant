@@ -179,7 +179,7 @@ void DWYUGenerator::CreateEditsForTarget(const BazelTarget &target,
     // Only possible to auto-add if there is exactly one alternative.
     if (need_add_alternatives.size() > 1) {
       project_.Loc(session_.info(), details.name)
-        << " Can't auto-decide: Referenced headers in " << target
+        << " Can't auto-fix: Referenced headers in " << target
         << " need exactly one of multiple choices\nAlternatives are:\n";
       for (const BazelTarget &target : need_add_alternatives) {
         session_.info() << "\t" << target << "\n";

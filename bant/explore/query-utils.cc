@@ -118,6 +118,8 @@ class TargetFinder : public BaseVoidVisitor {
         current_.visibility = list;
       } else if (lhs == "textual_hdrs") {
         current_.textual_hdrs = list;
+      } else if (lhs == "public_hdrs") {
+        current_.public_hdrs = list;
       }
     } else if (Identifier *id = a->value()->CastAsIdentifier()) {
       // If alwayslink has been a 'True' constant, the constant expression

@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <functional>
+#include <initializer_list>
 #include <optional>
 #include <ostream>
 #include <string>
@@ -48,8 +49,16 @@ using FindHeaderCallback =
                      const std::string &header_fqn)>;
 static void IterateCCLibraryHeaders(const ParsedBuildFile &build_file,
                                     const FindHeaderCallback &callback) {
+  // Unfortunately, grpc does not simply have a cc_library(), but its own
+  // rule or macro, making it invisible if we just look at cc_library.
+  // Hacking it up here to look also for the grpc version.
+  static const std::initializer_list<std::string_view> kInterestingLibRules{
+    "cc_library",
+    "grpc_cc_library",
+  };
+
   query::FindTargets(
-    build_file.ast, {"cc_library"}, [&](const query::Result &cc_lib) {
+    build_file.ast, kInterestingLibRules, [&](const query::Result &cc_lib) {
       auto cc_library = BazelTarget::ParseFrom(cc_lib.name, build_file.package);
       if (!cc_library.has_value()) return;
 
@@ -75,6 +84,7 @@ static void IterateCCLibraryHeaders(const ParsedBuildFile &build_file,
       }
 
       hdrs.insert(hdrs.end(), textual_hdrs.begin(), textual_hdrs.end());
+      query::AppendStringList(cc_lib.public_hdrs, hdrs);  // grpc hack.
       for (const std::string_view header : hdrs) {
         if (absl_string_view_skip && header == "string_view.h") continue;
 
