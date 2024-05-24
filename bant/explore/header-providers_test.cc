@@ -18,6 +18,7 @@
 #include "bant/explore/header-providers.h"
 
 #include <sstream>
+#include <string>
 #include <string_view>
 
 #include "absl/log/check.h"
@@ -26,8 +27,9 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
-using testing::Contains;
-using testing::Pair;
+using ::testing::Contains;
+using ::testing::ElementsAre;
+using ::testing::Pair;
 
 namespace bant {
 
@@ -168,4 +170,50 @@ genrule(
               Contains(Pair("gen/ai/lucy-🌈-💎.txt", T("//gen/ai:llm"))));
 }
 
+static std::string reverse(std::string_view in) {
+  return std::string{in.rbegin(), in.rend()};
+}
+TEST(HeaderProviders, FindBySuffixTest) {
+  ProvidedFromTargetSet test_index;
+  test_index[reverse("foo/bar/baz/qux.h")].insert(T("//foo"));
+  test_index[reverse("baz/qux.h")].insert(T("//bar"));
+
+  // NOLINTBEGIN(bugprone-unchecked-optional-access)
+
+  // Exact match should only return that element
+  EXPECT_THAT(FindBySuffix(test_index, "foo/bar/baz/qux.h").value()->second,
+              ElementsAre(T("//foo")));
+  EXPECT_THAT(FindBySuffix(test_index, "baz/qux.h").value()->second,
+              ElementsAre(T("//bar")));
+
+  // Below, only fuzzy matches happen.
+
+  // Want at least one slash, so just the filename will not be sufficient.
+  EXPECT_FALSE(FindBySuffix(test_index, "qux.h").has_value());
+
+  // so in general shorter matches than to the first slash don't count.
+  EXPECT_FALSE(FindBySuffix(test_index, "bar/xqux.h").has_value());
+
+  // Other fuzzy matches should return the candiate matching closest.
+  EXPECT_THAT(FindBySuffix(test_index, "az/qux.h").value()->second,
+              ElementsAre(T("//bar")));
+  EXPECT_THAT(FindBySuffix(test_index, "r/baz/qux.h").value()->second,
+              ElementsAre(T("//foo")));
+  EXPECT_THAT(FindBySuffix(test_index, "bar/baz/qux.h").value()->second,
+              ElementsAre(T("//foo")));
+
+  // Longer path than is in index, but with the same suffix. It will
+  // be one before the match. We find it before end()
+  EXPECT_THAT(
+    FindBySuffix(test_index, "hello/foo/bar/baz/qux.h").value()->second,
+    ElementsAre(T("//foo")));
+
+  // If there is another entry afterwards, we also find it.
+  test_index[reverse("foo/bar/baz/rux.h")].insert(T("//rux"));
+  EXPECT_THAT(
+    FindBySuffix(test_index, "hello/foo/bar/baz/qux.h").value()->second,
+    ElementsAre(T("//foo")));
+
+  // NOLINTEND(bugprone-unchecked-optional-access)
+}
 }  // namespace bant

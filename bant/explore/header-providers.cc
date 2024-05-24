@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <functional>
+#include <optional>
 #include <ostream>
 #include <string>
 #include <string_view>
@@ -36,6 +37,11 @@
 
 namespace bant {
 namespace {
+
+static std::string OptionalReverse(std::string_view in, bool reverse) {
+  return reverse ? std::string(in.rbegin(), in.rend()) : std::string{in};
+}
+
 // Go through cc_library()s and call callback for each header file it exports.
 using FindHeaderCallback =
   std::function<void(const BazelTarget &library, std::string_view hdr_loc,
@@ -117,13 +123,13 @@ static void IterateCCLibraryHeaders(const ParsedBuildFile &build_file,
 }
 
 static void AppendCCLibraryHeaders(const ParsedBuildFile &build_file,
-                                   std::ostream &info_out,
+                                   std::ostream &info_out, bool reverse,
                                    ProvidedFromTargetSet &result) {
   IterateCCLibraryHeaders(
     build_file, [&](const BazelTarget &cc_library, std::string_view hdr_loc,
                     const std::string &header_fqn) {
       // Sometimes there can be multiple libraries exporting the same header.
-      result[header_fqn].insert(cc_library);
+      result[OptionalReverse(header_fqn, reverse)].insert(cc_library);
     });
 }
 
@@ -140,6 +146,7 @@ static void AppendCCLibraryHeaders(const ParsedBuildFile &build_file,
 //     derive the header file from the *.proto file and store the mapping
 //     header->cc_library that we're after.
 static void AppendProtoLibraryHeaders(const ParsedBuildFile &build_file,
+                                      bool reverse,
                                       ProvidedFromTargetSet &result) {
   // TODO: once we wire the DependencyGraph through, we can make the look-up
   // in one go. Also we wouldn't be limited to proto_library() and
@@ -192,7 +199,7 @@ static void AppendProtoLibraryHeaders(const ParsedBuildFile &build_file,
         for (const std::string_view suffix : {".pb.h", ".proto.h"}) {
           std::string proto_header = absl::StrCat(stem, suffix);
           proto_header = build_file.package.QualifiedFile(proto_header);
-          result[proto_header].insert(cc_proto_lib);
+          result[OptionalReverse(proto_header, reverse)].insert(cc_proto_lib);
         }
       }
     });
@@ -200,7 +207,8 @@ static void AppendProtoLibraryHeaders(const ParsedBuildFile &build_file,
 }  // namespace
 
 ProvidedFromTargetSet ExtractHeaderToLibMapping(const ParsedProject &project,
-                                                std::ostream &info_out) {
+                                                std::ostream &info_out,
+                                                bool reverse_index) {
   ProvidedFromTargetSet result;
 
   for (const auto &[_, build_file] : project.ParsedFiles()) {
@@ -208,15 +216,16 @@ ProvidedFromTargetSet ExtractHeaderToLibMapping(const ParsedProject &project,
 
     // There are multiple rule types that behave like a cc library and
     // provide header files.
-    AppendCCLibraryHeaders(*build_file, info_out, result);
-    AppendProtoLibraryHeaders(*build_file, result);
+    AppendCCLibraryHeaders(*build_file, info_out, reverse_index, result);
+    AppendProtoLibraryHeaders(*build_file, reverse_index, result);
   }
 
   return result;
 }
 
 ProvidedFromTarget ExtractGeneratedFromGenrule(const ParsedProject &project,
-                                               std::ostream &info_out) {
+                                               std::ostream &info_out,
+                                               bool reverse_index) {
   ProvidedFromTarget result;
   for (const auto &[_, file_content] : project.ParsedFiles()) {
     if (!file_content->ast) continue;
@@ -230,7 +239,8 @@ ProvidedFromTarget ExtractGeneratedFromGenrule(const ParsedProject &project,
 
         for (const std::string_view generated : genfiles) {
           const auto gen_fqn = file_content->package.QualifiedFile(generated);
-          const auto &inserted = result.insert({gen_fqn, *target});
+          const auto &inserted =
+            result.insert({OptionalReverse(gen_fqn, reverse_index), *target});
           if (!inserted.second && target != inserted.first->second) {
             // TODO: differentiate between info-log (external projects) and
             // error-log (current project, as these are actionable).
@@ -249,6 +259,51 @@ ProvidedFromTarget ExtractGeneratedFromGenrule(const ParsedProject &project,
       });
   }
   return result;
+}
+
+static std::string_view CommonPrefix(std::string_view a, std::string_view b) {
+  if (b.length() < a.length()) {
+    std::swap(a, b);
+  }
+  for (size_t i = 0; i < a.length(); ++i) {
+    if (a[i] != b[i]) return a.substr(0, i);
+  }
+  return a;
+}
+
+// TODO: maybe more towards longest suffix match ?
+std::optional<ProvidedFromTargetSet::const_iterator> FindBySuffix(
+  const ProvidedFromTargetSet &index, std::string_view key) {
+  const std::string rkey{key.rbegin(), key.rend()};
+  auto found = index.lower_bound(rkey);
+  if (found == index.end()) {
+    // Maybe a longer match but with the same prefix ? It will be one before.
+    --found;
+    if (found->first == CommonPrefix(rkey, found->first)) {
+      return found;
+    }
+    return std::nullopt;
+  }
+
+  if (found->first == rkey) {
+    return found;  // Exact match.
+  }
+
+  // For fuzzy match we want to have it long enough to have at least one
+  // slash in the result
+  const std::string_view common = CommonPrefix(rkey, found->first);
+  if (common.find_first_of('/') == std::string_view::npos) {
+    // Maybe a longer match, let's check that. It will be one before.
+    if (found != index.begin()) {
+      --found;
+      if (found->first == CommonPrefix(rkey, found->first)) {
+        return found;
+      }
+    }
+    return std::nullopt;
+  }
+
+  return found;
 }
 
 void PrintProvidedSources(Session &session, const std::string &table_header,

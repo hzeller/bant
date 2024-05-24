@@ -196,6 +196,30 @@ cc_library(
     tester.RunForTarget("//some/path:bar");
     EXPECT_THAT(tester.LogContent(), HasSubstr("Consider FQN"));
   }
+
+  // Fuzzy matching. We match files from the suffix so as a fallback
+  // we allow for matching that.
+  {  // Files that match full path but are longer are guessed to belong
+    DWYUTestFixture tester(pp.project());
+    tester.ExpectAdd(":foo");
+    tester.AddSource("some/path/bar.h", "");
+    tester.AddSource("some/path/bar.cc", R"(
+#include "external/project/some/path/foo.h"
+)");
+    tester.RunForTarget("//some/path:bar");
+    EXPECT_THAT(tester.LogContent(), HasSubstr("provides shorter same-suffix"));
+  }
+
+  {  // Files that are somewhat shorter are also matched.
+    DWYUTestFixture tester(pp.project());
+    tester.ExpectAdd(":foo");
+    tester.AddSource("some/path/bar.h", "");
+    tester.AddSource("some/path/bar.cc", R"(
+#include "path/foo.h"
+)");
+    tester.RunForTarget("//some/path:bar");
+    EXPECT_THAT(tester.LogContent(), HasSubstr("provides longer same-suffix"));
+  }
 }
 
 TEST(DWYUTest, RequestUserGuidanceIfThereAreMultipleAlternatives) {
@@ -278,7 +302,7 @@ cc_library(
     DWYUTestFixture tester(pp.project());
     tester.AddSource("path/usefoo-all.cc", R"(#include "path/foo.h")");
     tester.RunForTarget("//path:usefoo-all");
-    EXPECT_THAT(tester.LogContent(), HasSubstr("in dependency //path:foo-1"));
+    EXPECT_THAT(tester.LogContent(), HasSubstr("by dependency //path:foo-1"));
   }
 
   {  // Known dependencies, but they are alternatives. Need to delegate to user.

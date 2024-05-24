@@ -86,7 +86,8 @@ DWYUGenerator::DWYUGenerator(Session &session, const ParsedProject &project,
   Stat &stats = session_.GetStatsFor("DWYU preparation", "indexed targets");
   const ScopedTimer timer(&stats.duration);
 
-  headers_from_libs_ = ExtractHeaderToLibMapping(project, session.info());
+  headers_from_libs_ = ExtractHeaderToLibMapping(project, session.info(),
+                                                 /*reverse_index=*/true);
   files_from_genrules_ = ExtractGeneratedFromGenrule(project, session.info());
   aliased_by_ = ExtractAliasedBy(project);
   InitKnownLibraries();
@@ -153,7 +154,7 @@ void DWYUGenerator::CreateEditsForTarget(const BazelTarget &target,
       } else {
         project_.Loc(session_.info(), dependency_target)
           << ": " << dependency_target
-          << " provides headers already provided in dependency " << previously
+          << " provides headers already provided by dependency " << previously
           << " before. Multiple libraries providing the same headers ?\n";
       }
       continue;
@@ -350,30 +351,43 @@ DWYUGenerator::DependenciesNeededBySources(
       if (IsHeaderInList(inc_file, sources, "")) {
         if (!source_content->is_generated) {  // Only complain if actionable
           source.Loc(info_out, inc_file)
-            << inc_file << " header relative to this file. "
+            << " " << inc_file << " header relative to this file. "
             << "Consider FQN relative to project root.\n";
           need_in_source_referenced_message = true;
         }
         continue;  // But, anyway, found it in our own sources; accounted for.
       }
 
-      if (const auto found = headers_from_libs_.find(inc_file);
-          found != headers_from_libs_.end()) {
-        add_to_result(found->second);
+      if (const auto &found = FindBySuffix(headers_from_libs_, inc_file);
+          found.has_value()) {
+        const auto &found_it = found.value();
+
+        // Do some reporting if fuzzy match hit.
+        const size_t found_len = found_it->first.length();
+        const size_t inc_len = inc_file.length();
+        if (found_len != inc_len && session_.verbose()) {
+          source.Loc(info_out, inc_file)
+            << " FYI: instead of '" << inc_file << "' found library that "
+            << "provides " << ((found_len < inc_len) ? "shorter" : "longer")
+            << " same-suffix path '"
+            << std::string{found_it->first.rbegin(), found_it->first.rend()}
+            << "'\n";
+        }
+        add_to_result(found_it->second);
         continue;
       }
 
       // Maybe include is not provided with path relative to project root ?
       const std::string abs_header = build_file.package.QualifiedFile(inc_file);
-      if (const auto found = headers_from_libs_.find(abs_header);
-          found != headers_from_libs_.end()) {
+      if (const auto &found = FindBySuffix(headers_from_libs_, abs_header);
+          found.has_value()) {
         if (!source_content->is_generated) {  // Only complain if actionable
           source.Loc(info_out, inc_file)
             << " " << inc_file << " header relative to this file. "
             << "Consider FQN relative to project root.\n";
           need_in_source_referenced_message = true;
         }
-        add_to_result(found->second);
+        add_to_result(found.value()->second);
         continue;
       }
 
@@ -405,7 +419,7 @@ DWYUGenerator::DependenciesNeededBySources(
         // keep this hidden behind verbose.
         source.Loc(info_out, inc_file)
           << " unknown provider for " << inc_file
-          << " -- Missing or from other bazel-rule ?\n";
+          << " -- Missing or from non-standard bazel-rule ?\n";
         need_in_source_referenced_message = true;
       }
     }
