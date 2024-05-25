@@ -36,6 +36,7 @@ cc_library(
         "//bant:session",
         "//bant:types",
         "//bant:types-bazel",
+        "//bant:workspace",
         "//bant/explore:header-providers",
         "//bant/explore:query-utils",
         "//bant/frontend:named-content",

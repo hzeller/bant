@@ -42,6 +42,7 @@
 #include "bant/types.h"
 #include "bant/util/file-utils.h"
 #include "bant/util/stat.h"
+#include "bant/workspace.h"
 #include "re2/re2.h"
 
 // Used for messages that are a little bit too noisy right now.
@@ -269,6 +270,20 @@ bool DWYUGenerator::CanSee(const BazelTarget &target,
   return false;
 }
 
+// TODO: this needs to be in a central place. Also needed in elaboration.
+static std::string MakeFullyQualified(const BazelWorkspace &workspace,
+                                      const BazelPackage &package,
+                                      std::string_view filename) {
+  std::string result;
+  auto package_path = workspace.FindPathByProject(package.project);
+  if (package_path.has_value()) {
+    result = package_path->path();
+  }
+  if (!result.empty()) result.append("/");
+  result.append(package.QualifiedFile(filename));
+  return result;
+}
+
 std::vector<absl::btree_set<BazelTarget>>
 DWYUGenerator::DependenciesNeededBySources(
   const BazelTarget &target, const ParsedBuildFile &build_file,
@@ -315,7 +330,8 @@ DWYUGenerator::DependenciesNeededBySources(
   };
 
   for (const std::string_view src_name : sources) {
-    const std::string source_file = build_file.package.QualifiedFile(src_name);
+    const std::string source_file =
+      MakeFullyQualified(project_.workspace(), build_file.package, src_name);
     auto source_content = TryOpenFile(source_file);
     if (!source_content.has_value()) {
       project_.Loc(info_out, src_name)
