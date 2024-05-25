@@ -45,7 +45,16 @@ s-expressions and json are structured outputs interesting in other contexts).
    project where it is harder to even find the right file; consider
 
 ```
-bant print @abseil-cpp//absl/strings:str_format
+bant print @googletest//:gtest
+```
+
+You see that `gtest` has some files `glob()`'d and other expressions
+that make that rule, which we want to see evaluated.
+With the `-b` option (for ela`b`orate), bant can do some basic evaluation
+of these and print the final form:
+
+```
+bant print -b @googletest//:gtest
 ```
 
   * If you want to find the file quickly, `bant list-target //foo/bar:baz`
@@ -80,15 +89,9 @@ bant list-targets -r ...  # also following all dependencies
 
    Caveats:
 
-   * Can't currently see all sources of header included (e.g. `glob()` is not
-       implemented yet).
    * Does not understand package groups in visibility yet; these will be
      considered `//visibility:public` and might result in adding
      dependencies that bazel would not allow.
-   * Always adds the direct dependency of a header, even if another dependency
-     exists that provides that header with an indirection. This is by design,
-     but maybe there should be an option to allow indirect dependencies up
-     to N-levels apart ?
 
    You could call this a simple CC-target [`build_cleaner`][build_cleaner]...
 
@@ -115,8 +118,9 @@ targets are used, consider a bazel command that needs all of them, e.g.
 
 ```
 $ bazel-bin/bant/bant -h
+bant v0.1.1 <http://bant.build/>
 Copyright (c) 2024 Henner Zeller. This program is free software; license GPL 2.0.
-Usage: bazel-bin/bant/bant [options] <command> [bazel-target-pattern]
+Usage: bant [options] <command> [bazel-target-pattern]
 Options
     -C <directory> : Change to this project directory first (default = '.')
     -q             : Quiet: don't print info messages to stderr.
@@ -135,6 +139,7 @@ Options
 Commands (unique prefix sufficient):
     == Parsing ==
     print          : Print AST matching pattern. -e : only files w/ parse errors
+                   : -b : elaBorate
     parse          : Parse all BUILD files from pattern. Follow deps with -r
                      Emit parse errors. Silent otherwise: No news are good news.
 
@@ -168,6 +173,7 @@ Commands (unique prefix sufficient):
 ```bash
  bant parse -e -v  # Read bazel project, print AST for files with parse errors.
  bant parse -C ~/src/verible -v  # Read project in given directory.
+ bant print @googletest//:gtest -b  # parse and expression eval given target
  bant print //foo:bar   # Print specific target AST matching pattern
  bant print //foo/...   # Print all build files matching recursive pattern.
  bant workspace         # List all the external projects listed in workspace.
@@ -227,16 +233,12 @@ Status
   * Parses most of simple BUILD/BUILD.bazel files and builds an AST of the
     Lists/Tuples/Function-calls (=build rules).
     Should parse most common BUILD files.
-  * No expression evaluation yet (e.g. glob() or list comprehensions)
+  * Some evaluation, like variable expansion, list and string concatenation
+    and `glob()` calls. No list comprehension yet.
 
 ### Nice-to-have/next steps/TODO
 
-  * variable-expand and some const-evaluate expressions to flatten and
-    see more relevant info (e.g. outputs from `glob()`).
   * expand list-comprehensions
-  * Maybe a path query language to extract in a way that the output
-    then can be used for scripting (though keeping it simple. Main goal is still
-    to just dump things in a useful format for standard tools to post-process).
   * language server for BUILD files.
   * ...
 
