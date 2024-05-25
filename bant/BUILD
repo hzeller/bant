@@ -40,6 +40,7 @@ cc_binary(
         "//conditions:default": [],
     }),
     deps = [
+        ":build-version",
         ":session",
         ":types",
         ":types-bazel",
@@ -115,4 +116,22 @@ cc_library(
         ":types",
         "//bant/util:stat",
     ],
+)
+
+# Due to the hermetic builds bazel offers, we can't just fill a header file
+# with a git hash. We have to use the workspace stamping features bazel
+# offers.
+# https://docs.bazel.build/versions/master/user-manual.html#workspace_status
+genrule(
+    name = "version-header",
+    outs = ["generated-build-version.h"],
+    cmd = "sed -e 's/^BUILD/#define BANT_BUILD/p;d' bazel-out/volatile-status.txt > $@",
+    stamp = 1,  # Tell bazel that we really are interested in the status file
+    visibility = ["//visibility:private"],
+)
+
+cc_library(
+    name = "build-version",
+    hdrs = ["generated-build-version.h"],
+    visibility = ["//visibility:private"],
 )

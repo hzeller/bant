@@ -58,14 +58,24 @@ int getopt(int, char *const *, const char *);  // NOLINT
 #include "bant/util/table-printer.h"
 #include "bant/workspace.h"
 
+// Generated from at compile time from git tag or MODULE.bazel version
+#include "bant/generated-build-version.h"
+
 #define BOLD  "\033[1m"
 #define RED   "\033[1;31m"
 #define RESET "\033[0m"
 
-static int usage(const char *prog, const char *message, int exit_code) {
+static int print_version() {
   fprintf(stderr,
+          "bant v%s <http://bant.build/>\n"
           "Copyright (c) 2024 Henner Zeller. "
-          "This program is free software; license GPL 2.0.\n");
+          "This program is free software; license GPL 2.0.\n",
+          BANT_BUILD_VERSION);
+  return EXIT_SUCCESS;
+}
+
+static int usage(const char *prog, const char *message, int exit_code) {
+  print_version();
   fprintf(stderr, "Usage: %s [options] <command> [bazel-target-pattern]\n",
           prog);
   fprintf(stderr, R"(Options
@@ -209,7 +219,7 @@ int main(int argc, char *argv[]) {
   };
   OutputFormat out_fmt = OutputFormat::kNative;
   int opt;
-  while ((opt = getopt(argc, argv, "C:qo:vhpecbf:r::")) != -1) {
+  while ((opt = getopt(argc, argv, "C:qo:vhpecbf:r::V")) != -1) {
     switch (opt) {
     case 'C': {
       std::error_code err;
@@ -258,6 +268,7 @@ int main(int argc, char *argv[]) {
       out_fmt = found->second;
     } break;
     case 'v': verbose = true; break;
+    case 'V': return print_version();
     default: return usage(argv[0], nullptr, EXIT_SUCCESS);
     }
   }

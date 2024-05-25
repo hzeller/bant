@@ -1,4 +1,7 @@
-module(name = "bant")
+module(
+    name = "bant",
+    version = "0.1.0",
+)
 
 bazel_dep(name = "rules_license", version = "0.0.8")
 bazel_dep(name = "abseil-cpp", version = "20240116.2")
