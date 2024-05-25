@@ -61,6 +61,12 @@ jobs:
         run: |
           bazel test --keep_going ...
 
+      - name: Build
+        run: |
+          bazel build -c opt bant:bant
+          bazel-bin/bant/bant -V  # Print version
+          # TODO: package ?
+
   CodeFormatting:
     runs-on: ubuntu-24.04
     steps:
@@ -109,7 +115,7 @@ jobs:
         with:
           format: 'YYYY-MM-DD-HH-mm-ss'
 
-      - name: Mount clang-tidy cache
+      - name: Mount cache
         uses: actions/cache@v4
         with:
           path: |
@@ -174,12 +180,14 @@ jobs:
 
       - name: Build Compilation DB
         run: |
+          bazel build //bant:version-header //bant:build-version
           scripts/make-compilation-db.sh
 
       - name: Run clang-tidy
         run: |
           clang-tidy-18 --version
-          CLANG_TIDY=clang-tidy-18 scripts/run-clang-tidy-cached.cc
+          CLANG_TIDY=clang-tidy-18 scripts/run-clang-tidy-cached.cc \
+            || ( cat bant_clang-tidy.out ; exit 1)
 
   BuildStaticBinary:
     runs-on: ubuntu-24.04
@@ -207,16 +215,20 @@ jobs:
           export CC=gcc-13
           export CXX=g++-13
           bazel build -c opt --//bant:create_static_linked_executables bant:bant
+          bazel-bin/bant/bant -V  # Print version
 
-          VERSION=$(git log --date=short --pretty=format:'%cd_%h' -n1)
-          OUT=bant-${VERSION}-x86
+          # Version number: current tag dot number of commits after tagging.
+          VERSION=$(git describe --match=v* --long 2>/dev/null \
+                    | sed 's/v\([^-]*\)-\([0-9]*\).*/\1.\2/')
+          OUT=bant-v${VERSION}-x86
           echo "OUT=${OUT}" >> $GITHUB_ENV
 
           mkdir -p "${OUT}/bin"
           install bazel-bin/bant/bant "${OUT}/bin"
           strip "${OUT}/bin/bant"
-          # We need to pack it to retain proper unix permissions.
-          # Unfortunately, github packs the whole result in a *.zip archive.
+
+          # We need to pack it with with tar to retain proper unix permissions.
+          # Unfortunately, github then re-packs the result into a *.zip archive.
           tar cvzf "${OUT}.tar.gz" ${OUT}
 
       - name: Upload artifact
