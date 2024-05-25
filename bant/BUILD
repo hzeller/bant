@@ -1,8 +1,19 @@
+load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
 load("@com_github_google_rules_install//installer:def.bzl", "installer")
 
 package(
     default_applicable_licenses = ["//:license"],
     default_visibility = ["//visibility:public"],
+)
+
+bool_flag(
+    name = "create_static_linked_executables",
+    build_setting_default = False,
+)
+
+config_setting(
+    name = "static_linked_executables",
+    flag_values = {":create_static_linked_executables": "true"},
 )
 
 installer(
@@ -17,6 +28,17 @@ cc_binary(
     srcs = [
         "bant.cc",
     ],
+    features = select({
+        "//bant:static_linked_executables": [
+            "fully_static_link",
+            "-supports_start_end_lib",
+        ],
+        "//conditions:default": [],
+    }),
+    linkopts = select({
+        "//bant:static_linked_executables": ["-fuse-ld=bfd"],
+        "//conditions:default": [],
+    }),
     deps = [
         ":session",
         ":types",
