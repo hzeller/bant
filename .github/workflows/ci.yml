@@ -260,7 +260,7 @@ jobs:
           }
 
           git config --local user.name "Development Bot"
-          git config --local user.email bot@bant.build"
+          git config --local user.email "bot@bant.build"
 
           # We want to tag whenever the version in MODULE.bazel changes.
           # So extract the hash of when the current version was entered.
