@@ -333,14 +333,20 @@ int main(int argc, char *argv[]) {
   }
   const bant::BazelWorkspace &workspace = workspace_or.value();
 
+  // Has dependent needs to be able to see all the files to know everything
+  // that depends on a specific pattern.
+  const BazelPattern dep_pattern =
+    (cmd == Command::kHasDependents) ? BazelPattern() : pattern;
+
   bant::ParsedProject project(workspace, verbose);
   if (cmd != Command::kListWorkkspace) {
-    if (project.FillFromPattern(session, pattern) == 0) {
+    if (project.FillFromPattern(session, dep_pattern) == 0) {
       session.error() << "Pattern did not match any dir with BUILD file.\n";
     }
   }
 
-  if (recurse_dependency_depth <= 0 && (cmd == Command::kDWYU)) {
+  if (recurse_dependency_depth <= 0 &&
+      (cmd == Command::kDWYU || cmd == Command::kHasDependents)) {
     recurse_dependency_depth = std::numeric_limits<int>::max();
   }
 
@@ -357,7 +363,7 @@ int main(int argc, char *argv[]) {
   case Command::kDependsOn:
   case Command::kHasDependents:
     if (recurse_dependency_depth >= 0) {
-      graph = bant::BuildDependencyGraph(session, workspace, pattern,
+      graph = bant::BuildDependencyGraph(session, workspace, dep_pattern,
                                          recurse_dependency_depth, &project);
       if (session.verbose()) {
         session.info() << "Found " << graph.depends_on.size()
@@ -460,12 +466,15 @@ int main(int argc, char *argv[]) {
     break;
 
   case Command::kDependsOn:
+    // If explicitly asked recursively, print all that.
     PrintOneToN(session, print_pattern, graph.depends_on,  //
                 "library", "depends-on");
     break;
 
   case Command::kHasDependents:
-    PrintOneToN(session, print_pattern, graph.has_dependents,  //
+    // Print exactly what requested, as we implicitly had to recurse through
+    // everything, so print_pattern would be too much.
+    PrintOneToN(session, pattern, graph.has_dependents,  //
                 "library", "has-dependent");
     break;
 
