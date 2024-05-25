@@ -190,15 +190,14 @@ bazel build -c opt //bant
 ```
 Resulting binary will be `bazel-bin/bant/bant`
 
-To install, use the installer; the `-s` option will ask for `sudo` access:
+To install, use your systems `install` command (or simply copy):
 
 ```bash
 # To some writable directory that does not require root access
-bazel run -c opt //bant:install -- ~/bin
+bazel build -c opt //bant ; install -D --strip bazel-bin/bant/bant ~/bin/bant
 
-# For a system directory that requires root-access, call with -s option.
-# (Do _not_ run bazel with sudo.)
-bazel run -c opt //bant:install -- -s /usr/local/bin
+# For a system directory that requires root-access
+sudo install -D --strip bazel-bin/bant/bant /usr/local/bin/bant
 ```
 
 ## Development
