@@ -36,11 +36,36 @@
 #include "bant/types.h"
 #include "bant/util/table-printer.h"
 
+// The header providers maps header filenames to all the libraries that
+// provide these. Typically, this should only be exactly one per header, but
+// there are some projects out there that have multiple library targets
+// declare to provide the same headers. This is why outputs are 1:n.
+//
+// One would expect that we mostly just need to look at cc_library(), but there
+// are other targets that implicitly provide headers. We can't look
+// at all the rules that bazel implements as we never attempt to understand what
+// is going on in *.bzl files as this is solidly outside the scope of bant.
+//
+// So there are some special handlings of common targets where headers can
+// emerge that we support here directly.
+//
+//  - cc_library(): the default target that provides header files.
+//  - proto_library() and cc_proto_library(). The former gets a name of the
+//    proto buffer file, and the latter that depends on it and makes a
+//    cc-library out of it.
+//    We need to look at both, as we only can derive the name of the header
+//    file from the proto buffer file, but need to get the user-chosen name
+//    of the libary from cc_proto_iibrary().
+//  - grpc_cc_library() : this is like a cc_library(), but also defines
+//    headers in a public_hdrs = [] kwarg
+//  - cc_grpc_library() : This is the proto library version of grpc.
+//    (with a confusing name). It creates another proto header, based on
+//    the original name of the *.proto file.
 namespace bant {
 namespace {
 
 static std::string OptionalReverse(std::string_view in, bool reverse) {
-  return reverse ? std::string(in.rbegin(), in.rend()) : std::string{in};
+  return reverse ? std::string{in.rbegin(), in.rend()} : std::string{in};
 }
 
 // Go through cc_library()s and call callback for each header file it exports.
@@ -65,7 +90,7 @@ static void IterateCCLibraryHeaders(const ParsedBuildFile &build_file,
       auto hdrs = query::ExtractStringList(cc_lib.hdrs_list);
       const auto textual_hdrs = query::ExtractStringList(cc_lib.textual_hdrs);
 
-      // HACK...
+      // ABSL HACK...
       // In absl/strings:string_view, there is the string_view.h exported.
       // But it is _also_ exported by absl/strings:strings but with the remark
       // that this is only there for backward compatibility. In fact, it is
@@ -162,20 +187,38 @@ static void AppendProtoLibraryHeaders(const ParsedBuildFile &build_file,
   // in one go. Also we wouldn't be limited to proto_library() and
   // cc_proto_library() having to reside in one package.
 
+  static const std::initializer_list<std::string_view> kInterestingLibRules{
+    "cc_proto_library",
+    "cc_grpc_library",
+  };
+
   // Find all cc_proto_library()s and remember what proto_library() the dep on.
-  OneToOne<BazelTarget, BazelTarget> proto_lib2cc_proto_lib;
+  // We have the simplified assumption that this is a well-written BUILD and
+  // this is only ever a 1:1 relationship.
+  // We have two of these: one regular (index:false), one for grpc(index:true)
+  OneToOne<BazelTarget, BazelTarget> proto_lib2cc_proto_lib[2];
   query::FindTargets(
-    build_file.ast, {"cc_proto_library"}, [&](const query::Result &cc_plib) {
+    build_file.ast, kInterestingLibRules, [&](const query::Result &cc_plib) {
       auto target = BazelTarget::ParseFrom(cc_plib.name, build_file.package);
       if (!target.has_value()) return;
-      const auto cc_proto_deps = query::ExtractStringList(cc_plib.deps_list);
+
+      const bool is_grpc = (cc_plib.rule == "cc_grpc_library");
+
+      // cc_proto_library has deps in deps, cc_grpc_library in srcs.
+      auto cc_proto_deps = is_grpc
+                             ? query::ExtractStringList(cc_plib.srcs_list)
+                             : query::ExtractStringList(cc_plib.deps_list);
+
       for (const std::string_view dep : cc_proto_deps) {
         auto proto_library = BazelTarget::ParseFrom(dep, build_file.package);
         if (!proto_library.has_value()) continue;
-        proto_lib2cc_proto_lib.insert({*proto_library, *target});
+        proto_lib2cc_proto_lib[is_grpc].insert({*proto_library, *target});
       }
     });
 
+  // We now know libraries that can be linked, but we don't know the
+  // name of the headers yet. They are derived from the *.proto filename,
+  // which are only known to proto_library()s.
   // Looking at the proto_library(), we can derive the header from the *.proto.
   // Putting it all together.
   query::FindTargets(
@@ -183,33 +226,40 @@ static void AppendProtoLibraryHeaders(const ParsedBuildFile &build_file,
       auto target = BazelTarget::ParseFrom(proto_lib.name, build_file.package);
       if (!target.has_value()) return;
 
-      // Is there a cc_proto_library() waiting for our info ?
-      auto found_cc_proto_lib = proto_lib2cc_proto_lib.find(*target);
-      if (found_cc_proto_lib == proto_lib2cc_proto_lib.end()) {
-        return;  // This proto lib is probably used for some other language.
-      }
-      const BazelTarget &cc_proto_lib = found_cc_proto_lib->second;
-
-      // Now, look through all *.proto files this proto_library() gets,
-      // assemble the header filename from it and record in our result.
-      const auto proto_srcs = query::ExtractStringList(proto_lib.srcs_list);
-      for (std::string_view proto : proto_srcs) {
-        if (!proto.ends_with(".proto")) {
-          // possibly file list. Not handling that yet.
+      for (const bool is_grpc : {false, true}) {
+        const auto &lookup_lib = proto_lib2cc_proto_lib[is_grpc];
+        // Is there a cc_{proto,grpc}_library() waiting for our info ?
+        auto found_cc_proto_lib = lookup_lib.find(*target);
+        if (found_cc_proto_lib == lookup_lib.end()) {
           continue;
         }
-        if (proto.starts_with(':')) {  // Also a way to name a local
-          proto.remove_prefix(1);
-        }
 
-        // Create a header file out of it. foo.proto becomes foo.pb.h or, in
-        // some environments, foo.proto.h
-        auto dot_pos = proto.find_last_of('.');
-        const std::string_view stem = proto.substr(0, dot_pos);
-        for (const std::string_view suffix : {".pb.h", ".proto.h"}) {
-          std::string proto_header = absl::StrCat(stem, suffix);
-          proto_header = build_file.package.QualifiedFile(proto_header);
-          result[OptionalReverse(proto_header, reverse)].insert(cc_proto_lib);
+        const BazelTarget &cc_proto_lib = found_cc_proto_lib->second;
+
+        // proto buffer headers for grpc have .grpc.pb.h suffix.
+        const std::string_view middle_name = is_grpc ? ".grpc" : "";
+
+        // Now, look through all *.proto files this proto_library() gets,
+        // assemble the header filename from it and record in our result.
+        const auto proto_srcs = query::ExtractStringList(proto_lib.srcs_list);
+        for (std::string_view proto : proto_srcs) {
+          if (!proto.ends_with(".proto")) {
+            // possibly file list. Not handling that yet.
+            continue;
+          }
+          if (proto.starts_with(':')) {  // Also a way to name a local
+            proto.remove_prefix(1);
+          }
+
+          // Create a header file out of it. foo.proto becomes foo.pb.h or, in
+          // some environments, foo.proto.h
+          auto dot_pos = proto.find_last_of('.');
+          const std::string_view stem = proto.substr(0, dot_pos);
+          for (const std::string_view suffix : {".pb.h", ".proto.h"}) {
+            std::string proto_header = absl::StrCat(stem, middle_name, suffix);
+            proto_header = build_file.package.QualifiedFile(proto_header);
+            result[OptionalReverse(proto_header, reverse)].insert(cc_proto_lib);
+          }
         }
       }
     });

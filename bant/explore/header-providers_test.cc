@@ -139,6 +139,11 @@ cc_proto_library(
   name = "foo",               # ... and this is the cc_library it shows up as.
   deps = [":all_protos"],
 )
+
+cc_grpc_library(              # GRPC form of a proto library.
+  name = "grpc_foo",
+  srcs = [":all_protos"],
+)
 )");
   std::stringstream log_absorb;
   auto header_map = ExtractHeaderToLibMapping(pp.project(), log_absorb);
@@ -148,6 +153,12 @@ cc_proto_library(
   // Another possible suffix.
   EXPECT_THAT(header_map,
               Contains(Pair("ptest/general.proto.h", Ts("//ptest:foo"))));
+
+  // grpc header references
+  EXPECT_THAT(header_map,
+              Contains(Pair("ptest/data.grpc.pb.h", Ts("//ptest:grpc_foo"))));
+  EXPECT_THAT(header_map, Contains(Pair("ptest/general.grpc.pb.h",
+                                        Ts("//ptest:grpc_foo"))));
 }
 
 TEST(HeaderToLibMapping, GenruleExtraction) {

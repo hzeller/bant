@@ -611,6 +611,33 @@ cc_library(
   tester.RunForTarget("//some/path:bar");
 }
 
+TEST(DWYUTest, Add_ProtoGrpcLibraryForProtoInclude) {
+  ParsedProjectTestUtil pp;
+  pp.Add("//some/path", R"(
+proto_library(
+  name = "foo_proto",
+  srcs = ["foo.proto", "baz.proto"],
+)
+
+cc_grpc_library(              # GRPC form of a proto library.
+  name = "grpc_foo",
+  srcs = [":foo_proto"],
+)
+
+cc_library(
+  name = "bar",
+  srcs = ["bar.cc"],
+)
+)");
+
+  DWYUTestFixture tester(pp.project());
+  tester.AddSource("some/path/bar.cc", R"(
+#include "some/path/baz.grpc.pb.h"
+)");
+  tester.ExpectAdd(":grpc_foo");
+  tester.RunForTarget("//some/path:bar");
+}
+
 TEST(DWYUTest, Remove_UnncessaryProtoLibrary) {
   ParsedProjectTestUtil pp;
   pp.Add("//some/path", R"(
