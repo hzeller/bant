@@ -9,7 +9,7 @@ on:
     - main
 
 jobs:
-  Build:
+  Test:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout code
@@ -180,3 +180,47 @@ jobs:
         run: |
           clang-tidy-18 --version
           CLANG_TIDY=clang-tidy-18 scripts/run-clang-tidy-cached.cc
+
+  BuildStaticBinary:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create Cache Timestamp
+        id: cache_timestamp
+        uses: nanzm/get-time-action@v2.0
+        with:
+          format: 'YYYY-MM-DD-HH-mm-ss'
+
+      - name: Mount bazel cache
+        uses: actions/cache@v4
+        with:
+          path: "~/.cache/bazel"
+          key: bazelcache_release_${{ steps.cache_timestamp.outputs.time }}
+          restore-keys: bazelcache_release_
+
+      - name: Build
+        run: |
+          export CC=gcc-13
+          export CXX=g++-13
+          bazel build -c opt --//bant:create_static_linked_executables bant:bant
+
+          VERSION=$(git log --date=short --pretty=format:'%cd_%h' -n1)
+          OUT=bant-${VERSION}-x86
+          echo "OUT=${OUT}" >> $GITHUB_ENV
+
+          mkdir -p "${OUT}/bin"
+          install bazel-bin/bant/bant "${OUT}/bin"
+          strip "${OUT}/bin/bant"
+          # We need to pack it to retain proper unix permissions.
+          # Unfortunately, github packs the whole result in a *.zip archive.
+          tar cvzf "${OUT}.tar.gz" ${OUT}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.OUT }}
+          path: ${{ env.OUT }}.tar.gz
