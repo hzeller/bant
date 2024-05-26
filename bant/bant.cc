@@ -170,11 +170,7 @@ int main(int argc, char *argv[]) {
 
   BazelPattern pattern;
 
-  bool verbose = false;
-  bool print_ast = false;
-  bool print_only_errors = false;
-  bool elaborate = false;
-  int recurse_dependency_depth = 0;
+  bant::CommandlineFlags flags;
 
   // TODO: make flag ? This is needed for projects that don't use a plain
   // WORKSPACE but obfuscate the dependencies by loading a bunch of *.bzl
@@ -217,7 +213,6 @@ int main(int argc, char *argv[]) {
     {"plist", OutputFormat::kPList},   {"csv", OutputFormat::kCSV},
     {"json", OutputFormat::kJSON},     {"graphviz", OutputFormat::kGraphviz},
   };
-  OutputFormat out_fmt = OutputFormat::kNative;
   int opt;
   while ((opt = getopt(argc, argv, "C:qo:vhpecbf:r::V")) != -1) {
     switch (opt) {
@@ -251,23 +246,23 @@ int main(int argc, char *argv[]) {
       break;
 
     case 'r':
-      recurse_dependency_depth = optarg  //
-                                   ? atoi(optarg)
-                                   : std::numeric_limits<int>::max();
+      flags.recurse_dependency_depth = optarg  //
+                                         ? atoi(optarg)
+                                         : std::numeric_limits<int>::max();
       break;
 
       // "print" options
-    case 'p': print_ast = true; break;
-    case 'e': print_only_errors = true; break;
-    case 'b': elaborate = true; break;  // TODO: we need long options.
+    case 'p': flags.print_ast = true; break;
+    case 'e': flags.print_only_errors = true; break;
+    case 'b': flags.elaborate = true; break;  // TODO: we need long options.
     case 'f': {
       auto found = kFormatOutNames.lower_bound(optarg);
       if (found == kFormatOutNames.end() || !found->first.starts_with(optarg)) {
         return usage(argv[0], "invalid -f format", EXIT_FAILURE);
       }
-      out_fmt = found->second;
+      flags.output_format = found->second;
     } break;
-    case 'v': verbose = true; break;
+    case 'v': flags.verbose = true; break;
     case 'V': return print_version();
     default: return usage(argv[0], nullptr, EXIT_SUCCESS);
     }
@@ -328,7 +323,7 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  bant::Session session(primary_out, info_out, verbose, out_fmt);
+  bant::Session session(primary_out, info_out, flags);
 
   // -- TODO: a lot of the following functionality including choosing what
   // data is needed needs to move into each command itself.
@@ -349,16 +344,16 @@ int main(int argc, char *argv[]) {
   const BazelPattern dep_pattern =
     (cmd == Command::kHasDependents) ? BazelPattern() : pattern;
 
-  bant::ParsedProject project(workspace, verbose);
+  bant::ParsedProject project(workspace, flags.verbose);
   if (cmd != Command::kListWorkkspace) {
     if (project.FillFromPattern(session, dep_pattern) == 0) {
       session.error() << "Pattern did not match any dir with BUILD file.\n";
     }
   }
 
-  if (recurse_dependency_depth <= 0 &&
+  if (flags.recurse_dependency_depth <= 0 &&
       (cmd == Command::kDWYU || cmd == Command::kHasDependents)) {
-    recurse_dependency_depth = std::numeric_limits<int>::max();
+    flags.recurse_dependency_depth = std::numeric_limits<int>::max();
   }
 
   // TODO: move dependency graph creation to tools once they are
@@ -373,9 +368,10 @@ int main(int argc, char *argv[]) {
   case Command::kListPackages:
   case Command::kDependsOn:
   case Command::kHasDependents:
-    if (recurse_dependency_depth >= 0) {
-      graph = bant::BuildDependencyGraph(session, workspace, dep_pattern,
-                                         recurse_dependency_depth, &project);
+    if (flags.recurse_dependency_depth >= 0) {
+      graph =
+        bant::BuildDependencyGraph(session, workspace, dep_pattern,
+                                   flags.recurse_dependency_depth, &project);
       if (session.verbose()) {
         session.info() << "Found " << graph.depends_on.size()
                        << " Targets with dependencies; "
@@ -389,7 +385,7 @@ int main(int argc, char *argv[]) {
   default:;
   }
 
-  if (elaborate || cmd == Command::kDWYU) {
+  if (flags.elaborate || cmd == Command::kDWYU) {
     bant::Elaborate(session, &project);
   }
 
@@ -397,16 +393,16 @@ int main(int argc, char *argv[]) {
   // recursive is chosen when we want to print everything the dependency graph
   // gathered.
   const BazelPattern print_pattern =
-    recurse_dependency_depth > 0 ? BazelPattern() : pattern;
+    flags.recurse_dependency_depth > 0 ? BazelPattern() : pattern;
 
   // This will be all separate commands in their own class.
   switch (cmd) {
-  case Command::kPrint: print_ast = true; [[fallthrough]];
+  case Command::kPrint: flags.print_ast = true; [[fallthrough]];
   case Command::kParse:
     // Parsing has already be done by now by building the dependency graph
-    if (print_ast || print_only_errors) {
+    if (flags.print_ast || flags.print_only_errors) {
       bant::PrintProject(pattern, *primary_out, *info_out, project,
-                         print_only_errors);
+                         flags.print_only_errors);
     }
     break;
 
@@ -493,7 +489,7 @@ int main(int argc, char *argv[]) {
     ;
   }
 
-  if (verbose) {
+  if (flags.verbose) {
     // If verbose explicitly chosen, we want to print this even if -q.
     // So not to info_out, but std::cerr
     for (const std::string_view subsystem : session.stat_keys()) {

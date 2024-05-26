@@ -26,7 +26,6 @@
 #include "bant/explore/query-utils.h"
 #include "bant/frontend/parsed-project.h"
 #include "bant/frontend/parsed-project_testutil.h"
-#include "bant/output-format.h"
 #include "bant/session.h"
 #include "gtest/gtest.h"
 
@@ -39,7 +38,7 @@ class ElaborationTest : public testing::Test {
     elaborated_ = pp_.Add("//elab", to_elaborate);
     const ParsedBuildFile *expected_parsed = pp_.Add("//expected", expected);
 
-    Session session{&std::cerr, &std::cerr, true, OutputFormat::kNative};
+    Session session(&std::cerr, &std::cerr, CommandlineFlags{.verbose = true});
     std::stringstream elab_print;
     elab_print << bant::Elaborate(session, &pp_.project(), elaborated_->package,
                                   elaborated_->ast);

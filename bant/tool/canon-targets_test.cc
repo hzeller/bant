@@ -21,7 +21,6 @@
 
 #include "bant/frontend/parsed-project.h"
 #include "bant/frontend/parsed-project_testutil.h"
-#include "bant/output-format.h"
 #include "bant/session.h"
 #include "bant/tool/edit-callback_testutil.h"
 #include "bant/types-bazel.h"
@@ -46,7 +45,7 @@ cc_library(
 )
 )");
 
-  Session session{&std::cerr, &std::cerr, true, OutputFormat::kNative};
+  Session session(&std::cerr, &std::cerr, CommandlineFlags{.verbose = true});
   EditExpector edit_expector;
   edit_expector.ExpectRename("baz", ":baz");
   edit_expector.ExpectRename("//some/path:bar", ":bar");

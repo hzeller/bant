@@ -42,14 +42,25 @@ class SessionStreams {
   std::ostream *info_;
 };
 
-// A session contains some global settings such as output/verbose requests
+// Command line flags needed by
+struct CommandlineFlags {
+  bool verbose = false;
+  bool print_ast = false;
+  bool print_only_errors = false;
+  bool elaborate = false;
+  int recurse_dependency_depth = 0;
+  OutputFormat output_format = OutputFormat::kNative;
+};
+
+// A session contains some settings such as output/verbose requests
 // as well as access to streams for general output or error and info messages.
+// It is passed to functionality needing it without requring a global state.
 class Session {
  public:
   using StatMap = OneToOne<std::string_view, std::unique_ptr<bant::Stat>>;
 
-  Session(std::ostream *out, std::ostream *info, bool verbose, OutputFormat fmt)
-      : streams_(out, info), verbose_(verbose), output_format_(fmt) {}
+  Session(std::ostream *out, std::ostream *info, const CommandlineFlags &flags)
+      : streams_(out, info), flags_(flags) {}
 
   SessionStreams &streams() { return streams_; }
 
@@ -58,8 +69,11 @@ class Session {
   std::ostream &info() { return streams_.info(); }
   std::ostream &error() { return streams_.error(); }
 
-  bool verbose() const { return verbose_; }
-  OutputFormat output_format() const { return output_format_; }
+  // Deprecated. Use Flags directly.
+  bool verbose() const { return flags_.verbose; }
+  OutputFormat output_format() const { return flags_.output_format; }
+
+  const CommandlineFlags &flags() const { return flags_; }
 
   // Get a stat object to fill/update. The "subsystem_name" describes who is
   // collecting stats, the "subject" is what (e.g. file-count etc).
@@ -89,7 +103,7 @@ class Session {
   StatMap stats_;
   std::vector<std::string_view> stat_init_key_order_;
   SessionStreams streams_;
-  bool verbose_;
+  CommandlineFlags flags_;
   OutputFormat output_format_;
 };
 }  // namespace bant

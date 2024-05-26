@@ -30,7 +30,6 @@
 #include "bant/frontend/parsed-project.h"
 #include "bant/frontend/parsed-project_testutil.h"
 #include "bant/frontend/source-locator.h"
-#include "bant/output-format.h"
 #include "bant/session.h"
 #include "bant/tool/dwyu-internal.h"
 #include "bant/tool/edit-callback_testutil.h"
@@ -116,7 +115,8 @@ class TestableDWYUGenerator : public bant::DWYUGenerator {
 class DWYUTestFixture {
  public:
   explicit DWYUTestFixture(const ParsedProject &project)
-      : session_{&log_messages_, &log_messages_, true, OutputFormat::kNative},
+      : session_{&log_messages_, &log_messages_,
+                 CommandlineFlags{.verbose = true}},
         dwyu_(session_, project, edit_expector_.checker()){};
 
   ~DWYUTestFixture() {
