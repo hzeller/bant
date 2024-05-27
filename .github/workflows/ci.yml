@@ -44,19 +44,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Create Cache Timestamp
-        id: cache_timestamp
-        uses: nanzm/get-time-action@v2.0
-        with:
-          format: 'YYYY-MM-DD-HH-mm-ss'
-
-      - name: Mount bazel cache
-        uses: actions/cache@v4
-        with:
-          path: "/private/var/tmp/_bazel_runner"
-          key: bazelcache_mac_test_${{ steps.cache_timestamp.outputs.time }}
-          restore-keys: bazelcache_mac_test_
-
       - name: Test
         run: |
           bazel test --keep_going ...
