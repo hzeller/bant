@@ -199,9 +199,10 @@ jobs:
           bazel-bin/bant/bant -V  # Print version
 
           # Version number: current tag dot number of commits after tagging.
+          # If at exactly a tag, that will be left as-is
           VERSION=$(git describe --match=v* 2>/dev/null \
-                    | sed 's/v\([^-]*\)-\([0-9]*\).*/\1-\2/')
-          OUT=bant-v${VERSION}-x86
+                    | sed 's/v\([^-]*\)-\([0-9]*\)-.*/v\1-\2/')
+          OUT=bant-${VERSION}-x86
           echo "OUT=${OUT}" >> $GITHUB_ENV
 
           mkdir -p "${OUT}/bin"
@@ -226,7 +227,7 @@ jobs:
       contents: write
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
