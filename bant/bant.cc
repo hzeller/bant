@@ -31,32 +31,16 @@ int getopt(int, char *const *, const char *);  // NOLINT
 #include <filesystem>
 #include <fstream>
 #include <iostream>
-#include <iterator>
 #include <limits>
 #include <map>
 #include <memory>
-#include <sstream>
-#include <string>
 #include <string_view>
 #include <system_error>
 #include <vector>
 
-#include "absl/strings/str_cat.h"
-#include "bant/explore/aliased-by.h"
-#include "bant/explore/dependency-graph.h"
-#include "bant/explore/header-providers.h"
-#include "bant/explore/query-utils.h"
-#include "bant/frontend/elaboration.h"
-#include "bant/frontend/parsed-project.h"
+#include "bant/cli-commands.h"
 #include "bant/output-format.h"
 #include "bant/session.h"
-#include "bant/tool/canon-targets.h"
-#include "bant/tool/dwyu.h"
-#include "bant/tool/edit-callback.h"
-#include "bant/types-bazel.h"
-#include "bant/types.h"
-#include "bant/util/table-printer.h"
-#include "bant/workspace.h"
 
 // Generated from at compile time from git tag or MODULE.bazel version
 #include "bant/generated-build-version.h"
@@ -132,33 +116,6 @@ Commands (unique prefix sufficient):
   return exit_code;
 }
 
-using bant::BazelPattern;
-using bant::BazelTarget;
-using bant::CreateBuildozerDepsEditCallback;
-using bant::CreateCanonicalizeEdits;
-using bant::OutputFormat;
-using bant::TablePrinter;
-using bant::query::FindTargets;
-using bant::query::Result;
-
-void PrintOneToN(bant::Session &session, const BazelPattern &pattern,
-                 const OneToN<BazelTarget, BazelTarget> &table,
-                 const std::string &header1, const std::string &header2) {
-  auto printer = TablePrinter::Create(session.out(), session.output_format(),
-                                      {header1, header2});
-  std::vector<std::string> repeat_print;
-  for (const auto &d : table) {
-    if (!pattern.Match(d.first)) continue;
-    repeat_print.clear();
-    for (const BazelTarget &t : d.second) {
-      repeat_print.emplace_back(t.ToString());
-    }
-    printer->AddRowWithRepeatedLastColumn({d.first.ToString()}, repeat_print);
-  }
-  printer->Finish();
-}
-
-// TODO: this is getting big, time to put Commands into their own objects.
 int main(int argc, char *argv[]) {
   // non-nullptr streams if chosen by user.
   std::unique_ptr<std::ostream> user_primary_out;
@@ -168,46 +125,9 @@ int main(int argc, char *argv[]) {
   std::ostream *primary_out = &std::cout;
   std::ostream *info_out = &std::cerr;
 
-  BazelPattern pattern;
-
   bant::CommandlineFlags flags;
 
-  // TODO: make flag ? This is needed for projects that don't use a plain
-  // WORKSPACE but obfuscate the dependencies by loading a bunch of *.bzl
-  // files (looking at you, XLS...)
-  constexpr bool kAugmentWorkspacdFromDirectoryStructure = true;
-
-  // Commands: right now just switch/casing over it in main, but they will
-  // become their own classes eventually.
-  enum class Command {
-    kNone,
-    kParse,
-    kPrint,  // Like parse, but we narrow with pattern
-    kListPackages,
-    kListTargets,
-    kListWorkkspace,
-    kLibraryHeaders,
-    kAliasedBy,
-    kGenruleOutputs,
-    kDWYU,
-    kCanonicalizeDeps,
-    kHasDependents,
-    kDependsOn,
-  } cmd = Command::kNone;
-  static const std::map<std::string_view, Command> kCommandNames = {
-    {"parse", Command::kParse},
-    {"print", Command::kPrint},
-    {"list-packages", Command::kListPackages},
-    {"list-targets", Command::kListTargets},
-    {"workspace", Command::kListWorkkspace},
-    {"lib-headers", Command::kLibraryHeaders},
-    {"aliased-by", Command::kAliasedBy},
-    {"depends-on", Command::kDependsOn},
-    {"has-dependents", Command::kHasDependents},
-    {"genrule-outputs", Command::kGenruleOutputs},
-    {"dwyu", Command::kDWYU},
-    {"canonicalize", Command::kCanonicalizeDeps},
-  };
+  using bant::OutputFormat;
   static const std::map<std::string_view, OutputFormat> kFormatOutNames = {
     {"native", OutputFormat::kNative}, {"s-expr", OutputFormat::kSExpr},
     {"plist", OutputFormat::kPList},   {"csv", OutputFormat::kCSV},
@@ -268,225 +188,17 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  if (optind < argc) {
-    const std::string_view cmd_string = argv[optind];
-    auto found = kCommandNames.lower_bound(cmd_string);
-    if (found != kCommandNames.end() && found->first.starts_with(cmd_string)) {
-      auto next_command = std::next(found);
-      if (next_command != kCommandNames.end() &&
-          next_command->first.starts_with(cmd_string)) {
-        std::stringstream sout;
-        sout << "Command '" << cmd_string << "' too short and ambiguous: "
-             << "[" << found->first << ", " << next_command->first
-             << ", ...\n\n";
-        return usage(argv[0], sout.str().c_str(), EXIT_FAILURE);
-      }
-      cmd = found->second;
-    }
-    if (cmd == Command::kNone) {
-      std::stringstream sout;
-      sout << "Unknown command prefix '" << cmd_string << "'\n\n";
-      return usage(argv[0], sout.str().c_str(), EXIT_FAILURE);
-    }
-    ++optind;
-  }
-
-  if (cmd == Command::kNone) {
-    return usage(argv[0], "Command expected", EXIT_FAILURE);
-  }
-
-  if (optind < argc) {
-    if (auto p = BazelPattern::ParseFrom(argv[optind]); p.has_value()) {
-      pattern = p.value();
-    } else {
-      std::stringstream sout;
-      sout << "Invalid pattern " << argv[optind] << "\n\n";
-      return usage(argv[0], sout.str().c_str(), EXIT_FAILURE);
-    }
-    ++optind;
-  }
-
-  if (optind < argc) {
-    // TODO: read a list of patterns.
-    std::cerr << argv[optind]
-              << " Sorry, can only deal with one pattern right now\n";
-    return 1;
-  }
-
-  // Don't look through everything for these.
-  if (cmd == Command::kCanonicalizeDeps || cmd == Command::kDWYU ||
-      cmd == Command::kPrint) {
-    if (pattern.is_matchall()) {
-      std::cerr << "Please provide a bazel pattern for this command.\n"
-                << "Examples: //... or //foo/bar:baz\n";
-      return EXIT_FAILURE;
-    }
-  }
-
   bant::Session session(primary_out, info_out, flags);
-
-  // -- TODO: a lot of the following functionality including choosing what
-  // data is needed needs to move into each command itself.
-  // We don't have a 'Command' object yet, so linear here.
-  auto workspace_or = bant::LoadWorkspace(session);
-  if (!workspace_or.has_value()) {
-    std::cerr
-      << "Didn't find any workspace file. Is this a bazel project root ?\n";
-    return EXIT_FAILURE;
-  }
-  if (kAugmentWorkspacdFromDirectoryStructure) {
-    BestEffortAugmentFromExternalDir(workspace_or.value());
-  }
-  const bant::BazelWorkspace &workspace = workspace_or.value();
-
-  // Has dependent needs to be able to see all the files to know everything
-  // that depends on a specific pattern.
-  const BazelPattern dep_pattern =
-    (cmd == Command::kHasDependents) ? BazelPattern() : pattern;
-
-  bant::ParsedProject project(workspace, flags.verbose);
-  if (cmd != Command::kListWorkkspace) {
-    if (project.FillFromPattern(session, dep_pattern) == 0) {
-      session.error() << "Pattern did not match any dir with BUILD file.\n";
-    }
+  std::vector<std::string_view> positional_args;
+  for (int i = optind; i < argc; ++i) {
+    positional_args.emplace_back(argv[i]);
   }
 
-  if (flags.recurse_dependency_depth <= 0 &&
-      (cmd == Command::kDWYU || cmd == Command::kHasDependents)) {
-    flags.recurse_dependency_depth = std::numeric_limits<int>::max();
-  }
-
-  // TODO: move dependency graph creation to tools once they are
-  // Command-objects.
-  bant::DependencyGraph graph;
-  switch (cmd) {
-  case Command::kDWYU:
-  case Command::kParse:
-  case Command::kLibraryHeaders:
-  case Command::kGenruleOutputs:
-  case Command::kListTargets:
-  case Command::kListPackages:
-  case Command::kDependsOn:
-  case Command::kHasDependents:
-    if (flags.recurse_dependency_depth >= 0) {
-      graph =
-        bant::BuildDependencyGraph(session, workspace, dep_pattern,
-                                   flags.recurse_dependency_depth, &project);
-      if (session.verbose()) {
-        session.info() << "Found " << graph.depends_on.size()
-                       << " Targets with dependencies; "
-                       << graph.has_dependents.size()
-                       << " referenced by others.\n";
-        // Currently, we're not using the graph yet, just use it as a way to
-        // populate project.
-      }
-    }
-    break;
-  default:;
-  }
-
-  if (flags.elaborate || cmd == Command::kDWYU) {
-    bant::Elaborate(session, &project);
-  }
-
-  // library headers and genrule outputs just match the pattern unless
-  // recursive is chosen when we want to print everything the dependency graph
-  // gathered.
-  const BazelPattern print_pattern =
-    flags.recurse_dependency_depth > 0 ? BazelPattern() : pattern;
-
-  // This will be all separate commands in their own class.
-  switch (cmd) {
-  case Command::kPrint: flags.print_ast = true; [[fallthrough]];
-  case Command::kParse:
-    // Parsing has already be done by now by building the dependency graph
-    if (flags.print_ast || flags.print_only_errors) {
-      bant::PrintProject(pattern, *primary_out, *info_out, project,
-                         flags.print_only_errors);
-    }
-    break;
-
-  case Command::kLibraryHeaders:  //
-    bant::PrintProvidedSources(session, "header", print_pattern,
-                               ExtractHeaderToLibMapping(project, *info_out));
-    break;
-
-  case Command::kGenruleOutputs:
-    bant::PrintProvidedSources(session, "generated-file", print_pattern,
-                               ExtractGeneratedFromGenrule(project, *info_out));
-    break;
-
-  case Command::kDWYU:
-    bant::CreateDependencyEdits(session, project, pattern,
-                                CreateBuildozerDepsEditCallback(*primary_out));
-    break;
-
-  case Command::kCanonicalizeDeps:
-    CreateCanonicalizeEdits(session, project, pattern,
-                            CreateBuildozerDepsEditCallback(*primary_out));
-    break;
-
-  case Command::kListPackages: {
-    auto printer = TablePrinter::Create(session.out(), session.output_format(),
-                                        {"bazel-file", "package"});
-    for (const auto &[package, parsed] : project.ParsedFiles()) {
-      printer->AddRow({std::string(parsed->name()), package.ToString()});
-    }
-    printer->Finish();
-  } break;
-
-  case Command::kListTargets: {
-    auto printer = TablePrinter::Create(session.out(), session.output_format(),
-                                        {"file-location", "rule", "target"});
-    for (const auto &[package, parsed] : project.ParsedFiles()) {
-      FindTargets(parsed->ast, {}, [&](const Result &target) {
-        auto target_name =
-          BazelTarget::ParseFrom(absl::StrCat(":", target.name), package);
-        if (!target_name.has_value()) {
-          return;
-        }
-        if (!print_pattern.Match(*target_name)) return;
-        printer->AddRow({project.Loc(target.name),
-                         std::string(target.rule),  //
-                         target_name->ToString()});
-      });
-    }
-    printer->Finish();
-  } break;
-
-  case Command::kListWorkkspace: {
-    // For now, we just load the workspace file in this command. We might need
-    // it later also to resolve dependencies.
-    auto printer = TablePrinter::Create(session.out(), session.output_format(),
-                                        {"project", "version", "directory"});
-    for (const auto &[project, file] : workspace_or->project_location) {
-      printer->AddRow({project.project,
-                       project.version.empty() ? "-" : project.version,
-                       file.path()});
-    }
-    printer->Finish();
-  } break;
-
-  case Command::kAliasedBy:
-    PrintOneToN(session, print_pattern, bant::ExtractAliasedBy(project),  //
-                "actual", "aliased-by");
-    break;
-
-  case Command::kDependsOn:
-    // If explicitly asked recursively, print all that.
-    PrintOneToN(session, print_pattern, graph.depends_on,  //
-                "library", "depends-on");
-    break;
-
-  case Command::kHasDependents:
-    // Print exactly what requested, as we implicitly had to recurse through
-    // everything, so print_pattern would be too much.
-    PrintOneToN(session, pattern, graph.has_dependents,  //
-                "library", "has-dependent");
-    break;
-
-  case Command::kNone:  // nop (implicitly done by parsing)
-    ;
+  using bant::CliStatus;
+  const CliStatus result = RunCliCommand(session, positional_args);
+  if (result == CliStatus::kExitCommandlineClarification) {
+    session.error() << "\n\n";  // A bit more space to let message stand out.
+    return usage(argv[0], nullptr, static_cast<int>(result));
   }
 
   if (flags.verbose) {
@@ -496,6 +208,5 @@ int main(int argc, char *argv[]) {
       std::cerr << subsystem << " " << *session.stat(subsystem) << "\n";
     }
   }
-
-  return project.error_count();
+  return static_cast<int>(result);
 }

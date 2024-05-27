@@ -15,24 +15,21 @@
 // with this program; if not, write to the Free Software Foundation, Inc.,
 // 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 
-#ifndef BANT_TOOL_CANON_TARGETS_
-#define BANT_TOOL_CANON_TARGETS_
+#ifndef BANT_CLI_COMMANDS
+#define BANT_CLI_COMMANDS
 
-#include <cstdlib>
+#include <span>
+#include <string_view>
 
-#include "bant/frontend/parsed-project.h"
-#include "bant/tool/edit-callback.h"
-#include "bant/types-bazel.h"
+#include "bant/session.h"
 
 namespace bant {
-// Fix dep targets that can be canonicalized
-//  * `//foo/bar:baz` when already in `//foo/bar` becomes `:baz`
-//  * `//foo:foo` becomes `//foo`
-//  * `@foo//:foo` becomes `@foo`
-//  * `foo` without `:` prefix becomes `:foo`
-// Returns number of edits emitted.
-size_t CreateCanonicalizeEdits(Session &session, const ParsedProject &project,
-                               const BazelPattern &pattern,
-                               const EditCallback &emit_canon_edit);
+enum class CliStatus {
+  kExitSuccess = 0,
+  kExitFailure = 1,
+  kExitCommandlineClarification = 2,  // command line underspecified.
+  kExitCleanupFindings = 3,           // There were findings in cleanup
+};
+CliStatus RunCliCommand(Session &session, std::span<std::string_view> args);
 }  // namespace bant
-#endif  // BANT_TOOL_CANON_TARGETS_
+#endif  // BANT_CLI_COMMANDS

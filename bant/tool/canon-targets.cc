@@ -17,6 +17,7 @@
 
 #include "bant/tool/canon-targets.h"
 
+#include <cstdlib>
 #include <ostream>
 #include <string_view>
 
@@ -28,9 +29,10 @@
 #include "bant/util/stat.h"
 
 namespace bant {
-void CreateCanonicalizeEdits(Session &session, const ParsedProject &project,
-                             const BazelPattern &pattern,
-                             const EditCallback &emit_canon_edit) {
+size_t CreateCanonicalizeEdits(Session &session, const ParsedProject &project,
+                               const BazelPattern &pattern,
+                               const EditCallback &emit_canon_edit) {
+  size_t edit_counts = 0;
   std::ostream &info_out = session.info();
   Stat &stats = session.GetStatsFor("Canonicalization checked", "dependencies");
   const ScopedTimer timer(&stats.duration);
@@ -60,11 +62,13 @@ void CreateCanonicalizeEdits(Session &session, const ParsedProject &project,
             continue;
           }
           if (dep_str != dep_target->ToStringRelativeTo(current_package)) {
+            ++edit_counts;
             emit_canon_edit(EditRequest::kRename, *self, dep_str,
                             dep_target->ToStringRelativeTo(current_package));
           }
         }
       });
   }
+  return edit_counts;
 }
 }  // namespace bant

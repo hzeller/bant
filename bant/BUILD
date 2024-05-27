@@ -19,6 +19,8 @@ cc_binary(
     name = "bant",
     srcs = [
         "bant.cc",
+        "cli-commands.cc",
+        "cli-commands.h",
     ],
     features = select({
         "//bant:static_linked_executables": [
