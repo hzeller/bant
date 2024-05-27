@@ -2,8 +2,8 @@
 
 version_from_git() {
     set -o pipefail
-    git describe --match=v* --long 2>/dev/null \
-    | sed 's/v\([^-]*\)-\([0-9]*\).*/\1.\2/' 2>/dev/null
+    git describe --match=v* 2>/dev/null \
+    | sed 's/v\([^-]*\)-\([0-9]*\).*/\1-\2/' 2>/dev/null
 }
 
 version_from_module_bazel() {
