@@ -104,7 +104,6 @@ class Session {
   std::vector<std::string_view> stat_init_key_order_;
   SessionStreams streams_;
   CommandlineFlags flags_;
-  OutputFormat output_format_;
 };
 }  // namespace bant
 #endif  // BANT_SESSION_H

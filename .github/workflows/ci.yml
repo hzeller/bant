@@ -109,44 +109,25 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Create Cache Timestamp
-        id: cache_timestamp
-        uses: nanzm/get-time-action@v2.0
-        with:
-          format: 'YYYY-MM-DD-HH-mm-ss'
-
-      - name: Mount cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/bazel
-          key: bant-on-bant_${{ steps.cache_timestamp.outputs.time }}
-          restore-keys: bant-on-bant_
-
-      - name: Build Compilation DB
+      - name: Build Project genrules
         run: |
-          scripts/make-compilation-db.sh
+          # Genrules for bant to see every file.
+          bazel build //bant:version-header
 
-      - name: Build bant
+      - name: Get Bant
         run: |
-          export CC=gcc-13
-          export CXX=g++-13
-          bazel build -c opt bant:bant
+          # TODO: provide this as action where we simply say with version=...
+          VERSION="v0.1.0"
+          STATIC_VERSION="bant-${VERSION}-linux-static-x86_64"
+          wget "https://github.com/hzeller/bant/releases/download/${VERSION}/${STATIC_VERSION}.tar.gz"
+          tar xvzf "${STATIC_VERSION}.tar.gz"
+          mkdir -p bin
+          ln -sf ../"${STATIC_VERSION}/bin/bant" bin/
+          bin/bant -V
 
       - name: Run bant on bant
         run: |
-          bazel-bin/bant/bant dwyu ... -v -o/tmp/bant-output.txt
-          if [ -s "/tmp/bant-output.txt" ]; then
-            echo "Bant found changes to be made in BUILD files."
-            echo "======== Findings as buildozer edit script ==========="
-            echo
-            cat /tmp/bant-output.txt
-            echo
-            echo "=================== To Fix ==========================="
-            echo "Run"
-            echo "  . <(bazel-bin/bant/bant dwyu ...)"
-            exit 1
-          fi
+          bin/bant dwyu ...
 
   ClangTidy:
     runs-on: ubuntu-latest
@@ -180,7 +161,7 @@ jobs:
 
       - name: Build Compilation DB
         run: |
-          bazel build //bant:version-header //bant:build-version
+          bazel build //bant:version-header
           scripts/make-compilation-db.sh
 
       - name: Run clang-tidy
