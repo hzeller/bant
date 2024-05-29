@@ -7,12 +7,13 @@ bant - Build Analysis and Navigation Tool
 Utility to support projects using the [bazel] build system, in particular C++
 projects.
 
-Bant helps
-  * Cleaning up BUILD files by adding missing, and removing superflous,
+Bant
+  * Helps cleaning up BUILD files by adding missing, and removing superfluous,
     dependencies (build_cleaner). Outputs `buildozer` script.
-  * Extract interesting project information such as the dependency graph,
-    headers provided by which libraries .... (outputs simple tables for
-    `grep` or `awk`, but as well CSV, JSON and S-Expressions).
+  * Extracts interesting project information such as the dependency graph,
+    headers provided by which libraries etc., and presents them for easy
+    post-proccessing (outputs simple tables for `grep` or `awk`, but as well
+    CSV, JSON and S-Expressions).
   * Canonicalize targets.
 
 Early stages. WIP. Useful hack for my personal projects, but might be
@@ -38,11 +39,13 @@ s-expressions and json are structured outputs interesting in other contexts).
 
 ### Useful everyday commands
 
- * **`print`** is useful to print a particular rule or rules matching a pattern
-   `bant print //foo/bar:baz` (it is re-created from the AST, so you see
-   exactly what `bant` sees). In general this is much faster than manually
-   finding and opening the file, in particular when it is in some external
-   project where it is harder to even find the right file; consider
+#### Print
+
+**`print`** is useful to print a particular rule or rules matching a pattern
+`bant print //foo/bar:baz` (it is re-created from the AST, so you see
+exactly what `bant` sees). In general this is much faster than manually
+finding and opening the file, in particular when it is in some external
+project where it is harder to even find the right file; consider
 
 ```
 bant print @googletest//:gtest
@@ -57,68 +60,99 @@ of these and print the final form:
 bant print -b @googletest//:gtest
 ```
 
-  * If you want to find the file quickly, `bant list-target //foo/bar:baz`
-   will output the filename and exact line/column range where the target
-   resides.
+#### list-targets
+
+If you want to find the file quickly, `bant list-target //foo/bar:baz`
+will output the filename and exact line/column range where the target
+ resides.
+
 ```bash
-bant list-targets ...     # current project
-bant list-targets -r ...  # also following all dependencies
+bant list-targets //...     # list all targets of current project
+bant list-targets -r //...  # also following all dependencies
 ```
 
- * Use **`lib-headers`** if you want to know the library to depend on
-   for a particular header file. Or, automatically update your BUILD
-   files with `dwyu`...
+#### lib-headers
 
- * **`dwyu`** Depend on What You Use (DWYU)[^1]: Determine which dependencies
-   are needed in `cc_library()`, `cc_binary()`, and `cc_test()` targets.
-   Greps through their declared sources to find which headers they include.
-   Uses the information from `lib-headers` to determine which libraries
-   these sources thus need to depend on.
-   Emit [buildozer] commands to 'add' or 'remove' dependencies.
-   If unclear if a library can be removed, it is conservatively _not_
-   suggested for removal.
+Use **`lib-headers`** if you want to know the library to depend on
+for a particular header file. Or, automatically update your BUILD
+files with `dwyu`...
 
-   You can use this to clean up existing builds, or keep your BUILD files
-   up-to-date in development.
-   I usually just don't even add `deps = [...]` manually anymore but just
-   let `bant dwyu` do the work.
-   The following fixes all dependencies of the project:
+#### dwyu : Depend-on What You Use
+
+**`dwyu`** Depend on What You Use (DWYU)[^1]: Determine which dependencies
+are needed in `cc_library()`, `cc_binary()`, and `cc_test()` targets.
+Greps through their declared sources to find which headers they include.
+Uses the information from `lib-headers` to determine which libraries
+these sources thus need to depend on.
+Emit [buildozer] commands to 'add' or 'remove' dependencies.
+If unclear if a library can be removed, it is conservatively _not_
+suggested for removal.
+
+You can use this to clean up existing builds, or keep your BUILD files
+up-to-date in development.
+I usually just don't even add `deps = [...]` manually anymore but just
+let `bant dwyu` do the work.
+
+The following auto-fixes all dependencies of the project:
+
 ```bash
 . <(bant dwyu ...)   # source the buildozer calls in shell
 ```
 
-   Caveats:
+Caveats
 
    * Does not understand package groups in visibility yet; these will be
      considered `//visibility:public` and might result in adding
      dependencies that bazel would not allow.
+   * Will remove dependencies if they provide headers that are not needed
+     by the sources of a target. If you want to keep them linked, you need to
+     declare them as `alwayslink` (libraries that are linked to targets but
+     do _not_ provide any headerss are considered alwayslink implicitly).
+     (this is not really a caveat, it just emphasizes that it is important to
+     properly declare the intent in BUILD files).
 
-   You could call this a simple CC-target [`build_cleaner`][build_cleaner]...
+The `dwyu` command is essentially a [`build_cleaner`][build_cleaner] for
+C++ targets.
 
- * **`canonicalize`** emits edits to canonicalize targets, e.g.
-    * `//foo/bar:baz` when already in package `//foo/bar` becomes `:baz`
-    * `//foo:foo` becomes `//foo`
-    * `@foo//:foo` becomes `@foo`
-    * `foo` without `:` prefix becomes `:foo`
+#### Canonicalize
+
+**`canonicalize`** emits edits to canonicalize targets, e.g.
+
+  * `//foo/bar:baz` when already in package `//foo/bar` becomes `:baz`
+  * `//foo:foo` becomes `//foo`
+  * `@foo//:foo` becomes `@foo`
+  * `foo` without `:` prefix becomes `:foo`
 
 ## Use
 
 Note, `bant` can only find external projects if `bazel` has set up the
-workspace, and fetched, unpacked and made visible these into
+workspace, and fetched, unpacked, and made visible these into
 `bazel-out/../../../external`.
 
 Bant never does any fetching, it just observes the existing workspace. This
-means you need to run a `bazel` build before to have the workspace set up,
-and possibly generated files produced, for `bant` to be most useful.
+means you need to run a `bazel build ...` before to have the workspace set up.
+
+At the very minimum, do a bazel fetch and run all genrules; we can
+use `bant` itself to find genrules to be passed to bazel:
+
+```
+bazel fetch ...
+bazel build $(bant genrule-outputs ... | awk '{print $2}' | sort | uniq)
+```
+(but of course there might be other bazel rules beside obvious genrules that
+create artifacts, so global `bazel build ...` will catch these as well)
+
 Given that `bazel` adapts the visible external projecgts depending on what
-targets are used, consider a bazel command that needs all of them, e.g.
-`bazel test ...` before running `bant`.
+targets are used, it might be worthwhile running a bazel build that needs all
+of them, e.g. `bazel test ...`
+
+With `bant workspace`, you can see what external projects `bant` is aware of.
 
 ### Synopsis
 
 ```
 $ bazel-bin/bant/bant -h
-bant v0.1.1 <http://bant.build/>
+bant v0.1.3 <http://bant.build/>
 Copyright (c) 2024 Henner Zeller. This program is free software; license GPL 2.0.
 Usage: bant [options] <command> [bazel-target-pattern]
 Options
@@ -200,7 +234,7 @@ To install, use your systems `install` command (or simply copy):
 
 ```bash
 # To some writable directory that does not require root access
-bazel build -c opt //bant ; install -D --strip bazel-bin/bant/bant ~/bin/bant
+bazel build -c opt //bant && install -D --strip bazel-bin/bant/bant ~/bin/bant
 
 # For a system directory that requires root-access
 sudo install -D --strip bazel-bin/bant/bant /usr/local/bin/bant
