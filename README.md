@@ -148,6 +148,17 @@ of them, e.g. `bazel test ...`
 
 With `bant workspace`, you can see what external projects `bant` is aware of.
 
+### In continuous integration
+
+Examples how to use bant in GitHub CI you find for these projects that use
+bant already
+
+  * Of course, [bant](https://github.com/hzeller/bant/blob/635ae883473c0dcd5292c327e3ff741393d004da/.github/workflows/ci.yml#L104-L130) itself.
+  * [Verible](https://github.com/chipsalliance/verible/blob/a939466243915e6151d4a3675c3e9689e94e8f8a/.github/workflows/verible-ci.yml#L127-L167)
+
+Right now, these just report with the exit code of `dwyu`, that changes are needed. Nice-to-have would be an integration that sends actionable diffs right into
+PR comments. And in general a nicer action integration. PRs welcome.
+
 ### Synopsis
 
 ```
