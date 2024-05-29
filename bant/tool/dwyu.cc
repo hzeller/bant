@@ -289,8 +289,8 @@ DWYUGenerator::DependenciesNeededBySources(
   const BazelTarget &target, const ParsedBuildFile &build_file,
   const std::vector<std::string_view> &sources,
   bool *all_headers_accounted_for) {
-  Stat &grep_stats = session_.GetStatsFor("Grep'ed", "sources");
-  const ScopedTimer timer(&grep_stats.duration);
+  Stat &source_read_stats = session_.GetStatsFor("read(C++ source)", "sources");
+  Stat &source_grep_stats = session_.GetStatsFor("Grep'ed for #inc", "sources");
 
   std::ostream &info_out = session_.info();
   size_t total_size = 0;
@@ -332,7 +332,11 @@ DWYUGenerator::DependenciesNeededBySources(
   for (const std::string_view src_name : sources) {
     const std::string source_file =
       MakeFullyQualified(project_.workspace(), build_file.package, src_name);
-    auto source_content = TryOpenFile(source_file);
+    std::optional<DWYUGenerator::SourceFile> source_content;
+    {
+      const ScopedTimer timer(&source_read_stats.duration);
+      source_content = TryOpenFile(source_file);
+    }
     if (!source_content.has_value()) {
       project_.Loc(info_out, src_name)
         << " Can not read source '" << source_file << "' for target " << target;
@@ -351,12 +355,16 @@ DWYUGenerator::DependenciesNeededBySources(
     // in the same file. If so, only print reference to BUILD file once.
     bool need_in_source_referenced_message = false;
 
-    ++grep_stats.count;
+    ++source_read_stats.count;
+    ++source_grep_stats.count;
     total_size += source_content->content.size();
     NamedLineIndexedContent source(source_content->path,
                                    source_content->content);
-    const auto pound_includes = ExtractCCIncludes(&source);
-
+    std::vector<std::string_view> pound_includes;
+    {
+      const ScopedTimer timer(&source_grep_stats.duration);
+      pound_includes = ExtractCCIncludes(&source);
+    }
     // Now for all includes, we need to make sure we can account for it.
     for (const std::string_view inc_file : pound_includes) {
       if (IsHeaderInList(inc_file, sources, target.package.path)) {
@@ -446,7 +454,8 @@ DWYUGenerator::DependenciesNeededBySources(
     }
   }
 
-  grep_stats.AddBytesProcessed(total_size);
+  source_read_stats.AddBytesProcessed(total_size);
+  source_grep_stats.AddBytesProcessed(total_size);
   return result;
 }
 

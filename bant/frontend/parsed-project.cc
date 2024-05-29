@@ -17,6 +17,7 @@
 
 #include "bant/frontend/parsed-project.h"
 
+#include <cstdlib>
 #include <iostream>
 #include <optional>
 #include <sstream>
@@ -144,15 +145,21 @@ const ParsedBuildFile *ParsedProject::AddBuildFile(
 const ParsedBuildFile *ParsedProject::AddBuildFile(
   Session &session, const FilesystemPath &build_file,
   const BazelPackage &package) {
-  Stat &parse_stat = session.GetStatsFor("Parsed", "BUILD files");
-  const ScopedTimer timer(&parse_stat.duration);
-  std::optional<std::string> content = ReadFileToString(build_file);
+  Stat &fread_stat = session.GetStatsFor("read(BUILD)      ", "BUILD files");
+  Stat &parse_stat = session.GetStatsFor("Parse & build AST", "BUILD files");
+  std::optional<std::string> content;
+  {
+    const ScopedTimer timer(&fread_stat.duration);
+    content = ReadFileToString(build_file);
+    ++fread_stat.count;
+  }
   if (!content.has_value()) {
     std::cerr << "Could not read " << build_file.path() << "\n";
     ++error_count_;
     return nullptr;
   }
 
+  const ScopedTimer timer(&parse_stat.duration);
   const ParsedBuildFile *result = AddBuildFileContent(session.streams(),  //
                                                       package,
                                                       build_file.path(),  //
@@ -160,7 +167,9 @@ const ParsedBuildFile *ParsedProject::AddBuildFile(
   if (!result) return nullptr;
 
   ++parse_stat.count;
-  parse_stat.AddBytesProcessed(result->source_.size());
+  const size_t processed = result->source_.size();
+  parse_stat.AddBytesProcessed(processed);
+  fread_stat.AddBytesProcessed(processed);
   return result;
 }
 
