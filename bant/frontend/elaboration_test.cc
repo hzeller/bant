@@ -38,7 +38,7 @@ class ElaborationTest : public testing::Test {
     elaborated_ = pp_.Add("//elab", to_elaborate);
     const ParsedBuildFile *expected_parsed = pp_.Add("//expected", expected);
 
-    Session session(&std::cerr, &std::cerr, CommandlineFlags{.verbose = true});
+    Session session(&std::cerr, &std::cerr, CommandlineFlags{.verbose = 1});
     std::stringstream elab_print;
     elab_print << bant::Elaborate(session, &pp_.project(), elaborated_->package,
                                   elaborated_->ast);

@@ -369,8 +369,9 @@ std::optional<ProvidedFromTargetSet::const_iterator> FindBySuffix(
 void PrintProvidedSources(Session &session, const std::string &table_header,
                           const BazelPattern &pattern,
                           const ProvidedFromTarget &provided_from_lib) {
-  auto printer = TablePrinter::Create(session.out(), session.output_format(),
-                                      {table_header, "providing-rule"});
+  auto printer =
+    TablePrinter::Create(session.out(), session.flags().output_format,
+                         {table_header, "providing-rule"});
   for (const auto &[provided, lib] : provided_from_lib) {
     if (!pattern.Match(lib)) continue;
     printer->AddRow({provided, lib.ToString()});
@@ -381,8 +382,9 @@ void PrintProvidedSources(Session &session, const std::string &table_header,
 void PrintProvidedSources(Session &session, const std::string &table_header,
                           const BazelPattern &pattern,
                           const ProvidedFromTargetSet &provided_from_lib) {
-  auto printer = TablePrinter::Create(session.out(), session.output_format(),
-                                      {table_header, "providing-rule"});
+  auto printer =
+    TablePrinter::Create(session.out(), session.flags().output_format,
+                         {table_header, "providing-rule"});
   for (const auto &[provided, libs] : provided_from_lib) {
     std::vector<std::string> list;
     for (const BazelTarget &target : libs) {

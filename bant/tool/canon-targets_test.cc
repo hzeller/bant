@@ -45,7 +45,7 @@ cc_library(
 )
 )");
 
-  Session session(&std::cerr, &std::cerr, CommandlineFlags{.verbose = true});
+  Session session(&std::cerr, &std::cerr, CommandlineFlags{.verbose = 1});
   EditExpector edit_expector;
   edit_expector.ExpectRename("baz", ":baz");
   edit_expector.ExpectRename("//some/path:bar", ":bar");

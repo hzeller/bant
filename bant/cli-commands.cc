@@ -71,8 +71,8 @@ enum class Command {
 void PrintOneToN(bant::Session &session, const BazelPattern &pattern,
                  const OneToN<BazelTarget, BazelTarget> &table,
                  const std::string &header1, const std::string &header2) {
-  auto printer = TablePrinter::Create(session.out(), session.output_format(),
-                                      {header1, header2});
+  auto printer = TablePrinter::Create(
+    session.out(), session.flags().output_format, {header1, header2});
   std::vector<std::string> repeat_print;
   for (const auto &d : table) {
     if (!pattern.Match(d.first)) continue;
@@ -136,7 +136,7 @@ CliStatus RunCommand(Session &session, Command cmd,
       graph =
         bant::BuildDependencyGraph(session, workspace, dep_pattern,
                                    flags.recurse_dependency_depth, &project);
-      if (session.verbose()) {
+      if (session.flags().verbose) {
         session.info() << "Found " << graph.depends_on.size()
                        << " Targets with dependencies; "
                        << graph.has_dependents.size()
@@ -199,8 +199,8 @@ CliStatus RunCommand(Session &session, Command cmd,
     break;
 
   case Command::kListPackages: {
-    auto printer = TablePrinter::Create(session.out(), session.output_format(),
-                                        {"bazel-file", "package"});
+    auto printer = TablePrinter::Create(
+      session.out(), session.flags().output_format, {"bazel-file", "package"});
     for (const auto &[package, parsed] : project.ParsedFiles()) {
       printer->AddRow({std::string(parsed->name()), package.ToString()});
     }
@@ -208,8 +208,9 @@ CliStatus RunCommand(Session &session, Command cmd,
   } break;
 
   case Command::kListTargets: {
-    auto printer = TablePrinter::Create(session.out(), session.output_format(),
-                                        {"file-location", "rule", "target"});
+    auto printer =
+      TablePrinter::Create(session.out(), session.flags().output_format,
+                           {"file-location", "rule", "target"});
     for (const auto &[package, parsed] : project.ParsedFiles()) {
       FindTargets(parsed->ast, {}, [&](const Result &target) {
         auto target_name =
@@ -229,8 +230,9 @@ CliStatus RunCommand(Session &session, Command cmd,
   case Command::kListWorkkspace: {
     // For now, we just load the workspace file in this command. We might need
     // it later also to resolve dependencies.
-    auto printer = TablePrinter::Create(session.out(), session.output_format(),
-                                        {"project", "version", "directory"});
+    auto printer =
+      TablePrinter::Create(session.out(), session.flags().output_format,
+                           {"project", "version", "directory"});
     for (const auto &[project, file] : workspace_or->project_location) {
       printer->AddRow({project.project,
                        project.version.empty() ? "-" : project.version,

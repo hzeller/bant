@@ -45,9 +45,6 @@
 #include "bant/workspace.h"
 #include "re2/re2.h"
 
-// Used for messages that are a little bit too noisy right now.
-static constexpr bool kNoisy = false;
-
 // Looking for source files directly in the source tree, but if not found
 // in the various locations generated files could be.
 #define LINK_PREFIX "bazel-"
@@ -168,10 +165,10 @@ void DWYUGenerator::CreateEditsForTarget(const BazelTarget &target,
     // Emit the edits.
     if (potential_remove_suggestion_safe) {
       emit_deps_edit_(EditRequest::kRemove, target, dependency_target, "");
-    } else if (!all_header_deps_known && session_.verbose() && kNoisy) {
+    } else if (!all_header_deps_known && session_.flags().verbose > 1) {
       project_.Loc(session_.info(), dependency_target)
-        << ": Probably not needed " << dependency_target
-        << ", but can't safely remove: not all headers accounted for.\n";
+        << ": Unsure what " << requested_target->ToString()
+        << " provides, but there are also unaccounted headers. Won't remove.\n";
     }
   }
 
@@ -192,7 +189,7 @@ void DWYUGenerator::CreateEditsForTarget(const BazelTarget &target,
     if (CanSee(target, need_add)) {
       emit_deps_edit_(EditRequest::kAdd, target, "",
                       need_add.ToStringRelativeTo(target.package));
-    } else if (session_.verbose() && kNoisy) {
+    } else if (session_.flags().verbose > 1) {
       project_.Loc(session_.info(), details.name)
         << ": Would add " << need_add << ", but not visible\n";
     }
@@ -389,7 +386,7 @@ DWYUGenerator::DependenciesNeededBySources(
         // Do some reporting if fuzzy match hit.
         const size_t found_len = found_it->first.length();
         const size_t inc_len = inc_file.length();
-        if (found_len != inc_len && session_.verbose()) {
+        if (found_len != inc_len && session_.flags().verbose > 1) {
           source.Loc(info_out, inc_file)
             << " FYI: instead of '" << inc_file << "' found library that "
             << "provides " << ((found_len < inc_len) ? "shorter" : "longer")
@@ -438,7 +435,7 @@ DWYUGenerator::DependenciesNeededBySources(
 
       // No luck. Source includes it, but we don't know where it is.
       // Be careful with remove suggestion, so consider 'not accounted for'.
-      if (session_.verbose()) {
+      if (session_.flags().verbose) {
         // Until all common reasons why we don't find a provider is resolved,
         // keep this hidden behind verbose.
         source.Loc(info_out, inc_file)

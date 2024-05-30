@@ -42,9 +42,10 @@ class SessionStreams {
   std::ostream *info_;
 };
 
-// Command line flags needed by
+// Command line flags filled in main(), used by tools (some only needed
+// in some commands)
 struct CommandlineFlags {
-  bool verbose = false;
+  int verbose = 0;
   bool print_ast = false;
   bool print_only_errors = false;
   bool elaborate = false;
@@ -68,10 +69,6 @@ class Session {
   std::ostream &out() { return streams_.out(); }
   std::ostream &info() { return streams_.info(); }
   std::ostream &error() { return streams_.error(); }
-
-  // Deprecated. Use Flags directly.
-  bool verbose() const { return flags_.verbose; }
-  OutputFormat output_format() const { return flags_.output_format; }
 
   const CommandlineFlags &flags() const { return flags_; }
 

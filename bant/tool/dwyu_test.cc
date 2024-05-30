@@ -116,7 +116,7 @@ class DWYUTestFixture {
  public:
   explicit DWYUTestFixture(const ParsedProject &project)
       : session_{&log_messages_, &log_messages_,
-                 CommandlineFlags{.verbose = true}},
+                 CommandlineFlags{.verbose = 2}},
         dwyu_(session_, project, edit_expector_.checker()){};
 
   ~DWYUTestFixture() {

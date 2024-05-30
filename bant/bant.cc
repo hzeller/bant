@@ -182,7 +182,7 @@ int main(int argc, char *argv[]) {
       }
       flags.output_format = found->second;
     } break;
-    case 'v': flags.verbose = true; break;
+    case 'v': flags.verbose++; break;  // More -v, more detail.
     case 'V': return print_version();
     default: return usage(argv[0], nullptr, EXIT_SUCCESS);
     }
