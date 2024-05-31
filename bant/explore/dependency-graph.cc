@@ -64,7 +64,7 @@ std::optional<FilesystemPath> PathForPackage(const BazelWorkspace &workspace,
 void FindAndParseMissingPackages(Session &session,
                                  const std::set<BazelPackage> &want,
                                  const BazelWorkspace &workspace,
-                                 std::vector<BazelPackage> *error_packages,
+                                 std::set<BazelPackage> *error_packages,
                                  ParsedProject *project) {
   for (const BazelPackage &package : want) {
     if (project->FindParsedOrNull(package) != nullptr) {
@@ -72,7 +72,7 @@ void FindAndParseMissingPackages(Session &session,
     }
     auto path = PathForPackage(workspace, package);
     if (!path.has_value()) {
-      error_packages->push_back(package);
+      error_packages->insert(package);
       continue;
     }
     project->AddBuildFile(session, *path, package);
@@ -101,8 +101,8 @@ DependencyGraph BuildDependencyGraph(Session &session,
   // Follow all rules for now.
   const std::initializer_list<std::string_view> kRulesOfInterest = {};
 
-  std::vector<BazelPackage> error_packages;
-  std::vector<BazelTarget> error_targets;
+  std::set<BazelPackage> error_packages;
+  std::set<BazelTarget> error_targets;
 
   std::set<BazelTarget> deps_to_resolve_todo;
 
@@ -171,7 +171,7 @@ DependencyGraph BuildDependencyGraph(Session &session,
     }
 
     // Leftover dependencies that could not be resolved.
-    error_targets.insert(error_targets.end(), deps_to_resolve_todo.begin(),
+    error_targets.insert(deps_to_resolve_todo.begin(),
                          deps_to_resolve_todo.end());
 
     deps_to_resolve_todo = next_round_deps_to_resolve_todo;
