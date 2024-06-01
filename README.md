@@ -159,12 +159,12 @@ bant already
 Right now, these just report with the exit code of `dwyu`, that changes are needed. Nice-to-have would be an integration that sends actionable diffs right into
 PR comments. And in general a nicer action integration. PRs welcome.
 
-### Slow filesystem OS prewarm
+### Slow file system OS pre-warm
 
-If you work on a slow network filesystem or operate on some cold storage
+If you work on a slow network file system or operate on some cold storage
 in a CI, it might take some time for bant to follow directories in globbing
 patterns.
-It might be beneficial to pre-warm the OS filesystem cache with
+It might be beneficial to pre-warm the OS file system cache with
 accesses `bant` remembers from last time it ran. If a `~/.cache/bant/` directory
 exists, bant will make use it for this purpose (if you're on a fast SSD, no
 need for it).
@@ -173,7 +173,7 @@ need for it).
 
 ```
 $ bazel-bin/bant/bant -h
-bant v0.1.3 <http://bant.build/>
+bant v0.1.4 <http://bant.build/>
 Copyright (c) 2024 Henner Zeller. This program is free software; license GPL 2.0.
 Usage: bant [options] <command> [bazel-target-pattern]
 Options
