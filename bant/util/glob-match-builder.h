@@ -19,9 +19,9 @@
 #define BANT_GLOB_MATCH_BUILDER_H
 
 #include <functional>
+#include <set>
 #include <string>
 #include <string_view>
-#include <vector>
 
 namespace bant {
 // A builder taking glob-patterns and building predicates used in filsystem
@@ -39,11 +39,8 @@ class GlobMatchBuilder {
   std::function<bool(std::string_view)> BuildFileMatchPredicate();
 
  private:
-  static void AddPatternAsRegex(std::string_view pattern,
-                                std::vector<std::string> *receiver);
-
-  std::vector<std::string> include_pattern_;
-  std::vector<std::string> exclude_pattern_;
+  std::set<std::string> include_pattern_;
+  std::set<std::string> exclude_pattern_;
 };
 }  // namespace bant
 

@@ -105,6 +105,7 @@ cc_library(
     srcs = ["glob-match-builder.cc"],
     hdrs = ["glob-match-builder.h"],
     deps = [
+        "@abseil-cpp//absl/container:flat_hash_set",
         "@abseil-cpp//absl/strings",
         "@re2",
     ],

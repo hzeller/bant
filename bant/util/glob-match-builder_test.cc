@@ -20,7 +20,7 @@
 #include "gtest/gtest.h"
 
 namespace bant {
-TEST(GlobMatcchBuilderTest, NoDirectorySimpleFileGlob) {
+TEST(GlobMatchBuilderTest, NoDirectorySimpleFileGlob) {
   GlobMatchBuilder glob_builder;
   glob_builder.AddIncludePattern("foo.txt");
   glob_builder.AddIncludePattern("b*r.txt");
@@ -39,7 +39,7 @@ TEST(GlobMatcchBuilderTest, NoDirectorySimpleFileGlob) {
   EXPECT_FALSE(dir_is_matching("anythingelse"));
 }
 
-TEST(GlobMatcchBuilderTest, ExactlyOneDir) {
+TEST(GlobMatchBuilderTest, ExactlyOneDir) {
   GlobMatchBuilder glob_builder;
   glob_builder.AddIncludePattern("*/foo.txt");
   glob_builder.AddIncludePattern("*/b*r.txt");
@@ -56,7 +56,7 @@ TEST(GlobMatcchBuilderTest, ExactlyOneDir) {
   EXPECT_FALSE(dir_is_matching("foo/bar"));
 }
 
-TEST(GlobMatcchBuilderTest, MultiDir) {
+TEST(GlobMatchBuilderTest, MultiDir) {
   GlobMatchBuilder glob_builder;
   glob_builder.AddIncludePattern("**/foo.txt");
   glob_builder.AddIncludePattern("**/b*r.txt");
@@ -76,10 +76,13 @@ TEST(GlobMatcchBuilderTest, MultiDir) {
   EXPECT_TRUE(dir_is_matching("foo/bar/baz"));
 }
 
-TEST(GlobMatcchBuilderTest, MultiDirWithPrefix) {
+TEST(GlobMatchBuilderTest, MultiDirWithPrefix) {
   GlobMatchBuilder glob_builder;
   glob_builder.AddIncludePattern("a/**/foo.txt");
   glob_builder.AddIncludePattern("b/**/b*r.txt");
+  glob_builder.AddIncludePattern("e/**/d/ddd.txt");  // multi dir
+  glob_builder.AddIncludePattern("e/*/g/ggg.txt");   // one dir
+  glob_builder.AddIncludePattern("f/g/h/b*r.txt");
 
   auto file_is_matching = glob_builder.BuildFileMatchPredicate();
   EXPECT_FALSE(file_is_matching("foo.txt"));
@@ -94,6 +97,19 @@ TEST(GlobMatcchBuilderTest, MultiDirWithPrefix) {
   EXPECT_FALSE(file_is_matching("a/b/c/d/bar.txt"));
   EXPECT_TRUE(file_is_matching("b/c/d/bar.txt"));
 
+  // Last match dir needs to be d/
+  EXPECT_FALSE(file_is_matching("e/x/y/z/ddd.txt"));
+  EXPECT_TRUE(file_is_matching("e/x/y/z/d/ddd.txt"));
+
+  // g/ only allows one in-between dir
+  EXPECT_TRUE(file_is_matching("e/x/g/ggg.txt"));
+  EXPECT_FALSE(file_is_matching("e/x/y/g/ggg.txt"));
+  EXPECT_FALSE(file_is_matching("e/g/ggg.txt"));
+
+  // Explicit dir prefix match
+  EXPECT_TRUE(file_is_matching("f/g/h/bar.txt"));
+  EXPECT_FALSE(file_is_matching("f/g/j/bar.txt"));
+
   auto dir_is_matching = glob_builder.BuildDirectoryMatchPredicate();
   EXPECT_FALSE(dir_is_matching(""));  // We need to have at least one prefix
   EXPECT_TRUE(dir_is_matching("a"));
@@ -104,18 +120,31 @@ TEST(GlobMatcchBuilderTest, MultiDirWithPrefix) {
   EXPECT_TRUE(dir_is_matching("b/c"));
   EXPECT_TRUE(dir_is_matching("b/c/d"));
 
-  EXPECT_FALSE(dir_is_matching("c"));
+  EXPECT_TRUE(dir_is_matching("f"));
+  EXPECT_TRUE(dir_is_matching("f/g"));
+  EXPECT_TRUE(dir_is_matching("f/g/h"));
+  EXPECT_FALSE(dir_is_matching("f/g/h/i"));
+
+  EXPECT_TRUE(dir_is_matching("e"));
+  EXPECT_TRUE(dir_is_matching("e/x"));
+  EXPECT_TRUE(dir_is_matching("e/x/y"));
+  EXPECT_TRUE(dir_is_matching("e/x/y/z"));
+  EXPECT_TRUE(dir_is_matching("e/x/y/z/d"));
+
+  EXPECT_FALSE(dir_is_matching("c"));  // no prefix like that
 }
 
-TEST(GlobMatcchBuilderTest, ExcludeFiles) {
+TEST(GlobMatchBuilderTest, ExcludeFiles) {
   GlobMatchBuilder glob_builder;
   glob_builder.AddIncludePattern("*.txt");
   glob_builder.AddExcludePattern("*_internal*.txt");
+  glob_builder.AddExcludePattern("explicit-exclude.txt");
 
   auto file_is_matching = glob_builder.BuildFileMatchPredicate();
   EXPECT_TRUE(file_is_matching("foo.txt"));
   EXPECT_TRUE(file_is_matching("bar.txt"));
   EXPECT_TRUE(file_is_matching("foo_test.txt"));
+  EXPECT_FALSE(file_is_matching("explicit-exclude.txt"));
 
   EXPECT_TRUE(file_is_matching("foo_intern.txt"));
   EXPECT_FALSE(file_is_matching("foo_internal.txt"));

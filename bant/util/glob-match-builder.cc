@@ -17,72 +17,124 @@
 
 #include "bant/util/glob-match-builder.h"
 
+#include <cstdlib>
 #include <functional>
 #include <memory>
 #include <set>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
+#include "absl/container/flat_hash_set.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/str_replace.h"
 #include "re2/re2.h"
 
 namespace bant {
-void GlobMatchBuilder::AddIncludePattern(std::string_view pattern) {
-  AddPatternAsRegex(pattern, &include_pattern_);
-}
-void GlobMatchBuilder::AddExcludePattern(std::string_view pattern) {
-  AddPatternAsRegex(pattern, &exclude_pattern_);
+namespace {
+// A matcher that delegates to direct matches or regexp depending on context.
+class PathMatcher {
+ public:
+  PathMatcher(std::string_view regex,
+              absl::flat_hash_set<std::string> &&match_set)
+      : pattern_re_(regex), verbatim_match_(std::move(match_set)) {}
+
+  bool Match(std::string_view s) const {
+    return verbatim_match_.contains(s) || RE2::FullMatch(s, pattern_re_);
+  }
+
+ private:
+  RE2 pattern_re_;
+  absl::flat_hash_set<std::string> verbatim_match_;
+};
+
+// Needs to be shared, as RE2 can't be copied and std::function also can't
+// things std::move()'ed into it.
+static std::shared_ptr<PathMatcher> MakeFilenameMatcher(
+  const std::set<std::string> &patterns) {
+  std::vector<std::string> re_or_patterns;
+  absl::flat_hash_set<std::string> verbatim_match;
+  for (const std::string &p : patterns) {
+    if (p.contains('*')) {
+      const std::string escape_special = RE2::QuoteMeta(p);  // quote everything
+      re_or_patterns.emplace_back(  // ... then unquote the pattern back
+        absl::StrReplaceAll(escape_special, {{R"(\*\*)", ".*"},  //
+                                             {R"(\*)", "[^/]*"}}));
+    } else {
+      verbatim_match.insert(p);  // Simple and fast.
+    }
+  }
+  return std::make_shared<PathMatcher>(absl::StrJoin(re_or_patterns, "|"),
+                                       std::move(verbatim_match));
 }
 
-void GlobMatchBuilder::AddPatternAsRegex(std::string_view pattern,
-                                         std::vector<std::string> *receiver) {
-  const std::string escape_special = RE2::QuoteMeta(pattern);
-  receiver->emplace_back(
-    absl::StrReplaceAll(escape_special, {{R"(\*\*)", ".*"},  //
-                                         {R"(\*)", "[^/]*"}}));
+static std::shared_ptr<PathMatcher> MakeDirectoryMatcher(
+  const std::set<std::string> &patterns) {
+  std::set<std::string> re_or_patterns;  // sorted maybe beneficial for RE2
+  absl::flat_hash_set<std::string> verbatim_match;
+  for (std::string_view p : patterns) {
+    const size_t last_slash = p.find_last_of('/');
+    if (last_slash == std::string_view::npos) {
+      verbatim_match.insert("");
+      continue;
+    }
+    p = p.substr(0, last_slash);  // Only directories for patterns
+    // TODO: is it allowed to have patterns like '**.txt' with the '**' not
+    // in directory ? Because then we just snipped it off and it won't work...
+    if (p.contains('*')) {
+      // We need to convert file-patterns into directory patterns. Directories
+      // only go up to the last element and we need to match a prefix of
+      // directory elments. So foo/bar/baz needs to match foo(/bar(/baz)?)?
+      const std::string escape_special = RE2::QuoteMeta(p);  // quote everything
+      std::string dir_pattern =  // ... then unquote the pattern back
+        absl::StrReplaceAll(escape_special, {{R"(\*\*)", ".*"},  //
+                                             {R"(\*)", "[^/]*"}});
+      // Now, make this a prefix-match by grouping each part.
+      const int parens =
+        absl::StrReplaceAll({{R"(\/)", R"((\/)"}}, &dir_pattern);
+      for (int i = 0; i < parens; ++i) {
+        dir_pattern.append(")?");
+      }
+      re_or_patterns.insert(dir_pattern);
+    } else {
+      size_t pos = 0;
+      for (;;) {
+        const size_t next = p.find_first_of('/', pos);
+        if (next == std::string::npos) break;
+        verbatim_match.insert(std::string{p.substr(0, next)});
+        pos = next + 1;
+      }
+      verbatim_match.insert(std::string{p});
+    }
+  }
+  return std::make_shared<PathMatcher>(absl::StrJoin(re_or_patterns, "|"),
+                                       std::move(verbatim_match));
+}
+}  // namespace
+
+// Public interface
+void GlobMatchBuilder::AddIncludePattern(std::string_view pattern) {
+  include_pattern_.insert(std::string{pattern});
+}
+void GlobMatchBuilder::AddExcludePattern(std::string_view pattern) {
+  exclude_pattern_.insert(std::string{pattern});
 }
 
 std::function<bool(std::string_view)>
 GlobMatchBuilder::BuildFileMatchPredicate() {
-  auto include_re = std::make_shared<RE2>(absl::StrJoin(include_pattern_, "|"));
-  auto exclude_re = std::make_shared<RE2>(absl::StrJoin(exclude_pattern_, "|"));
+  auto include = MakeFilenameMatcher(include_pattern_);
+  auto exclude = MakeFilenameMatcher(exclude_pattern_);
   return [=](std::string_view s) {
-    if (!RE2::FullMatch(s, *include_re)) {
-      return false;
-    }
-    return !RE2::FullMatch(s, *exclude_re);
+    if (!include->Match(s)) return false;
+    return !exclude->Match(s);
   };
 }
 
 std::function<bool(std::string_view)>
 GlobMatchBuilder::BuildDirectoryMatchPredicate() {
-  std::set<std::string> unique_patterns;
-
-  // We need to convert file-patterns into directory patterns. Directories
-  // only go up to the last element and we need to match a prefix of complete
-  // directory elmeents. So foo/bar/baz needs to match foo(/bar(/baz)?)?
-  // TODO: is it easily possible to derive a negative pattern ?
-  for (const std::string_view file_pattern : include_pattern_) {
-    std::string dir_pattern;
-    if (file_pattern.ends_with(".*")) {
-      dir_pattern = file_pattern;
-    } else {
-      auto last_slash_pos = file_pattern.rfind(R"(\/)");
-      if (last_slash_pos != std::string_view::npos) {
-        dir_pattern = file_pattern.substr(0, last_slash_pos);
-      }
-    }
-    const int parens = absl::StrReplaceAll({{R"(\/)", R"((\/)"}}, &dir_pattern);
-    for (int i = 0; i < parens; ++i) {
-      dir_pattern.append(")?");
-    }
-    unique_patterns.insert(dir_pattern);
-  }
-
-  auto include_re = std::make_shared<RE2>(absl::StrJoin(unique_patterns, "|"));
-  return [=](std::string_view s) { return RE2::FullMatch(s, *include_re); };
+  auto dir_matcher = MakeDirectoryMatcher(include_pattern_);
+  return [=](std::string_view s) { return dir_matcher->Match(s); };
 }
 
 }  // namespace bant
