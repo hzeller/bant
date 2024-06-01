@@ -62,8 +62,9 @@ TEST(GlobMatchBuilderTest, MultiDir) {
   glob_builder.AddIncludePattern("**/b*r.txt");
 
   auto file_is_matching = glob_builder.BuildFileMatchPredicate();
-  EXPECT_FALSE(file_is_matching("foo.txt"));
-  EXPECT_FALSE(file_is_matching("baaaaar.txt"));
+  EXPECT_TRUE(file_is_matching("foo.txt"));
+  EXPECT_FALSE(file_is_matching("baz.txt"));
+  EXPECT_TRUE(file_is_matching("baaaaar.txt"));
   EXPECT_TRUE(file_is_matching("a/foo.txt"));
   EXPECT_TRUE(file_is_matching("a/bar.txt"));
   EXPECT_TRUE(file_is_matching("a/b/foo.txt"));
@@ -132,6 +133,22 @@ TEST(GlobMatchBuilderTest, MultiDirWithPrefix) {
   EXPECT_TRUE(dir_is_matching("e/x/y/z/d"));
 
   EXPECT_FALSE(dir_is_matching("c"));  // no prefix like that
+}
+
+// ** should match zero or more segments
+TEST(GlobMatchBuilderTest, MultiDirZeroOrMoreSegments) {
+  GlobMatchBuilder glob_builder;
+  glob_builder.AddIncludePattern("**/foo.txt");
+  glob_builder.AddIncludePattern("a/**/bar.txt");
+
+  auto file_is_matching = glob_builder.BuildFileMatchPredicate();
+  EXPECT_TRUE(file_is_matching("foo.txt"));
+  EXPECT_TRUE(file_is_matching("x/foo.txt"));
+  EXPECT_TRUE(file_is_matching("x/y/foo.txt"));
+
+  EXPECT_TRUE(file_is_matching("a/bar.txt"));
+  EXPECT_TRUE(file_is_matching("a/x/bar.txt"));
+  EXPECT_FALSE(file_is_matching("a/x/baz.txt"));
 }
 
 TEST(GlobMatchBuilderTest, ExcludeFiles) {

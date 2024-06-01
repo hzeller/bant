@@ -59,7 +59,7 @@ static std::shared_ptr<PathMatcher> MakeFilenameMatcher(
     if (p.contains('*')) {
       const std::string escape_special = RE2::QuoteMeta(p);  // quote everything
       re_or_patterns.emplace_back(  // ... then unquote the pattern back
-        absl::StrReplaceAll(escape_special, {{R"(\*\*)", ".*"},  //
+        absl::StrReplaceAll(escape_special, {{R"(\*\*\/)", ".*/?"},  //
                                              {R"(\*)", "[^/]*"}}));
     } else {
       verbatim_match.insert(p);  // Simple and fast.
@@ -88,8 +88,9 @@ static std::shared_ptr<PathMatcher> MakeDirectoryMatcher(
       // directory elments. So foo/bar/baz needs to match foo(/bar(/baz)?)?
       const std::string escape_special = RE2::QuoteMeta(p);  // quote everything
       std::string dir_pattern =  // ... then unquote the pattern back
-        absl::StrReplaceAll(escape_special, {{R"(\*\*)", ".*"},  //
+        absl::StrReplaceAll(escape_special, {{R"(\*\*)", ".*/?"},  //
                                              {R"(\*)", "[^/]*"}});
+
       // Now, make this a prefix-match by grouping each part.
       const int parens =
         absl::StrReplaceAll({{R"(\/)", R"((\/)"}}, &dir_pattern);
