@@ -159,6 +159,16 @@ bant already
 Right now, these just report with the exit code of `dwyu`, that changes are needed. Nice-to-have would be an integration that sends actionable diffs right into
 PR comments. And in general a nicer action integration. PRs welcome.
 
+### Slow filesystem OS prewarm
+
+If you work on a slow network filesystem or operate on some cold storage
+in a CI, it might take some time for bant to follow directories in globbing
+patterns.
+It might be beneficial to pre-warm the OS filesystem cache with
+accesses `bant` remembers from last time it ran. If a `~/.cache/bant/` directory
+exists, bant will make use it for this purpose (if you're on a fast SSD, no
+need for it).
+
 ### Synopsis
 
 ```
