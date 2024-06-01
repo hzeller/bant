@@ -47,6 +47,7 @@ cc_binary(
         "//bant/tool:canon-targets",
         "//bant/tool:dwyu",
         "//bant/tool:edit-callback",
+        "//bant/util:file-utils",
         "//bant/util:table-printer",
         "@abseil-cpp//absl/strings",
     ],

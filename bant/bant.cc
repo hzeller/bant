@@ -44,6 +44,7 @@ int getopt(int, char *const *, const char *);  // NOLINT
 
 // Generated from at compile time from git tag or MODULE.bazel version
 #include "bant/generated-build-version.h"
+#include "bant/util/filesystem-prewarm-cache.h"
 
 #define BOLD  "\033[1m"
 #define RED   "\033[1;31m"
@@ -187,6 +188,8 @@ int main(int argc, char *argv[]) {
     default: return usage(argv[0], nullptr, EXIT_SUCCESS);
     }
   }
+
+  bant::FilesystemPrewarmCacheInit(argc, argv);
 
   bant::Session session(primary_out, info_out, flags);
   std::vector<std::string_view> positional_args;

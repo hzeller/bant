@@ -73,11 +73,19 @@ cc_test(
 
 cc_library(
     name = "file-utils",
-    srcs = ["file-utils.cc"],
-    hdrs = ["file-utils.h"],
+    srcs = [
+        "file-utils.cc",
+        "filesystem-prewarm-cache.cc",
+    ],
+    hdrs = [
+        "file-utils.h",
+        "filesystem-prewarm-cache.h",
+    ],
     deps = [
         "@abseil-cpp//absl/cleanup",
         "@abseil-cpp//absl/container:flat_hash_set",
+        "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/strings:str_format",
     ],
 )
 

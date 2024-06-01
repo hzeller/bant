@@ -35,6 +35,7 @@
 
 #include "absl/cleanup/cleanup.h"
 #include "absl/container/flat_hash_set.h"
+#include "bant/util/filesystem-prewarm-cache.h"
 
 namespace bant {
 FilesystemPath::FilesystemPath(std::string_view path_up_to,
@@ -129,6 +130,7 @@ std::optional<std::string> ReadFileToString(const FilesystemPath &filename) {
   struct stat st;
   if (fstat(fd, &st) != 0) return std::nullopt;
 
+  FilesystemPrewarmCacheRememberFileWasAccessed(filename.path());
   const size_t filesize = st.st_size;
   bool success = false;
   std::string content;
@@ -181,6 +183,7 @@ std::vector<FilesystemPath> CollectFilesRecursive(
     if (!dir) continue;
     const absl::Cleanup dir_closer = [dir]() { closedir(dir); };
 
+    FilesystemPrewarmCacheRememberDirWasAccessed(current_dir);
     while (dirent *const entry = readdir(dir)) {
       if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
         continue;
