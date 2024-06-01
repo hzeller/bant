@@ -37,8 +37,11 @@
 namespace bant {
 namespace {
 
-std::optional<FilesystemPath> PathForPackage(const BazelWorkspace &workspace,
+std::optional<FilesystemPath> PathForPackage(Session &session,
+                                             const BazelWorkspace &workspace,
                                              const BazelPackage &package) {
+  Stat &stat = session.GetStatsFor("  - of which exist-check", "BUILD files");
+
   std::string start_path;
   if (!package.project.empty()) {
     auto project_path_or = workspace.FindPathByProject(package.project);
@@ -55,8 +58,10 @@ std::optional<FilesystemPath> PathForPackage(const BazelWorkspace &workspace,
     if (!start_path.empty()) start_path.append("/");
     start_path.append(package.path);
   }
+  const ScopedTimer timer(&stat.duration);
   for (const std::string_view build_file : {"BUILD", "BUILD.bazel"}) {
     FilesystemPath test_path(start_path, build_file);
+    ++stat.count;
     if (test_path.can_read()) return test_path;
   }
   return std::nullopt;
@@ -71,7 +76,7 @@ void FindAndParseMissingPackages(Session &session,
     if (project->FindParsedOrNull(package) != nullptr) {
       continue;  // have it already.
     }
-    auto path = PathForPackage(workspace, package);
+    auto path = PathForPackage(session, workspace, package);
     if (!path.has_value()) {
       error_packages->insert(package);
       continue;
