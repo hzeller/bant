@@ -121,9 +121,9 @@ int ParsedProject::FillFromPattern(Session &session,
   return build_files.size();
 }
 
-const ParsedBuildFile *ParsedProject::AddBuildFile(
-  Session &session, const FilesystemPath &build_file,
-  std::string_view project) {
+ParsedBuildFile *ParsedProject::AddBuildFile(Session &session,
+                                             const FilesystemPath &build_file,
+                                             std::string_view project) {
   std::string_view package_path = build_file.path();
   if (!project.empty()) {
     // Somewhat silly to reconstruct the path by asking the worksapce again,
@@ -142,9 +142,9 @@ const ParsedBuildFile *ParsedProject::AddBuildFile(
   return AddBuildFile(session, build_file, package);
 }
 
-const ParsedBuildFile *ParsedProject::AddBuildFile(
-  Session &session, const FilesystemPath &build_file,
-  const BazelPackage &package) {
+ParsedBuildFile *ParsedProject::AddBuildFile(Session &session,
+                                             const FilesystemPath &build_file,
+                                             const BazelPackage &package) {
   Stat &fread_stat = session.GetStatsFor("read(BUILD)      ", "BUILD files");
   Stat &parse_stat = session.GetStatsFor("Parse & build AST", "BUILD files");
   std::optional<std::string> content;
@@ -160,10 +160,10 @@ const ParsedBuildFile *ParsedProject::AddBuildFile(
   }
 
   const ScopedTimer timer(&parse_stat.duration);
-  const ParsedBuildFile *result = AddBuildFileContent(session.streams(),  //
-                                                      package,
-                                                      build_file.path(),  //
-                                                      std::move(*content));
+  ParsedBuildFile *result = AddBuildFileContent(session.streams(),  //
+                                                package,
+                                                build_file.path(),  //
+                                                std::move(*content));
   if (!result) return nullptr;
 
   ++parse_stat.count;
@@ -173,9 +173,10 @@ const ParsedBuildFile *ParsedProject::AddBuildFile(
   return result;
 }
 
-const ParsedBuildFile *ParsedProject::AddBuildFileContent(
-  SessionStreams &message_out, const BazelPackage &package,
-  std::string_view filename, std::string content) {
+ParsedBuildFile *ParsedProject::AddBuildFileContent(SessionStreams &message_out,
+                                                    const BazelPackage &package,
+                                                    std::string_view filename,
+                                                    std::string content) {
   auto inserted = package_to_parsed_.emplace(
     package, new ParsedBuildFile(filename, std::move(content)));
 

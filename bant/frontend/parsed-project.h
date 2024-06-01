@@ -69,9 +69,9 @@ class ParsedProject : public SourceLocator {
   int FillFromPattern(Session &session, const BazelPattern &pattern);
 
   // Parse build file for given package reading from filename.
-  const ParsedBuildFile *AddBuildFile(Session &session,
-                                      const FilesystemPath &build_file,
-                                      const BazelPackage &package);
+  ParsedBuildFile *AddBuildFile(Session &session,
+                                const FilesystemPath &build_file,
+                                const BazelPackage &package);
 
   // A map of Package -> ParsedBuildFile
   const Package2Parsed &ParsedFiles() const { return package_to_parsed_; }
@@ -102,16 +102,16 @@ class ParsedProject : public SourceLocator {
 
   // like AddBuildFile(..package), but extract package from (workspace, path).
   // TODO: should not be needed, just an artifact of FillFromPattern() workings.
-  const ParsedBuildFile *AddBuildFile(Session &session,
-                                      const FilesystemPath &build_file,
-                                      std::string_view project);
+  ParsedBuildFile *AddBuildFile(Session &session,
+                                const FilesystemPath &build_file,
+                                std::string_view project);
 
   // Given package and content, parse. Main workhorse. Content is std::move()'d
   // thus by value.
-  const ParsedBuildFile *AddBuildFileContent(SessionStreams &message_out,
-                                             const BazelPackage &package,
-                                             std::string_view filename,
-                                             std::string content);
+  ParsedBuildFile *AddBuildFileContent(SessionStreams &message_out,
+                                       const BazelPackage &package,
+                                       std::string_view filename,
+                                       std::string content);
 
   Arena arena_{1 << 20};
   const BazelWorkspace workspace_;

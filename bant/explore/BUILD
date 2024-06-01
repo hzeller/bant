@@ -13,6 +13,7 @@ cc_library(
         "//bant:types",
         "//bant:types-bazel",
         "//bant:workspace",
+        "//bant/frontend:elaboration",
         "//bant/frontend:parsed-project",
         "//bant/util:file-utils",
         "//bant/util:stat",

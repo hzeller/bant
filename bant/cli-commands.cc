@@ -120,6 +120,10 @@ CliStatus RunCommand(Session &session, Command cmd,
     flags.recurse_dependency_depth = std::numeric_limits<int>::max();
   }
 
+  if (flags.elaborate || cmd == Command::kDWYU) {
+    bant::Elaborate(session, &project);
+  }
+
   // TODO: move dependency graph creation to tools once they are
   // Command-objects.
   bant::DependencyGraph graph;
@@ -133,24 +137,23 @@ CliStatus RunCommand(Session &session, Command cmd,
   case Command::kDependsOn:
   case Command::kHasDependents:
     if (flags.recurse_dependency_depth >= 0) {
+      const size_t before_build_files = project.ParsedFiles().size();
       graph =
         bant::BuildDependencyGraph(session, workspace, dep_pattern,
                                    flags.recurse_dependency_depth, &project);
+      const size_t after_build_files = project.ParsedFiles().size();
       if (session.flags().verbose) {
-        session.info() << "Found " << graph.depends_on.size()
-                       << " Targets with dependencies; "
+        session.info() << "Dependency graph expanded build file# from initial "
+                       << before_build_files << " to " << after_build_files
+                       << "; " << graph.depends_on.size() << " targets and "
                        << graph.has_dependents.size()
-                       << " referenced by others.\n";
+                       << " that depend on these.\n";
         // Currently, we're not using the graph yet, just use it as a way to
         // populate project.
       }
     }
     break;
   default:;
-  }
-
-  if (flags.elaborate || cmd == Command::kDWYU) {
-    bant::Elaborate(session, &project);
   }
 
   // library headers and genrule outputs just match the pattern unless

@@ -36,6 +36,10 @@ namespace bant {
 Node *Elaborate(Session &session, ParsedProject *project,
                 const BazelPackage &package, Node *ast);
 
+// Elaborate given build file.
+void Elaborate(Session &session, ParsedProject *project,
+               ParsedBuildFile *build_file);
+
 // Elaborate all files in the given project.
 void Elaborate(Session &session, ParsedProject *project);
 }  // namespace bant

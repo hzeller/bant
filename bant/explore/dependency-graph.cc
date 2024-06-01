@@ -26,6 +26,7 @@
 #include <vector>
 
 #include "bant/explore/query-utils.h"
+#include "bant/frontend/elaboration.h"
 #include "bant/frontend/parsed-project.h"
 #include "bant/session.h"
 #include "bant/types-bazel.h"
@@ -75,7 +76,11 @@ void FindAndParseMissingPackages(Session &session,
       error_packages->insert(package);
       continue;
     }
-    project->AddBuildFile(session, *path, package);
+    // Always elaborate new packages that we add as part of dependency graph
+    // building, as it might expand more dpendencies.
+    // TODO: but do we need expensive glob() enabled ?
+    ParsedBuildFile *file = project->AddBuildFile(session, *path, package);
+    bant::Elaborate(session, project, file);
   }
 }
 

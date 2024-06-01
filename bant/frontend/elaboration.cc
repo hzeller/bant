@@ -300,14 +300,20 @@ Node *Elaborate(Session &session, ParsedProject *project,
   return elaborator.WalkNonNull(ast);
 }
 
-void Elaborate(Session &session, ParsedProject *project) {
+void Elaborate(Session &session, ParsedProject *project,
+               ParsedBuildFile *build_file) {
   bant::Stat &elab_stats = session.GetStatsFor("Elaborated", "packages");
   const ScopedTimer timer(&elab_stats.duration);
+  ++elab_stats.count;
 
+  Node *const result =
+    Elaborate(session, project, build_file->package, build_file->ast);
+  CHECK_EQ(result, build_file->ast) << "Toplevel should never be replaced.";
+}
+
+void Elaborate(Session &session, ParsedProject *project) {
   for (const auto &[package, build_file] : project->ParsedFiles()) {
-    Node *const result = Elaborate(session, project, package, build_file->ast);
-    CHECK_EQ(result, build_file->ast) << "Toplevel should never be replaced";
-    ++elab_stats.count;
+    Elaborate(session, project, build_file.get());
   }
 }
 }  // namespace bant
