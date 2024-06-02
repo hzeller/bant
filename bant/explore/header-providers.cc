@@ -64,6 +64,16 @@
 namespace bant {
 namespace {
 
+static std::string_view LightCanonicalizePath(std::string_view path) {
+  while (path.starts_with("./")) {
+    path.remove_prefix(2);
+  }
+  while (path.starts_with("/")) {
+    path.remove_prefix(1);
+  }
+  return path;
+}
+
 static std::string OptionalReverse(std::string_view in, bool reverse) {
   return reverse ? std::string{in.rbegin(), in.rend()} : std::string{in};
 }
@@ -164,7 +174,8 @@ static void AppendCCLibraryHeaders(const ParsedBuildFile &build_file,
     build_file, [&](const BazelTarget &cc_library, std::string_view hdr_loc,
                     const std::string &header_fqn) {
       // Sometimes there can be multiple libraries exporting the same header.
-      result[OptionalReverse(header_fqn, reverse)].insert(cc_library);
+      const std::string_view canonicalized = LightCanonicalizePath(header_fqn);
+      result[OptionalReverse(canonicalized, reverse)].insert(cc_library);
     });
 }
 

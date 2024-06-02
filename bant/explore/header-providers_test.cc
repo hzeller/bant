@@ -103,6 +103,30 @@ cc_library(
                                         Ts("//prefix/dir:baz"))));
 }
 
+TEST(HeaderToLibMapping, InludePathsAreRelativePathCanonicalized) {
+  ParsedProjectTestUtil pp;
+  pp.Add("//", R"(
+cc_library(
+  name = "foo",
+  srcs = ["foo.cc"],
+  include_prefix = ".",
+  hdrs = ["foo.h"]
+)
+
+cc_library(
+  name = "bar",
+  srcs = ["bar.cc"],
+  include_prefix = "./",
+  hdrs = ["bar.h"]
+)
+)");
+
+  std::stringstream log_absorb;
+  auto header_map = ExtractHeaderToLibMapping(pp.project(), log_absorb);
+  EXPECT_THAT(header_map, Contains(Pair("foo.h", Ts("//:foo"))));
+  EXPECT_THAT(header_map, Contains(Pair("bar.h", Ts("//:bar"))));
+}
+
 // Sometimes two different libraries claim to export the same header.
 TEST(HeaderToLibMapping, MultipleCCLibsProvideSameHeader) {
   ParsedProjectTestUtil pp;
