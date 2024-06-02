@@ -45,7 +45,7 @@ TEST(TablePrinter, PlainTable) {
      "\"somewhatlongtext\",\"xyz\"\n"},
   };
 
-  for (const auto [fmt, expected] : kTests) {
+  for (const auto &[fmt, expected] : kTests) {
     std::stringstream out;
     auto printer = TablePrinter::Create(out, fmt, {"foo", "bar"});
     printer->AddRow({"short", "somevalue"});
@@ -88,7 +88,7 @@ TEST(TablePrinter, TableWithRepeatedLastCol) {
      "\"threeval\",\"xyz\"\n"},
   };
 
-  for (const auto [fmt, expected] : kTests) {
+  for (const auto &[fmt, expected] : kTests) {
     std::stringstream out;
     auto printer = TablePrinter::Create(out, fmt, {"foo", "bar"});
     printer->AddRowWithRepeatedLastColumn({"noval"}, {});
