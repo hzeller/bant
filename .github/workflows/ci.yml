@@ -34,7 +34,7 @@ jobs:
         run: |
           export CC=gcc-13
           export CXX=g++-13
-          bazel test --keep_going ...
+          bazel test --noshow_progress --keep_going ...
 
   MacOsBuild:
     runs-on: macos-latest
@@ -46,11 +46,11 @@ jobs:
 
       - name: Test
         run: |
-          bazel test --keep_going ...
+          bazel test --noshow_progress --keep_going ...
 
       - name: Build
         run: |
-          bazel build -c opt bant:bant
+          bazel build --noshow_progress -c opt bant:bant
           bazel-bin/bant/bant -V  # Print version
           # TODO: package ?
 
@@ -183,7 +183,7 @@ jobs:
         run: |
           export CC=gcc-13
           export CXX=g++-13
-          bazel build -c opt --//bant:create_static_linked_executables bant:bant
+          bazel build --noshow_progress -c opt --//bant:create_static_linked_executables bant:bant
           bazel-bin/bant/bant -V  # Print version
 
           # Version number: current tag dot number of commits after tagging.
