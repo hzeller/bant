@@ -173,7 +173,7 @@ void FilesystemPrewarmCacheInit(int argc, char *argv[]) {
   }
 
   const std::string cache_file = absl::StrFormat(
-    "%s/fswarm-%08x", cache_dir, argument_dependent_hash % 0xffff'ffff);
+    "%s/fswarm-%08x", cache_dir, argument_dependent_hash & 0xffff'ffff);
   FilesystemPrewarmCache::instance().InitCacheFile(cache_file);
 }
 

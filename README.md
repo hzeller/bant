@@ -110,6 +110,10 @@ Caveats
      do _not_ provide any headerss are considered alwayslink implicitly).
      (this is not really a caveat, it just emphasizes that it is important to
      properly declare the intent in BUILD files).
+   * Any `#keep` or similar pragmas on dependencies are ignored. A well-defined
+     project should not need them anyway (e.g. if a dependency is suggested to
+     removed, but you want to keep it - maybe it was supposed to be marked
+     alwayslink?).
 
 The `dwyu` command is essentially a [`build_cleaner`][build_cleaner] for
 C++ targets.
