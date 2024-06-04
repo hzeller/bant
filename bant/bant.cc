@@ -75,13 +75,13 @@ static int usage(const char *prog, const char *message, int exit_code) {
                      An optional parameter allows to limit the nesting depth,
                      e.g. -r2 just follows two levels after the toplevel
                      pattern. -r0 is equivalent to not providing -r.
-    -v             : Verbose; print some stats.
+    -v             : Verbose; print some stats. Multiple times: more verbose.
     -h             : This help.
 
 Commands (unique prefix sufficient):
     %s== Parsing ==%s
     print          : Print AST matching pattern. -e : only files w/ parse errors
-                   : -b : elaBorate
+                     -b : elaBorate
     parse          : Parse all BUILD files from pattern. Follow deps with -r
                      Emit parse errors. Silent otherwise: No news are good news.
 
@@ -107,6 +107,7 @@ Commands (unique prefix sufficient):
 
     %s== Tools ==%s
     dwyu           : DWYU: Depend on What You Use (emit buildozer edit script)
+                     -k strict: emit remove even if # keep comment in line.
     canonicalize   : Emit rename edits to canonicalize targets.
 )",
           BOLD, RESET, BOLD, RESET, BOLD, RESET);
@@ -135,7 +136,7 @@ int main(int argc, char *argv[]) {
     {"json", OutputFormat::kJSON},     {"graphviz", OutputFormat::kGraphviz},
   };
   int opt;
-  while ((opt = getopt(argc, argv, "C:qo:vhpecbf:r::V")) != -1) {
+  while ((opt = getopt(argc, argv, "C:qo:vhpecbf:r::Vk")) != -1) {
     switch (opt) {
     case 'C': {
       std::error_code err;
@@ -170,6 +171,10 @@ int main(int argc, char *argv[]) {
       flags.recurse_dependency_depth = optarg  //
                                          ? atoi(optarg)
                                          : std::numeric_limits<int>::max();
+      break;
+
+    case 'k':
+      flags.ignore_keep_comment = true;
       break;
 
       // "print" options

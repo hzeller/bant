@@ -99,6 +99,24 @@ The following auto-fixes all dependencies of the project:
 . <(bant dwyu ...)   # source the buildozer calls in shell
 ```
 
+Features
+
+   * If there is a dependency that `bant` would like to remove, but it is needed
+     for some reason that can't be derived from the include files it provides
+     (and you can't correctly mark it as `alwayslink` because it is coming
+     from some external project for instance), you can add a comment that
+     contains the word 'keep' in the line in question.
+```
+cc_library(
+  deps = [
+    ":foo"  # build_cleaner keep
+  ]
+)
+```
+     Note, a well-defined project should not need this. This features provides
+     an escape hatch if needed. With `-k`, `bant` will be
+     strict and ignore `# keep` comments and emit the removal edit anyway.
+
 Caveats
 
    * Does not understand package groups in visibility yet; these will be
@@ -110,10 +128,6 @@ Caveats
      do _not_ provide any headerss are considered alwayslink implicitly).
      (this is not really a caveat, it just emphasizes that it is important to
      properly declare the intent in BUILD files).
-   * Any `#keep` or similar pragmas on dependencies are ignored. A well-defined
-     project should not need them anyway (e.g. if a dependency is suggested to
-     removed, but you want to keep it - maybe it was supposed to be marked
-     alwayslink?).
 
 The `dwyu` command is essentially a [`build_cleaner`][build_cleaner] for
 C++ targets.
@@ -179,7 +193,7 @@ need for it).
 $ bazel-bin/bant/bant -h
 bant v0.1.4 <http://bant.build/>
 Copyright (c) 2024 Henner Zeller. This program is free software; license GPL 2.0.
-Usage: bant [options] <command> [bazel-target-pattern]
+Usage: bazel-bin/bant/bant [options] <command> [bazel-target-pattern]
 Options
     -C <directory> : Change to this project directory first (default = '.')
     -q             : Quiet: don't print info messages to stderr.
@@ -192,13 +206,13 @@ Options
                      An optional parameter allows to limit the nesting depth,
                      e.g. -r2 just follows two levels after the toplevel
                      pattern. -r0 is equivalent to not providing -r.
-    -v             : Verbose; print some stats.
+    -v             : Verbose; print some stats. Multiple times: more verbose.
     -h             : This help.
 
 Commands (unique prefix sufficient):
     == Parsing ==
     print          : Print AST matching pattern. -e : only files w/ parse errors
-                   : -b : elaBorate
+                     -b : elaBorate
     parse          : Parse all BUILD files from pattern. Follow deps with -r
                      Emit parse errors. Silent otherwise: No news are good news.
 
@@ -224,6 +238,7 @@ Commands (unique prefix sufficient):
 
     == Tools ==
     dwyu           : DWYU: Depend on What You Use (emit buildozer edit script)
+                     -k strict: emit remove even if # keep comment in line.
     canonicalize   : Emit rename edits to canonicalize targets.
 ```
 

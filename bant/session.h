@@ -49,6 +49,7 @@ struct CommandlineFlags {
   bool print_ast = false;
   bool print_only_errors = false;
   bool elaborate = false;
+  bool ignore_keep_comment = false;
   int recurse_dependency_depth = 0;
   OutputFormat output_format = OutputFormat::kNative;
 };

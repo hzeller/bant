@@ -96,6 +96,7 @@ class ParsedProject : public SourceLocator {
 
   // -- SourceLocator implementation
   FileLocation GetLocation(std::string_view text) const final;
+  std::string_view GetSurroundingLine(std::string_view text) const final;
 
  private:
   friend class ParsedProjectTestUtil;

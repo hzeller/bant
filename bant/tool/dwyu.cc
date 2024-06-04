@@ -164,7 +164,12 @@ void DWYUGenerator::CreateEditsForTarget(const BazelTarget &target,
 
     // Emit the edits.
     if (potential_remove_suggestion_safe) {
-      emit_deps_edit_(EditRequest::kRemove, target, dependency_target, "");
+      static const LazyRE2 kExcludeVetoUserCommentRe{"#.*keep"};
+      const auto line = project_.GetSurroundingLine(dependency_target);
+      if (session_.flags().ignore_keep_comment ||
+          !RE2::PartialMatch(line, *kExcludeVetoUserCommentRe)) {
+        emit_deps_edit_(EditRequest::kRemove, target, dependency_target, "");
+      }
     } else if (!all_header_deps_known && session_.flags().verbose > 1) {
       project_.Loc(session_.info(), dependency_target)
         << ": Unsure what " << requested_target->ToString()

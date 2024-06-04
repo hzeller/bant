@@ -59,6 +59,11 @@ class SourceLocator {
   // return file and location .
   virtual FileLocation GetLocation(std::string_view text) const = 0;
 
+  // Return an expansion of the string view representing the full line the
+  // text snippets resides in. Line will be without newline separators.
+  // If there is no context known beyond the given text, just returns text.
+  virtual std::string_view GetSurroundingLine(std::string_view text) const = 0;
+
   // Convenience functions.
 
   // Given the string_view, that must be a substring handled by this locator,
@@ -78,6 +83,10 @@ class FixedSourceLocator : public SourceLocator {
 
   FileLocation GetLocation(std::string_view text) const final {
     return location_;  // Unconditional fixed location.
+  }
+
+  std::string_view GetSurroundingLine(std::string_view text) const final {
+    return text;
   }
 
  private:

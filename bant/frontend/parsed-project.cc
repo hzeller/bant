@@ -218,6 +218,14 @@ FileLocation ParsedProject::GetLocation(std::string_view text) const {
   return found.value()->GetLocation(text);
 }
 
+std::string_view ParsedProject::GetSurroundingLine(
+  std::string_view text) const {
+  auto found = location_maps_.FindBySubrange(text);
+  CHECK(found.has_value())
+    << "Not in any of the files managed by ParsedProject '" << text << "'";
+  return found.value()->GetSurroundingLine(text);
+}
+
 const ParsedBuildFile *ParsedProject::FindParsedOrNull(
   const BazelPackage &package) const {
   auto found = package_to_parsed_.find(package);

@@ -497,14 +497,24 @@ cc_library(
 cc_library(
   name = "bar",
   srcs = ["bar.cc"],
-  deps = [":foo"],
+  hdrs = ["bar.h"],
+)
+
+cc_library(
+  name = "baz",
+  srcs = ["baz.cc"],
+  deps = [
+    ":foo"
+    ":bar"  # random text dwyu that needs to contain: keep
+  ],
 )
 )");
 
   DWYUTestFixture tester(pp.project());
   tester.ExpectRemove(":foo");
-  tester.AddSource("some/path/bar.cc", "/* no include */");
-  tester.RunForTarget("//some/path:bar");
+  // :bar should be removed, but is kept due to comment
+  tester.AddSource("some/path/baz.cc", "/* no include */");
+  tester.RunForTarget("//some/path:baz");
 }
 
 TEST(DWYUTest, DoNotRemove_IfThereIsAHeaderThatIsUnaccounted) {

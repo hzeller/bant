@@ -43,6 +43,16 @@ cc_library(
     ],
 )
 
+cc_test(
+    name = "named-content_test",
+    srcs = ["named-content_test.cc"],
+    deps = [
+        ":named-content",
+        "@googletest//:gtest",
+        "@googletest//:gtest_main",
+    ],
+)
+
 cc_library(
     name = "parser",
     srcs = [

@@ -17,6 +17,7 @@
 
 #include "bant/frontend/named-content.h"
 
+#include <cstdlib>
 #include <string_view>
 
 #include "absl/log/check.h"
@@ -30,4 +31,22 @@ FileLocation NamedLineIndexedContent::GetLocation(std::string_view text) const {
   return {name_, line_index_.GetRange(text)};
 }
 
+std::string_view NamedLineIndexedContent::GetSurroundingLine(
+  std::string_view text) const {
+  CHECK(text.begin() >= content().begin() && text.end() <= content().end())
+    << "Attempt to pass '" << text << "' which is not within " << name_;
+
+  const char *start = text.data();
+  while (start > content_.data() && *(start - 1) != '\n') {
+    --start;
+  }
+
+  const char *end = text.data() + text.size();
+  const char *const end_of_content = content_.data() + content_.size();
+  while (end < end_of_content && *end != '\n') {
+    ++end;
+  }
+
+  return {start, static_cast<size_t>(end - start)};
+}
 }  // namespace bant
