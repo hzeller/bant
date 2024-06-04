@@ -99,25 +99,26 @@ The following auto-fixes all dependencies of the project:
 . <(bant dwyu ...)   # source the buildozer calls in shell
 ```
 
-Features
+##### Features
 
-   * If there is a dependency that `bant` would like to remove, but it is needed
-     for some reason that can't be derived from the include files it provides
-     (and you can't correctly mark it as `alwayslink` because it is coming
-     from some external project for instance), you can add a comment that
-     contains the word 'keep' in the line in question.
-```
+If there is a dependency that `bant` would like to remove, but it is needed
+for some reason that can't be derived from the include files it provides
+(and you can't correctly mark it as `alwayslink` because it is coming
+from some external project for instance), you can add a comment that
+contains the word 'keep' in the line in question.
+
+```python
 cc_library(
   deps = [
     ":foo"  # build_cleaner keep
   ]
 )
 ```
-     Note, a well-defined project should not need this. This features provides
-     an escape hatch if needed. With `-k`, `bant` will be
-     strict and ignore `# keep` comments and emit the removal edit anyway.
+Note, a well-defined project should not need this. This features provides
+an escape hatch if needed. With `-k`, `bant` will be
+strict and ignore `# keep` comments and emit the removal edit anyway.
 
-Caveats
+##### Caveats
 
    * Does not understand package groups in visibility yet; these will be
      considered `//visibility:public` and might result in adding
