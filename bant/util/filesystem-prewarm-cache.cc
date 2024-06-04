@@ -168,12 +168,23 @@ void FilesystemPrewarmCacheInit(int argc, char *argv[]) {
   std::error_code err;
   auto cwd = std::filesystem::current_path(err);
   uint64_t argument_dependent_hash = std::hash<std::string>()(cwd.string());
-  for (int i = 0; i < argc; ++i) {
-    argument_dependent_hash ^= std::hash<std::string_view>()(argv[i]);
+  for (int i = 1; i < argc; ++i) {
+    const std::string_view arg(argv[i]);
+    // With or without the following flags, same access pattern expected; don't
+    // inlude them in the cache uniqifier.
+    if (arg == "-v" || arg == "-k" || arg == "-q") continue;
+
+    if (arg == "-C" ||  // already reflected in the cwd
+        arg == "-o" || arg == "-f") {
+      ++i;  // Skip optarg
+      continue;
+    }
+
+    argument_dependent_hash ^= std::hash<std::string_view>()(arg);
   }
 
   const std::string cache_file = absl::StrFormat(
-    "%s/fswarm-%08x", cache_dir, argument_dependent_hash & 0xffff'ffff);
+    "%s/fs-warm-%08x", cache_dir, argument_dependent_hash & 0xffff'ffff);
   FilesystemPrewarmCache::instance().InitCacheFile(cache_file);
 }
 
