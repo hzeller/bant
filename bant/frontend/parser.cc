@@ -212,7 +212,7 @@ class Parser::Impl {
     const Token separator_or_end = scanner_->Next();
     switch (separator_or_end.type) {
     case ']': {
-      if (!n) ErrAt(separator_or_end) << "Can not have an empty array access";
+      if (!n) ErrAt(separator_or_end) << "Can not have an empty array access\n";
       return n;
     }
     case ':': {
@@ -315,8 +315,8 @@ class Parser::Impl {
         // from a toplevel array in the next line.
         // The correct way would be to take statement-breaking newlines
         // into account (Pythonism). Not doing that yet.
-        // For now: look if the lhs looks like someting an array acces
-        // would make sense.
+        // For now: look if the lhs looks like someting an array access
+        // would make sense. Not accurate; look for [5678] in parser_test.
         BinOpNode *const lhs_bin = n->CastAsBinOp();
         if (lhs_bin == nullptr && n->CastAsIdentifier() == nullptr) {
           return n;

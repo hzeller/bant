@@ -136,7 +136,7 @@ class ParserTest : public testing::Test {
       stringify2 << n << "\n";
     }
 
-    EXPECT_EQ(source.content(), stringify2.str());
+    EXPECT_EQ(source.content(), stringify2.str()) << " ROUNDTRIP";
   }
 
   Arena arena_;
@@ -236,19 +236,27 @@ b = "x" not in "foobax"
 
 TEST_F(ParserTest, ArrayAccess) {
   Node *const expected = List({
+    List({Int(1234)}),  //
     Assign("a", Op('[', Id("x"), Int(42))),
     Assign("b", Op('[', Id("x"), Op(':', Int(1), Int(2)))),
     Assign("c", Op('[', Id("x"), Op(':', Int(1), nullptr))),
     Assign("d", Op('[', Id("x"), Op(':', nullptr, Int(2)))),
     Assign("e", Op('[', Op('[', Id("x"), Int(42)), Int(17))),
+    Assign("f", Id("x")),
+    // List({Int(5678)}),  // see below.
+    // Assign("g", Op('[', Call("h", Tuple({})), Int(42))),
   });
 
   EXPECT_EQ(Print(expected), Print(Parse(R"(
+[1234]      # toplevel array is not an array access
 a = x[42]
 b = x[1:2]
 c = x[1:]
 d = x[:2]
 e = x[42][17]
+f = x       # Should not be seen as x[5678] access, as newline follows.
+#[5678]     # currently wrongly parsed as array access of x in previous line.
+#g = h()[42]  # currently also not parsed correctly.
 )")));
 }
 
