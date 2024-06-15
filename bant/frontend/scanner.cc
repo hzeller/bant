@@ -98,6 +98,7 @@ inline Scanner::ContentPointer Scanner::SkipSpace() {
       in_comment = true;
     } else if (*pos_ == '\n') {
       source_.mutable_line_index()->PushNewline(pos_ + 1);
+      ++newline_count_;
       in_comment = false;
     }
     pos_++;
@@ -188,6 +189,7 @@ Token Scanner::HandleString() {
     last_was_escape = (*pos_ == '\\' && !last_was_escape);
     if (*pos_ == '\n') {
       source_.mutable_line_index()->PushNewline(pos_ + 1);
+      ++newline_count_;
     }
     ++pos_;
   }
@@ -302,6 +304,10 @@ Token Scanner::Next() {
 
   default: result = HandleIdentifierKeywordRawStringOrInvalid(); break;
   }
+
+  result.newline_since_last_token = last_token_newline_count_ != newline_count_;
+  last_token_newline_count_ = newline_count_;
+
   return result;
 }
 }  // namespace bant

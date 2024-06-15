@@ -84,7 +84,6 @@ void PrintVisitor::VisitAssignment(Assignment *a) {
 void PrintVisitor::VisitFunCall(FunCall *f) {
   out_ << f->identifier()->id();
   BaseVoidVisitor::VisitFunCall(f);
-  out_ << "\n" << std::string(indent_, ' ');
 }
 
 static void PrintListTypeOpen(List::Type t, std::ostream &out) {
@@ -138,8 +137,8 @@ void PrintVisitor::VisitUnaryExpr(UnaryExpr *e) {
 
 void PrintVisitor::VisitBinOpNode(BinOpNode *b) {
   WalkNonNull(b->left());
-  if (b->op() == '.') {
-    out_ << b->op();  // No spacing around dot operator.
+  if (b->op() == '.' || b->op() == '[') {
+    out_ << b->op();  // No spacing around some operators.
   } else {
     out_ << " " << b->op() << " ";
   }

@@ -18,10 +18,10 @@
 #ifndef BANT_SCANNER_H_
 #define BANT_SCANNER_H_
 
+#include <cstdint>
 #include <ostream>
 #include <string_view>
 
-#include "bant/frontend/linecolumn-map.h"
 #include "bant/frontend/named-content.h"
 
 namespace bant {
@@ -75,7 +75,8 @@ std::ostream &operator<<(std::ostream &o, TokenType t);
 
 struct Token {
   TokenType type;
-  std::string_view text;  // Referring to original content.
+  std::string_view text;                  // Referring to original content.
+  bool newline_since_last_token = false;  // to accomodate Python-ism's
 };
 
 std::ostream &operator<<(std::ostream &o, Token t);
@@ -123,6 +124,8 @@ class Scanner {
   // If we got a token from peeking, this is it.
   Token upcoming_;
   bool has_upcoming_ = false;
+  uint32_t newline_count_ = 0;
+  uint32_t last_token_newline_count_ = 0;
 };
 }  // namespace bant
 #endif  // BANT_SCANNER_H_

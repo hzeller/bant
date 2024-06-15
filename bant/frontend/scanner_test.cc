@@ -59,6 +59,22 @@ TEST(ScannerTest, BackslashSimplySkippedAsWhitespace) {
   EXPECT_EQ(s.Next().type, TokenType::kEof);
 }
 
+TEST(ScannerTest, ReportIfNewlineFoundBetweenTokens) {
+  TEST_SCANNER(s, "foo bar\nbaz");
+  EXPECT_EQ(s.Next().type, TokenType::kIdentifier);
+  {
+    const Token t = s.Next();
+    EXPECT_EQ(t.type, TokenType::kIdentifier);
+    EXPECT_FALSE(t.newline_since_last_token);
+  }
+  {
+    const Token t = s.Next();
+    EXPECT_EQ(t.type, TokenType::kIdentifier);
+    EXPECT_TRUE(t.newline_since_last_token);
+  }
+  EXPECT_EQ(s.Next().type, TokenType::kEof);
+}
+
 TEST(ScannerTest, SimpleTokens) {
   struct TestCase {
     std::string_view input_text;

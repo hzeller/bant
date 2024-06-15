@@ -118,25 +118,28 @@ class ParserTest : public testing::Test {
   static void RoundTripPrintParseAgainTest(bant::List *first_pass) {
     if (!first_pass) return;
 
+    // Print ...
     std::stringstream stringify1;
     for (Node *n : *first_pass) {
       stringify1 << n << "\n";
     }
 
-    const std::string source1 = stringify1.str();
-    NamedLineIndexedContent source("<text-reprinted>", source1);
+    // Parse again ...
+    const std::string first_parse_printed = stringify1.str();
+    NamedLineIndexedContent source("<text-reprinted>", first_parse_printed);
     Scanner scanner(source);
     Arena local_arena(4096);
     Parser parser(&scanner, &local_arena, std::cerr);
     bant::List *second_pass = parser.parse();
     ASSERT_TRUE(second_pass != nullptr);
 
-    std::stringstream stringify2;
+    // Print the second parse.
+    std::stringstream roundtrip_reparsed_print_print_again;
     for (Node *n : *second_pass) {
-      stringify2 << n << "\n";
+      roundtrip_reparsed_print_print_again << n << "\n";
     }
 
-    EXPECT_EQ(source.content(), stringify2.str()) << " ROUNDTRIP";
+    EXPECT_EQ(first_parse_printed, roundtrip_reparsed_print_print_again.str());
   }
 
   Arena arena_;
@@ -243,8 +246,8 @@ TEST_F(ParserTest, ArrayAccess) {
     Assign("d", Op('[', Id("x"), Op(':', nullptr, Int(2)))),
     Assign("e", Op('[', Op('[', Id("x"), Int(42)), Int(17))),
     Assign("f", Id("x")),
-    // List({Int(5678)}),  // see below.
-    // Assign("g", Op('[', Call("h", Tuple({})), Int(42))),
+    List({Int(5678)}),
+    Assign("g", Op('[', Call("h", Tuple({})), Int(42))),
   });
 
   EXPECT_EQ(Print(expected), Print(Parse(R"(
@@ -254,9 +257,9 @@ b = x[1:2]
 c = x[1:]
 d = x[:2]
 e = x[42][17]
-f = x       # Should not be seen as x[5678] access, as newline follows.
-#[5678]     # currently wrongly parsed as array access of x in previous line.
-#g = h()[42]  # currently also not parsed correctly.
+f = x       # Not a x[5678] access, as newline follows and the following is ...
+[5678]      # ... just a toplevel array
+g = h()[42] # some expression follwed by an array access (same line)
 )")));
 }
 
@@ -437,6 +440,6 @@ a = 42 + 8
 
 TEST_F(ParserTest, ParseTernary) {
   Node *n = Parse("[foo() if a + b else baz()]");
-  EXPECT_EQ(Print(n), "[[foo()\n         if a + b else baz()\n        ]]");
+  EXPECT_EQ(Print(n), "[[foo() if a + b else baz()]]");
 }
 }  // namespace bant
