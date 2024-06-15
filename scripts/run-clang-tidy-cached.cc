@@ -60,7 +60,7 @@ static constexpr std::string_view kProjectCachePrefix = "bant_";
 static constexpr std::string_view kWorkspaceFile = "MODULE.bazel";
 
 // Choices of what files to include and exclude to run clang-tidy on.
-static constexpr std::string_view kStartDirectory = ".";
+static constexpr std::string_view kStartDirectory = "bant";
 static constexpr std::string_view kFileIncludeRe = ".*";
 static constexpr std::string_view kFileExcludeRe = ".git/|.github/";
 inline bool ConsiderExtension(const std::string &extension) {
