@@ -201,7 +201,7 @@ cc_library(
   // we allow for matching that.
   {  // Files that match full path but are longer are guessed to belong
     DWYUTestFixture tester(pp.project());
-    tester.ExpectAdd(":foo");
+    tester.ExpectAdd(":foo");  // fuzzyily can match header file, add library.
     tester.AddSource("some/path/bar.h", "");
     tester.AddSource("some/path/bar.cc", R"(
 #include "external/project/some/path/foo.h"
@@ -212,13 +212,24 @@ cc_library(
 
   {  // Files that are somewhat shorter are also matched.
     DWYUTestFixture tester(pp.project());
-    tester.ExpectAdd(":foo");
+    tester.ExpectAdd(":foo");  // fuzzyily can match header file, add library.
     tester.AddSource("some/path/bar.h", "");
     tester.AddSource("some/path/bar.cc", R"(
 #include "path/foo.h"
 )");
     tester.RunForTarget("//some/path:bar");
     EXPECT_THAT(tester.LogContent(), HasSubstr("provides longer same-suffix"));
+  }
+
+  {  // .. but not too short. Here, only the last path element matches.
+    DWYUTestFixture tester(pp.project());
+    // no add expected: can't successfully match header file.
+    tester.AddSource("some/path/bar.h", "");
+    tester.AddSource("some/path/bar.cc", R"(
+#include "wrongpath/foo.h"
+)");
+    tester.RunForTarget("//some/path:bar");
+    EXPECT_THAT(tester.LogContent(), HasSubstr("foo.h -- Missing"));
   }
 }
 

@@ -85,7 +85,7 @@ DWYUGenerator::DWYUGenerator(Session &session, const ParsedProject &project,
   const ScopedTimer timer(&stats.duration);
 
   headers_from_libs_ = ExtractHeaderToLibMapping(project, session.info(),
-                                                 /*reverse_index=*/true);
+                                                 /*suffix_index=*/true);
   files_from_genrules_ = ExtractGeneratedFromGenrule(project, session.info());
   aliased_by_ = ExtractAliasedBy(project);
   InitKnownLibraries();
@@ -386,20 +386,18 @@ DWYUGenerator::DependenciesNeededBySources(
 
       if (const auto &found = FindBySuffix(headers_from_libs_, inc_file);
           found.has_value()) {
-        const auto &found_it = found.value();
+        const auto &found_result = found.value();
 
         // Do some reporting if fuzzy match hit.
-        const size_t found_len = found_it->first.length();
+        const size_t found_len = found_result.match.length();
         const size_t inc_len = inc_file.length();
         if (found_len != inc_len && session_.flags().verbose > 1) {
           source.Loc(info_out, inc_file)
             << " FYI: instead of '" << inc_file << "' found library that "
             << "provides " << ((found_len < inc_len) ? "shorter" : "longer")
-            << " same-suffix path '"
-            << std::string{found_it->first.rbegin(), found_it->first.rend()}
-            << "'\n";
+            << " same-suffix path '" << found_result.match << "'\n";
         }
-        add_to_result(found_it->second);
+        add_to_result(*found_result.target_set);
         continue;
       }
 
@@ -413,7 +411,7 @@ DWYUGenerator::DependenciesNeededBySources(
             << "Consider FQN relative to project root.\n";
           need_in_source_referenced_message = true;
         }
-        add_to_result(found.value()->second);
+        add_to_result(*found->target_set);
         continue;
       }
 

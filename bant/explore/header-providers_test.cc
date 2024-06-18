@@ -206,49 +206,69 @@ genrule(
 }
 
 static std::string reverse(std::string_view in) {
-  return std::string{in.rbegin(), in.rend()};
+  // This is a whitebox approach as we know how the index needs to be stored,
+  // but ok as header-providers.cc and this test go hand-in-hand.
+  return std::string{in.rbegin(), in.rend()}.append("/");
 }
+
+// Check for existence of value of fail if not.
+#define ASSERT_HAS_VALUE(x)     \
+  ({                            \
+    auto v = (x);               \
+    CHECK(v.has_value()) << #x; \
+    v.value();                  \
+  })
+
 TEST(HeaderProviders, FindBySuffixTest) {
   ProvidedFromTargetSet test_index;
   test_index[reverse("foo/bar/baz/qux.h")].insert(T("//foo"));
   test_index[reverse("baz/qux.h")].insert(T("//bar"));
 
-  // NOLINTBEGIN(bugprone-unchecked-optional-access)
-
   // Exact match should only return that element
-  EXPECT_THAT(FindBySuffix(test_index, "foo/bar/baz/qux.h").value()->second,
-              ElementsAre(T("//foo")));
-  EXPECT_THAT(FindBySuffix(test_index, "baz/qux.h").value()->second,
-              ElementsAre(T("//bar")));
+  FindResult result =
+    ASSERT_HAS_VALUE(FindBySuffix(test_index, "foo/bar/baz/qux.h"));
+  EXPECT_EQ(result.fuzzy_score, 0);  // no fuzzy, full match.
+  EXPECT_THAT(*result.target_set, ElementsAre(T("//foo")));
+
+  result = ASSERT_HAS_VALUE(FindBySuffix(test_index, "baz/qux.h"));
+  EXPECT_EQ(result.fuzzy_score, 0);  // no fuzzy, full match.
+  EXPECT_THAT(*result.target_set, ElementsAre(T("//bar")));
 
   // Below, only fuzzy matches happen.
 
-  // Want at least one slash, so just the filename will not be sufficient.
-  EXPECT_FALSE(FindBySuffix(test_index, "qux.h").has_value());
+  // fuzzy matches with different amount of expected path elements
+  EXPECT_FALSE(FindBySuffix(test_index, "qux.h", 2).has_value());  // 2 slash
+  EXPECT_TRUE(FindBySuffix(test_index, "qux.h", 1).has_value());   // 1 slash
+  EXPECT_FALSE(FindBySuffix(test_index, "ux.h", 1).has_value());   // not even 1
 
   // so in general shorter matches than to the first slash don't count.
-  EXPECT_FALSE(FindBySuffix(test_index, "bar/xqux.h").has_value());
+  EXPECT_FALSE(FindBySuffix(test_index, "bar/xqux.h", 1).has_value());
 
   // Other fuzzy matches should return the candiate matching closest.
-  EXPECT_THAT(FindBySuffix(test_index, "az/qux.h").value()->second,
-              ElementsAre(T("//bar")));
-  EXPECT_THAT(FindBySuffix(test_index, "r/baz/qux.h").value()->second,
-              ElementsAre(T("//foo")));
-  EXPECT_THAT(FindBySuffix(test_index, "bar/baz/qux.h").value()->second,
-              ElementsAre(T("//foo")));
+  result = ASSERT_HAS_VALUE(FindBySuffix(test_index, "az/qux.h", 1));
+  EXPECT_EQ(result.fuzzy_score, 1);
+  EXPECT_THAT(*result.target_set, ElementsAre(T("//bar")));
+
+  result = ASSERT_HAS_VALUE(FindBySuffix(test_index, "r/baz/qux.h"));
+  EXPECT_EQ(result.fuzzy_score, 2);
+  EXPECT_THAT(*result.target_set, ElementsAre(T("//foo")));
+
+  result = ASSERT_HAS_VALUE(FindBySuffix(test_index, "bar/baz/qux.h"));
+  EXPECT_EQ(result.fuzzy_score, 3);
+  EXPECT_THAT(*result.target_set, ElementsAre(T("//foo")));
 
   // Longer path than is in index, but with the same suffix. It will
   // be one before the match. We find it before end()
-  EXPECT_THAT(
-    FindBySuffix(test_index, "hello/foo/bar/baz/qux.h").value()->second,
-    ElementsAre(T("//foo")));
+  result =
+    ASSERT_HAS_VALUE(FindBySuffix(test_index, "hello/foo/bar/baz/qux.h"));
+  EXPECT_EQ(result.fuzzy_score, 4);
+  EXPECT_THAT(*result.target_set, ElementsAre(T("//foo")));
 
   // If there is another entry afterwards, we also find it.
   test_index[reverse("foo/bar/baz/rux.h")].insert(T("//rux"));
-  EXPECT_THAT(
-    FindBySuffix(test_index, "hello/foo/bar/baz/qux.h").value()->second,
-    ElementsAre(T("//foo")));
-
-  // NOLINTEND(bugprone-unchecked-optional-access)
+  result =
+    ASSERT_HAS_VALUE(FindBySuffix(test_index, "hello/foo/bar/baz/qux.h"));
+  EXPECT_EQ(result.fuzzy_score, 4);
+  EXPECT_THAT(*result.target_set, ElementsAre(T("//foo")));
 }
 }  // namespace bant
