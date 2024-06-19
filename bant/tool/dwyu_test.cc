@@ -314,7 +314,7 @@ cc_library(
     DWYUTestFixture tester(pp.project());
     tester.AddSource("path/usefoo-all.cc", R"(#include "path/foo.h")");
     tester.RunForTarget("//path:usefoo-all");
-    EXPECT_THAT(tester.LogContent(), HasSubstr("by dependency //path:foo-1"));
+    EXPECT_THAT(tester.LogContent(), HasSubstr("by //path:foo-1 before"));
   }
 
   {  // Known dependencies, but they are alternatives. Need to delegate to user.

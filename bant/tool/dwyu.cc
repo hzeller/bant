@@ -147,12 +147,12 @@ void DWYUGenerator::CreateEditsForTarget(const BazelTarget &target,
       const BazelTarget &previously = checked_off_by[*requested_target];
       if (previously == *requested_target) {
         project_.Loc(session_.info(), dependency_target)
-          << ": " << dependency_target
+          << " in target " << target << ": dependency " << dependency_target
           << " same dependency mentioned multiple times. Run buildifier\n";
       } else {
         project_.Loc(session_.info(), dependency_target)
-          << ": " << dependency_target
-          << " provides headers already provided by dependency " << previously
+          << " in target " << target << ": dependency " << dependency_target
+          << " provides headers already provided by " << previously
           << " before. Multiple libraries providing the same headers ?\n";
       }
       continue;
