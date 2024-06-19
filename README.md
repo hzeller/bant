@@ -192,7 +192,7 @@ need for it).
 
 ```
 $ bazel-bin/bant/bant -h
-bant v0.1.4 <http://bant.build/>
+bant v0.1.5 <http://bant.build/>
 Copyright (c) 2024 Henner Zeller. This program is free software; license GPL 2.0.
 Usage: bazel-bin/bant/bant [options] <command> [bazel-target-pattern]
 Options
