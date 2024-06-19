@@ -172,7 +172,10 @@ void FilesystemPrewarmCacheInit(int argc, char *argv[]) {
     const std::string_view arg(argv[i]);
     // With or without the following flags, same access pattern expected; don't
     // inlude them in the cache uniqifier.
-    if (arg == "-v" || arg == "-k" || arg == "-q") continue;
+    if (arg == "-v" || arg == "-q" || arg == "-vq" || arg == "-qv" ||
+        arg == "-k") {
+      continue;
+    }
 
     if (arg == "-C" ||  // already reflected in the cwd
         arg == "-o" || arg == "-f") {
