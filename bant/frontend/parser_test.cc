@@ -69,8 +69,11 @@ class ParserTest : public testing::Test {
   UnaryExpr *UnaryOp(TokenType op, Node *n) {
     return arena_.New<UnaryExpr>(op, n);
   }
-  Assignment *Assign(std::string_view id, Node *b) {
-    return arena_.New<Assignment>(Id(id), b, "");
+  Assignment *Assign(Node *lhs, Node *rhs) {
+    return arena_.New<Assignment>(lhs, rhs, "");
+  }
+  Assignment *Assign(std::string_view id, Node *rhs) {
+    return Assign(Id(id), rhs);
   }
   FunCall *Call(std::string_view id, List *args) {
     return arena_.New<FunCall>(Id(id), args);
@@ -190,6 +193,19 @@ TEST_F(ParserTest, CallOnString) {
 
   EXPECT_EQ(Print(expected), Print(Parse(R"(
 funcall("Some {} str".format("baz"))
+)")));
+}
+
+TEST_F(ParserTest, AssignmentToTuple) {
+  Node *const expected = List({
+    Assign(Tuple({Id("a"), Id("b")}), Tuple({Str("foo"), Str("bar")})),
+    Assign(Tuple({Id("x"), Id("y")}), Call("foo", Tuple({}))),
+  });
+
+  EXPECT_EQ(Print(expected), Print(Parse(R"(
+(a, b) = ("foo", "bar")
+(x, y) = foo()
+#a = ((u, v) = foo())   # should this work ? Right now we only do toplevel.
 )")));
 }
 

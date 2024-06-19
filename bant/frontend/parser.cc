@@ -81,6 +81,7 @@ class Parser::Impl {
 
   // Parse file. If there is an error, return at least partial tree.
   // A file is a list of data structures, function calls, or assignments..
+  // There is only a subset of operations expected at the toplevel of the file.
   List *parse() {
     LOG_INIT(scanner_);
     List *const statement_list = Make<List>(List::Type::kList);
@@ -101,6 +102,25 @@ class Parser::Impl {
         continue;
       }
 
+      if (tok.type == '(') {  // tuple assignment. Rarely seen in the wild.
+        List *lhs = ParseList(
+          Make<List>(List::Type::kTuple),
+          [&]() { return ParseOptionalIdentifier(); }, TokenType::kCloseParen);
+        if (lhs == nullptr) {
+          ErrAt(tok) << "expected LHS of a tuple assignment\n";
+          return statement_list;
+        }
+        const Token assign = scanner_->Next();
+        if (assign.type != TokenType::kAssign) {
+          ErrAt(assign) << "Assignment operator = expected, got " << assign
+                        << "\n";
+          return statement_list;
+        }
+        statement_list->Append(node_arena_,
+                               ParseNodeAssignRhs(lhs, tok.text, assign.text));
+        continue;
+      }
+
       // Any other toplevel element is expected to start with an identifier.
       if (tok.type != kIdentifier) {
         ErrAt(tok) << "expected identifier, got " << tok << "\n";
@@ -113,7 +133,7 @@ class Parser::Impl {
       case TokenType::kAssign:
         statement_list->Append(
           node_arena_,
-          ParseAssignmentRhs(Make<Identifier>(tok.text), after_id.text));
+          ParseIdAssignRhs(Make<Identifier>(tok.text), after_id.text));
         break;
       case TokenType::kOpenParen:
         statement_list->Append(node_arena_, ParseFunCall(tok));
@@ -132,15 +152,20 @@ class Parser::Impl {
     return statement_list;
   }
 
-  Assignment *ParseAssignmentRhs(Identifier *id, std::string_view assign_tok) {
+  Assignment *ParseNodeAssignRhs(Node *lhs, std::string_view from,
+                                 std::string_view to) {
     LOG_ENTER();
     // '=' already consumed
     Node *rhs = ParseExpression();
     // TODO: ideally, we have a range up to the end of the rhs, but we would
     // get the whitespace until the next token if we just looked at
     // scanner_->Peek().text.begin(). So for now, just cover range up to =.
-    const std::string_view text_range{id->id().begin(), assign_tok.end()};
-    return Make<Assignment>(id, rhs, text_range);
+    const std::string_view text_range{from.begin(), to.end()};
+    return Make<Assignment>(lhs, rhs, text_range);
+  }
+
+  Assignment *ParseIdAssignRhs(Identifier *id, std::string_view assign_tok) {
+    return ParseNodeAssignRhs(id, id->id(), assign_tok);
   }
 
   Node *ExpressionOrAssignment() {
@@ -150,7 +175,7 @@ class Parser::Impl {
     const Token upcoming = scanner_->Peek();
     if (auto *id = value->CastAsIdentifier(); id && upcoming.type == '=') {
       scanner_->Next();
-      return ParseAssignmentRhs(id, upcoming.text);
+      return ParseIdAssignRhs(id, upcoming.text);
     }
     return value;
   }

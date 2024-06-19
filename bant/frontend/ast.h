@@ -268,7 +268,11 @@ class Ternary : public Node {
 // Simple assignment: the only allowed lvalue is an identifier.
 class Assignment : public BinOpNode {
  public:
-  Identifier *identifier() { return static_cast<Identifier *>(left_); }
+  // Assignments are typically to some identifier; make this simple to access.
+  Identifier *maybe_identifier() {
+    if (!left_) return nullptr;
+    return left_->CastAsIdentifier();
+  }
   Node *value() { return right_; }
 
   void Accept(VoidVisitor *v) final;
@@ -278,8 +282,8 @@ class Assignment : public BinOpNode {
 
  private:
   friend class Arena;
-  Assignment(Identifier *identifier, Node *value, std::string_view range)
-      : BinOpNode(identifier, value, TokenType::kAssign, range) {}
+  Assignment(Node *lhs, Node *value, std::string_view range)
+      : BinOpNode(lhs, value, TokenType::kAssign, range) {}
 };
 
 // Function call.
@@ -322,7 +326,7 @@ class VoidVisitor {
 // Simple implementation: recursively walk the whole AST.
 class BaseVoidVisitor : public VoidVisitor {
  public:
-  void VisitAssignment(Assignment *a) override { WalkNonNull(a->right()); }
+  void VisitAssignment(Assignment *a) override { VisitBinOpNode(a); }
   void VisitFunCall(FunCall *f) override { WalkNonNull(f->right()); }
   void VisitList(List *l) override {
     if (l == nullptr) return;
@@ -375,7 +379,7 @@ class NodeVisitor {
 class BaseNodeReplacementVisitor : public NodeVisitor {
  public:
   Node *VisitAssignment(Assignment *a) override {
-    // Not visiting the identifier; lhs regarded immutable.
+    // Not visiting the identifier or tuple of ids; lhs regarded immutable.
     ReplaceWalk(&a->right_);
     return a;
   }
@@ -431,7 +435,7 @@ class BaseNodeReplacementVisitor : public NodeVisitor {
 class PrintVisitor : public BaseVoidVisitor {
  public:
   explicit PrintVisitor(std::ostream &out) : out_(out) {}
-  void VisitAssignment(Assignment *a) final;
+  // Using default impl. for Assignment.
   void VisitFunCall(FunCall *f) final;
   void VisitList(List *l) final;
 

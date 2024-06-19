@@ -76,11 +76,6 @@ StringScalar *StringScalar::FromLiteral(Arena *arena,
   return arena->New<StringScalar>(literal, is_triple_quoted, is_raw);
 }
 
-void PrintVisitor::VisitAssignment(Assignment *a) {
-  out_ << a->identifier()->id() << " = ";
-  BaseVoidVisitor::VisitAssignment(a);
-}
-
 void PrintVisitor::VisitFunCall(FunCall *f) {
   out_ << f->identifier()->id();
   BaseVoidVisitor::VisitFunCall(f);

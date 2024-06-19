@@ -72,8 +72,8 @@ class TargetFinder : public BaseVoidVisitor {
 
   // Relevant info we're interested in the package.
   void ExtractPackageInfo(Assignment *a) {
-    if (!a->identifier() || !a->value()) return;
-    const std::string_view lhs = a->identifier()->id();
+    if (!a->maybe_identifier() || !a->value()) return;
+    const std::string_view lhs = a->maybe_identifier()->id();
     if (List *list = a->value()->CastAsList()) {
       if (lhs == "default_visibility") {
         package_default_visibility_ = list;
@@ -83,8 +83,8 @@ class TargetFinder : public BaseVoidVisitor {
 
   // Value extracted for the user query.
   void ExtractQueryInfo(Assignment *a) {
-    if (!a->identifier() || !a->value()) return;
-    const std::string_view lhs = a->identifier()->id();
+    if (!a->maybe_identifier() || !a->value()) return;
+    const std::string_view lhs = a->maybe_identifier()->id();
     if (Scalar *scalar = a->value()->CastAsScalar()) {
       if (lhs == "name") {
         current_.name = scalar->AsString();

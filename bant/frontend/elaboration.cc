@@ -79,8 +79,8 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
 
   Node *VisitAssignment(Assignment *a) final {
     Node *result = BaseNodeReplacementVisitor::VisitAssignment(a);
-    if (nest_level_ == 0) {
-      global_variables_[a->identifier()->id()] = a->value();
+    if (nest_level_ == 0 && a->maybe_identifier()) {
+      global_variables_[a->maybe_identifier()->id()] = a->value();
     }
     return result;
   }
@@ -180,7 +180,8 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
         continue;
       }
       if (Assignment *kwarg = arg->CastAsAssignment()) {
-        const std::string_view kw = kwarg->identifier()->id();
+        if (!kwarg->maybe_identifier()) continue;
+        const std::string_view kw = kwarg->maybe_identifier()->id();
         if (kw == "include") {
           include_list = kwarg->value()->CastAsList();
         } else if (kw == "exclude") {
