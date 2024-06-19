@@ -466,7 +466,7 @@ DWYUGenerator::DependenciesNeededBySources(
 
 std::vector<std::string_view> ExtractCCIncludes(NamedLineIndexedContent *src) {
   static const LazyRE2 kIncRe{
-    R"/((?m)("|^\s*#include\s+"((\.\./)*[0-9a-zA-Z_/+-]+(\.[a-zA-Z]+)*)"))/"};
+    R"/((?m)("|^\s*#\s*include\s+"((\.\./)*[0-9a-zA-Z_/+-]+(\.[a-zA-Z]+)*)"))/"};
 
   // We don't actually understand strings in c++, so we just pretend by
   // toggle ignore whenever we see one.

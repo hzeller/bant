@@ -69,7 +69,7 @@ TEST(DWYUTest, HeaderFilesAreExtracted) {
 R"(
 #include "bant/tool/dwyu.h"   // include embedded in string ignored.
 ")
-#include    "w/space.h"        // even strange spacing should work
+#  include    "w/space.h"        // even strange spacing should work
 #include /* foo */ "this-is-silly.h"  // Some things are too far :)
 #include "../dotdot.h"         // mmh, who is doing this ?
 #include "more-special-c++.h"  // other characters used.
@@ -86,7 +86,7 @@ R"(
   EXPECT_EQ(PosOfPart(scanned_src, includes, 2), (LineColumn{6, 10}));
   EXPECT_EQ(PosOfPart(scanned_src, includes, 3), (LineColumn{7, 10}));
   EXPECT_EQ(PosOfPart(scanned_src, includes, 4), (LineColumn{8, 10}));
-  EXPECT_EQ(PosOfPart(scanned_src, includes, 5), (LineColumn{12, 13}));
+  EXPECT_EQ(PosOfPart(scanned_src, includes, 5), (LineColumn{12, 15}));
 }
 
 namespace {
