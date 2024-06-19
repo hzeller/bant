@@ -18,9 +18,13 @@
 #ifndef BANT_TOOL_EDIT_CALLBACK_TESTUTIL_
 #define BANT_TOOL_EDIT_CALLBACK_TESTUTIL_
 
+#include <string>
+#include <string_view>
+
 #include "absl/container/flat_hash_set.h"
 #include "absl/strings/str_cat.h"
 #include "bant/tool/edit-callback.h"
+#include "bant/types-bazel.h"
 #include "gtest/gtest.h"
 
 namespace bant {

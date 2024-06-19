@@ -23,6 +23,7 @@
 #include <ostream>
 #include <string>
 #include <string_view>
+#include <utility>
 
 #include "re2/re2.h"
 

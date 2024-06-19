@@ -18,7 +18,11 @@
 #ifndef BANT_TOOL_DWYU_INTERNAL_
 #define BANT_TOOL_DWYU_INTERNAL_
 
-#include <set>
+#include <cstddef>
+#include <optional>
+#include <string>
+#include <string_view>
+#include <vector>
 
 #include "absl/container/btree_map.h"
 #include "absl/container/btree_set.h"
@@ -28,6 +32,7 @@
 #include "bant/session.h"
 #include "bant/tool/edit-callback.h"
 #include "bant/types-bazel.h"
+#include "bant/types.h"
 
 namespace bant {
 // The DWYUGenerator is the underlying implementation, for which

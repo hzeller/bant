@@ -18,9 +18,11 @@
 #ifndef BANT_TOOL_DWYU_
 #define BANT_TOOL_DWYU_
 
+#include <cstddef>
 #include <string_view>
 #include <vector>
 
+#include "bant/frontend/named-content.h"
 #include "bant/frontend/parsed-project.h"
 #include "bant/session.h"
 #include "bant/tool/edit-callback.h"

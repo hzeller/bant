@@ -18,6 +18,10 @@
 #ifndef BANT_PARSED_PROJECT_TESTUTIL_
 #define BANT_PARSED_PROJECT_TESTUTIL_
 
+#include <iostream>
+#include <string>
+#include <string_view>
+
 #include "absl/strings/str_cat.h"
 #include "bant/frontend/elaboration.h"
 #include "bant/frontend/parsed-project.h"
@@ -34,7 +38,7 @@ class ParsedProjectTestUtil {
     auto package_or = BazelPackage::ParseFrom(package_str);
     if (!package_or.has_value()) return nullptr;
     SessionStreams streams(&std::cerr, &std::cerr);
-    std::string fake_filename = absl::StrCat(package_str, "/BUILD");
+    const std::string fake_filename = absl::StrCat(package_str, "/BUILD");
     return project_.AddBuildFileContent(streams, *package_or, fake_filename,
                                         std::string(content));
   }

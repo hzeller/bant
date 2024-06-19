@@ -21,6 +21,7 @@
 #include <memory>
 #include <ostream>
 #include <string_view>
+#include <vector>
 
 #include "bant/output-format.h"
 #include "bant/types.h"

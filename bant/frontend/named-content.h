@@ -18,6 +18,7 @@
 #ifndef BANT_NAMED_CONTENT_
 #define BANT_NAMED_CONTENT_
 
+#include <cstddef>
 #include <string>
 #include <string_view>
 

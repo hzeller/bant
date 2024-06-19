@@ -18,6 +18,8 @@
 #ifndef BANT_LINE_COLUMN_MAP_
 #define BANT_LINE_COLUMN_MAP_
 
+#include <cstddef>
+#include <string_view>
 #include <vector>
 
 #include "bant/frontend/source-locator.h"  // Provides LineColumn/Range

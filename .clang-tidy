@@ -15,6 +15,7 @@ Checks: >
   -readability-identifier-length,
   -readability-implicit-bool-conversion,
   -readability-magic-numbers,
+  -readability-named-parameter,
   -readability-static-definition-in-anonymous-namespace,
   -readability-uppercase-literal-suffix,
   -readability-use-anyofallof,
@@ -38,3 +39,10 @@ Checks: >
   -misc-no-recursion,
   -misc-unused-parameters,
   -misc-use-anonymous-namespace,
+CheckOptions:
+  # Structs can not have non-public memebers, so they should be public.
+  # but clang-tidy warns about them anyway as being visible.
+  # clang-tidy can't distinguish between classes and structs, so approximate
+  # with this:
+  - key: misc-non-private-member-variables-in-classes.IgnoreClassesWithAllMemberVariablesBeingPublic
+    value: '1'

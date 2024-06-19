@@ -21,6 +21,7 @@
 #define BANT_ARENA_CONTAINER_H
 
 #include <cassert>
+#include <cstddef>
 #include <cstdint>
 
 #include "bant/util/arena.h"

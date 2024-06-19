@@ -18,6 +18,7 @@
 #ifndef BANT_AST_H_
 #define BANT_AST_H_
 
+#include <cstddef>
 #include <cstdint>
 #include <ostream>
 #include <string_view>
@@ -150,6 +151,7 @@ class UnaryExpr : public Node {
   friend class BaseNodeReplacementVisitor;
   explicit UnaryExpr(TokenType op, Node *n) : node_(n), op_(op) {}
 
+ private:
   Node *node_;
   const TokenType op_;
 };
@@ -163,8 +165,8 @@ class BinNode : public Node {
   friend class BaseNodeReplacementVisitor;
   BinNode(Node *lhs, Node *rhs) : left_(lhs), right_(rhs) {}
 
-  Node *left_;
-  Node *right_;
+  Node *left_;   // NOLINT(misc-non-private-member-variables-in-classes)
+  Node *right_;  // NOLINT(misc-non-private-member-variables-in-classes)
 };
 
 // Generally some tree element that takes two nodes
@@ -317,7 +319,7 @@ class VoidVisitor {
   virtual void VisitIdentifier(Identifier *) = 0;  // Leaf.
 
   // Utility function: if node exists, walk and return 'true'.
-  inline bool WalkNonNull(Node *node) {
+  bool WalkNonNull(Node *node) {
     if (node) node->Accept(this);
     return node;
   }
@@ -368,9 +370,7 @@ class NodeVisitor {
   virtual Node *VisitIdentifier(Identifier *) = 0;  // Leaf.
 
   // Utility function: if node exists, walk and return valud from visit.
-  inline Node *WalkNonNull(Node *node) {
-    return node ? node->Accept(this) : node;
-  }
+  Node *WalkNonNull(Node *node) { return node ? node->Accept(this) : node; }
 };
 
 // Replace nodes with whatever walk on that node yielded.
@@ -429,7 +429,7 @@ class BaseNodeReplacementVisitor : public NodeVisitor {
   Node *VisitIdentifier(Identifier *i) override { return i; }
 
  private:
-  inline void ReplaceWalk(Node **n) { *n = WalkNonNull(*n); }
+  void ReplaceWalk(Node **n) { *n = WalkNonNull(*n); }
 };
 
 class PrintVisitor : public BaseVoidVisitor {

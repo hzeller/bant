@@ -18,6 +18,7 @@ cc_library(
     hdrs = ["edit-callback_testutil.h"],
     deps = [
         ":edit-callback",
+        "//bant:types-bazel",
         "@abseil-cpp//absl/container:flat_hash_set",
         "@abseil-cpp//absl/strings",
         "@googletest//:gtest",

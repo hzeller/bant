@@ -18,6 +18,8 @@
 #ifndef BANT_SOURCE_LOCATOR_
 #define BANT_SOURCE_LOCATOR_
 
+#include <ostream>
+#include <string>
 #include <string_view>
 
 namespace bant {

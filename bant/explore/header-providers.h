@@ -22,9 +22,12 @@
 #include <optional>
 #include <ostream>
 #include <string>
+#include <string_view>
 
+#include "absl/container/btree_set.h"
 #include "bant/frontend/parsed-project.h"
 #include "bant/session.h"
+#include "bant/types-bazel.h"
 #include "bant/types.h"
 
 // TODO: Given that this not only provides HeaderToLibMapping but also

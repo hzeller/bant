@@ -19,6 +19,7 @@
 #define BANT_TOOL_EDIT_CALLBACK_
 
 #include <functional>
+#include <ostream>
 #include <string_view>
 
 #include "bant/types-bazel.h"

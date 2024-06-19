@@ -20,6 +20,7 @@
 
 #include <cstddef>
 #include <optional>
+#include <ostream>
 #include <string>
 #include <string_view>
 
@@ -31,7 +32,7 @@ namespace bant {
 // Add time encountered in the scope to duration.
 class ScopedTimer {
  public:
-  ScopedTimer(absl::Duration *to_update)
+  explicit ScopedTimer(absl::Duration *to_update)
       : to_update_(to_update), start_(absl::Now()) {}
   ~ScopedTimer() { *to_update_ += absl::Now() - start_; }
 
@@ -41,7 +42,7 @@ class ScopedTimer {
 };
 
 struct Stat {
-  Stat(std::string_view subject) : subject(subject) {}
+  explicit Stat(std::string_view subject) : subject(subject) {}
   std::string_view subject;  // Descriptive name this stat is counting.
 
   int count = 0;

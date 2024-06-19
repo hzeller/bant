@@ -21,11 +21,11 @@
 #include <functional>
 #include <initializer_list>
 #include <string_view>
+#include <vector>
 
 #include "bant/frontend/ast.h"
 
-namespace bant {
-namespace query {
+namespace bant::query {
 // A Smörgåsbord of keyword parameters found for binaries, cc_libraries rules
 // and other 'calls' to rules we look at. Starts to get a bit crowded (but
 // is also cheap, as a instance is re-used and only passed by reference).
@@ -73,7 +73,6 @@ std::vector<std::string_view> ExtractStringList(List *list);
 // Similar to ExtractStringList(), but append to vector.
 void AppendStringList(List *list, std::vector<std::string_view> &append_to);
 
-}  // namespace query
-}  // namespace bant
+}  // namespace bant::query
 
 #endif  // BANT_QUERY_UTILS_

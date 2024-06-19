@@ -37,6 +37,7 @@
 //  - compilation db should also include all external projects.
 //  - more readable output of json with indentation and stuff without having
 //    to resort to external lib.
+//  - if there are any cc-libraries with includes = [], add these
 namespace bant {
 
 // Make quoted strings a little less painful to read and write in C++
@@ -81,6 +82,7 @@ static std::string CollectAllExternallIncDirs(const ParsedProject &project) {
   std::stringstream out;
   const BazelWorkspace &workspace = project.workspace();
   absl::flat_hash_set<std::string> already_seen;
+  // TODO: if there are any cc-libraries with includes = [], add these
   for (const auto &[_, parsed_package] : project.ParsedFiles()) {
     const BazelPackage &current_package = parsed_package->package;
     query::FindTargets(

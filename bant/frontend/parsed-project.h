@@ -18,14 +18,19 @@
 #ifndef BANT_PROJECT_PARDER_
 #define BANT_PROJECT_PARDER_
 
+#include <memory>
 #include <ostream>
 #include <string>
+#include <string_view>
+#include <utility>
 
 #include "bant/frontend/ast.h"
 #include "bant/frontend/named-content.h"
 #include "bant/frontend/source-locator.h"
 #include "bant/session.h"
 #include "bant/types-bazel.h"
+#include "bant/types.h"
+#include "bant/util/arena.h"
 #include "bant/util/disjoint-range-map.h"
 #include "bant/util/file-utils.h"
 #include "bant/workspace.h"
@@ -45,9 +50,11 @@ class ParsedBuildFile {
 
   std::string_view name() const { return source_.source_name(); }
 
+  // NOLINTBEGIN(misc-non-private-member-variables-in-classes) // TODO: fix
   BazelPackage package;
   List *ast;           // parsed AST. Content owned by arena in ParsedProject
   std::string errors;  // List of errors if observed (todo: make actual list)
+  // NOLINTEND(misc-non-private-member-variables-in-classes)
 
  private:
   friend class ParsedProject;  // It is allowed to access source_ directly.

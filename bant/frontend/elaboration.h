@@ -25,6 +25,7 @@
 #include "bant/frontend/ast.h"
 #include "bant/frontend/parsed-project.h"
 #include "bant/session.h"
+#include "bant/types-bazel.h"
 
 namespace bant {
 

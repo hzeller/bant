@@ -88,7 +88,7 @@ class Scanner {
   // All tokens returned by the Scanner are sub-string_views of the larger
   // content; this allows correspondence with the original text to extract
   // source.Loc() information.
-  Scanner(NamedLineIndexedContent &source);
+  explicit Scanner(NamedLineIndexedContent &source);
 
   // Advance to next token and return it.
   Token Next();
