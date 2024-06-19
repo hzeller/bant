@@ -94,6 +94,7 @@ cc_test(
         "//bant/frontend:source-locator",
         "@abseil-cpp//absl/container:flat_hash_map",
         "@abseil-cpp//absl/log:check",
+        "@abseil-cpp//absl/strings:str_format",
         "@googletest//:gtest",
         "@googletest//:gtest_main",
     ],

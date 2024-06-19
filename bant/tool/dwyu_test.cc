@@ -26,6 +26,7 @@
 
 #include "absl/container/flat_hash_map.h"
 #include "absl/log/check.h"
+#include "absl/strings/str_format.h"
 #include "bant/frontend/named-content.h"
 #include "bant/frontend/parsed-project.h"
 #include "bant/frontend/parsed-project_testutil.h"
@@ -442,6 +443,69 @@ cc_library(
   tester.RunForTarget("//some/path:bar");
 }
 
+TEST(DWYUTest, AllowVisibilityFromVariable) {
+  for (const bool private_visibility : {false, true}) {
+    ParsedProjectTestUtil pp;
+    pp.Add("//lib/path",
+           absl::StrFormat(R"(
+VISIBILITY_VARIABLE = "//visibility:%s"
+cc_library(
+  name = "foo",
+  srcs = ["foo.cc"],
+  hdrs = ["foo.h"],
+  visibility = [ VISIBILITY_VARIABLE ],
+)
+)",
+                           private_visibility ? "private" : "public"));
+
+    pp.Add("//some/path", R"(
+cc_library(
+  name = "bar",
+  srcs = ["bar.cc"],
+)
+)");
+
+    pp.ElaborateAll();  // Expand variables
+    DWYUTestFixture tester(pp.project());
+    // Library is only added if now private
+    if (!private_visibility) {
+      tester.ExpectAdd("//lib/path:foo");
+    }
+    tester.AddSource("some/path/bar.cc", R"(
+#include "lib/path/foo.h"
+)");
+    tester.RunForTarget("//some/path:bar");
+  }
+}
+
+// If we can't expand, err on the 'public' side.
+TEST(DWYUTest, ConsiderUnknownVisibilityVariableToAllowPublic) {
+  ParsedProjectTestUtil pp;
+  pp.Add("//lib/path", R"(
+cc_library(
+  name = "foo",
+  srcs = ["foo.cc"],
+  hdrs = ["foo.h"],
+  visibility = [ UNKNOWN_VARIABLE ],
+)
+)");
+
+  pp.Add("//some/path", R"(
+cc_library(
+  name = "bar",
+  srcs = ["bar.cc"],
+)
+)");
+
+  pp.ElaborateAll();  // Expand variables, but UNKNOWN_VARIABLE will stay as-is
+  DWYUTestFixture tester(pp.project());
+  tester.ExpectAdd("//lib/path:foo");  // Added, because unknown means: public
+  tester.AddSource("some/path/bar.cc", R"(
+#include "lib/path/foo.h"
+)");
+  tester.RunForTarget("//some/path:bar");
+}
+
 TEST(DWYUTest, Add_AlwaysConsiderLocalPackagesVisible) {
   ParsedProjectTestUtil pp;
   pp.Add("//lib/path", R"(
@@ -693,7 +757,7 @@ cc_library(
 // library. Below, situation re-created.
 TEST(DWYUTest, Add_AbslStringViewWorkaround) {
   ParsedProjectTestUtil pp;
-  pp.Add("//absl/strings", R"(
+  pp.Add("//foo/absl/strings", R"(   # iff packages suffix is absl/strings
 cc_library(
   name = "string_view",
   hdrs = ["string_view.h"]  # The actual place definining header
@@ -721,11 +785,11 @@ cc_binary(
     DWYUTestFixture tester(pp.project());
     tester.ExpectAdd(":strings");
     tester.ExpectAdd(":string_view");
-    tester.AddSource("absl/strings/string-user.cc", R"(
-#include "absl/strings/str_cat.h"
-#include "absl/strings/string_view.h"
+    tester.AddSource("foo/absl/strings/string-user.cc", R"(
+#include "foo/absl/strings/str_cat.h"
+#include "foo/absl/strings/string_view.h"
 )");
-    tester.RunForTarget("//absl/strings:string-user");
+    tester.RunForTarget("//foo/absl/strings:string-user");
   }
 }
 

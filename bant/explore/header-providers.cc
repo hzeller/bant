@@ -113,7 +113,8 @@ static void IterateCCLibraryHeaders(const ParsedBuildFile &build_file,
       // This way, we get the desired behavior of bant suggesting to use
       // the :string_view library.
       // Narrow this hack to the very specific library.
-      bool absl_string_view_skip = (build_file.package.path == "absl/strings");
+      bool absl_string_view_skip =
+        (build_file.package.path.ends_with("absl/strings"));
       if (absl_string_view_skip) {
         absl_string_view_skip =
           std::find(hdrs.begin(), hdrs.end(), "string_view.h") != hdrs.end() &&

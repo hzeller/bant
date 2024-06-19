@@ -260,16 +260,21 @@ bool DWYUGenerator::CanSee(const BazelTarget &target,
   }
   List *visibility_list = found->second.visibility;
   if (!visibility_list) return true;
+  bool any_valid_visiblity_pattern = false;
   for (Node *entry : *visibility_list) {
     const Scalar *str = entry->CastAsScalar();
     if (!str) continue;
     auto vis_or = BazelPattern::ParseVisibility(str->AsString(), dep.package);
     if (!vis_or.has_value()) continue;
+    any_valid_visiblity_pattern = true;
     if (vis_or->Match(target)) {
       return true;
     }
   }
-  return false;
+  // There might be variables and other things that we couldn't elaborate.
+  // So in case there was not a single pattern we can expand, assume this to
+  // be public visibility.
+  return !any_valid_visiblity_pattern;
 }
 
 // TODO: this needs to be in a central place. Also needed in elaboration.

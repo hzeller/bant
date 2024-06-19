@@ -124,6 +124,7 @@ cc_library(
     testonly = True,
     hdrs = ["parsed-project_testutil.h"],
     deps = [
+        ":elaboration",
         ":parsed-project",
         "//bant:session",
         "//bant:types-bazel",

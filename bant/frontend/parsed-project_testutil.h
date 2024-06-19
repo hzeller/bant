@@ -19,6 +19,7 @@
 #define BANT_PARSED_PROJECT_TESTUTIL_
 
 #include "absl/strings/str_cat.h"
+#include "bant/frontend/elaboration.h"
 #include "bant/frontend/parsed-project.h"
 #include "bant/session.h"
 #include "bant/types-bazel.h"
@@ -40,6 +41,11 @@ class ParsedProjectTestUtil {
 
   // The project.
   ParsedProject &project() { return project_; }
+
+  void ElaborateAll() {
+    Session session(&std::cerr, &std::cerr, CommandlineFlags{.verbose = 1});
+    Elaborate(session, &project_);
+  }
 
  private:
   ParsedProject project_{{}, false};
