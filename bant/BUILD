@@ -45,6 +45,7 @@ cc_binary(
         "//bant/frontend:elaboration",
         "//bant/frontend:parsed-project",
         "//bant/tool:canon-targets",
+        "//bant/tool:compilation-db",
         "//bant/tool:dwyu",
         "//bant/tool:edit-callback",
         "//bant/util:file-utils",

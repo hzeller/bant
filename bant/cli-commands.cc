@@ -35,6 +35,7 @@
 #include "bant/frontend/parsed-project.h"
 #include "bant/session.h"
 #include "bant/tool/canon-targets.h"
+#include "bant/tool/compilation-db.h"
 #include "bant/tool/dwyu.h"
 #include "bant/tool/edit-callback.h"
 #include "bant/types-bazel.h"
@@ -63,6 +64,7 @@ enum class Command {
   kAliasedBy,
   kGenruleOutputs,
   kDWYU,
+  kCompilationDB,
   kCanonicalizeDeps,
   kHasDependents,
   kDependsOn,
@@ -120,7 +122,8 @@ CliStatus RunCommand(Session &session, Command cmd,
     flags.recurse_dependency_depth = std::numeric_limits<int>::max();
   }
 
-  if (flags.elaborate || cmd == Command::kDWYU) {
+  if (flags.elaborate || cmd == Command::kDWYU ||
+      cmd == Command::kCompilationDB) {
     bant::Elaborate(session, &project);
   }
 
@@ -262,6 +265,10 @@ CliStatus RunCommand(Session &session, Command cmd,
                 "library", "has-dependent");
     break;
 
+  case Command::kCompilationDB:
+    WriteCompilationDB(session, project, pattern);
+    break;
+
   case Command::kNone:  // nop (implicitly done by parsing)
     ;
   }
@@ -287,6 +294,7 @@ CliStatus RunCliCommand(Session &session, std::span<std::string_view> args) {
     {"has-dependents", Command::kHasDependents},
     {"genrule-outputs", Command::kGenruleOutputs},
     {"dwyu", Command::kDWYU},
+    {"compilation-db", Command::kCompilationDB},
     {"canonicalize", Command::kCanonicalizeDeps},
   };
 

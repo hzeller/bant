@@ -99,3 +99,18 @@ cc_test(
         "@googletest//:gtest_main",
     ],
 )
+
+cc_library(
+    name = "compilation-db",
+    srcs = ["compilation-db.cc"],
+    hdrs = ["compilation-db.h"],
+    deps = [
+        "//bant:session",
+        "//bant:types-bazel",
+        "//bant:workspace",
+        "//bant/explore:query-utils",
+        "//bant/frontend:parsed-project",
+        "@abseil-cpp//absl/container:flat_hash_set",
+        "@abseil-cpp//absl/strings",
+    ],
+)
