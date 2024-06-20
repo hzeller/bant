@@ -227,7 +227,8 @@ void DWYUGenerator::InitKnownLibraries() {
   for (const auto &[_, parsed_package] : project_.ParsedFiles()) {
     const BazelPackage &current_package = parsed_package->package;
     query::FindTargets(parsed_package->ast,
-                       {"cc_library", "cc_proto_library", "alias"},  //
+                       {"cc_library", "cc_proto_library", "alias",  //
+                        "cc_test"},  // also indexing test for testonly check.
                        [&](const query::Result &target) {
                          auto self = BazelTarget::ParseFrom(
                            absl::StrCat(":", target.name), current_package);
@@ -246,18 +247,49 @@ bool DWYUGenerator::IsAlwayslink(const BazelTarget &target) const {
   return found->second.alwayslink;
 }
 
+bool DWYUGenerator::IsTestonlyMismatch(const BazelTarget &target,
+                                       const BazelTarget &dep,
+                                       const query::Result &dep_detail) const {
+  if (!dep_detail.testonly) return false;  // non-testonly always compatible.
+
+  auto target_detail_found = known_libs_.find(target);
+  if (target_detail_found == known_libs_.end()) {
+    return false;  // Should not happen, but let's not flag as issue.
+  }
+  const query::Result &target_detail = target_detail_found->second;
+  if (target_detail.testonly || target_detail.rule == "cc_test") {
+    return false;
+  }
+
+  project_.Loc(session_.info(), target_detail.name)
+    << " '" << target << "' is using headers that would be provided by '" << dep
+    << "', but the latter is marked testonly, the former not. "
+    << "Not adding dependency.\n";
+  return true;
+}
+
 bool DWYUGenerator::CanSee(const BazelTarget &target,
                            const BazelTarget &dep) const {
-  if (target.package == dep.package) {
-    // We can implicitly see all the targets in the same package.
-    return true;
-  }
   auto found = known_libs_.find(dep);
   if (found == known_libs_.end()) return true;  // Unknown ? Be Bold.
   if (!found->second.deprecation.empty()) {
     // Consider a library with a deprecation as not visible.
     return false;
   }
+
+  // If the dependency in question is testonly, but we're not, then
+  // this is equivalent to not visible.
+  if (IsTestonlyMismatch(target, dep, found->second)) {
+    return false;
+  }
+
+  // On to actual visibility checks.
+
+  if (target.package == dep.package) {
+    // We can implicitly see all the targets in the same package.
+    return true;
+  }
+
   List *visibility_list = found->second.visibility;
   if (!visibility_list) return true;
   bool any_valid_visiblity_pattern = false;

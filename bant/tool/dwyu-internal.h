@@ -81,6 +81,8 @@ class DWYUGenerator {
                             const ParsedBuildFile &build_file);
 
   bool IsAlwayslink(const BazelTarget &target) const;
+  bool IsTestonlyMismatch(const BazelTarget &target, const BazelTarget &dep,
+                          const query::Result &dep_detail) const;
   bool CanSee(const BazelTarget &target, const BazelTarget &dep) const;
 
   Session &session_;

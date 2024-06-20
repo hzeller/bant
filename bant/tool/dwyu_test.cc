@@ -560,6 +560,34 @@ cc_library(
   tester.RunForTarget("//some/path:bar");
 }
 
+TEST(DWYUTest, DoNotAdd_IfTestonlyMismatch) {
+  ParsedProjectTestUtil pp;
+  pp.Add("//lib/path", R"(
+cc_library(
+  name = "foo",
+  srcs = ["foo.cc"],
+  hdrs = ["foo.h"],
+  testonly = True,
+)
+)");
+
+  pp.Add("//some/path", R"(
+cc_library(
+  name = "bar",
+  srcs = ["bar.cc"],
+  # needed //lib/path:foo dependency not given, but it is testonly.
+)
+)");
+
+  DWYUTestFixture tester(pp.project());
+  // No add expected.
+  tester.AddSource("some/path/bar.cc", R"(
+#include "lib/path/foo.h"
+)");
+  tester.RunForTarget("//some/path:bar");
+  EXPECT_THAT(tester.LogContent(), HasSubstr("is marked testonly"));
+}
+
 TEST(DWYUTest, Remove_SuperfluousDependency) {
   ParsedProjectTestUtil pp;
   pp.Add("//some/path", R"(

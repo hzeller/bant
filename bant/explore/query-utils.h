@@ -49,6 +49,7 @@ struct Result {
   std::string_view include_prefix;        // ... to manipulate the path ...
   std::string_view strip_include_prefix;  // ... files from hdrs are found.
   bool alwayslink = false;
+  bool testonly = false;
 };
 
 // Callback of a query.

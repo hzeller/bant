@@ -90,6 +90,8 @@ class TargetFinder : public BaseVoidVisitor {
         current_.name = scalar->AsString();
       } else if (lhs == "alwayslink") {
         current_.alwayslink = scalar->AsInt();
+      } else if (lhs == "testonly") {
+        current_.testonly = scalar->AsInt();
       } else if (lhs == "include_prefix") {
         current_.include_prefix = scalar->AsString();
       } else if (lhs == "strip_include_prefix") {
@@ -127,6 +129,8 @@ class TargetFinder : public BaseVoidVisitor {
       // But until then, we need to check for the constant symbol manually.
       if (lhs == "alwayslink") {
         current_.alwayslink = (id->id() == "True");
+      } else if (lhs == "testonly") {
+        current_.testonly = (id->id() == "True");
       }
     }
   }
