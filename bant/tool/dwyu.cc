@@ -128,8 +128,8 @@ void DWYUGenerator::CreateEditsForTarget(const BazelTarget &target,
   // verify we actually need them. If not: remove.
   const auto deps = query::ExtractStringList(details.deps_list);
   for (const std::string_view dependency_target : deps) {
-    auto requested_target = BazelTarget::ParseFrom(dependency_target,  //
-                                                   target.package);
+    const auto requested_target = BazelTarget::ParseFrom(dependency_target,  //
+                                                         target.package);
     if (!requested_target.has_value()) {
       project_.Loc(session_.info(), dependency_target)
         << " Invalid target name '" << dependency_target << "'\n";
@@ -191,7 +191,7 @@ void DWYUGenerator::CreateEditsForTarget(const BazelTarget &target,
     }
 
     const BazelTarget &need_add = *need_add_alternatives.begin();
-    if (CanSee(target, need_add)) {
+    if (CanSee(target, need_add) && IsTestonlyCompatible(target, need_add)) {
       emit_deps_edit_(EditRequest::kAdd, target, "",
                       need_add.ToStringRelativeTo(target.package));
     } else if (session_.flags().verbose > 1) {
@@ -247,25 +247,30 @@ bool DWYUGenerator::IsAlwayslink(const BazelTarget &target) const {
   return found->second.alwayslink;
 }
 
-bool DWYUGenerator::IsTestonlyMismatch(const BazelTarget &target,
-                                       const BazelTarget &dep,
-                                       const query::Result &dep_detail) const {
-  if (!dep_detail.testonly) return false;  // non-testonly always compatible.
+bool DWYUGenerator::IsTestonlyCompatible(const BazelTarget &target,
+                                         const BazelTarget &dep) const {
+  const auto dependency_detail_found = known_libs_.find(dep);
+  if (dependency_detail_found == known_libs_.end()) return true;
 
-  auto target_detail_found = known_libs_.find(target);
+  const query::Result &dep_detail = dependency_detail_found->second;
+  if (!dep_detail.testonly) return true;  // non-testonly always compatible.
+
+  const auto target_detail_found = known_libs_.find(target);
   if (target_detail_found == known_libs_.end()) {
-    return false;  // Should not happen, but let's not flag as issue.
+    return true;  // Should not happen, but let's not flag as issue.
   }
   const query::Result &target_detail = target_detail_found->second;
   if (target_detail.testonly || target_detail.rule == "cc_test") {
-    return false;
+    return true;  // target and dependency are both tests.
   }
 
   project_.Loc(session_.info(), target_detail.name)
     << " '" << target << "' is using headers that would be provided by '" << dep
     << "', but the latter is marked testonly, the former not. "
     << "Not adding dependency.\n";
-  return true;
+  // TODO: print _what_ headers that is.
+
+  return false;
 }
 
 bool DWYUGenerator::CanSee(const BazelTarget &target,
@@ -276,14 +281,6 @@ bool DWYUGenerator::CanSee(const BazelTarget &target,
     // Consider a library with a deprecation as not visible.
     return false;
   }
-
-  // If the dependency in question is testonly, but we're not, then
-  // this is equivalent to not visible.
-  if (IsTestonlyMismatch(target, dep, found->second)) {
-    return false;
-  }
-
-  // On to actual visibility checks.
 
   if (target.package == dep.package) {
     // We can implicitly see all the targets in the same package.
