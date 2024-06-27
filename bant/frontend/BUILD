@@ -58,11 +58,13 @@ cc_library(
     srcs = [
         "ast.cc",
         "parser.cc",
+        "print-visitor.cc",
         "scanner.cc",
     ],
     hdrs = [
         "ast.h",
         "parser.h",
+        "print-visitor.h",
         "scanner.h",
     ],
     deps = [

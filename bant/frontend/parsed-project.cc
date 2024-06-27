@@ -30,6 +30,7 @@
 #include "bant/explore/query-utils.h"
 #include "bant/frontend/ast.h"
 #include "bant/frontend/parser.h"
+#include "bant/frontend/print-visitor.h"
 #include "bant/frontend/scanner.h"
 #include "bant/frontend/source-locator.h"
 #include "bant/session.h"

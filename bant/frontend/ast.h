@@ -56,6 +56,10 @@ class Node {
   virtual Node *Accept(NodeVisitor *v) = 0;
 };
 
+// Printing a node. If pointer is non-null, it is dereferenced and printed.
+// (defined in print-visitor.*)
+std::ostream &operator<<(std::ostream &o, Node *n);
+
 class Scalar : public Node {
  public:
   enum class ScalarType { kInt, kString };
@@ -431,28 +435,6 @@ class BaseNodeReplacementVisitor : public NodeVisitor {
  private:
   void ReplaceWalk(Node **n) { *n = WalkNonNull(*n); }
 };
-
-class PrintVisitor : public BaseVoidVisitor {
- public:
-  explicit PrintVisitor(std::ostream &out) : out_(out) {}
-  // Using default impl. for Assignment.
-  void VisitFunCall(FunCall *f) final;
-  void VisitList(List *l) final;
-
-  void VisitUnaryExpr(UnaryExpr *e) final;
-  void VisitBinOpNode(BinOpNode *b) final;
-  void VisitListComprehension(ListComprehension *lh) final;
-  void VisitTernary(Ternary *t) final;
-
-  void VisitScalar(Scalar *s) final;
-  void VisitIdentifier(Identifier *i) final;
-
- private:
-  int indent_ = 0;
-  std::ostream &out_;
-};
-
-std::ostream &operator<<(std::ostream &o, Node *n);
 
 // VoidVisitor Accept()ors
 inline void Assignment::Accept(VoidVisitor *v) { v->VisitAssignment(this); }
