@@ -22,6 +22,7 @@
 
 #include "bant/frontend/ast.h"
 #include "bant/frontend/scanner.h"
+#include "re2/re2.h"
 
 namespace bant {
 void PrintVisitor::VisitFunCall(FunCall *f) {
@@ -122,6 +123,11 @@ void PrintVisitor::VisitScalar(Scalar *s) {
       str->AsString().find_first_of('"') != std::string_view::npos;
     const char quote_char = has_any_double_quote ? '\'' : '"';
     if (str->is_triple_quoted()) out_ << quote_char << quote_char;
+    if (optional_highlight_) {
+      // TODO: actually highlight.
+      any_highlight_ |=
+        RE2::PartialMatch(str->AsString(), *optional_highlight_);
+    }
     out_ << quote_char << str->AsString() << quote_char;
     if (str->is_triple_quoted()) out_ << quote_char << quote_char;
   }

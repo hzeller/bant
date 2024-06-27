@@ -73,6 +73,7 @@ cc_library(
         "//bant/util:memory",
         "@abseil-cpp//absl/log:check",
         "@abseil-cpp//absl/strings",
+        "@re2",
     ],
 )
 
@@ -120,6 +121,7 @@ cc_library(
         "//bant/util:memory",
         "//bant/util:stat",
         "@abseil-cpp//absl/log:check",
+        "@re2",
     ],
 )
 

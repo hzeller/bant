@@ -81,10 +81,13 @@ static int usage(const char *prog, const char *message, int exit_code) {
 Commands (unique prefix sufficient):
     %s== Parsing ==%s
     print          : Print AST matching pattern. -e : only files w/ parse errors
-                     -b : elaBorate; light eval: expand variables, concat etc.
+                      -b : elaBorate; light eval: expand variables, concat etc.
+                      -g <regex> : 'grep' - only print targets where any string
+                                    matches regex.
+                      -i If '-g' is given: case insensitive
     parse          : Parse all BUILD files from pattern. Follow deps with -r
                      Emit parse errors. Silent otherwise: No news are good news.
-                     -v : some stats.
+                      -v : some stats.
 
     %s== Extract facts ==%s (Use -f to choose output format) ==
     workspace      : Print external projects found in WORKSPACE.
@@ -110,7 +113,7 @@ Commands (unique prefix sufficient):
 
     %s== Tools ==%s
     dwyu           : DWYU: Depend on What You Use (emit buildozer edit script)
-                     -k strict: emit remove even if # keep comment in line.
+                      -k strict: emit remove even if # keep comment in line.
     canonicalize   : Emit rename edits to canonicalize targets.
 )",
           BOLD, RESET, BOLD, RESET, BOLD, RESET);
@@ -132,6 +135,8 @@ int main(int argc, char *argv[]) {
 
   bant::CommandlineFlags flags;
 
+  bool regex_case_insesitive = false;
+
   using bant::OutputFormat;
   static const std::map<std::string_view, OutputFormat> kFormatOutNames = {
     {"native", OutputFormat::kNative}, {"s-expr", OutputFormat::kSExpr},
@@ -139,7 +144,7 @@ int main(int argc, char *argv[]) {
     {"json", OutputFormat::kJSON},     {"graphviz", OutputFormat::kGraphviz},
   };
   int opt;
-  while ((opt = getopt(argc, argv, "C:qo:vhpecbf:r::Vk")) != -1) {
+  while ((opt = getopt(argc, argv, "C:qo:vhpecbf:r::Vkg:i")) != -1) {
     switch (opt) {
     case 'C': {
       std::error_code err;
@@ -176,10 +181,13 @@ int main(int argc, char *argv[]) {
                                          : std::numeric_limits<int>::max();
       break;
 
-    case 'k':
-      flags.ignore_keep_comment = true;
-      break;
+    case 'k': flags.ignore_keep_comment = true; break;
 
+    case 'g': flags.grep_regex = optarg; break;
+
+    case 'i':
+      regex_case_insesitive = true;
+      break;
       // "print" options
     case 'p': flags.print_ast = true; break;
     case 'e': flags.print_only_errors = true; break;
@@ -195,6 +203,10 @@ int main(int argc, char *argv[]) {
     case 'V': return print_version();
     default: return usage(argv[0], nullptr, EXIT_SUCCESS);
     }
+  }
+
+  if (regex_case_insesitive && !flags.grep_regex.empty()) {
+    flags.grep_regex.insert(0, "(?i)");
   }
 
   bant::FilesystemPrewarmCacheInit(argc, argv);

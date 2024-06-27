@@ -19,6 +19,7 @@
 
 #include <cstdlib>
 #include <iostream>
+#include <memory>
 #include <optional>
 #include <sstream>
 #include <string>
@@ -38,6 +39,7 @@
 #include "bant/util/file-utils.h"
 #include "bant/util/stat.h"
 #include "bant/workspace.h"
+#include "re2/re2.h"
 
 namespace bant {
 namespace {
@@ -236,7 +238,19 @@ const ParsedBuildFile *ParsedProject::FindParsedOrNull(
 
 void PrintProject(const BazelPattern &pattern, std::ostream &out,
                   std::ostream &info_out, const ParsedProject &project,
-                  bool only_files_with_errors) {
+                  bool only_files_with_errors, std::string_view grep_regex) {
+  std::unique_ptr<RE2> regex;
+  if (!grep_regex.empty()) {
+    // TODO: pass options to not log error
+    regex = std::make_unique<RE2>(grep_regex);
+    if (!regex->ok()) {
+      // This really needs the session passed in so that we can reach the
+      // correct error stream.
+      std::cerr << "Grep pattern: " << regex->error() << "\n";
+      return;
+    }
+  }
+
   for (const auto &[package, file_content] : project.ParsedFiles()) {
     if (only_files_with_errors && file_content->errors.empty()) {
       continue;
@@ -245,26 +259,28 @@ void PrintProject(const BazelPattern &pattern, std::ostream &out,
       continue;
     }
 
-    if (pattern.is_recursive()) {
-      out << "# " << file_content->name() << ": "
-          << file_content->package.ToString() << "\n";
-      info_out << file_content->errors;
-      PrintVisitor(out).WalkNonNull(file_content->ast);
-      out << "\n";
-    } else {
-      query::FindTargets(
-        file_content->ast, {}, [&](const query::Result &result) {
+    query::FindTargetsAllowEmptyName(
+      file_content->ast, {}, [&](const query::Result &result) {
+        if (!pattern.is_recursive()) {
+          // Need more specific check if matches.
           auto self = BazelTarget::ParseFrom(result.name, package);
           if (!self.has_value() || !pattern.Match(*self)) {
             return;
           }
-          // TODO: instead of just marking the range of the function name,
-          // show the range the whole function covers until closed parenthesis.
-          out << "# " << project.Loc(result.node->identifier()->id()) << "\n";
-          PrintVisitor(out).WalkNonNull(result.node);
-          out << "\n";
-        });
-    }
+        }
+
+        // TODO: instead of just marking the range of the function name,
+        // show the range the whole function covers until closed parenthesis.
+        // TODO: if isatty(out), color filename gray
+        std::stringstream tmp_out;
+        tmp_out << "# " << project.Loc(result.node->identifier()->id()) << "\n";
+        PrintVisitor printer(tmp_out, regex.get());
+        printer.WalkNonNull(result.node);
+        tmp_out << "\n";
+        if (!regex || printer.any_highlight()) {  // w/o regex: always print.
+          out << tmp_out.str();
+        }
+      });
   }
 }
 }  // namespace bant

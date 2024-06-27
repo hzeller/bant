@@ -180,10 +180,12 @@ CliStatus RunCommand(Session &session, Command cmd,
   switch (cmd) {
   case Command::kPrint: flags.print_ast = true; [[fallthrough]];
   case Command::kParse:
-    // Parsing has already be done by now by building the dependency graph
+    // Parsing has already be done by now by building the dependency graph,
+    // so it would already have emitted parse errors. Here we only have to
+    // decide if we print anything.
     if (flags.print_ast || flags.print_only_errors) {
       bant::PrintProject(pattern, session.out(), session.info(), project,
-                         flags.print_only_errors);
+                         flags.print_only_errors, flags.grep_regex);
     }
     break;
 

@@ -60,6 +60,13 @@ of these and print the final form:
 bant print -b @googletest//:gtest
 ```
 
+The `-g` option allows to 'grep' for targets where any of the strings in the
+AST of a rule matches a pattern
+
+```
+bant print ... -g "arena.*test"
+```
+
 #### Workspace
 
 **`workspace`** prints all the external projects found in the workspace.
@@ -229,10 +236,13 @@ Options
 Commands (unique prefix sufficient):
     == Parsing ==
     print          : Print AST matching pattern. -e : only files w/ parse errors
-                     -b : elaBorate; light eval: expand variables, concat etc.
+                      -b : elaBorate; light eval: expand variables, concat etc.
+                      -g <regex> : 'grep' - only print targets where any string
+                                    matches regex.
+                      -i If '-g' is given: case insensitive
     parse          : Parse all BUILD files from pattern. Follow deps with -r
                      Emit parse errors. Silent otherwise: No news are good news.
-                     -v : some stats.
+                      -v : some stats.
 
     == Extract facts == (Use -f to choose output format) ==
     workspace      : Print external projects found in WORKSPACE.
@@ -258,7 +268,7 @@ Commands (unique prefix sufficient):
 
     == Tools ==
     dwyu           : DWYU: Depend on What You Use (emit buildozer edit script)
-                     -k strict: emit remove even if # keep comment in line.
+                      -k strict: emit remove even if # keep comment in line.
     canonicalize   : Emit rename edits to canonicalize targets.
 ```
 

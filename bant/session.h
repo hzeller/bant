@@ -53,6 +53,7 @@ struct CommandlineFlags {
   bool ignore_keep_comment = false;
   int recurse_dependency_depth = 0;
   OutputFormat output_format = OutputFormat::kNative;
+  std::string grep_regex;
 };
 
 // A session contains some settings such as output/verbose requests
