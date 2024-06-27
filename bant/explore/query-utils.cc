@@ -136,7 +136,6 @@ class TargetFinder : public BaseVoidVisitor {
   }
 
   void InformCaller() {
-    if (current_.name.empty()) return;
     // If we never got a hdrs list (or couldn't read it because
     // it was a glob), assume this is an alwayslink library, so it wouldn't be
     // considered for removal by DWYU (e.g. :gtest_main)

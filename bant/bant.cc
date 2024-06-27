@@ -81,12 +81,15 @@ static int usage(const char *prog, const char *message, int exit_code) {
 Commands (unique prefix sufficient):
     %s== Parsing ==%s
     print          : Print AST matching pattern. -e : only files w/ parse errors
-                     -b : elaBorate
+                     -b : elaBorate; light eval: expand variables, concat etc.
     parse          : Parse all BUILD files from pattern. Follow deps with -r
                      Emit parse errors. Silent otherwise: No news are good news.
+                     -v : some stats.
 
     %s== Extract facts ==%s (Use -f to choose output format) ==
     workspace      : Print external projects found in WORKSPACE.
+                     Without pattern: All external projects.
+                     With pattern   : Subset referenced by matching targets.
                      → 3 column table: (project, version, path)
 
     -- Given '-r', the following also follow dependencies recursively --

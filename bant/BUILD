@@ -48,6 +48,7 @@ cc_binary(
         "//bant/tool:compilation-db",
         "//bant/tool:dwyu",
         "//bant/tool:edit-callback",
+        "//bant/tool:workspace",
         "//bant/util:file-utils",
         "//bant/util:table-printer",
         "@abseil-cpp//absl/strings",

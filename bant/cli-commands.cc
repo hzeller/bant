@@ -34,14 +34,17 @@
 #include "bant/frontend/elaboration.h"
 #include "bant/frontend/parsed-project.h"
 #include "bant/session.h"
-#include "bant/tool/canon-targets.h"
-#include "bant/tool/compilation-db.h"
-#include "bant/tool/dwyu.h"
-#include "bant/tool/edit-callback.h"
 #include "bant/types-bazel.h"
 #include "bant/types.h"
 #include "bant/util/table-printer.h"
 #include "bant/workspace.h"
+
+// Tools accessible by these commands
+#include "bant/tool/canon-targets.h"
+#include "bant/tool/compilation-db.h"
+#include "bant/tool/dwyu.h"
+#include "bant/tool/edit-callback.h"
+#include "bant/tool/workspace.h"
 
 namespace bant {
 using ::bant::query::FindTargets;
@@ -87,6 +90,14 @@ void PrintOneToN(bant::Session &session, const BazelPattern &pattern,
   printer->Finish();
 }
 
+static bool NeedsProjectPopulated(Command cmd, const BazelPattern &pattern) {
+  // No need to even parse the project if we just print the full workspace
+  if (cmd == Command::kListWorkkspace && pattern.is_matchall()) {
+    return false;  // NOLINT(readability-simplify-boolean-expr)
+  }
+  return true;
+}
+
 CliStatus RunCommand(Session &session, Command cmd,
                      const BazelPattern &pattern) {
   // -- TODO: a lot of the following functionality including choosing what
@@ -111,7 +122,7 @@ CliStatus RunCommand(Session &session, Command cmd,
   CommandlineFlags flags = session.flags();
 
   bant::ParsedProject project(workspace, flags.verbose);
-  if (cmd != Command::kListWorkkspace) {
+  if (NeedsProjectPopulated(cmd, pattern)) {
     if (project.FillFromPattern(session, dep_pattern) == 0) {
       session.error() << "Pattern did not match any dir with BUILD file.\n";
     }
@@ -233,19 +244,9 @@ CliStatus RunCommand(Session &session, Command cmd,
     printer->Finish();
   } break;
 
-  case Command::kListWorkkspace: {
-    // For now, we just load the workspace file in this command. We might need
-    // it later also to resolve dependencies.
-    auto printer =
-      TablePrinter::Create(session.out(), session.flags().output_format,
-                           {"project", "version", "directory"});
-    for (const auto &[project, file] : workspace_or->project_location) {
-      printer->AddRow({project.project,
-                       project.version.empty() ? "-" : project.version,
-                       file.path()});
-    }
-    printer->Finish();
-  } break;
+  case Command::kListWorkkspace:
+    PrintMatchingWorkspaceExternalRepos(session, project, pattern);
+    break;
 
   case Command::kAliasedBy:
     PrintOneToN(session, print_pattern, bant::ExtractAliasedBy(project),  //

@@ -115,3 +115,20 @@ cc_library(
         "@abseil-cpp//absl/strings",
     ],
 )
+
+cc_library(
+    name = "workspace",
+    srcs = ["workspace.cc"],
+    hdrs = ["workspace.h"],
+    deps = [
+        "//bant:session",
+        "//bant:types",
+        "//bant:types-bazel",
+        "//bant:workspace",
+        "//bant/explore:query-utils",
+        "//bant/frontend:parsed-project",
+        "//bant/util:file-utils",
+        "//bant/util:table-printer",
+        "@abseil-cpp//absl/strings",
+    ],
+)

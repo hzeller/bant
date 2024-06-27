@@ -60,15 +60,31 @@ of these and print the final form:
 bant print -b @googletest//:gtest
 ```
 
+#### Workspace
+
+**`workspace`** prints all the external projects found in the workspace.
+
+```
+bant workspace   # All external projects referenced in this workspace
+```
+
+If you give a pattern, it will only print external projects used
+by targets matching the pattern:
+
+```
+bant workspace ...        # Print projects referenced in your project
+bant workspace @re2//...  # Print projects referenced by re2
+```
+
 #### list-targets
 
 If you want to find the file quickly, `bant list-target //foo/bar:baz`
 will output the filename and exact line/column range where the target
- resides.
+resides.
 
 ```bash
 bant list-targets //...     # list all targets of current project
-bant list-targets -r //...  # also following all dependencies
+bant list-targets -r //...  # also recursively following all dependencies
 ```
 
 #### lib-headers
@@ -194,7 +210,7 @@ need for it).
 $ bazel-bin/bant/bant -h
 bant v0.1.5 <http://bant.build/>
 Copyright (c) 2024 Henner Zeller. This program is free software; license GPL 2.0.
-Usage: bazel-bin/bant/bant [options] <command> [bazel-target-pattern]
+Usage: bant [options] <command> [bazel-target-pattern]
 Options
     -C <directory> : Change to this project directory first (default = '.')
     -q             : Quiet: don't print info messages to stderr.
@@ -213,12 +229,15 @@ Options
 Commands (unique prefix sufficient):
     == Parsing ==
     print          : Print AST matching pattern. -e : only files w/ parse errors
-                     -b : elaBorate
+                     -b : elaBorate; light eval: expand variables, concat etc.
     parse          : Parse all BUILD files from pattern. Follow deps with -r
                      Emit parse errors. Silent otherwise: No news are good news.
+                     -v : some stats.
 
     == Extract facts == (Use -f to choose output format) ==
     workspace      : Print external projects found in WORKSPACE.
+                     Without pattern: All external projects.
+                     With pattern   : Subset referenced by matching targets.
                      → 3 column table: (project, version, path)
 
     -- Given '-r', the following also follow dependencies recursively --

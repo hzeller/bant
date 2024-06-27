@@ -57,14 +57,21 @@ static constexpr std::string_view kExternalBaseDir =
   return result;
 }
 
-std::optional<FilesystemPath> BazelWorkspace::FindPathByProject(
+BazelWorkspace::Map::const_iterator BazelWorkspace::FindEntryByProject(
   std::string_view name) const {
-  if (name.empty()) return std::nullopt;
+  if (name.empty()) return project_location.end();
   if (name[0] == '@') name.remove_prefix(1);
   const VersionedProject query{.project = std::string(name), .version = ""};
   auto found = project_location.lower_bound(query);
+  if (found == project_location.end()) return found;
+  if (found->first.project != name) return project_location.end();
+  return found;
+}
+
+std::optional<FilesystemPath> BazelWorkspace::FindPathByProject(
+  std::string_view name) const {
+  auto found = FindEntryByProject(name);
   if (found == project_location.end()) return std::nullopt;
-  if (found->first.project != name) return std::nullopt;
   return found->second;
 }
 

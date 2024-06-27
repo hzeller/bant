@@ -37,11 +37,18 @@ struct VersionedProject {
 };
 
 struct BazelWorkspace {
-  // Returns the first Version that matches project name.
+  using Map = OneToOne<VersionedProject, FilesystemPath>;
+
+  // Returns the first Version that matches project name. Query can be with
+  // or without leading '@".
   std::optional<FilesystemPath> FindPathByProject(std::string_view name) const;
 
+  // Lower-level functionality returning the full map-entry. Same look-up
+  // semantics.
+  Map::const_iterator FindEntryByProject(std::string_view name) const;
+
   // Project to directory.
-  OneToOne<VersionedProject, FilesystemPath> project_location;
+  Map project_location;
 };
 
 // Scan current directory for workspace files and create an index of all
