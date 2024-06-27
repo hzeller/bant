@@ -66,11 +66,11 @@ void PrintMatchingWorkspaceExternalRepos(Session &session,
     if (!pattern.Match(current_package)) {
       continue;
     }
-    query::FindTargets(
+    query::FindTargetsAllowEmptyName(
       parsed_package->ast, {}, [&](const query::Result &details) {
         std::vector<std::string_view> potential_external_refs;
         if (details.rule == "load") {  // load() calls at package level.
-          // load() has positional arguments.
+          // load() has positional arguments (and no 'name').
           potential_external_refs =
             query::ExtractStringList(details.node->argument());
         } else {

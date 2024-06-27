@@ -65,6 +65,11 @@ void FindTargets(Node *ast,
                  std::initializer_list<std::string_view> rules_of_interest,
                  const TargetFindCallback &cb);
 
+// Same as above, but allow the name to be empty.
+void FindTargetsAllowEmptyName(
+  Node *ast, std::initializer_list<std::string_view> rules_of_interest,
+  const TargetFindCallback &cb);
+
 // Utility function: extract list of non-empty strings from list-node and
 // return as vector.
 // The original string-views are preserved, so can be used to recover the

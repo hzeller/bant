@@ -31,8 +31,10 @@ namespace {
 class TargetFinder : public BaseVoidVisitor {
  public:
   TargetFinder(std::initializer_list<std::string_view> rules_of_interest,
-               const TargetFindCallback &cb)
-      : of_interest_(rules_of_interest), found_cb_(cb) {}
+               bool allow_empty_name, const TargetFindCallback &cb)
+      : of_interest_(rules_of_interest),
+        allow_empty_name_(allow_empty_name),
+        found_cb_(cb) {}
 
   void VisitFunCall(FunCall *f) final {
     if (in_relevant_call_ != Relevancy::kNotRelevant) {
@@ -136,6 +138,7 @@ class TargetFinder : public BaseVoidVisitor {
   }
 
   void InformCaller() {
+    if (!allow_empty_name_ && current_.name.empty()) return;
     // If we never got a hdrs list (or couldn't read it because
     // it was a glob), assume this is an alwayslink library, so it wouldn't be
     // considered for removal by DWYU (e.g. :gtest_main)
@@ -168,6 +171,7 @@ class TargetFinder : public BaseVoidVisitor {
 
   Relevancy in_relevant_call_ = Relevancy::kNotRelevant;
   const absl::flat_hash_set<std::string_view> of_interest_;
+  const bool allow_empty_name_;
   const TargetFindCallback &found_cb_;
 };
 }  // namespace
@@ -175,7 +179,13 @@ class TargetFinder : public BaseVoidVisitor {
 void FindTargets(Node *ast,
                  std::initializer_list<std::string_view> rules_of_interest,
                  const TargetFindCallback &cb) {
-  TargetFinder(rules_of_interest, cb).WalkNonNull(ast);
+  TargetFinder(rules_of_interest, false, cb).WalkNonNull(ast);
+}
+
+void FindTargetsAllowEmptyName(
+  Node *ast, std::initializer_list<std::string_view> rules_of_interest,
+  const TargetFindCallback &cb) {
+  TargetFinder(rules_of_interest, true, cb).WalkNonNull(ast);
 }
 
 void AppendStringList(List *list, std::vector<std::string_view> &append_to) {
