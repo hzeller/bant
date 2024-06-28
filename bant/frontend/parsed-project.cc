@@ -236,13 +236,14 @@ const ParsedBuildFile *ParsedProject::FindParsedOrNull(
   return found->second.get();
 }
 
-void PrintProject(const BazelPattern &pattern, std::ostream &out,
-                  std::ostream &info_out, const ParsedProject &project,
-                  bool only_files_with_errors, std::string_view grep_regex) {
+void PrintProject(Session &session, const BazelPattern &pattern,
+                  const ParsedProject &project) {
+  const CommandlineFlags &flags = session.flags();
+
   std::unique_ptr<RE2> regex;
-  if (!grep_regex.empty()) {
+  if (!flags.grep_regex.empty()) {
     // TODO: pass options to not log error
-    regex = std::make_unique<RE2>(grep_regex);
+    regex = std::make_unique<RE2>(flags.grep_regex);
     if (!regex->ok()) {
       // This really needs the session passed in so that we can reach the
       // correct error stream.
@@ -252,7 +253,7 @@ void PrintProject(const BazelPattern &pattern, std::ostream &out,
   }
 
   for (const auto &[package, file_content] : project.ParsedFiles()) {
-    if (only_files_with_errors && file_content->errors.empty()) {
+    if (flags.print_only_errors && file_content->errors.empty()) {
       continue;
     }
     if (!pattern.Match(package)) {
@@ -273,12 +274,14 @@ void PrintProject(const BazelPattern &pattern, std::ostream &out,
         // show the range the whole function covers until closed parenthesis.
         // TODO: if isatty(out), color filename gray
         std::stringstream tmp_out;
+        if (flags.do_color) tmp_out << "\033[2;37m";
         tmp_out << "# " << project.Loc(result.node->identifier()->id()) << "\n";
-        PrintVisitor printer(tmp_out, regex.get());
+        if (flags.do_color) tmp_out << "\033[0m";
+        PrintVisitor printer(tmp_out, regex.get(), flags.do_color);
         printer.WalkNonNull(result.node);
         tmp_out << "\n";
         if (!regex || printer.any_highlight()) {  // w/o regex: always print.
-          out << tmp_out.str();
+          session.out() << tmp_out.str();
         }
       });
   }

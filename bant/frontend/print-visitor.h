@@ -18,7 +18,6 @@
 #ifndef BANT_PRINT_VISITOR_H
 #define BANT_PRINT_VISITOR_H
 
-#include <memory>
 #include <ostream>
 
 #include "bant/frontend/ast.h"
@@ -28,9 +27,10 @@ namespace bant {
 class PrintVisitor : public BaseVoidVisitor {
  public:
   explicit PrintVisitor(std::ostream &out,
-                        const RE2 *optional_highlight = nullptr)
-      : out_(out), optional_highlight_(optional_highlight) {}
-  // Using default impl. for Assignment.
+                        const RE2 *optional_highlight = nullptr,
+                        bool do_color = false)
+      : out_(out), highlight_re_(optional_highlight), do_color_(do_color) {}
+  void VisitAssignment(Assignment *a) final;
   void VisitFunCall(FunCall *f) final;
   void VisitList(List *l) final;
 
@@ -45,9 +45,11 @@ class PrintVisitor : public BaseVoidVisitor {
   bool any_highlight() const { return any_highlight_; }
 
  private:
-  int indent_ = 0;
   std::ostream &out_;
-  const RE2 *const optional_highlight_;
+  const RE2 *const highlight_re_;
+  const bool do_color_;
+
+  int indent_ = 0;
   bool any_highlight_ = false;
 };
 }  // namespace bant

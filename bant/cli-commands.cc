@@ -184,8 +184,7 @@ CliStatus RunCommand(Session &session, Command cmd,
     // so it would already have emitted parse errors. Here we only have to
     // decide if we print anything.
     if (flags.print_ast || flags.print_only_errors) {
-      bant::PrintProject(pattern, session.out(), session.info(), project,
-                         flags.print_only_errors, flags.grep_regex);
+      bant::PrintProject(session, pattern, project);
     }
     break;
 

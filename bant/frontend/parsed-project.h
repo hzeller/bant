@@ -129,15 +129,9 @@ class ParsedProject : public SourceLocator {
 };
 
 // Convenience function to print a fully parsed project, recreated from the
-// AST.
-// "out" is the destination of the acutal parse tree, "info_out" will
-// print error message and filenames.
-// If "only_files_with_errors" is set, prints only the files that had issues.
-// With "grep_regex", only targets are printed that have any substring match
-// expression.
-// TODO: this function has too many parameters.
-void PrintProject(const BazelPattern &pattern, std::ostream &out,
-                  std::ostream &info_out, const ParsedProject &project,
-                  bool only_files_with_errors, std::string_view grep_regex);
+// AST. Takes grep_regex into account for filtering.
+void PrintProject(Session &session, const BazelPattern &pattern,
+                  const ParsedProject &project);
+
 }  // namespace bant
 #endif  // BANT_PROJECT_PARDER_

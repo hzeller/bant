@@ -134,6 +134,7 @@ int main(int argc, char *argv[]) {
   std::ostream *info_out = &std::cerr;
 
   bant::CommandlineFlags flags;
+  flags.do_color = isatty(STDOUT_FILENO);
 
   bool regex_case_insesitive = false;
 
@@ -205,8 +206,12 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  if (regex_case_insesitive && !flags.grep_regex.empty()) {
-    flags.grep_regex.insert(0, "(?i)");
+  if (!flags.grep_regex.empty()) {
+    if (regex_case_insesitive) {
+      flags.grep_regex.insert(0, "(?i)");
+    }
+    flags.grep_regex.insert(0, "(");
+    flags.grep_regex.append(")");
   }
 
   bant::FilesystemPrewarmCacheInit(argc, argv);

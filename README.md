@@ -64,8 +64,10 @@ The `-g` option allows to 'grep' for targets where any of the strings in the
 AST of a rule matches a pattern
 
 ```
-bant print ... -g "arena.*test"
+bant print ... -g "scan.*test"
 ```
+
+![print grep output](img/grep-print.png)
 
 #### Workspace
 
