@@ -262,21 +262,27 @@ void PrintProject(Session &session, const BazelPattern &pattern,
 
     query::FindTargetsAllowEmptyName(
       file_content->ast, {}, [&](const query::Result &result) {
+        std::optional<BazelTarget> maybe_target;
+        if (!result.name.empty()) {
+          maybe_target = BazelTarget::ParseFrom(result.name, package);
+        }
         if (!pattern.is_recursive()) {
-          // Need more specific check if matches.
-          auto self = BazelTarget::ParseFrom(result.name, package);
-          if (!self.has_value() || !pattern.Match(*self)) {
+          // If pattern requires some match, need to check now.
+          if (!maybe_target.has_value() || !pattern.Match(*maybe_target)) {
             return;
           }
         }
 
         // TODO: instead of just marking the range of the function name,
         // show the range the whole function covers until closed parenthesis.
-        // TODO: if isatty(out), color filename gray
         std::stringstream tmp_out;
         if (flags.do_color) tmp_out << "\033[2;37m";
-        tmp_out << "# " << project.Loc(result.node->identifier()->id()) << "\n";
+        tmp_out << "# " << project.Loc(result.node->identifier()->id());
+        if (maybe_target.has_value()) {  // only has value if target with name.
+          tmp_out << " " << *maybe_target;
+        }
         if (flags.do_color) tmp_out << "\033[0m";
+        tmp_out << "\n";
         PrintVisitor printer(tmp_out, regex.get(), flags.do_color);
         printer.WalkNonNull(result.node);
         tmp_out << "\n";
