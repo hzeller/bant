@@ -242,8 +242,9 @@ void PrintProject(Session &session, const BazelPattern &pattern,
 
   std::unique_ptr<RE2> regex;
   if (!flags.grep_regex.empty()) {
-    // TODO: pass options to not log error
-    regex = std::make_unique<RE2>(flags.grep_regex);
+    RE2::Options options;
+    options.set_log_errors(false);  // We print them ourselves
+    regex = std::make_unique<RE2>(flags.grep_regex, options);
     if (!regex->ok()) {
       // This really needs the session passed in so that we can reach the
       // correct error stream.
