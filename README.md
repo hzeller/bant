@@ -47,7 +47,7 @@ exactly what `bant` sees). In general this is much faster than manually
 finding and opening the file, in particular when it is in some external
 project where it is harder to even find the right file; consider
 
-```
+```bash
 bant print @googletest//:gtest
 ```
 
@@ -56,14 +56,14 @@ that make that rule, which we want to see evaluated.
 With the `-b` option (for ela`b`orate), bant can do some basic evaluation
 of these and print the final form:
 
-```
+```bash
 bant print -b @googletest//:gtest
 ```
 
 The `-g` option allows to 'grep' for targets where any of the strings in the
 AST of a rule matches a pattern
 
-```
+```bash
 bant print ... -g "scan.*test"
 ```
 
@@ -73,14 +73,14 @@ bant print ... -g "scan.*test"
 
 **`workspace`** prints all the external projects found in the workspace.
 
-```
+```bash
 bant workspace   # All external projects referenced in this workspace
 ```
 
 If you give a pattern, it will only print external projects used
 by targets matching the pattern:
 
-```
+```bash
 bant workspace ...        # Print projects referenced in your project
 bant workspace @re2//...  # Print projects referenced by re2
 ```
@@ -179,7 +179,7 @@ means you need to run a `bazel build ...` before to have the workspace set up.
 At the very minimum, do a bazel fetch and run all genrules; we can
 use `bant` itself to find genrules to be passed to bazel:
 
-```
+```bash
 bazel fetch ...
 bazel build $(bant genrule-outputs ... | awk '{print $2}' | sort | uniq)
 ```
@@ -285,7 +285,7 @@ Commands (unique prefix sufficient):
  bant workspace         # List all the external projects listed in workspace.
  bant list-packages -r  # List all the build files, follow dependencies
  bant list-targets ...  # List all targets in this project
- bant list-targets ... | grep cc_binary   # find all binaries built by project
+ bant list-targets ... | grep cc_binary   # find all binaries build by project
  bant lib-headers       # For each header found in project, print exporting lib
  bant dwyu ...         # Look which headers are used and suggest add/remove deps
  bant print bant/tool:*_test  # Print all targets ending with _test
@@ -297,7 +297,7 @@ Commands (unique prefix sufficient):
 
 To compile
 
-```
+```bash
 bazel build -c opt //bant
 ```
 Resulting binary will be `bazel-bin/bant/bant`
