@@ -478,6 +478,40 @@ cc_library(
   }
 }
 
+// Often aliasse are used to redirect to otherwise private libraries. The
+// visibility of the alias determines if it can be linked.
+TEST(DWYUTest, VisibilityOfAliasAllowsToBeLinkedEvenIfTargetIsNotVisible) {
+  ParsedProjectTestUtil pp;
+  pp.Add("//some/lib", R"(
+alias(
+  name = "visible_foo_alias",
+  actual = ":private_foo",
+  visibility = ["//visibility:public"],   # points to lib with correct header
+)
+
+cc_library(
+  name = "private_foo",
+  srcs = ["foo.cc"],
+  hdrs = ["foo.h"],
+  visibility = ["//visibility:private"],   # can't use this directly
+)
+)");
+
+  pp.Add("//user", R"(
+cc_binary(
+   name = "hello",
+   srcs = ["hello.cc"],
+)
+)");
+
+  {
+    DWYUTestFixture tester(pp.project());
+    tester.ExpectAdd("//some/lib:visible_foo_alias");
+    tester.AddSource("user/hello.cc", R"(#include "some/lib/foo.h")");
+    tester.RunForTarget("//user:hello");
+  }
+}
+
 // If we can't expand, err on the 'public' side.
 TEST(DWYUTest, ConsiderUnknownVisibilityVariableToAllowPublic) {
   ParsedProjectTestUtil pp;
