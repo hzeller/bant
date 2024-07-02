@@ -64,10 +64,6 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          wget https://apt.llvm.org/llvm.sh
-          chmod +x ./llvm.sh
-          sudo ./llvm.sh 17
-          sudo apt-get install clang-format-17
           go install github.com/bazelbuild/buildtools/buildifier@latest
           echo "PATH=$PATH:$(go env GOPATH)/bin/" >> $GITHUB_ENV
 
@@ -117,7 +113,7 @@ jobs:
           bin/bant dwyu ...
 
   ClangTidy:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -126,9 +122,6 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          wget https://apt.llvm.org/llvm.sh
-          chmod +x ./llvm.sh
-          sudo ./llvm.sh 18
           sudo apt-get install clang-tidy-18
 
       - name: Create Cache Timestamp
