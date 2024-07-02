@@ -67,7 +67,20 @@ AST of a rule matches a pattern
 bant print ... -g "scan.*test"
 ```
 
-![print grep output](img/grep-print.png)
+<pre style='font-size: larger;'>
+<div style='color: gray; display: inline-block;'># ./bant/frontend/BUILD:80:1-7: //bant/frontend:scanner_test</div>
+<div style='font-weight: bold; display: inline-block;'>cc_test</div>(
+    <div style='color: magenta; display: inline-block;'>name</div> = "<div style='filter: invert(100%); backdrop-filter: invert(0%); display: inline-block;'>scanner_test</div>",
+    <div style='color: magenta; display: inline-block;'>size</div> = "small",
+    <div style='color: magenta; display: inline-block;'>srcs</div> = ["<div style='filter: invert(100%); backdrop-filter: invert(0%); display: inline-block;'>scanner_test</div>.cc"],
+    <div style='color: magenta; display: inline-block;'>deps</div> = [
+        ":named-content",
+        ":parser",
+        "@googletest//:gtest",
+        "@googletest//:gtest_main"
+    ]
+)
+</pre>
 
 #### Workspace
 
