@@ -273,6 +273,7 @@ bool DWYUGenerator::IsTestonlyCompatible(const BazelTarget &target,
   return false;
 }
 
+// Visiblity check.
 bool DWYUGenerator::CanSee(const BazelTarget &target,
                            const BazelTarget &dep) const {
   auto found = known_libs_.find(dep);
@@ -335,7 +336,25 @@ DWYUGenerator::DependenciesNeededBySources(
   std::set<BazelTarget> already_provided;
   already_provided.insert(target);
 
-  // Add alternatives to the resutl we return, but filtering to only
+  // Log providers if super verbose -vvv
+  auto maybe_log = [&](const NamedLineIndexedContent &source,
+                       std::string_view inc_file,
+                       const absl::btree_set<BazelTarget> &alternatives) {
+    if (session_.flags().verbose < 3) return;
+    source.Loc(info_out, inc_file) << " #include \"" << inc_file << "\"\n";
+    for (const BazelTarget &possible_provider : alternatives) {
+      std::string msg;
+      if (!CanSee(target, possible_provider)) {
+        if (session_.flags().do_color) msg.append("\033[31m");
+        msg.append(" (not visible)");
+        if (session_.flags().do_color) msg.append("\033[0m");
+      }
+      source.Loc(info_out, inc_file)
+        << "    | " << possible_provider << msg << "\n";
+    }
+  };
+
+  // Add alternatives to the result we return, but filtering to only
   // include visible targets.
   std::vector<absl::btree_set<BazelTarget>> result;
   auto add_to_result = [&](const absl::btree_set<BazelTarget> &alternatives) {
@@ -431,6 +450,7 @@ DWYUGenerator::DependenciesNeededBySources(
             << "provides " << ((found_len < inc_len) ? "shorter" : "longer")
             << " same-suffix path '" << found_result.match << "'\n";
         }
+        maybe_log(source, inc_file, *found_result.target_set);
         add_to_result(*found_result.target_set);
         continue;
       }
@@ -445,6 +465,7 @@ DWYUGenerator::DependenciesNeededBySources(
             << "Consider FQN relative to project root.\n";
           need_in_source_referenced_message = true;
         }
+        maybe_log(source, inc_file, *found->target_set);
         add_to_result(*found->target_set);
         continue;
       }
