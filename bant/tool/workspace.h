@@ -23,12 +23,16 @@
 #include "bant/types-bazel.h"
 
 namespace bant {
+// Given the project and pattern, return a subset workspace of projects
+// referenced by dependencies of targets matching the pattern.
+BazelWorkspace CreateFilteredWorkspace(Session &session,
+                                       const ParsedProject &project,
+                                       const BazelPattern &pattern);
+
 // Print versions and paths for external projects mentioned in the workspace.
-// If "pattern" is not matchall, it only prints external projects mentioned
-// in dependencies that match.
+// If "pattern" is not matchall, it prints the result of the filtered workspace.
 void PrintMatchingWorkspaceExternalRepos(Session &session,
                                          const ParsedProject &project,
                                          const BazelPattern &pattern);
-
 }  // namespace bant
 #endif  // BANT_TOOL_WORKSPACE_H

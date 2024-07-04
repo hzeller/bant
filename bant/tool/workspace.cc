@@ -48,19 +48,13 @@ static void PrintExternalRepos(
   printer->Finish();
 }
 
-void PrintMatchingWorkspaceExternalRepos(Session &session,
-                                         const ParsedProject &project,
-                                         const BazelPattern &pattern) {
-  const BazelWorkspace &global_workspace = project.workspace();
-  if (pattern.is_matchall()) {
-    // The whole workspace.
-    PrintExternalRepos(session, global_workspace.project_location);
-    return;
-  }
+BazelWorkspace CreateFilteredWorkspace(Session &session,
+                                       const ParsedProject &project,
+                                       const BazelPattern &pattern) {
+  // Look through the project and fish out all the unique projects we see.
 
+  const BazelWorkspace &global_workspace = project.workspace();
   BazelWorkspace matching_workspace_subset;
-  // If we have a pattern, look through the project and fish out all the
-  // different projects we see.
   for (const auto &[_, parsed_package] : project.ParsedFiles()) {
     const BazelPackage &current_package = parsed_package->package;
     if (!pattern.Match(current_package)) {
@@ -74,13 +68,17 @@ void PrintMatchingWorkspaceExternalRepos(Session &session,
           potential_external_refs =
             query::ExtractStringList(details.node->argument());
         } else {
-          // Classical cc_library() etc that has dependencies.
+          // Classical cc_library(), cc_binary() etc that has dependencies.
           auto target = BazelTarget::ParseFrom(absl::StrCat(":", details.name),
                                                current_package);
           if (!target.has_value() || !pattern.Match(*target)) {
             return;
           }
           potential_external_refs = query::ExtractStringList(details.deps_list);
+          // If alias, look at what it points to
+          if (!details.actual.empty()) {
+            potential_external_refs.push_back(details.actual);
+          }
         }
 
         // Alright, now let's check these if they reference external projects.
@@ -92,7 +90,7 @@ void PrintMatchingWorkspaceExternalRepos(Session &session,
           const std::string &project = ref_target->package.project;
           if (project.empty() || project == current_package.project) continue;
 
-          // If in global workspace, transfer to our selected subset.
+          // If available in global workspace, transfer to our filtered subset.
           const auto found = global_workspace.FindEntryByProject(project);
           if (found == global_workspace.project_location.end()) continue;
 
@@ -101,6 +99,16 @@ void PrintMatchingWorkspaceExternalRepos(Session &session,
         }
       });
   }
-  PrintExternalRepos(session, matching_workspace_subset.project_location);
+  return matching_workspace_subset;
+}
+
+void PrintMatchingWorkspaceExternalRepos(Session &session,
+                                         const ParsedProject &project,
+                                         const BazelPattern &pattern) {
+  const BazelWorkspace &to_print =
+    pattern.is_matchall() ? project.workspace()
+                          : CreateFilteredWorkspace(session, project, pattern);
+
+  PrintExternalRepos(session, to_print.project_location);
 }
 }  // namespace bant

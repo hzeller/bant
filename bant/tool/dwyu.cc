@@ -505,7 +505,8 @@ DWYUGenerator::DependenciesNeededBySources(
 
     if (need_in_source_referenced_message) {
       project_.Loc(info_out, src_name)
-        << " ^... in source referenced by " << target.ToString() << "\n";
+        << " ^... in source '" << src_name << "' referenced by "
+        << target.ToString() << "\n";
     }
   }
 
