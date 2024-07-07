@@ -141,8 +141,6 @@ jobs:
 
       - name: Build Compilation DB
         run: |
-          echo "6.5.0" > .bazelversion  # fix as there are some hedron python issues w/ 7.x
-          bazel build //bant:version-header
           scripts/make-compilation-db.sh
 
       - name: Run clang-tidy
