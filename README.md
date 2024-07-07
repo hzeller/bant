@@ -158,6 +158,17 @@ strict and ignore `# keep` comments and emit the removal edit anyway.
 The `dwyu` command is essentially a [`build_cleaner`][build_cleaner] for
 C++ targets.
 
+#### compilation-db
+
+Creates a compilation db used by `clang-tidy` or `clangd`. Is not exactly
+outputting all the options bazel would use, so less accurate than tools that
+make use of bazel actions. Still nice as it does not need to reach into
+bazel magic.
+
+```bash
+  bant compilation-db > compile_commands.json
+```
+
 #### Canonicalize
 
 **`canonicalize`** emits edits to canonicalize targets, e.g.
@@ -269,6 +280,8 @@ Commands (unique prefix sufficient):
                      → 2 column table: (filename, genrule-target)
 
     == Tools ==
+    compilation-db : (experimental) Emits a compilation db. Redirect output to
+                     compile_commands.json
     dwyu           : DWYU: Depend on What You Use (emit buildozer edit script)
                       -k strict: emit remove even if # keep comment in line.
     canonicalize   : Emit rename edits to canonicalize targets.

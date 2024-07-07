@@ -408,7 +408,7 @@ std::optional<FindResult> FindBySuffix(const ProvidedFromTargetSet &index,
     .match = std::string(
       {best->first.rbegin() + 1 /*skip-slash*/, best->first.rend()}),
     .target_set = &best->second,
-    .fuzzy_score = best_common_path_elements,
+    .fuzzy_score = static_cast<int>(best_common_path_elements),
   };
 }
 

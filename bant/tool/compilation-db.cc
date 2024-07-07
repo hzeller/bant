@@ -19,6 +19,7 @@
 
 #include <filesystem>
 #include <ostream>
+#include <set>
 #include <sstream>
 #include <string>
 #include <string_view>
@@ -30,10 +31,10 @@
 #include "bant/frontend/parsed-project.h"
 #include "bant/session.h"
 #include "bant/types-bazel.h"
+#include "bant/util/file-utils.h"
 #include "bant/workspace.h"
+#include "re2/re2.h"
 
-// TODO:
-//  - read bazelrc, extract cxxopts
 namespace bant {
 
 // Make quoted strings a little less painful to read and write w/ C++ streams
@@ -43,6 +44,25 @@ struct q {
 std::ostream &operator<<(std::ostream &out, const q &quoted_str) {
   out << "\"" << quoted_str.value << "\"";
   return out;
+}
+
+static std::set<std::string> ExtractCxxOptionsFromBazelrc() {
+  // Hack: for cxx options that start with dash (to avoid picking up options
+  // meant for Windows that start with slash (we don't do system-specific
+  // evaluation)
+  static const LazyRE2 kCxxExtract{R"/(--(?:host_)?cxxopt\s*=?\s*(-[^\s]+))/"};
+
+  std::set<std::string> result;
+  const auto bazelrc = ReadFileToString(FilesystemPath(".bazelrc"));
+  if (!bazelrc.has_value()) return result;
+
+  std::string_view run(*bazelrc);
+  std::string_view cxx_opt;
+
+  while (RE2::FindAndConsume(&run, *kCxxExtract, &cxx_opt)) {
+    result.insert(std::string{cxx_opt});
+  }
+  return result;
 }
 
 static void WriteCompilationDBEntry(const ParsedProject &project,
@@ -62,7 +82,6 @@ static void WriteCompilationDBEntry(const ParsedProject &project,
     out << "    " << q{"arguments"} << ": [\n";
     out << "      " << q{"gcc"} << ", " << q{"-xc++"} << ", " << q{"-Wall"}
         << ",\n";
-    out << "      " << q{"-std=c++23"} << ",\n";  // TODO: extract from bazelrc
     out << "      " << q{"-iquote"} << ", " << q{"."} << ",\n";
     out << "      " << q{"-iquote"} << ", " << q{"bazel-bin"} << ",\n";
     out << external_inc_json;
@@ -73,12 +92,19 @@ static void WriteCompilationDBEntry(const ParsedProject &project,
   }
 }
 
-// Collect inc-dirs and already craate JSON snippet to be dropped in args list.
-static std::string CollectAllExternallIncDirs(const ParsedProject &project) {
+static std::string CollectGlobalFlagsAndIncDirs(const ParsedProject &project) {
+  constexpr std::string_view kIndent = "      ";
+
   std::stringstream out;
+
+  // All the cxx options mentioned in the .bazelrc
+  for (const std::string &cxxopt : ExtractCxxOptionsFromBazelrc()) {
+    out << kIndent << q{cxxopt} << ",\n";
+  }
+
+  // All the -I (or more precisely: -iquote) directories.
   const BazelWorkspace &workspace = project.workspace();
   absl::flat_hash_set<std::string> already_seen;
-  // TODO: if there are any cc-libraries with includes = [], add these
   for (const auto &[_, parsed_package] : project.ParsedFiles()) {
     const BazelPackage &current_package = parsed_package->package;
     query::FindTargets(
@@ -93,7 +119,7 @@ static std::string CollectAllExternallIncDirs(const ParsedProject &project) {
           const std::string inc_path =
             current_package.QualifiedFile(workspace, inc_dir);
           if (!already_seen.insert(inc_path).second) continue;
-          out << "      " << q{"-iquote"} << ", " << q{inc_path} << ",\n";
+          out << kIndent << q{"-iquote"} << ", " << q{inc_path} << ",\n";
         }
 
         // Now, let's check out the dependencies and see that all of these
@@ -116,7 +142,7 @@ static std::string CollectAllExternallIncDirs(const ParsedProject &project) {
           }
           auto ext_path = workspace.FindPathByProject(external_project);
           if (!ext_path.has_value()) continue;
-          out << "      " << q{"-iquote"} << ", " << q{ext_path->path()}
+          out << kIndent << q{"-iquote"} << ", " << q{ext_path->path()}
               << ",\n";
         }
       });
@@ -133,8 +159,8 @@ void WriteCompilationDB(Session &session, const ParsedProject &project,
   // Instead of being specific which *.cc file uses which external
   // headers (which would require to recusively follow all the dependencies),
   // let's just extract all external projects ever used and prepare them
-  // as one include blob (for now. But might also be good for robustness).
-  const std::string external_inc_json = CollectAllExternallIncDirs(project);
+  // as one include blob. More robust.
+  const std::string external_inc_json = CollectGlobalFlagsAndIncDirs(project);
 
   out << "[\n";
   for (const auto &[_, parsed_package] : project.ParsedFiles()) {

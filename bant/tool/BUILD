@@ -111,8 +111,10 @@ cc_library(
         "//bant:workspace",
         "//bant/explore:query-utils",
         "//bant/frontend:parsed-project",
+        "//bant/util:file-utils",
         "@abseil-cpp//absl/container:flat_hash_set",
         "@abseil-cpp//absl/strings",
+        "@re2",
     ],
 )
 

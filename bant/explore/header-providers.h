@@ -57,7 +57,7 @@ ProvidedFromTarget ExtractGeneratedFromGenrule(const ParsedProject &project,
 struct FindResult {
   std::string match;  // Found match. Different from query if fuzzy match.
   const absl::btree_set<BazelTarget> *target_set;
-  size_t fuzzy_score = 0;  // 0 if exact match otherwise path element count.
+  int fuzzy_score = 0;  // 0 if exact match otherwise path element count.
 };
 
 // Find a set of target that fuzzily match the suffix of the given key.
