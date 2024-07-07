@@ -81,7 +81,8 @@ static void WriteCompilationDBEntry(const ParsedProject &project,
   query::AppendStringList(details.hdrs_list, sources);
 
   for (const auto src : sources) {
-    const std::string abs_src = package.QualifiedFile(src);
+    const std::string abs_src =
+      package.FullyQualifiedFile(project.workspace(), src);
     out << "  {\n";
     out << "    " << q{"file"} << ": " << q{abs_src} << ",\n";
     out << "    " << q{"arguments"} << ": [\n";
@@ -123,7 +124,7 @@ static std::string CollectGlobalFlagsAndIncDirs(const ParsedProject &project) {
         const auto inc_dirs = query::ExtractStringList(details.includes_list);
         for (const std::string_view inc_dir : inc_dirs) {
           const std::string inc_path =
-            current_package.QualifiedFile(workspace, inc_dir);
+            current_package.FullyQualifiedFile(workspace, inc_dir);
           if (!already_seen.insert(inc_path).second) continue;
           out << kIndent << q{"-iquote"} << ", " << q{inc_path} << ",\n";
         }

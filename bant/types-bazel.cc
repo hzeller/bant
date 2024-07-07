@@ -42,8 +42,8 @@ std::string BazelPackage::QualifiedFile(std::string_view relative_file) const {
   return absl::StrCat(path, "/", relative_file);
 }
 
-std::string BazelPackage::QualifiedFile(const BazelWorkspace &workspace,
-                                        std::string_view relative_file) const {
+std::string BazelPackage::FullyQualifiedFile(
+  const BazelWorkspace &workspace, std::string_view relative_file) const {
   std::string root_dir;
   if (!project.empty()) {
     auto package_path = workspace.FindPathByProject(project);

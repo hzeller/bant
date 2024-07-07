@@ -41,7 +41,6 @@
 #include "bant/types.h"
 #include "bant/util/file-utils.h"
 #include "bant/util/stat.h"
-#include "bant/workspace.h"
 #include "re2/re2.h"
 
 // Looking for source files directly in the source tree, but if not found
@@ -306,20 +305,6 @@ bool DWYUGenerator::CanSee(const BazelTarget &target,
   return !any_valid_visiblity_pattern;
 }
 
-// TODO: this needs to be in a central place. Also needed in elaboration.
-static std::string MakeFullyQualified(const BazelWorkspace &workspace,
-                                      const BazelPackage &package,
-                                      std::string_view filename) {
-  std::string result;
-  auto package_path = workspace.FindPathByProject(package.project);
-  if (package_path.has_value()) {
-    result = package_path->path();
-  }
-  if (!result.empty()) result.append("/");
-  result.append(package.QualifiedFile(filename));
-  return result;
-}
-
 std::vector<absl::btree_set<BazelTarget>>
 DWYUGenerator::DependenciesNeededBySources(
   const BazelTarget &target, const ParsedBuildFile &build_file,
@@ -379,7 +364,7 @@ DWYUGenerator::DependenciesNeededBySources(
 
   for (const std::string_view src_name : sources) {
     const std::string source_file =
-      MakeFullyQualified(project_.workspace(), build_file.package, src_name);
+      build_file.package.FullyQualifiedFile(project_.workspace(), src_name);
     std::optional<DWYUGenerator::SourceFile> source_content;
     {
       const ScopedTimer timer(&source_read_stats.duration);

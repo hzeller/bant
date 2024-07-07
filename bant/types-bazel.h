@@ -45,8 +45,11 @@ struct BazelPackage {
 
   // Assemble filename relative to the path.
   std::string QualifiedFile(std::string_view relative_file) const;
-  std::string QualifiedFile(const BazelWorkspace &workspace,
-                            std::string_view relative_file) const;
+
+  // Assemble filename including potential prefix if it is located in an
+  // external project.
+  std::string FullyQualifiedFile(const BazelWorkspace &workspace,
+                                 std::string_view relative_file) const;
 
   auto operator<=>(const BazelPackage &o) const = default;
   bool operator<(const BazelPackage &) const = default;
