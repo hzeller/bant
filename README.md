@@ -160,10 +160,10 @@ C++ targets.
 
 #### compilation-db
 
-Creates a compilation db used by `clang-tidy` or `clangd`. Is not exactly
-outputting all the options bazel would use, so less accurate than tools that
-make use of bazel actions. Still nice as it does not need to reach into
-bazel magic.
+Creates a compilation db that can be used by `clang-tidy` or `clangd`.
+**Experimental** right now. It is not exactly emitting all the options bazel
+would use, and is missing virtual includes (provided by `cc_library()` with
+`include_prefix`) so less accurate than tools that make use of bazel actions.
 
 ```bash
   bant compilation-db > compile_commands.json

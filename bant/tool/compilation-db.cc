@@ -35,9 +35,14 @@
 #include "bant/workspace.h"
 #include "re2/re2.h"
 
+// TODO: there are also things called virtual includes, in which an include
+// path is constructed via the `include_prefix` parameter in a cc_library.
+// They seem to end up in some symbolic link tree in external in
+// a directory _virtual_includes/. Figure out how that works and is constructed.
+
 namespace bant {
 
-// Make quoted strings a little less painful to read and write w/ C++ streams
+// Make quoted strings a little less painful to print to C++ streams
 struct q {
   std::string_view value;
 };
@@ -80,10 +85,7 @@ static void WriteCompilationDBEntry(const ParsedProject &project,
     out << "  {\n";
     out << "    " << q{"file"} << ": " << q{abs_src} << ",\n";
     out << "    " << q{"arguments"} << ": [\n";
-    out << "      " << q{"gcc"} << ", " << q{"-xc++"} << ", " << q{"-Wall"}
-        << ",\n";
-    out << "      " << q{"-iquote"} << ", " << q{"."} << ",\n";
-    out << "      " << q{"-iquote"} << ", " << q{"bazel-bin"} << ",\n";
+    out << "      " << q{"gcc"} << ", " << q{"-xc++"} << ",\n";
     out << external_inc_json;
     out << "      " << q{"-c"} << ", " << q{abs_src} << ",\n";
     out << "     ],\n";
@@ -101,6 +103,10 @@ static std::string CollectGlobalFlagsAndIncDirs(const ParsedProject &project) {
   for (const std::string &cxxopt : ExtractCxxOptionsFromBazelrc()) {
     out << kIndent << q{cxxopt} << ",\n";
   }
+
+  // Headers for this project. Direct and generated.
+  out << kIndent << q{"-iquote"} << ", " << q{"."} << ",\n";
+  out << kIndent << q{"-iquote"} << ", " << q{"bazel-bin"} << ",\n";
 
   // All the -I (or more precisely: -iquote) directories.
   const BazelWorkspace &workspace = project.workspace();
@@ -122,8 +128,8 @@ static std::string CollectGlobalFlagsAndIncDirs(const ParsedProject &project) {
           out << kIndent << q{"-iquote"} << ", " << q{inc_path} << ",\n";
         }
 
-        // Now, let's check out the dependencies and see that all of these
-        // are covered.
+        // Now, let's check out the dependencies and see that all of the
+        // referenced external projects are covered.
         const auto deps = query::ExtractStringList(details.deps_list);
         for (const std::string_view dependency_target : deps) {
           auto requested_dep =
@@ -132,7 +138,6 @@ static std::string CollectGlobalFlagsAndIncDirs(const ParsedProject &project) {
             continue;
           }
 
-          // Other than that, add all external projects to the incdirs.
           const std::string &external_project = requested_dep->package.project;
           if (external_project.empty()) {
             continue;  // Include path of our project is implicit
@@ -140,10 +145,16 @@ static std::string CollectGlobalFlagsAndIncDirs(const ParsedProject &project) {
           if (!already_seen.insert(external_project).second) {
             continue;
           }
-          auto ext_path = workspace.FindPathByProject(external_project);
-          if (!ext_path.has_value()) continue;
-          out << kIndent << q{"-iquote"} << ", " << q{ext_path->path()}
-              << ",\n";
+          auto ext_dir = workspace.FindPathByProject(external_project);
+          if (!ext_dir.has_value()) continue;  // ¯\_(ツ)_/¯
+
+          // Direct path provided into the sources.
+          out << kIndent << q{"-iquote"} << ", " << q{ext_dir->path()} << ",\n";
+
+          // Generated files
+          const std::string gen_inc =
+            absl::StrCat("bazel-bin/external/", external_project.substr(1));
+          out << kIndent << q{"-iquote"} << ", " << q{gen_inc} << ",\n";
         }
       });
   }
@@ -157,9 +168,11 @@ void WriteCompilationDB(Session &session, const ParsedProject &project,
   const std::string cwd = std::filesystem::current_path().string();
 
   // Instead of being specific which *.cc file uses which external
-  // headers (which would require to recusively follow all the dependencies),
+  // headers (which would require to recusively follow all its dependencies),
   // let's just extract all external projects ever used and prepare them
-  // as one include blob. More robust.
+  // as one include blob.
+  // More robust currently, but should probably be more specific per file,
+  // once we know what we're doing :)
   const std::string external_inc_json = CollectGlobalFlagsAndIncDirs(project);
 
   out << "[\n";
