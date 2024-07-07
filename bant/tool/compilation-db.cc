@@ -34,13 +34,9 @@
 
 // TODO:
 //  - read bazelrc, extract cxxopts
-//  - compilation db should also include all external projects.
-//  - more readable output of json with indentation and stuff without having
-//    to resort to external lib.
-//  - if there are any cc-libraries with includes = [], add these
 namespace bant {
 
-// Make quoted strings a little less painful to read and write in C++
+// Make quoted strings a little less painful to read and write w/ C++ streams
 struct q {
   std::string_view value;
 };
@@ -90,6 +86,18 @@ static std::string CollectAllExternallIncDirs(const ParsedProject &project) {
       [&](const query::Result &details) {
         auto target = BazelTarget::ParseFrom(absl::StrCat(":", details.name),
                                              current_package);
+        // If we're one of those targets that come with the own -I prefix,
+        // add all these.
+        const auto inc_dirs = query::ExtractStringList(details.includes_list);
+        for (const std::string_view inc_dir : inc_dirs) {
+          const std::string inc_path =
+            current_package.QualifiedFile(workspace, inc_dir);
+          if (!already_seen.insert(inc_path).second) continue;
+          out << "      " << q{"-iquote"} << ", " << q{inc_path} << ",\n";
+        }
+
+        // Now, let's check out the dependencies and see that all of these
+        // are covered.
         const auto deps = query::ExtractStringList(details.deps_list);
         for (const std::string_view dependency_target : deps) {
           auto requested_dep =
@@ -97,6 +105,8 @@ static std::string CollectAllExternallIncDirs(const ParsedProject &project) {
           if (!requested_dep.has_value()) {
             continue;
           }
+
+          // Other than that, add all external projects to the incdirs.
           const std::string &external_project = requested_dep->package.project;
           if (external_project.empty()) {
             continue;  // Include path of our project is implicit

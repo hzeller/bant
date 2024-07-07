@@ -19,7 +19,6 @@
 #define BANT_PROJECT_PARDER_
 
 #include <memory>
-#include <ostream>
 #include <string>
 #include <string_view>
 #include <utility>

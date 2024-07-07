@@ -32,7 +32,6 @@
 #include "bant/session.h"
 #include "bant/tool/edit-callback.h"
 #include "bant/types-bazel.h"
-#include "bant/types.h"
 
 namespace bant {
 // The DWYUGenerator is the underlying implementation, for which

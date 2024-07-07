@@ -21,6 +21,7 @@
 #include "bant/frontend/parsed-project.h"
 #include "bant/session.h"
 #include "bant/types-bazel.h"
+#include "bant/workspace.h"
 
 namespace bant {
 // Given the project and pattern, return a subset workspace of projects

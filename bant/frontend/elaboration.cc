@@ -191,16 +191,8 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     }
 
     // Find directory to start the glob()-ing.
-    // TODO: QualifiedFile() should deal with package paths by themslves
-    std::string root_dir;
-    auto package_path =
-      project_->workspace().FindPathByProject(package_.project);
-    if (package_path.has_value()) {
-      root_dir = package_path->path();
-    }
-    if (!root_dir.empty()) root_dir.append("/");
-    root_dir.append(package_.QualifiedFile("."));
-
+    const std::string root_dir =
+      package_.QualifiedFile(project_->workspace(), ".");
     const std::vector<FilesystemPath> glob_result =
       MultiGlob(root_dir, query::ExtractStringList(include_list),
                 query::ExtractStringList(exclude_list));

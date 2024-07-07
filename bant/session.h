@@ -20,7 +20,9 @@
 
 #include <memory>
 #include <ostream>
+#include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include "bant/output-format.h"
@@ -64,8 +66,8 @@ class Session {
  public:
   using StatMap = OneToOne<std::string_view, std::unique_ptr<bant::Stat>>;
 
-  Session(std::ostream *out, std::ostream *info, const CommandlineFlags &flags)
-      : streams_(out, info), flags_(flags) {}
+  Session(std::ostream *out, std::ostream *info, CommandlineFlags flags)
+      : streams_(out, info), flags_(std::move(flags)) {}
 
   SessionStreams &streams() { return streams_; }
 

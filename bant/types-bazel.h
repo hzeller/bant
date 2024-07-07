@@ -25,6 +25,7 @@
 #include <string_view>
 #include <utility>
 
+#include "bant/workspace.h"
 #include "re2/re2.h"
 
 namespace bant {
@@ -44,6 +45,8 @@ struct BazelPackage {
 
   // Assemble filename relative to the path.
   std::string QualifiedFile(std::string_view relative_file) const;
+  std::string QualifiedFile(const BazelWorkspace &workspace,
+                            std::string_view relative_file) const;
 
   auto operator<=>(const BazelPackage &o) const = default;
   bool operator<(const BazelPackage &) const = default;

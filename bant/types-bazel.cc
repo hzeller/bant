@@ -29,6 +29,7 @@
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_split.h"
+#include "bant/workspace.h"
 #include "re2/re2.h"
 
 namespace bant {
@@ -36,10 +37,22 @@ std::string BazelPackage::ToString() const {
   return absl::StrCat(project, "//", path);
 }
 
-// TODO: take workspace into account for prefix.
 std::string BazelPackage::QualifiedFile(std::string_view relative_file) const {
   if (path.empty()) return std::string(relative_file);
   return absl::StrCat(path, "/", relative_file);
+}
+
+std::string BazelPackage::QualifiedFile(const BazelWorkspace &workspace,
+                                        std::string_view relative_file) const {
+  std::string root_dir;
+  if (!project.empty()) {
+    auto package_path = workspace.FindPathByProject(project);
+    if (package_path.has_value()) {
+      root_dir = package_path->path();
+    }
+  }
+  if (!root_dir.empty()) root_dir.append("/");
+  return root_dir.append(QualifiedFile(relative_file));
 }
 
 /*static*/ std::optional<BazelPackage> BazelPackage::ParseFrom(

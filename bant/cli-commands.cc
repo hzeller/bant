@@ -129,12 +129,13 @@ CliStatus RunCommand(Session &session, Command cmd,
   }
 
   if (flags.recurse_dependency_depth <= 0 &&
-      (cmd == Command::kDWYU || cmd == Command::kHasDependents)) {
+      (cmd == Command::kDWYU || cmd == Command::kHasDependents ||
+       cmd == Command::kCompilationDB)) {
     flags.recurse_dependency_depth = std::numeric_limits<int>::max();
   }
 
-  if (flags.elaborate || cmd == Command::kDWYU ||
-      cmd == Command::kCompilationDB) {
+  if (flags.elaborate ||  //
+      cmd == Command::kDWYU || cmd == Command::kCompilationDB) {
     bant::Elaborate(session, &project);
   }
 
@@ -150,6 +151,7 @@ CliStatus RunCommand(Session &session, Command cmd,
   case Command::kListPackages:
   case Command::kDependsOn:
   case Command::kHasDependents:
+  case Command::kCompilationDB:
     if (flags.recurse_dependency_depth >= 0) {
       const size_t before_build_files = project.ParsedFiles().size();
       graph =

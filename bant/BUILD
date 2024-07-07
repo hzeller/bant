@@ -70,6 +70,7 @@ cc_library(
         "types-bazel.h",
     ],
     deps = [
+        ":workspace",
         "@abseil-cpp//absl/strings",
         "@re2",
     ],
