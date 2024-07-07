@@ -236,6 +236,18 @@ const ParsedBuildFile *ParsedProject::FindParsedOrNull(
   return found->second.get();
 }
 
+// Print visibility, but not regular print walk, but put in one line.
+static void MaybePrintVisibility(List *visibility, std::ostream &out) {
+  if (!visibility) return;
+  out << " (visibility:";
+  for (Node *v : *visibility) {
+    Scalar *s = v->CastAsScalar();
+    if (!s) continue;
+    out << " " << s->AsString();
+  }
+  out << ")";
+}
+
 void PrintProject(Session &session, const BazelPattern &pattern,
                   const ParsedProject &project) {
   const CommandlineFlags &flags = session.flags();
@@ -282,6 +294,7 @@ void PrintProject(Session &session, const BazelPattern &pattern,
         if (maybe_target.has_value()) {  // only has value if target with name.
           tmp_out << " " << *maybe_target;
         }
+        MaybePrintVisibility(result.visibility, tmp_out);
         if (flags.do_color) tmp_out << "\033[0m";
         tmp_out << "\n";
         PrintVisitor printer(tmp_out, regex.get(), flags.do_color);

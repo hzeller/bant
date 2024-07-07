@@ -225,7 +225,8 @@ void DWYUGenerator::InitKnownLibraries() {
   for (const auto &[_, parsed_package] : project_.ParsedFiles()) {
     const BazelPackage &current_package = parsed_package->package;
     query::FindTargets(parsed_package->ast,
-                       {"cc_library", "cc_proto_library", "alias",  //
+                       {"cc_library", "alias",  // The common ones
+                        "cc_proto_library", "grpc_cc_library",  // specialized
                         "cc_test"},  // also indexing test for testonly check.
                        [&](const query::Result &target) {
                          auto self = BazelTarget::ParseFrom(
