@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 
 BAZEL=${BAZEL:-bazel}
-"${BAZEL}" run @hedron_compile_commands//:refresh_all
+"${BAZEL}" build -c opt bant:bant > /dev/null 2>&1
 
-# Fix up the paths to not be specific to optimized build
-sed -i 's/bazel-out\/[^/]\+\/bin/bazel-bin/g' compile_commands.json
+bazel-bin/bant/bant compilation-db > compile_commands.json
