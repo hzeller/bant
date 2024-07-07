@@ -29,7 +29,6 @@
 
 #include "absl/container/btree_set.h"
 #include "absl/strings/str_cat.h"
-#include "bant/explore/aliased-by.h"
 #include "bant/explore/header-providers.h"
 #include "bant/explore/query-utils.h"
 #include "bant/frontend/ast.h"
@@ -87,7 +86,6 @@ DWYUGenerator::DWYUGenerator(Session &session, const ParsedProject &project,
   headers_from_libs_ = ExtractHeaderToLibMapping(project, session.info(),
                                                  /*suffix_index=*/true);
   files_from_genrules_ = ExtractGeneratedFromGenrule(project, session.info());
-  aliased_by_ = ExtractAliasedBy(project);
   InitKnownLibraries();
   stats.count = known_libs_.size();
 }
@@ -107,8 +105,8 @@ void DWYUGenerator::CreateEditsForTarget(const BazelTarget &target,
   // Grep for all includes they use to determine which deps we need
   auto deps_needed = DependenciesNeededBySources(target, build_file, sources,
                                                  &all_header_deps_known);
-  OneToOne<BazelTarget, BazelTarget> checked_off_by;
 
+  OneToOne<BazelTarget, BazelTarget> checked_off_by;
   auto IsNeededInSourcesAndCheckOff = [&](const BazelTarget &target) -> bool {
     for (auto it = deps_needed.begin(); it != deps_needed.end(); ++it) {
       if (it->contains(target)) {
@@ -358,28 +356,22 @@ DWYUGenerator::DependenciesNeededBySources(
   // include visible targets.
   std::vector<absl::btree_set<BazelTarget>> result;
   auto add_to_result = [&](const absl::btree_set<BazelTarget> &alternatives) {
-    bool any_already_provided = false;
+    std::vector<BazelTarget> previously_unseen;
     for (const BazelTarget &t : alternatives) {
-      any_already_provided |= !already_provided.insert(t).second;
+      if (already_provided.insert(t).second) {
+        previously_unseen.push_back(t);
+      }
     }
-    if (any_already_provided) return;
 
+    // Add all visible previously unseen targets.
     auto &result_set = result.emplace_back();
-    // Add all visible alternatives as well as all aliases pointing to these.
-    for (const BazelTarget &t : alternatives) {
+    for (const BazelTarget &t : previously_unseen) {
       if (CanSee(target, t)) {
         result_set.insert(t);
       }
-      const auto &found_alias = aliased_by_.find(t);
-      if (found_alias != aliased_by_.end()) {
-        for (const BazelTarget &alias : found_alias->second) {
-          if (CanSee(target, alias)) {
-            result_set.insert(alias);
-          }
-        }
-      }
     }
-    if (result_set.empty()) {  // No visible targets.
+
+    if (result_set.empty()) {  // Didn't need to add anything: nothing visible
       result.pop_back();
     }
   };

@@ -30,6 +30,7 @@
 
 #include "absl/container/btree_set.h"
 #include "absl/strings/str_cat.h"
+#include "bant/explore/aliased-by.h"
 #include "bant/explore/query-utils.h"
 #include "bant/frontend/parsed-project.h"
 #include "bant/session.h"
@@ -38,9 +39,12 @@
 #include "bant/util/table-printer.h"
 
 // The header providers maps header filenames to all the libraries that
-// provide these. Typically, this should only be exactly one per header, but
+// provide these, including all the alises pointing to these libraries.
+//
+// Typically, this should only be exactly one library per header, but
 // there are some projects out there that have multiple library targets
-// declare to provide the same headers. This is why outputs are 1:n.
+// declare to provide the same headers (e.g. due to different visibility
+// settings). This is why this mapping is 1:n.
 //
 // One would expect that we mostly just need to look at cc_library(), but there
 // are other targets that implicitly provide headers. We can't look
@@ -50,14 +54,15 @@
 // So there are some special handlings of common targets where headers can
 // emerge that we support here directly.
 //
-//  - cc_library(): the default target that provides header files.
+//  - cc_library(): the typical target that provides header files.
 //  - proto_library() and cc_proto_library(). The former gets a name of the
 //    proto buffer file, and the latter that depends on it and makes a
 //    cc-library out of it.
 //    We need to look at both, as we only can derive the name of the header
 //    file from the proto buffer file, but need to get the user-chosen name
 //    of the libary from cc_proto_iibrary().
-//  - grpc_cc_library() : this is like a cc_library(), but also defines
+//  - grpc_cc_library() : project specific hack for complicated rules in the
+//    grpc project. This is like a cc_library(), but also defines
 //    headers in a public_hdrs = [] kwarg
 //  - cc_grpc_library() : This is the proto library version of grpc.
 //    (with a confusing name). It creates another proto header, based on
@@ -76,7 +81,7 @@ static std::string_view LightCanonicalizePath(std::string_view path) {
 }
 
 // Convert to format needed for suffix matching.
-static std::string OptionalSuffix(std::string_view in, bool suffix_index) {
+static std::string KeyTransform(std::string_view in, bool suffix_index) {
   return suffix_index ? std::string{in.rbegin(), in.rend()}.append("/")
                       : std::string{in};
 }
@@ -171,15 +176,23 @@ static void IterateCCLibraryHeaders(const ParsedBuildFile &build_file,
     });
 }
 
-static void AppendCCLibraryHeaders(const ParsedBuildFile &build_file,
-                                   std::ostream &info_out, bool suffix_index,
-                                   ProvidedFromTargetSet &result) {
+static void AppendCCLibraryHeaders(
+  const ParsedBuildFile &build_file,
+  const OneToN<BazelTarget, BazelTarget> &alias_index, std::ostream &info_out,
+  bool suffix_index, ProvidedFromTargetSet &result) {
   IterateCCLibraryHeaders(
     build_file, [&](const BazelTarget &cc_library, std::string_view hdr_loc,
                     const std::string &header_fqn) {
-      // Sometimes there can be multiple libraries exporting the same header.
       const std::string_view canonicalized = LightCanonicalizePath(header_fqn);
-      result[OptionalSuffix(canonicalized, suffix_index)].insert(cc_library);
+      const std::string key = KeyTransform(canonicalized, suffix_index);
+      result[key].insert(cc_library);
+      // Also, if there are any aliases in the project for this library,
+      // these would also be considered providers of this lib.
+      if (const auto aliases_found = alias_index.find(cc_library);
+          aliases_found != alias_index.end()) {
+        result[key].insert(aliases_found->second.begin(),
+                           aliases_found->second.end());
+      }
     });
 }
 
@@ -273,7 +286,7 @@ static void AppendProtoLibraryHeaders(const ParsedBuildFile &build_file,
           for (const std::string_view suffix : {".pb.h", ".proto.h"}) {
             std::string proto_header = absl::StrCat(stem, middle_name, suffix);
             proto_header = build_file.package.QualifiedFile(proto_header);
-            result[OptionalSuffix(proto_header, reverse)].insert(cc_proto_lib);
+            result[KeyTransform(proto_header, reverse)].insert(cc_proto_lib);
           }
         }
       }
@@ -286,12 +299,15 @@ ProvidedFromTargetSet ExtractHeaderToLibMapping(const ParsedProject &project,
                                                 bool suffix_index) {
   ProvidedFromTargetSet result;
 
+  const auto aliased_by_index = ExtractAliasedBy(project);
+
   for (const auto &[_, build_file] : project.ParsedFiles()) {
     if (!build_file->ast) continue;
 
     // There are multiple rule types that behave like a cc library and
     // provide header files.
-    AppendCCLibraryHeaders(*build_file, info_out, suffix_index, result);
+    AppendCCLibraryHeaders(*build_file, aliased_by_index,  //
+                           info_out, suffix_index, result);
     AppendProtoLibraryHeaders(*build_file, suffix_index, result);
   }
 
@@ -315,7 +331,7 @@ ProvidedFromTarget ExtractGeneratedFromGenrule(const ParsedProject &project,
         for (const std::string_view generated : genfiles) {
           const auto gen_fqn = file_content->package.QualifiedFile(generated);
           const auto &inserted =
-            result.insert({OptionalSuffix(gen_fqn, suffix_index), *target});
+            result.insert({KeyTransform(gen_fqn, suffix_index), *target});
           if (!inserted.second && target != inserted.first->second) {
             // TODO: differentiate between info-log (external projects) and
             // error-log (current project, as these are actionable).
@@ -356,7 +372,7 @@ std::optional<FindResult> FindBySuffix(const ProvidedFromTargetSet &index,
                                        std::string_view key,
                                        size_t min_fuzzy_paths) {
   if (index.empty()) return std::nullopt;
-  const std::string search_key = OptionalSuffix(key, true);
+  const std::string search_key = KeyTransform(key, true);
   const ProvidedFromTargetSet::const_iterator found =
     index.lower_bound(search_key);
   if (found != index.end() && found->first == search_key) {

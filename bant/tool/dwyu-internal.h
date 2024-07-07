@@ -89,7 +89,6 @@ class DWYUGenerator {
   Session &session_;
   const ParsedProject &project_;
   const EditCallback emit_deps_edit_;
-  OneToN<BazelTarget, BazelTarget> aliased_by_;
   ProvidedFromTargetSet headers_from_libs_;
   ProvidedFromTarget files_from_genrules_;
   absl::btree_map<BazelTarget, query::Result> known_libs_;
