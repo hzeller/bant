@@ -17,8 +17,10 @@
 
 #include "bant/tool/dwyu.h"
 
+#include <algorithm>
 #include <array>
 #include <cstddef>
+#include <iterator>
 #include <optional>
 #include <ostream>
 #include <set>
@@ -28,6 +30,7 @@
 #include <vector>
 
 #include "absl/container/btree_set.h"
+#include "absl/log/check.h"
 #include "absl/strings/str_cat.h"
 #include "bant/explore/header-providers.h"
 #include "bant/explore/query-utils.h"
@@ -89,6 +92,46 @@ DWYUGenerator::DWYUGenerator(Session &session, const ParsedProject &project,
   stats.count = known_libs_.size();
 }
 
+static absl::btree_set<BazelTarget> intersect(
+  const absl::btree_set<BazelTarget> &a,
+  const absl::btree_set<BazelTarget> &b) {
+  absl::btree_set<BazelTarget> result;
+  std::set_intersection(a.begin(), a.end(), b.begin(), b.end(),
+                        std::inserter(result, result.begin()));
+  return result;
+}
+
+// Input is a list of dependency alternative we need: for each header file,
+// there are potentially multiple libraries that are providing these,
+// the 'alternatives'. So we have a bag of alternative sets.
+// Output is a potentially smaller set of smaller alternatives.
+static std::vector<absl::btree_set<BazelTarget>> MinimizeDependencySet(
+  const std::vector<absl::btree_set<BazelTarget>> &to_reduce) {
+  // Find all the sets that intersect, and only remember the intersection.
+  // The intersection will be sufficient to satisfy the dependency requirements
+  // for both.
+
+  // n^2, but usually pretty small n.
+  std::vector<absl::btree_set<BazelTarget>> result;
+  std::set<size_t> already_covereed;
+  for (size_t i = 0; i < to_reduce.size(); ++i) {
+    if (already_covereed.contains(i)) continue;
+    already_covereed.insert(i);
+    auto current_set = to_reduce[i];
+    for (size_t j = i + 1; j < to_reduce.size(); ++j) {
+      auto intersection_set = intersect(current_set, to_reduce[j]);
+      if (intersection_set.empty()) continue;
+      current_set = intersection_set;
+      already_covereed.insert(j);
+    }
+    CHECK_GT(current_set.size(), size_t(0));
+    result.push_back(current_set);
+  }
+
+  CHECK(already_covereed.size() == to_reduce.size());
+  return result;
+}
+
 void DWYUGenerator::CreateEditsForTarget(const BazelTarget &target,
                                          const query::Result &details,
                                          const ParsedBuildFile &build_file) {
@@ -104,7 +147,7 @@ void DWYUGenerator::CreateEditsForTarget(const BazelTarget &target,
   // Grep for all includes they use to determine which deps we need
   auto deps_needed = DependenciesNeededBySources(target, build_file, sources,
                                                  &all_header_deps_known);
-
+  deps_needed = MinimizeDependencySet(deps_needed);
   OneToOne<BazelTarget, BazelTarget> checked_off_by;
   auto IsNeededInSourcesAndCheckOff = [&](const BazelTarget &target) -> bool {
     for (auto it = deps_needed.begin(); it != deps_needed.end(); ++it) {
@@ -286,6 +329,14 @@ bool DWYUGenerator::CanSee(const BazelTarget &target,
     return true;
   }
 
+  // Somewhat ugly hack: the protobuf library has a protobuf_headers library
+  // that does not acctually provide any actual libraries. From the comment
+  // there it is there for some shared object building rules; but we should
+  // not depend on it, so pretend we can't see it.
+  if (dep.target_name == "protobuf_headers") {
+    return false;
+  }
+
   List *visibility_list = found->second.visibility;
   if (!visibility_list) return true;
   bool any_valid_visiblity_pattern = false;
@@ -342,16 +393,9 @@ DWYUGenerator::DependenciesNeededBySources(
   // include visible targets.
   std::vector<absl::btree_set<BazelTarget>> result;
   auto add_to_result = [&](const absl::btree_set<BazelTarget> &alternatives) {
-    std::vector<BazelTarget> previously_unseen;
-    for (const BazelTarget &t : alternatives) {
-      if (already_provided.insert(t).second) {
-        previously_unseen.push_back(t);
-      }
-    }
-
-    // Add all visible previously unseen targets.
+    // Add all visible targets.
     auto &result_set = result.emplace_back();
-    for (const BazelTarget &t : previously_unseen) {
+    for (const BazelTarget &t : alternatives) {
       if (CanSee(target, t)) {
         result_set.insert(t);
       }

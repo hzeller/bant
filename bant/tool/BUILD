@@ -45,6 +45,7 @@ cc_library(
         "//bant/util:file-utils",
         "//bant/util:stat",
         "@abseil-cpp//absl/container:btree",
+        "@abseil-cpp//absl/log:check",
         "@abseil-cpp//absl/strings",
         "@re2",
     ],
