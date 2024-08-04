@@ -5,6 +5,11 @@ module(
 
 bazel_dep(name = "bazel_skylib", version = "1.7.1")
 bazel_dep(name = "rules_license", version = "0.0.8")
-bazel_dep(name = "abseil-cpp", version = "20240116.2")
+
+# Googletest stuck at 1.14; 1.15 requires at least bazel 7
 bazel_dep(name = "googletest", version = "1.14.0")
+
+# abseil-cpp also stuck as it pull googletest
+bazel_dep(name = "abseil-cpp", version = "20240116.2")
+
 bazel_dep(name = "re2", version = "2024-07-02")
