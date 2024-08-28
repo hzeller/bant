@@ -10,7 +10,7 @@ bant_used_stdenv.mkDerivation {
       bazel_6
       jdk11
 
-      clang-tools_18    # clang-tidy (clang-format: see below)
+      clang-tools_17    # clang-tidy (clang-format: see below)
       bazel-buildtools  # buildifier, buildozer
     ];
   shellHook = ''

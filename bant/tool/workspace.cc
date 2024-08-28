@@ -17,6 +17,7 @@
 
 #include "bant/tool/workspace.h"
 
+#include <string>
 #include <string_view>
 #include <vector>
 
