@@ -234,6 +234,35 @@ cc_library(
   }
 }
 
+TEST(DWYUTest, ChooseMinimalDependencySetIfMultipleLibrariesProvideHeader) {
+  ParsedProjectTestUtil pp;
+  pp.Add("//path", R"(
+cc_library(
+  name = "allthethings",
+  hdrs = ["foo.h", "bar.h"]
+)
+
+cc_library(
+  name = "onlyfoo",
+  hdrs = ["foo.h"]
+)
+
+cc_binary(
+  name = "baz",
+  srcs = ["baz.cc"],
+  deps = [":allthethings"],  # should be sufficient
+)");
+
+  {
+    DWYUTestFixture tester(pp.project());
+    tester.AddSource("path/baz.cc", R"(
+#include "path/bar.h"   // order dependent currently.
+#include "path/foo.h"
+)");
+    tester.RunForTarget("//path:baz");
+  }
+}
+
 TEST(DWYUTest, RequestUserGuidanceIfThereAreMultipleAlternatives) {
   // Sometimes, there are multiple libraries providing the same
   // header.
