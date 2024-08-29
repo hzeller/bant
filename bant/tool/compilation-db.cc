@@ -55,7 +55,8 @@ static std::set<std::string> ExtractCxxOptionsFromBazelrc() {
   // Hack: for cxx options that start with dash (to avoid picking up options
   // meant for Windows that start with slash (we don't do system-specific
   // evaluation)
-  static const LazyRE2 kCxxExtract{R"/(--(?:host_)?cxxopt\s*=?\s*(-[^\s]+))/"};
+  static const LazyRE2 kCxxExtract{
+    R"/(--(?:host_)?cxxopt\s*=?\s*['"]?(-[^\s"']+))/"};
 
   std::set<std::string> result;
   const auto bazelrc = ReadFileToString(FilesystemPath(".bazelrc"));
