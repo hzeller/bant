@@ -70,7 +70,8 @@ bool IsHeaderInList(std::string_view header,
   // so we always need to prepend that prefix_path.
   for (const std::string_view list_item : list) {
     if (header.ends_with(list_item) &&  // cheap first test before strcat
-        absl::StrCat(prefix_path, "/", list_item) == header) {
+        (header == list_item ||
+         absl::StrCat(prefix_path, "/", list_item) == header)) {
       return true;
     }
   }

@@ -234,6 +234,26 @@ cc_library(
   }
 }
 
+TEST(DWYUTest, ToplevelIncludesWithoutPrefixSlashWork) {
+  ParsedProjectTestUtil pp;
+  pp.Add("//", R"(
+cc_library(
+  name = "foo",
+  srcs = ["foo.cc"],
+  hdrs = ["foo.h"]
+)
+)");
+
+  {
+    DWYUTestFixture tester(pp.project());
+    tester.AddSource("foo.h", "");
+    tester.AddSource("foo.cc", R"(
+#include "foo.h"
+)");
+    tester.RunForTarget("//:foo");
+  }
+}
+
 TEST(DWYUTest, ChooseMinimalDependencySetIfMultipleLibrariesProvideHeader) {
   ParsedProjectTestUtil pp;
   pp.Add("//path", R"(
