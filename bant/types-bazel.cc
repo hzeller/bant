@@ -38,6 +38,9 @@ std::string BazelPackage::ToString() const {
 }
 
 std::string BazelPackage::QualifiedFile(std::string_view relative_file) const {
+  if (relative_file.starts_with(':')) {
+    relative_file.remove_prefix(1);
+  }
   if (path.empty()) return std::string(relative_file);
   return absl::StrCat(path, "/", relative_file);
 }

@@ -211,6 +211,12 @@ TEST(TypesBazel, ParseTarget) {
   }
 }
 
+TEST(TypesBazel, QualifiedFile) {
+  const BazelPackage p("", "bar/baz");
+  EXPECT_EQ(p.QualifiedFile("quux.cc"), "bar/baz/quux.cc");
+  EXPECT_EQ(p.QualifiedFile(":quux.cc"), "bar/baz/quux.cc");
+}
+
 TEST(TypesBazel, PrintTarget) {
   const BazelPackage p1("", "foo/bar/baz");
   const BazelPackage p2("", "other/path");
