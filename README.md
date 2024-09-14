@@ -194,6 +194,7 @@ use `bant` itself to find genrules to be passed to bazel:
 bazel fetch ...
 bazel build $(bant genrule-outputs ... | awk '{print $2}' | sort | uniq)
 ```
+
 (but of course there might be other bazel rules beside obvious genrules that
 create artifacts, so global `bazel build ...` will catch these as well)
 

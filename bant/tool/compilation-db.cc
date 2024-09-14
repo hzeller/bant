@@ -15,6 +15,9 @@
 // with this program; if not, write to the Free Software Foundation, Inc.,
 // 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 
+// TODO: this is fairly coarse-grained, as it emits all include directories
+// seen in all external projects for all files.
+
 #include "bant/tool/compilation-db.h"
 
 #include <filesystem>
@@ -35,11 +38,6 @@
 #include "bant/workspace.h"
 #include "re2/re2.h"
 
-// TODO: there are also things called virtual includes, in which an include
-// path is constructed via the `include_prefix` parameter in a cc_library.
-// They seem to end up in some symbolic link tree in external in
-// a directory _virtual_includes/. Figure out how that works and is constructed.
-
 namespace bant {
 
 // Make quoted strings a little less painful to print to C++ streams
@@ -50,6 +48,14 @@ std::ostream &operator<<(std::ostream &out, const q &quoted_str) {
   out << "\"" << quoted_str.value << "\"";
   return out;
 }
+
+// Common typical options considered for the compiler.
+static constexpr std::string_view kCommonDefaultOptions[] = {
+  "-xc++",
+  "-U_FORTIFY_SOURCE",
+  "-O2",
+  "-DNDEBUG",
+};
 
 static std::set<std::string> ExtractCxxOptionsFromBazelrc() {
   // Hack: for cxx options that start with dash (to avoid picking up options
@@ -68,6 +74,13 @@ static std::set<std::string> ExtractCxxOptionsFromBazelrc() {
   while (RE2::FindAndConsume(&run, *kCxxExtract, &cxx_opt)) {
     result.insert(std::string{cxx_opt});
   }
+
+  // Hack: when this is defined, this implies -DGTEST_HAS_ABSL
+  static const LazyRE2 kAbslGtest{"define.*absl=1"};
+  if (RE2::PartialMatch(*bazelrc, *kAbslGtest)) {
+    result.insert("-DGTEST_HAS_ABSL=1");
+  }
+
   return result;
 }
 
@@ -76,6 +89,7 @@ static void WriteCompilationDBEntry(const ParsedProject &project,
                                     const query::Result &details,
                                     const std::string &cwd,
                                     const std::string &external_inc_json,
+                                    std::set<std::string> *already_written,
                                     std::ostream &out) {
   std::vector<std::string_view> sources;
   query::AppendStringList(details.srcs_list, sources);
@@ -84,15 +98,52 @@ static void WriteCompilationDBEntry(const ParsedProject &project,
   for (const auto src : sources) {
     const std::string abs_src =
       package.FullyQualifiedFile(project.workspace(), src);
+    if (!already_written->insert(abs_src).second) continue;
     out << "  {\n";
     out << "    " << q{"file"} << ": " << q{abs_src} << ",\n";
     out << "    " << q{"arguments"} << ": [\n";
-    out << "      " << q{"gcc"} << ", " << q{"-xc++"} << ",\n";
+    out << "      " << q{"gcc"} << ",\n";
+    for (const std::string_view option : kCommonDefaultOptions) {
+      out << "      " << q{option} << ",\n";
+    }
     out << external_inc_json;
     out << "      " << q{"-c"} << ", " << q{abs_src} << ",\n";
     out << "     ],\n";
     out << "     " << q{"directory"} << ": " << q{cwd} << "\n";
     out << "  },\n";
+  }
+}
+
+// Hack to accomodate protocol buffers.
+// They depend on some virtual includes that we can't directly see from
+// the targets. Add that in manually.
+////
+// This should be done differntly by mirroring what a cc_proto_library()
+// actually expands to as cc_library with their corresponding deps = []
+// (without having to parse the convoluted *.bzl file).
+// Broken out in separate function to easily remove this hack later.
+static void ProtobufAnyPbHack(const BazelTarget &target,
+                              absl::flat_hash_set<std::string> *already_seen,
+                              std::string_view indent, std::stringstream &out) {
+  const std::string_view external_project = target.package.project;
+  if (!external_project.contains("protobuf")) return;  // not interesting.
+  if (!already_seen->insert("protobuf-extra-include-hack").second) return;
+  constexpr struct PackageTarget {
+    const char *package;
+    const char *target;
+  } kProtoTargets[] = {
+    {"", "protobuf_headers"},
+    {"stubs/", "lite"},
+    {"io/", "io"},
+  };
+  for (const PackageTarget extra_inc : kProtoTargets) {
+    const std::string virt_incdir =
+      absl::StrCat("bazel-bin/external/", external_project.substr(1),
+                   "/src/google/protobuf/", extra_inc.package,
+                   "_virtual_includes/", extra_inc.target);
+    if (already_seen->insert(virt_incdir).second) {
+      out << indent << q{"-iquote"} << ", " << q{virt_incdir} << ",\n";
+    }
   }
 }
 
@@ -126,9 +177,29 @@ static std::string CollectGlobalFlagsAndIncDirs(const ParsedProject &project) {
         for (const std::string_view inc_dir : inc_dirs) {
           const std::string inc_path =
             current_package.FullyQualifiedFile(workspace, inc_dir);
-          if (!already_seen.insert(inc_path).second) continue;
+          if (!already_seen.insert(inc_path).second) {
+            continue;
+          }
           out << kIndent << q{"-iquote"} << ", " << q{inc_path} << ",\n";
         }
+
+        // bazel generates virtual include dirs when "include_prefix" is set.
+        if (!details.include_prefix.empty()) {
+          // TODO: this might be different for external and not. Right now
+          // we're focused on external projects, such as protobuf that seems
+          // to use this feature.
+          const std::string_view external_project = target->package.project;
+          const std::string_view target_path = target->package.path;
+          const std::string virt_incdir = absl::StrCat(
+            "bazel-bin/external/", external_project.substr(1), "/", target_path,
+            "/_virtual_includes/", target->target_name);
+          if (already_seen.insert(virt_incdir).second) {
+            out << kIndent << q{"-iquote"} << ", " << q{virt_incdir} << ",\n";
+          }
+        }
+
+        // If we depend on anything that looks like protobuf, apply this hack.
+        ProtobufAnyPbHack(*target, &already_seen, kIndent, out);
 
         // Now, let's check out the dependencies and see that all of the
         // referenced external projects are covered.
@@ -177,6 +248,7 @@ void WriteCompilationDB(Session &session, const ParsedProject &project,
   // once we know what we're doing :)
   const std::string external_inc_json = CollectGlobalFlagsAndIncDirs(project);
 
+  std::set<std::string> already_written;
   out << "[\n";
   for (const auto &[_, parsed_package] : project.ParsedFiles()) {
     const BazelPackage &current_package = parsed_package->package;
@@ -193,7 +265,7 @@ void WriteCompilationDB(Session &session, const ParsedProject &project,
           return;
         }
         WriteCompilationDBEntry(project, current_package, details,  //
-                                cwd, external_inc_json, out);
+                                cwd, external_inc_json, &already_written, out);
       });
   }
   out << "]\n";
