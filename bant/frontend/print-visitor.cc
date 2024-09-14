@@ -177,7 +177,9 @@ void PrintVisitor::VisitScalar(Scalar *s) {
   }
 }
 
-void PrintVisitor::VisitIdentifier(Identifier *i) { out_ << i->id(); }
+void PrintVisitor::VisitIdentifier(Identifier *i) {
+  PrintMaybeHighlight(i->id());
+}
 
 std::ostream &operator<<(std::ostream &o, Node *n) {
   if (!PrintVisitor(o).WalkNonNull(n)) {
