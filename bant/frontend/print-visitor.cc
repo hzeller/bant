@@ -45,9 +45,25 @@ static constexpr Colors kColor = {
 };
 
 namespace bant {
+void PrintVisitor::PrintMaybeHighlight(std::string_view print_str) {
+  const char *last_end = print_str.data();
+  std::string_view highlight;
+  if (highlight_re_) {
+    while (RE2::FindAndConsume(&print_str, *highlight_re_, &highlight)) {
+      out_ << std::string_view(last_end, highlight.data() - last_end);
+      if (do_color_) out_ << kColor.highlight;
+      out_ << highlight;
+      if (do_color_) out_ << kColor.reset_hightlight;
+      any_highlight_ = true;
+      last_end = print_str.data();
+    }
+  }
+  out_ << std::string_view(last_end, print_str.end() - last_end);
+}
+
 void PrintVisitor::VisitFunCall(FunCall *f) {
   if (do_color_) out_ << kColor.bold;
-  out_ << f->identifier()->id();
+  PrintMaybeHighlight(f->identifier()->id());
   if (do_color_) out_ << kColor.reset;
   BaseVoidVisitor::VisitFunCall(f);
 }
@@ -155,21 +171,7 @@ void PrintVisitor::VisitScalar(Scalar *s) {
     if (str->is_triple_quoted()) out_ << quote_char << quote_char;
 
     out_ << quote_char;
-    std::string_view print_str = str->AsString();
-    const char *last_end = print_str.data();
-    std::string_view highlight;
-    if (highlight_re_) {
-      while (RE2::FindAndConsume(&print_str, *highlight_re_, &highlight)) {
-        out_ << std::string_view(last_end, highlight.data() - last_end);
-        if (do_color_) out_ << kColor.highlight;
-        out_ << highlight;
-        if (do_color_) out_ << kColor.reset_hightlight;
-        any_highlight_ = true;
-        last_end = print_str.data();
-      }
-    }
-
-    out_ << std::string_view(last_end, print_str.end() - last_end);
+    PrintMaybeHighlight(str->AsString());
     out_ << quote_char;
     if (str->is_triple_quoted()) out_ << quote_char << quote_char;
   }

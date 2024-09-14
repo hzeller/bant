@@ -19,6 +19,7 @@
 #define BANT_PRINT_VISITOR_H
 
 #include <ostream>
+#include <string_view>
 
 #include "bant/frontend/ast.h"
 #include "re2/re2.h"
@@ -42,9 +43,12 @@ class PrintVisitor : public BaseVoidVisitor {
   void VisitScalar(Scalar *s) final;
   void VisitIdentifier(Identifier *i) final;
 
+  // Report if any regex-highlight has been emitted during print.
   bool any_highlight() const { return any_highlight_; }
 
  private:
+  void PrintMaybeHighlight(std::string_view print_str);
+
   std::ostream &out_;
   const RE2 *const highlight_re_;
   const bool do_color_;

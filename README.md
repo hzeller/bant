@@ -60,8 +60,8 @@ of these and print the final form:
 bant print -b @googletest//:gtest
 ```
 
-The `-g` option allows to 'grep' for targets where any of the strings in the
-AST of a rule matches a pattern
+The `-g` option allows to 'grep' for targets where the rule-name or any of the
+strings in the AST of a rule matches a pattern.
 
 ```bash
 bant print ... -g "scan.*test"
