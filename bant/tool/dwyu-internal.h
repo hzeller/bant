@@ -63,6 +63,12 @@ class DWYUGenerator {
   // in case later inspection is needed (e.g. for visibility).
   void InitKnownLibraries();
 
+  // Various predicates to check targets to make decisions to include/exclude.
+  bool IsAlwayslink(const BazelTarget &target) const;
+  bool IsTestonlyCompatible(const BazelTarget &target,
+                            const BazelTarget &dep) const;
+  bool CanSee(const BazelTarget &target, const BazelTarget &dep) const;
+
   // Given a bunch of sources, grep their content (using TryOpenFile() to
   // get it), and look up all targets providing them.
   // For some, there can be alternatives, so this is a vector of sets.
@@ -78,12 +84,6 @@ class DWYUGenerator {
   void CreateEditsForTarget(const BazelTarget &target,
                             const query::Result &details,
                             const ParsedBuildFile &build_file);
-
-  bool IsAlwayslink(const BazelTarget &target) const;
-  bool IsTestonlyCompatible(const BazelTarget &target,
-                            const BazelTarget &dep) const;
-
-  bool CanSee(const BazelTarget &target, const BazelTarget &dep) const;
 
   Session &session_;
   const ParsedProject &project_;

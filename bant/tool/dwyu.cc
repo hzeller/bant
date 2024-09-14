@@ -63,9 +63,9 @@ namespace bant {
 
 // Given a header file, check if it is in the list. Take possible prefix
 // into account.
-bool IsHeaderInList(std::string_view header,
-                    const std::vector<std::string_view> &list,
-                    std::string_view prefix_path) {
+static bool IsHeaderInList(std::string_view header,
+                           const std::vector<std::string_view> &list,
+                           std::string_view prefix_path) {
   // The list items are provided without the full path in the cc_library(),
   // so we always need to prepend that prefix_path.
   for (const std::string_view list_item : list) {
@@ -76,21 +76,6 @@ bool IsHeaderInList(std::string_view header,
     }
   }
   return false;
-}
-
-DWYUGenerator::DWYUGenerator(Session &session, const ParsedProject &project,
-                             EditCallback emit_deps_edit)
-    : session_(session),
-      project_(project),
-      emit_deps_edit_(std::move(emit_deps_edit)) {
-  Stat &stats = session_.GetStatsFor("DWYU preparation", "indexed targets");
-  const ScopedTimer timer(&stats.duration);
-
-  headers_from_libs_ = ExtractHeaderToLibMapping(project, session.info(),
-                                                 /*suffix_index=*/true);
-  files_from_genrules_ = ExtractGeneratedFromGenrule(project, session.info());
-  InitKnownLibraries();
-  stats.count = known_libs_.size();
 }
 
 static absl::btree_set<BazelTarget> intersect(
@@ -133,115 +118,6 @@ static std::vector<absl::btree_set<BazelTarget>> MinimizeDependencySet(
   return result;
 }
 
-void DWYUGenerator::CreateEditsForTarget(const BazelTarget &target,
-                                         const query::Result &details,
-                                         const ParsedBuildFile &build_file) {
-  // Looking at the include files the sources reference, map these back
-  // to the dependencies that provide them: these are the deps we
-  // needed.
-  bool all_header_deps_known = true;
-
-  // Collect sources and headers provided by this library.
-  auto sources = query::ExtractStringList(details.srcs_list);
-  query::AppendStringList(details.hdrs_list, sources);
-
-  // Grep for all includes they use to determine which deps we need
-  auto deps_needed = DependenciesNeededBySources(target, build_file, sources,
-                                                 &all_header_deps_known);
-  deps_needed = MinimizeDependencySet(deps_needed);
-  OneToOne<BazelTarget, BazelTarget> checked_off_by;
-  auto IsNeededInSourcesAndCheckOff = [&](const BazelTarget &target) -> bool {
-    for (auto it = deps_needed.begin(); it != deps_needed.end(); ++it) {
-      if (it->contains(target)) {
-        for (const BazelTarget &check : *it) {
-          checked_off_by.insert({check, target});  // remember what checked off.
-        }
-        deps_needed.erase(it);  // alternatives satisifed. Remove.
-        return true;
-      }
-    }
-    return false;
-  };
-
-  // Check all the dependencies that the build target requested and strike
-  // them off the 'deps_needed' list.
-  // Everything deps_needed
-  // verify we actually need them. If not: remove.
-  const auto deps = query::ExtractStringList(details.deps_list);
-  for (const std::string_view dependency_target : deps) {
-    const auto requested_target = BazelTarget::ParseFrom(dependency_target,  //
-                                                         target.package);
-    if (!requested_target.has_value()) {
-      project_.Loc(session_.info(), dependency_target)
-        << " Invalid target name '" << dependency_target << "'\n";
-      continue;
-    }
-
-    // Strike off the dependency requested in the build file from the
-    // dependendencies we independently determined from the #includes.
-    // If it is not on that list, it is a canidate for removal.
-    if (IsNeededInSourcesAndCheckOff(*requested_target)) {
-      continue;
-    }
-
-    if (checked_off_by.contains(*requested_target)) {
-      const BazelTarget &previously = checked_off_by[*requested_target];
-      if (previously == *requested_target) {
-        project_.Loc(session_.info(), dependency_target)
-          << " in target " << target << ": dependency " << dependency_target
-          << " same dependency mentioned multiple times. Run buildifier\n";
-      } else {
-        project_.Loc(session_.info(), dependency_target)
-          << " in target " << target << ": dependency " << dependency_target
-          << " provides headers already provided by " << previously
-          << " before. Multiple libraries providing the same headers ?\n";
-      }
-      continue;
-    }
-
-    // Looks like we don't need this dependency. But maybe we don't quite know:
-    const bool potential_remove_suggestion_safe =
-      all_header_deps_known && !IsAlwayslink(*requested_target);
-
-    // Emit the edits.
-    if (potential_remove_suggestion_safe) {
-      static const LazyRE2 kExcludeVetoUserCommentRe{"#.*keep"};
-      const auto line = project_.GetSurroundingLine(dependency_target);
-      if (session_.flags().ignore_keep_comment ||
-          !RE2::PartialMatch(line, *kExcludeVetoUserCommentRe)) {
-        emit_deps_edit_(EditRequest::kRemove, target, dependency_target, "");
-      }
-    } else if (!all_header_deps_known && session_.flags().verbose > 1) {
-      project_.Loc(session_.info(), dependency_target)
-        << ": Unsure what " << requested_target->ToString()
-        << " provides, but there are also unaccounted headers. Won't remove.\n";
-    }
-  }
-
-  // Now, if there is still something we need, add them.
-  for (const auto &need_add_alternatives : deps_needed) {
-    // Only possible to auto-add if there is exactly one alternative.
-    if (need_add_alternatives.size() > 1) {
-      project_.Loc(session_.info(), details.name)
-        << " Can't auto-fix: Referenced headers in " << target
-        << " need exactly one of multiple choices\nAlternatives are:\n";
-      for (const BazelTarget &target : need_add_alternatives) {
-        session_.info() << "\t" << target << "\n";
-      }
-      continue;
-    }
-
-    const BazelTarget &need_add = *need_add_alternatives.begin();
-    if (CanSee(target, need_add) && IsTestonlyCompatible(target, need_add)) {
-      emit_deps_edit_(EditRequest::kAdd, target, "",
-                      need_add.ToStringRelativeTo(target.package));
-    } else if (session_.flags().verbose > 1) {
-      project_.Loc(session_.info(), details.name)
-        << ": Would add " << need_add << ", but not visible\n";
-    }
-  }
-}
-
 // Open the given file an return an line-indexed content or nullptr if file
 // not found.
 std::optional<DWYUGenerator::SourceFile> DWYUGenerator::TryOpenFile(
@@ -257,11 +133,12 @@ std::optional<DWYUGenerator::SourceFile> DWYUGenerator::TryOpenFile(
       result.content = std::move(*src_content);
       return result;
     }
-    result.is_generated = true;  // Only the first
+    result.is_generated = true;  // Only the first in list is direct source
   }
   return std::nullopt;
 }
 
+// class DWYUGenerator declared in dwyu-internal.h
 // We can only confidently remove a target if we actually know about its
 // existence in the project. If not, be cautious.
 void DWYUGenerator::InitKnownLibraries() {
@@ -282,6 +159,7 @@ void DWYUGenerator::InitKnownLibraries() {
   }
 }
 
+// Various predicates to check
 bool DWYUGenerator::IsAlwayslink(const BazelTarget &target) const {
   auto found = known_libs_.find(target);
   if (found == known_libs_.end()) return true;  // Unknown ? Be conservative.
@@ -357,6 +235,7 @@ bool DWYUGenerator::CanSee(const BazelTarget &target,
   return !any_valid_visiblity_pattern;
 }
 
+// TODO: needs to be shorter
 std::vector<absl::btree_set<BazelTarget>>
 DWYUGenerator::DependenciesNeededBySources(
   const BazelTarget &target, const ParsedBuildFile &build_file,
@@ -538,6 +417,117 @@ DWYUGenerator::DependenciesNeededBySources(
   return result;
 }
 
+void DWYUGenerator::CreateEditsForTarget(const BazelTarget &target,
+                                         const query::Result &details,
+                                         const ParsedBuildFile &build_file) {
+  // Looking at the include files the sources reference, map these back
+  // to the dependencies that provide them: these are the deps we
+  // needed.
+  bool all_header_deps_known = true;
+
+  // Collect sources and headers provided by this library.
+  auto sources = query::ExtractStringList(details.srcs_list);
+  query::AppendStringList(details.hdrs_list, sources);
+
+  // Grep for all includes they use to determine which deps we need
+  auto deps_needed = DependenciesNeededBySources(target, build_file, sources,
+                                                 &all_header_deps_known);
+  deps_needed = MinimizeDependencySet(deps_needed);
+  OneToOne<BazelTarget, BazelTarget> checked_off_by;
+  auto IsNeededInSourcesAndCheckOff = [&](const BazelTarget &target) -> bool {
+    for (auto it = deps_needed.begin(); it != deps_needed.end(); ++it) {
+      if (it->contains(target)) {
+        for (const BazelTarget &check : *it) {
+          checked_off_by.insert({check, target});  // remember what checked off.
+        }
+        deps_needed.erase(it);  // alternatives satisifed. Remove.
+        return true;
+      }
+    }
+    return false;
+  };
+
+  // Check all the dependencies that the build target requested and strike
+  // them off the 'deps_needed' list.
+  // Everything deps_needed
+  // verify we actually need them. If not: remove.
+  const auto deps = query::ExtractStringList(details.deps_list);
+  for (const std::string_view dependency_target : deps) {
+    const auto requested_target = BazelTarget::ParseFrom(dependency_target,  //
+                                                         target.package);
+    if (!requested_target.has_value()) {
+      project_.Loc(session_.info(), dependency_target)
+        << " Invalid target name '" << dependency_target << "'\n";
+      continue;
+    }
+
+    // Strike off the dependency requested in the build file from the
+    // dependendencies we independently determined from the #includes.
+    // If it is not on that list, it is a canidate for removal.
+    if (IsNeededInSourcesAndCheckOff(*requested_target)) {
+      continue;
+    }
+
+    if (checked_off_by.contains(*requested_target)) {
+      const BazelTarget &previously = checked_off_by[*requested_target];
+      if (previously == *requested_target) {
+        project_.Loc(session_.info(), dependency_target)
+          << " in target " << target << ": dependency " << dependency_target
+          << " same dependency mentioned multiple times. Run buildifier\n";
+      } else {
+        project_.Loc(session_.info(), dependency_target)
+          << " in target " << target << ": dependency " << dependency_target
+          << " provides headers already provided by " << previously
+          << " before. Multiple libraries providing the same headers ?\n";
+      }
+      continue;
+    }
+
+    // Looks like we don't need this dependency. But maybe we don't quite know:
+    const bool potential_remove_suggestion_safe =
+      all_header_deps_known && !IsAlwayslink(*requested_target);
+
+    // Emit the edits.
+    if (potential_remove_suggestion_safe) {
+      static const LazyRE2 kExcludeVetoUserCommentRe{"#.*keep"};
+      const auto line = project_.GetSurroundingLine(dependency_target);
+      if (session_.flags().ignore_keep_comment ||
+          !RE2::PartialMatch(line, *kExcludeVetoUserCommentRe)) {
+        emit_deps_edit_(EditRequest::kRemove, target, dependency_target, "");
+      }
+    } else if (!all_header_deps_known && session_.flags().verbose > 1) {
+      project_.Loc(session_.info(), dependency_target)
+        << ": Unsure what " << requested_target->ToString()
+        << " provides, but there are also unaccounted headers. Won't remove.\n";
+    }
+  }
+
+  // Now, if there is still something we need, add them.
+  for (const auto &need_add_alternatives : deps_needed) {
+    // Only possible to auto-add if there is exactly one alternative.
+    if (need_add_alternatives.size() > 1) {
+      project_.Loc(session_.info(), details.name)
+        << " Can't auto-fix: Referenced headers in " << target
+        << " need exactly one of multiple choices\nAlternatives are:\n";
+      for (const BazelTarget &target : need_add_alternatives) {
+        session_.info() << "\t" << target << "\n";
+      }
+      continue;
+    }
+
+    const BazelTarget &need_add = *need_add_alternatives.begin();
+    if (CanSee(target, need_add) && IsTestonlyCompatible(target, need_add)) {
+      emit_deps_edit_(EditRequest::kAdd, target, "",
+                      need_add.ToStringRelativeTo(target.package));
+    } else if (session_.flags().verbose > 1) {
+      project_.Loc(session_.info(), details.name)
+        << ": Would add " << need_add << ", but not visible\n";
+    }
+  }
+}
+
+// -- Publically visible interface
+
 std::vector<std::string_view> ExtractCCIncludes(NamedLineIndexedContent *src) {
   static const LazyRE2 kIncRe{
     R"/((?m)("|^\s*#\s*include\s+"((\.\./)*[0-9a-zA-Z_/+-]+(\.[a-zA-Z]+)*)"))/"};
@@ -565,6 +555,21 @@ std::vector<std::string_view> ExtractCCIncludes(NamedLineIndexedContent *src) {
     src->mutable_line_index()->InitializeFromStringView(range);
   }
   return result;
+}
+
+DWYUGenerator::DWYUGenerator(Session &session, const ParsedProject &project,
+                             EditCallback emit_deps_edit)
+    : session_(session),
+      project_(project),
+      emit_deps_edit_(std::move(emit_deps_edit)) {
+  Stat &stats = session_.GetStatsFor("DWYU preparation", "indexed targets");
+  const ScopedTimer timer(&stats.duration);
+
+  headers_from_libs_ = ExtractHeaderToLibMapping(project, session.info(),
+                                                 /*suffix_index=*/true);
+  files_from_genrules_ = ExtractGeneratedFromGenrule(project, session.info());
+  InitKnownLibraries();
+  stats.count = known_libs_.size();
 }
 
 size_t DWYUGenerator::CreateEditsForPattern(const BazelPattern &pattern) {
