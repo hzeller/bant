@@ -248,8 +248,8 @@ Options
 
 Commands (unique prefix sufficient):
     == Parsing ==
-    print          : Print AST matching pattern. -e : only files w/ parse errors
-                      -b : elaBorate; light eval: expand variables, concat etc.
+    print          : Print AST matching pattern. -E : only files w/ parse errors
+                      -e : elaborate; light eval: expand variables, concat etc.
                       -g <regex> : 'grep' - only print targets where any string
                                     matches regex.
                       -i If '-g' is given: case insensitive

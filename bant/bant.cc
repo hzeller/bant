@@ -80,8 +80,8 @@ static int usage(const char *prog, const char *message, int exit_code) {
 
 Commands (unique prefix sufficient):
     %s== Parsing ==%s
-    print          : Print AST matching pattern. -e : only files w/ parse errors
-                      -b : elaBorate; light eval: expand variables, concat etc.
+    print          : Print AST matching pattern. -E : only files w/ parse errors
+                      -e : elaborate; light eval: expand variables, concat etc.
                       -g <regex> : 'grep' - only print targets where any string
                                     matches regex.
                       -i If '-g' is given: case insensitive
@@ -193,8 +193,11 @@ int main(int argc, char *argv[]) {
       break;
       // "print" options
     case 'p': flags.print_ast = true; break;
-    case 'e': flags.print_only_errors = true; break;
-    case 'b': flags.elaborate = true; break;  // TODO: we need long options.
+    case 'E': flags.print_only_errors = true; break;
+    case 'b':  // old option.
+      fprintf(stderr, "Note, the name of -b option changed to -e\n");
+      [[fallthrough]];
+    case 'e': flags.elaborate = true; break;
     case 'f': {
       auto found = kFormatOutNames.lower_bound(optarg);
       if (found == kFormatOutNames.end() || !found->first.starts_with(optarg)) {
