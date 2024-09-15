@@ -15,6 +15,8 @@ B=${0%%.cc}; [ "$B" -nt "$0" ] || c++ -std=c++17 -o"$B" "$0" && exec "$B" "$@";
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Location: https://github.com/hzeller/dev-tools
+
 // Script to run clang-tidy on files in a bazel project while caching the
 // results as clang-tidy can be pretty slow. The clang-tidy output messages
 // are content-addressed in a hash(cc-file-content) cache file.
@@ -29,7 +31,7 @@ B=${0%%.cc}; [ "$B" -nt "$0" ] || c++ -std=c++17 -o"$B" "$0" && exec "$B" "$@";
 //  CLANG_TIDY = binary to run; default would just be clang-tidy.
 //  CACHE_DIR  = where to put the cached content; default ~/.cache
 
-// This file shall be self-contained, so we don't use any re2 or absl niceties
+// This file shall be c++17 self-contained; not using any re2 or absl niceties.
 #include <unistd.h>
 
 #include <algorithm>
@@ -55,29 +57,40 @@ B=${0%%.cc}; [ "$B" -nt "$0" ] || c++ -std=c++17 -o"$B" "$0" && exec "$B" "$@";
 #include <utility>
 #include <vector>
 
-// Some configuration for this project.
+// [Adapt for project]
+// Some configuration such as name, and files to look for in this project.
 static constexpr std::string_view kProjectCachePrefix = "bant_";
-static constexpr std::string_view kWorkspaceFile = "MODULE.bazel";
-
-// Choices of what files to include and exclude to run clang-tidy on.
 static constexpr std::string_view kStartDirectory = "bant";
 static constexpr std::string_view kFileIncludeRe = ".*";
-static constexpr std::string_view kFileExcludeRe = ".git/|.github/";
+static constexpr std::string_view kFileExcludeRe = //
+    ".git/|.github/"       // Files/Directories to be excluded.
+    ;
+
+// A file in the toplevel of the project that should exist, typically something
+// used to set up the build environment, such as MODULE.bazel, CMakeLists.txt
+// or similar. It is used as litmus-test to test if this script is started
+// in the right directory, but its timestamp is also considered if files should
+// be revisited (see below).
+// (Default configuration: just .clang-tidy as this should always be there)
+static constexpr std::string_view kToplevelBuild = "MODULE.bazel";
+
+// If the compilation DB or kToplevelBuild changed, it might be worthwhile
+// revisiting sources that previously had issues. This flag enables that.
+//
+// It is good to set once the project is 'clean' and there are only a
+// few problematic sources to begin with, otherwise every update of the
+// compilation DB will re-trigger revisiting all of them.
+static constexpr bool kRevisitBrokenFilesIfCompilationDBNewer = true;
+
+// Files to be considered.
 inline bool ConsiderExtension(const std::string &extension) {
   return extension == ".cc" || extension == ".h";
 }
 
 // Configuration of clang-tidy itself.
 static constexpr std::string_view kClangConfigFile = ".clang-tidy";
-static constexpr std::string_view kExtraArgs[] = {"-Wno-unknown-pragmas"};
-
-// If the compilation DB changed, it might be worthwhile revisiting
-// sources that previously had issues. This flag enables that.
-//
-// It is good to set if the project is 'clean' and there are only a
-// few problematic sources to begin with, otherwise every update of the
-// compilation DB will re-trigger revisiting all of them.
-static constexpr bool kRevisitBrokenFilesIfCompilationDBNewer = true;
+static constexpr std::string_view kExtraArgs[] = {
+    "-Wno-unknown-pragmas", "-Wno-unknown-warning-option"};
 
 namespace {
 
@@ -162,10 +175,10 @@ class ContentAddressedStore {
 
 class ClangTidyRunner {
  public:
-  ClangTidyRunner(int argc, char **argv)
+  ClangTidyRunner(const std::string &cache_prefix, int argc, char **argv)
       : clang_tidy_(getenv("CLANG_TIDY") ?: "clang-tidy"),
         clang_tidy_args_(AssembleArgs(argc, argv)) {
-    project_cache_dir_ = AssembleProjectCacheDir();
+    project_cache_dir_ = AssembleProjectCacheDir(cache_prefix);
   }
 
   const fs::path &project_cache_dir() const { return project_cache_dir_; }
@@ -246,7 +259,7 @@ class ClangTidyRunner {
     return result;
   }
 
-  fs::path AssembleProjectCacheDir() const {
+  fs::path AssembleProjectCacheDir(const std::string &cache_prefix) const {
     const fs::path cache_dir = GetCacheBaseDir() / "clang-tidy";
 
     // Use major version as part of name of our configuration specific dir.
@@ -260,13 +273,13 @@ class ClangTidyRunner {
     // Make sure directory filename depends on .clang-tidy content.
     hash_t cache_unique_id = hashContent(version + clang_tidy_args_);
     cache_unique_id ^= hashContent(GetContent(kClangConfigFile));
-    return cache_dir /
-           fs::path(std::string{kProjectCachePrefix} + "v" + major_version +
-                    "_" + ToHex(cache_unique_id, 8));
+    return cache_dir / fs::path(cache_prefix + "v" + major_version + "_" +
+                                ToHex(cache_unique_id, 8));
   }
 
   // Fix filename paths found in logfiles that are not emitted relative to
-  // project root in the log (bazel has its own)
+  // project root in the log (bazel has its own, so this fixes bazel-specific
+  // projects)
   static void RepairFilenameOccurences(const fs::path &infile,
                                        const fs::path &outfile) {
     static const std::regex sFixPathsRe = []() {
@@ -352,9 +365,12 @@ class FileGatherer {
 
   // Tally up findings for files of interest and assemble in one file.
   // (BuildWorkList() needs to be called first).
-  std::map<std::string, int> CreateReport(const fs::path &project_dir,
-                                          std::string_view symlink_to) {
+  size_t CreateReport(const fs::path &project_dir,
+                      std::string_view symlink_detail,
+                      std::string_view symlink_summary) {
     const fs::path tidy_outfile = project_dir / "tidy.out";
+    const fs::path tidy_summary = project_dir / "tidy-summary.out";
+
     // Assemble the separate outputs into a single file. Tally up per-check
     const std::regex check_re("(\\[[a-zA-Z.-]+\\])\n");
     std::map<std::string, int> checks_seen;
@@ -368,9 +384,26 @@ class FileGatherer {
     }
 
     std::error_code ignored_error;
-    fs::remove(symlink_to, ignored_error);
-    fs::create_symlink(tidy_outfile, symlink_to, ignored_error);
-    return checks_seen;
+    fs::remove(symlink_detail, ignored_error);
+    fs::create_symlink(tidy_outfile, symlink_detail, ignored_error);
+
+    using check_count_t = std::pair<std::string, int>;
+    std::vector<check_count_t> by_count(checks_seen.begin(), checks_seen.end());
+    std::stable_sort(by_count.begin(), by_count.end(),
+                     [](const check_count_t &a, const check_count_t &b) {
+                       return b.second < a.second;  // reverse count
+                     });
+    FILE *summary_file = fopen(tidy_summary.c_str(), "wb");
+    for (const auto &counts : by_count) {
+      fprintf(stdout, "%5d %s\n", counts.second, counts.first.c_str());
+      fprintf(summary_file, "%5d %s\n", counts.second, counts.first.c_str());
+    }
+    fclose(summary_file);
+
+    fs::remove(symlink_summary, ignored_error);
+    fs::create_symlink(tidy_summary, symlink_summary, ignored_error);
+
+    return checks_seen.size();
   }
 
  private:
@@ -382,20 +415,34 @@ class FileGatherer {
 
 int main(int argc, char *argv[]) {
   // Test that key files exist and remember their last change.
-  std::error_code ec;
-  const auto workspace_ts = fs::last_write_time(kWorkspaceFile, ec);
-  if (ec.value() != 0) {
-    std::cerr << "Script needs to be executed in toplevel bazel project dir\n";
+  if (!fs::exists(kClangConfigFile)) {
+    std::cerr << "Need a " << kClangConfigFile << " config file.\n";
     return EXIT_FAILURE;
   }
+
+  std::error_code ec;
+  const auto toplevel_build_ts = fs::last_write_time(kToplevelBuild, ec);
+  if (ec.value() != 0) {
+    std::cerr << "Script needs to be executed in toplevel project dir.\n";
+    return EXIT_FAILURE;
+  }
+
   const auto compdb_ts = fs::last_write_time("compile_commands.json", ec);
   if (ec.value() != 0) {
-    std::cerr << "No compilation db found. First, run make-compilation-db.sh\n";
+    std::cerr << "No compilation db compile_commands.json found; "
+              << "create that first. For cmake projects, often simply\n"
+              << "\tln -s build/compile_commands.json .\n";
     return EXIT_FAILURE;
   }
-  const auto build_env_latest_change = std::max(workspace_ts, compdb_ts);
 
-  ClangTidyRunner runner(argc, argv);
+  const auto build_env_latest_change = std::max(toplevel_build_ts, compdb_ts);
+
+  std::string cache_prefix{kProjectCachePrefix};
+  if (cache_prefix.empty()) {
+    // Cache prefix not set, choose name of directory
+    cache_prefix = fs::current_path().filename().string() + "_";
+  }
+  ClangTidyRunner runner(cache_prefix, argc, argv);
   ContentAddressedStore store(runner.project_cache_dir());
   std::cerr << "Cache dir " << runner.project_cache_dir() << "\n";
 
@@ -405,24 +452,18 @@ int main(int argc, char *argv[]) {
   // Now the expensive part...
   runner.RunClangTidyOn(store, &work_list);
 
-  const std::string kTidySymlink =
-    std::string{kProjectCachePrefix} + "clang-tidy.out";
-  auto checks_seen =
-    cc_file_gatherer.CreateReport(runner.project_cache_dir(), kTidySymlink);
+  const std::string detailed_report = cache_prefix + "clang-tidy.out";
+  const std::string summary = cache_prefix + "clang-tidy.summary";
+  size_t checks_seen = cc_file_gatherer.CreateReport(runner.project_cache_dir(),
+                                                     detailed_report, summary);
 
-  if (checks_seen.empty()) {
+  if (!checks_seen) {
     std::cerr << "No clang-tidy complaints. 😎\n";
   } else {
-    std::cerr << "--- Summary --- (details in " << kTidySymlink << ")\n";
-    using check_count_t = std::pair<std::string, int>;
-    std::vector<check_count_t> by_count(checks_seen.begin(), checks_seen.end());
-    std::stable_sort(by_count.begin(), by_count.end(),
-                     [](const check_count_t &a, const check_count_t &b) {
-                       return b.second < a.second;  // reverse count
-                     });
-    for (const auto &counts : by_count) {
-      fprintf(stdout, "%5d %s\n", counts.second, counts.first.c_str());
-    }
+    std::cerr << "This Summary   : " << summary << "\n"
+              << "Detailed report: " << detailed_report << "\n";
+
   }
-  return checks_seen.empty() ? EXIT_SUCCESS : EXIT_FAILURE;
+
+  return checks_seen == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
 }
