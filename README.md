@@ -10,14 +10,13 @@ projects.
 Bant
   * Helps cleaning up BUILD files by adding missing, and removing superfluous,
     dependencies (build_cleaner). Outputs `buildozer` script.
+  * Helps finding targets with grep feature that emits the full surrounding
+    target.
   * Extracts interesting project information such as the dependency graph,
     headers provided by which libraries etc., and presents them for easy
     post-proccessing (outputs simple tables for `grep` or `awk`, but as well
     CSV, JSON and S-Expressions).
   * Canonicalize targets.
-
-Early stages. WIP. Useful hack for my personal projects, but might be
-useful to others.
 
 ## Commands
 
@@ -53,11 +52,11 @@ bant print @googletest//:gtest
 
 You see that `gtest` has some files `glob()`'d and other expressions
 that make that rule, which we want to see evaluated.
-With the `-b` option (for ela`b`orate), bant can do some basic evaluation
+With the `-e` option (for `e`laborate), bant can do some basic evaluation
 of these and print the final form:
 
 ```bash
-bant print -b @googletest//:gtest
+bant print -e @googletest//:gtest
 ```
 
 The `-g` option allows to 'grep' for targets where the rule-name or any of the
@@ -228,8 +227,7 @@ need for it).
 ### Synopsis
 
 ```
-$ bazel-bin/bant/bant -h
-bant v0.1.5 <http://bant.build/>
+bant v0.1.7 <http://bant.build/>
 Copyright (c) 2024 Henner Zeller. This program is free software; license GPL 2.0.
 Usage: bant [options] <command> [bazel-target-pattern]
 Options
@@ -291,9 +289,10 @@ Commands (unique prefix sufficient):
 ### Usage examples
 
 ```bash
- bant parse -e -v  # Read bazel project, print AST for files with parse errors.
  bant parse -C ~/src/verible -v  # Read project in given directory.
- bant print @googletest//:gtest -b  # parse and expression eval given target
+ bant print ... -g scan.*cc   # print out all targets that contain given regex
+ bant print @googletest//:gtest -e  # parse and expression-eval given target
+                                    # (test without -e to see the difference)
  bant print //foo:bar   # Print specific target AST matching pattern
  bant print //foo/...   # Print all build files matching recursive pattern.
  bant workspace         # List all the external projects listed in workspace.
@@ -345,16 +344,23 @@ Before submit, run `scripts/before-submit.sh` ... and fix potential
 
 ### Current status
 
-Overall
-  * Goal: Reading bazel-like BUILD files and doing useful things with content.
-  * Non-Goal: parse full starlark (e.g. *.bzl files with rule `def`-initions)
+#### Goals
+  * **Goal**: Reading bazel-like BUILD files and doing useful things with
+    content.
+  * **Non-Goal**: parse full starlark (e.g. *.bzl files with rule
+    `def`-initions)
 
-Status
-  * Parses most of simple BUILD/BUILD.bazel files and builds an AST of the
-    Lists/Tuples/Function-calls (=build rules).
-    Should parse most common BUILD files.
+#### Status
+  * Parses BUILD/BUILD.bazel files correctly (tested for various projects),
+    and builds an AST used by all bant features.
   * Some evaluation, like variable expansion, list and string concatenation
     and `glob()` calls. No list comprehension yet.
+  * Very useful in daily life to navigate around a project (very useful
+    `bant print` with `-g` and/or `-e`). As well as keeping projects clean with
+    `bant dwyu` which reliably adds neccessary dependencies but also reliably
+    don't mess them up.
+  * Outputs in the `list-*` type features provide a neat interface for
+    scripting.
 
 ### Nice-to-have/next steps/TODO
 
