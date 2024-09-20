@@ -114,6 +114,7 @@ static constexpr ConfigValues kConfig = {
   .cache_prefix = "bant_",
   .start_dir = "bant",
   .toplevel_build_file = "MODULE.bazel",
+  .is_bazel_project = true,
 };
 // --------------------------------------------------------------
 
