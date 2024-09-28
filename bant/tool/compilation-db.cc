@@ -57,31 +57,48 @@ static constexpr std::string_view kCommonDefaultOptions[] = {
   "-DNDEBUG",
 };
 
-static std::set<std::string> ExtractCxxOptionsFromBazelrc() {
+// Return options found in the bazelrc in the sequence they arrive.
+// TODO: just emit the last winning option if multiple same options found.
+//       (right now it emits the _first_)
+// TODO: allow for configuration specific to operating sytems, but not special
+//       configs e.g. build:asan
+// TODO: needs test :)
+std::vector<std::string> ExtractOptionsFromBazelrc(std::string_view content) {
   // Hack: for cxx options that start with dash (to avoid picking up options
   // meant for Windows that start with slash (we don't do system-specific
   // evaluation)
+  // Need to be a space after build|test so that we don't capture special
+  // configurations such as build:asan.
   static const LazyRE2 kCxxExtract{
     R"/(--(?:host_)?cxxopt\s*=?\s*['"]?(-[^\s"']+))/"};
-
-  std::set<std::string> result;
+  std::vector<std::string> result;
   const auto bazelrc = ReadFileToString(FilesystemPath(".bazelrc"));
   if (!bazelrc.has_value()) return result;
 
   std::string_view run(*bazelrc);
   std::string_view cxx_opt;
+  absl::flat_hash_set<std::string_view> already_seen;
 
   while (RE2::FindAndConsume(&run, *kCxxExtract, &cxx_opt)) {
-    result.insert(std::string{cxx_opt});
+    if (already_seen.insert(cxx_opt).second) {
+      result.emplace_back(cxx_opt);
+    }
   }
 
   // Hack: when this is defined, this implies -DGTEST_HAS_ABSL
   static const LazyRE2 kAbslGtest{"define.*absl=1"};
   if (RE2::PartialMatch(*bazelrc, *kAbslGtest)) {
-    result.insert("-DGTEST_HAS_ABSL=1");
+    result.emplace_back("-DGTEST_HAS_ABSL=1");
   }
 
   return result;
+}
+
+static std::vector<std::string> ExtractOptionsFromBazelrcFile() {
+  std::vector<std::string> result;
+  const auto bazelrc = ReadFileToString(FilesystemPath(".bazelrc"));
+  if (!bazelrc.has_value()) return result;
+  return ExtractOptionsFromBazelrc(*bazelrc);
 }
 
 static void WriteCompilationDBEntry(const ParsedProject &project,
@@ -153,7 +170,7 @@ static std::string CollectGlobalFlagsAndIncDirs(const ParsedProject &project) {
   std::stringstream out;
 
   // All the cxx options mentioned in the .bazelrc
-  for (const std::string &cxxopt : ExtractCxxOptionsFromBazelrc()) {
+  for (const std::string &cxxopt : ExtractOptionsFromBazelrcFile()) {
     out << kIndent << q{cxxopt} << ",\n";
   }
 

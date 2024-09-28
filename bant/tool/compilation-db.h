@@ -18,11 +18,18 @@
 #ifndef BANT_TOOL_COMPILATiON_DB_
 #define BANT_TOOL_COMPILATiON_DB_
 
+#include <string>
+#include <string_view>
+#include <vector>
+
 #include "bant/frontend/parsed-project.h"
 #include "bant/session.h"
 #include "bant/types-bazel.h"
 
 namespace bant {
+// Given a bazelrc content, extract all the cxx options relevant for buildling.
+std::vector<std::string> ExtractOptionsFromBazelrc(std::string_view content);
+
 // Create a compilation DB compatible with clang tools such as clang-tidy
 // or clangd.
 // Requires a fully alaborated "project".
