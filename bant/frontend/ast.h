@@ -39,7 +39,11 @@ class BinOpNode;
 // Constructors are not public, only accessible via Arena. Use Arena::New()
 // for all nodes.
 // All nodes are only composed of trivially destructable components so that
-// we do not have to call destructors.
+// we do not have to call destructors when wiped from arena.
+//
+// Nodes are handed around by non-const pointers;  most basic nodes are
+// immutable, but Nodes that point to other nodes can be mutated by
+// replacing nodes; allowed only by the BaseNodeReplacementVisitor.
 
 class Node {
  public:
@@ -64,7 +68,7 @@ class Scalar : public Node {
  public:
   enum class ScalarType { kInt, kString };
 
-  virtual ScalarType type() = 0;
+  virtual ScalarType type() const = 0;
 
   // Even if this is a number, this will contain the string representation
   // as found in the file (or empty string if Scalar synthesized).
@@ -96,15 +100,15 @@ class StringScalar : public Scalar {
   bool is_raw() const { return is_raw_; }
   bool is_triple_quoted() const { return is_triple_quoted_; }
 
-  ScalarType type() final { return ScalarType::kString; }
+  ScalarType type() const final { return ScalarType::kString; }
 
  private:
   friend class Arena;
   StringScalar(std::string_view value, bool is_triple_quoted, bool is_raw)
       : Scalar(value), is_triple_quoted_(is_triple_quoted), is_raw_(is_raw) {}
 
-  bool is_triple_quoted_;
-  bool is_raw_;
+  const bool is_triple_quoted_;
+  const bool is_raw_;
 };
 
 class IntScalar : public Scalar {
@@ -113,14 +117,14 @@ class IntScalar : public Scalar {
 
   // AsString() will return the string representation as found in the file.
   int64_t AsInt() const final { return value_; }
-  ScalarType type() final { return ScalarType::kInt; }
+  ScalarType type() const final { return ScalarType::kInt; }
 
  private:
   friend class Arena;
   IntScalar(std::string_view string_rep, int64_t value)
       : Scalar(string_rep), value_(value) {}
 
-  int64_t value_;
+  const int64_t value_;
 };
 
 class Identifier : public Node {
@@ -139,7 +143,7 @@ class Identifier : public Node {
   // original file, that way it allows us report file location.
   explicit Identifier(std::string_view id) : id_(id) {}
 
-  std::string_view id_;
+  const std::string_view id_;
 };
 
 class UnaryExpr : public Node {
@@ -153,11 +157,11 @@ class UnaryExpr : public Node {
  protected:
   friend class Arena;
   friend class BaseNodeReplacementVisitor;
-  explicit UnaryExpr(TokenType op, Node *n) : node_(n), op_(op) {}
+  explicit UnaryExpr(TokenType op, Node *n) : op_(op), node_(n) {}
 
  private:
-  Node *node_;
   const TokenType op_;
+  Node *node_;
 };
 
 class BinNode : public Node {
@@ -247,7 +251,7 @@ class ListComprehension : public Node {
   ListComprehension(List::Type type, BinOpNode *for_node)
       : type_(type), for_node_(for_node) {}
 
-  List::Type type_;
+  const List::Type type_;
   BinOpNode *for_node_;
 };
 
