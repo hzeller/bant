@@ -67,7 +67,7 @@ enum class Command {
   kAliasedBy,
   kGenruleOutputs,
   kDWYU,
-  kCompilationDB,
+  kCompilationDB,  kCompileFlags,
   kCanonicalizeDeps,
   kHasDependents,
   kDependsOn,
@@ -130,12 +130,13 @@ CliStatus RunCommand(Session &session, Command cmd,
 
   if (flags.recurse_dependency_depth <= 0 &&
       (cmd == Command::kDWYU || cmd == Command::kHasDependents ||
-       cmd == Command::kCompilationDB)) {
+       cmd == Command::kCompilationDB || cmd == Command::kCompileFlags)) {
     flags.recurse_dependency_depth = std::numeric_limits<int>::max();
   }
 
   if (flags.elaborate ||  //
-      cmd == Command::kDWYU || cmd == Command::kCompilationDB) {
+      cmd == Command::kDWYU || //
+      cmd == Command::kCompilationDB || cmd == Command::kCompileFlags) {
     bant::Elaborate(session, &project);
   }
 
@@ -152,6 +153,7 @@ CliStatus RunCommand(Session &session, Command cmd,
   case Command::kDependsOn:
   case Command::kHasDependents:
   case Command::kCompilationDB:
+  case Command::kCompileFlags:
     if (flags.recurse_dependency_depth >= 0) {
       const size_t before_build_files = project.ParsedFiles().size();
       graph =
@@ -270,7 +272,9 @@ CliStatus RunCommand(Session &session, Command cmd,
     break;
 
   case Command::kCompilationDB:
-    WriteCompilationDB(session, project, pattern);
+  case Command::kCompileFlags:
+    WriteCompilationFlags(session, project, pattern,
+                          cmd == Command::kCompilationDB);
     break;
 
   case Command::kNone:  // nop (implicitly done by parsing)
@@ -299,6 +303,7 @@ CliStatus RunCliCommand(Session &session, std::span<std::string_view> args) {
     {"genrule-outputs", Command::kGenruleOutputs},
     {"dwyu", Command::kDWYU},
     {"compilation-db", Command::kCompilationDB},
+    {"compile-flags", Command::kCompileFlags},
     {"canonicalize", Command::kCanonicalizeDeps},
   };
 

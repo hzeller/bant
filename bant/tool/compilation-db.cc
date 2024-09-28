@@ -141,7 +141,7 @@ static void WriteCompilationDBEntry(const ParsedProject &project,
 // Broken out in separate function to easily remove this hack later.
 static void ProtobufAnyPbHack(const BazelTarget &target,
                               absl::flat_hash_set<std::string> *already_seen,
-                              std::string_view indent, std::stringstream &out) {
+                              std::vector<std::string> &result) {
   const std::string_view external_project = target.package.project;
   if (!external_project.contains("protobuf")) return;  // not interesting.
   if (!already_seen->insert("protobuf-extra-include-hack").second) return;
@@ -159,24 +159,16 @@ static void ProtobufAnyPbHack(const BazelTarget &target,
                    "/src/google/protobuf/", extra_inc.package,
                    "_virtual_includes/", extra_inc.target);
     if (already_seen->insert(virt_incdir).second) {
-      out << indent << q{"-iquote"} << ", " << q{virt_incdir} << ",\n";
+      result.emplace_back(virt_incdir);
     }
   }
 }
 
-static std::string CollectGlobalFlagsAndIncDirs(const ParsedProject &project) {
-  constexpr std::string_view kIndent = "      ";
+static std::vector<std::string> CollectIncDirs(const ParsedProject &project) {
+  std::vector<std::string> result;
 
-  std::stringstream out;
-
-  // All the cxx options mentioned in the .bazelrc
-  for (const std::string &cxxopt : ExtractOptionsFromBazelrcFile()) {
-    out << kIndent << q{cxxopt} << ",\n";
-  }
-
-  // Headers for this project. Direct and generated.
-  out << kIndent << q{"-iquote"} << ", " << q{"."} << ",\n";
-  out << kIndent << q{"-iquote"} << ", " << q{"bazel-bin"} << ",\n";
+  result.emplace_back(".");
+  result.emplace_back("bazel-bin");
 
   // All the -I (or more precisely: -iquote) directories.
   const BazelWorkspace &workspace = project.workspace();
@@ -197,7 +189,7 @@ static std::string CollectGlobalFlagsAndIncDirs(const ParsedProject &project) {
           if (!already_seen.insert(inc_path).second) {
             continue;
           }
-          out << kIndent << q{"-iquote"} << ", " << q{inc_path} << ",\n";
+          result.emplace_back(inc_path);
         }
 
         // bazel generates virtual include dirs when "include_prefix" is set.
@@ -211,12 +203,12 @@ static std::string CollectGlobalFlagsAndIncDirs(const ParsedProject &project) {
             "bazel-bin/external/", external_project.substr(1), "/", target_path,
             "/_virtual_includes/", target->target_name);
           if (already_seen.insert(virt_incdir).second) {
-            out << kIndent << q{"-iquote"} << ", " << q{virt_incdir} << ",\n";
+            result.emplace_back(virt_incdir);
           }
         }
 
         // If we depend on anything that looks like protobuf, apply this hack.
-        ProtobufAnyPbHack(*target, &already_seen, kIndent, out);
+        ProtobufAnyPbHack(*target, &already_seen, result);
 
         // Now, let's check out the dependencies and see that all of the
         // referenced external projects are covered.
@@ -239,21 +231,38 @@ static std::string CollectGlobalFlagsAndIncDirs(const ParsedProject &project) {
           if (!ext_dir.has_value()) continue;  // ¯\_(ツ)_/¯
 
           // Direct path provided into the sources.
-          out << kIndent << q{"-iquote"} << ", " << q{ext_dir->path()} << ",\n";
+          result.emplace_back(ext_dir->path());
 
           // Generated files
           const std::string gen_inc =
             absl::StrCat("bazel-bin/external/", external_project.substr(1));
-          out << kIndent << q{"-iquote"} << ", " << q{gen_inc} << ",\n";
+          result.emplace_back(gen_inc);
         }
       });
+  }
+
+  return result;
+}
+
+static std::string EncodeFlagsIncludeAsJson(const ParsedProject &project) {
+  constexpr std::string_view kIndent = "      ";
+
+  std::stringstream out;
+
+  // All the cxx options mentioned in the .bazelrc
+  for (const std::string &cxxopt : ExtractOptionsFromBazelrcFile()) {
+    out << kIndent << q{cxxopt} << ",\n";
+  }
+
+  for (const std::string &inc : CollectIncDirs(project)) {
+    out << kIndent << q{"-iquote"} << ", " << q{inc} << ",\n";
   }
 
   return out.str();
 }
 
-void WriteCompilationDB(Session &session, const ParsedProject &project,
-                        const BazelPattern &pattern) {
+static void WriteCompilationDB(Session &session, const ParsedProject &project,
+                               const BazelPattern &pattern) {
   std::ostream &out = session.out();
   const std::string cwd = std::filesystem::current_path().string();
 
@@ -263,7 +272,7 @@ void WriteCompilationDB(Session &session, const ParsedProject &project,
   // as one include blob.
   // More robust currently, but should probably be more specific per file,
   // once we know what we're doing :)
-  const std::string external_inc_json = CollectGlobalFlagsAndIncDirs(project);
+  const std::string external_inc_json = EncodeFlagsIncludeAsJson(project);
 
   std::set<std::string> already_written;
   out << "[\n";
@@ -287,4 +296,30 @@ void WriteCompilationDB(Session &session, const ParsedProject &project,
   }
   out << "]\n";
 }
+
+static void WriteCompilationFlags(Session &session,
+                                  const ParsedProject &project,
+                                  const BazelPattern &pattern) {
+
+  // All the cxx options mentioned in the .bazelrc
+  for (const std::string &cxxopt : ExtractOptionsFromBazelrcFile()) {
+    session.out() << cxxopt << "\n";
+  }
+
+  for (const std::string &inc : CollectIncDirs(project)) {
+    session.out() << "-I" << inc << "\n";
+  }
+}
+
+// Public interface
+void WriteCompilationFlags(Session & session, const ParsedProject &project,
+                           const BazelPattern &pattern,
+                           bool as_compilation_db) {
+  if (as_compilation_db) {
+    WriteCompilationDB(session, project, pattern);
+  } else {
+    WriteCompilationFlags(session, project, pattern);
+  }
+}
+
 }  // namespace bant

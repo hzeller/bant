@@ -30,10 +30,13 @@ namespace bant {
 // Given a bazelrc content, extract all the cxx options relevant for buildling.
 std::vector<std::string> ExtractOptionsFromBazelrc(std::string_view content);
 
-// Create a compilation DB compatible with clang tools such as clang-tidy
-// or clangd.
+// Create compilation_flags.txt or compilation DB compatible with clang tools
+// such as clang-tidy or clangd. If "as_compilation_db" is on, emit as
+// json compilation database, otherwise as simple compile flags.
+//
 // Requires a fully alaborated "project".
-void WriteCompilationDB(Session &session, const ParsedProject &project,
-                        const BazelPattern &pattern);
+void WriteCompilationFlags(Session &session, const ParsedProject &project,
+                           const BazelPattern &pattern,
+                           bool as_compilation_db);
 }  // namespace bant
 #endif  // BANT_TOOL_COMPILATiON_DB_

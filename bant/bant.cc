@@ -112,11 +112,13 @@ Commands (unique prefix sufficient):
                      → 2 column table: (filename, genrule-target)
 
     %s== Tools ==%s
-    compilation-db : (experimental) Emits a compilation db. Redirect output to
-                     compile_commands.json
     dwyu           : DWYU: Depend on What You Use (emit buildozer edit script)
                       -k strict: emit remove even if # keep comment in line.
     canonicalize   : Emit rename edits to canonicalize targets.
+    compile-flags  : (experimental) Emit compile flags to stdout. Redirect to
+                     compile_flags.txt
+    compilation-db : (experimental) Emit compilation db to stdout. Redirect to
+                     compile_commands.json
 )",
           BOLD, RESET, BOLD, RESET, BOLD, RESET);
 
