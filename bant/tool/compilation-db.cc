@@ -101,36 +101,6 @@ static std::vector<std::string> ExtractOptionsFromBazelrcFile() {
   return ExtractOptionsFromBazelrc(*bazelrc);
 }
 
-static void WriteCompilationDBEntry(const ParsedProject &project,
-                                    const BazelPackage &package,
-                                    const query::Result &details,
-                                    const std::string &cwd,
-                                    const std::string &external_inc_json,
-                                    std::set<std::string> *already_written,
-                                    std::ostream &out) {
-  std::vector<std::string_view> sources;
-  query::AppendStringList(details.srcs_list, sources);
-  query::AppendStringList(details.hdrs_list, sources);
-
-  for (const auto src : sources) {
-    const std::string abs_src =
-      package.FullyQualifiedFile(project.workspace(), src);
-    if (!already_written->insert(abs_src).second) continue;
-    out << "  {\n";
-    out << "    " << q{"file"} << ": " << q{abs_src} << ",\n";
-    out << "    " << q{"arguments"} << ": [\n";
-    out << "      " << q{"gcc"} << ",\n";
-    for (const std::string_view option : kCommonDefaultOptions) {
-      out << "      " << q{option} << ",\n";
-    }
-    out << external_inc_json;
-    out << "      " << q{"-c"} << ", " << q{abs_src} << ",\n";
-    out << "     ],\n";
-    out << "     " << q{"directory"} << ": " << q{cwd} << "\n";
-    out << "  },\n";
-  }
-}
-
 // Hack to accomodate protocol buffers.
 // They depend on some virtual includes that we can't directly see from
 // the targets. Add that in manually.
@@ -139,25 +109,42 @@ static void WriteCompilationDBEntry(const ParsedProject &project,
 // actually expands to as cc_library with their corresponding deps = []
 // (without having to parse the convoluted *.bzl file).
 // Broken out in separate function to easily remove this hack later.
-static void ProtobufAnyPbHack(const BazelTarget &target,
-                              absl::flat_hash_set<std::string> *already_seen,
-                              std::vector<std::string> &result) {
-  const std::string_view external_project = target.package.project;
-  if (!external_project.contains("protobuf")) return;  // not interesting.
-  if (!already_seen->insert("protobuf-extra-include-hack").second) return;
-  constexpr struct PackageTarget {
-    const char *package;
-    const char *target;
-  } kProtoTargets[] = {
-    {"", "protobuf_headers"},
-    {"stubs/", "lite"},
-    {"io/", "io"},
-  };
-  for (const PackageTarget extra_inc : kProtoTargets) {
+static void ProtobufHack(const BazelTarget &target,
+                         bool is_proto_library,
+                         absl::flat_hash_set<std::string> *already_seen,
+                         std::vector<std::string> &result) {
+  const std::string_view protobuf_project = target.package.project;
+  if (!protobuf_project.contains("protobuf")) return;  // not interesting.
+
+  // First time we see a protobuf dependecy, add the usual suspect of
+  // virtual includes
+  if (already_seen->insert("protobuf-extra-include-hack").second) {
+    constexpr struct PackageTarget {
+      const char *package;
+      const char *target;
+    } kProtoTargets[] = {
+      {"", "protobuf_headers"},
+      {"stubs/", "lite"},
+      {"io/", "io"},
+    };
+    for (const PackageTarget extra_inc : kProtoTargets) {
+      const std::string virt_incdir =
+        absl::StrCat("bazel-bin/external/", protobuf_project.substr(1),
+                     "/src/google/protobuf/", extra_inc.package,
+                     "_virtual_includes/", extra_inc.target);
+      if (already_seen->insert(virt_incdir).second) {
+        result.emplace_back(virt_incdir);
+      }
+    }
+  }
+
+  // Extra hack: if we depend on some of the common any_proto, timestamp_proto
+  // proto buffers, add the headers here.
+  if (is_proto_library) {
     const std::string virt_incdir =
-      absl::StrCat("bazel-bin/external/", external_project.substr(1),
-                   "/src/google/protobuf/", extra_inc.package,
-                   "_virtual_includes/", extra_inc.target);
+      absl::StrCat("bazel-bin/external/", protobuf_project.substr(1),
+                   "/src/google/protobuf/_virtual_includes/",
+                   target.target_name);
     if (already_seen->insert(virt_incdir).second) {
       result.emplace_back(virt_incdir);
     }
@@ -176,7 +163,8 @@ static std::vector<std::string> CollectIncDirs(const ParsedProject &project) {
   for (const auto &[_, parsed_package] : project.ParsedFiles()) {
     const BazelPackage &current_package = parsed_package->package;
     query::FindTargets(
-      parsed_package->ast, {"cc_library", "cc_binary", "cc_test"},
+      parsed_package->ast,
+      {"cc_library", "cc_binary", "cc_test", "proto_library"},
       [&](const query::Result &details) {
         auto target = BazelTarget::ParseFrom(absl::StrCat(":", details.name),
                                              current_package);
@@ -208,7 +196,8 @@ static std::vector<std::string> CollectIncDirs(const ParsedProject &project) {
         }
 
         // If we depend on anything that looks like protobuf, apply this hack.
-        ProtobufAnyPbHack(*target, &already_seen, result);
+        const bool is_proto_library = details.rule == "proto_library";
+        ProtobufHack(*target, is_proto_library, &already_seen, result);
 
         // Now, let's check out the dependencies and see that all of the
         // referenced external projects are covered.
@@ -259,6 +248,36 @@ static std::string EncodeFlagsIncludeAsJson(const ParsedProject &project) {
   }
 
   return out.str();
+}
+
+static void WriteCompilationDBEntry(const ParsedProject &project,
+                                    const BazelPackage &package,
+                                    const query::Result &details,
+                                    const std::string &cwd,
+                                    const std::string &external_inc_json,
+                                    std::set<std::string> *already_written,
+                                    std::ostream &out) {
+  std::vector<std::string_view> sources;
+  query::AppendStringList(details.srcs_list, sources);
+  query::AppendStringList(details.hdrs_list, sources);
+
+  for (const auto src : sources) {
+    const std::string abs_src =
+      package.FullyQualifiedFile(project.workspace(), src);
+    if (!already_written->insert(abs_src).second) continue;
+    out << "  {\n";
+    out << "    " << q{"file"} << ": " << q{abs_src} << ",\n";
+    out << "    " << q{"arguments"} << ": [\n";
+    out << "      " << q{"gcc"} << ",\n";
+    for (const std::string_view option : kCommonDefaultOptions) {
+      out << "      " << q{option} << ",\n";
+    }
+    out << external_inc_json;
+    out << "      " << q{"-c"} << ", " << q{abs_src} << ",\n";
+    out << "     ],\n";
+    out << "     " << q{"directory"} << ": " << q{cwd} << "\n";
+    out << "  },\n";
+  }
 }
 
 static void WriteCompilationDB(Session &session, const ParsedProject &project,
