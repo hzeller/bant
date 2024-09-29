@@ -67,7 +67,8 @@ enum class Command {
   kAliasedBy,
   kGenruleOutputs,
   kDWYU,
-  kCompilationDB,  kCompileFlags,
+  kCompilationDB,
+  kCompileFlags,
   kCanonicalizeDeps,
   kHasDependents,
   kDependsOn,
@@ -134,8 +135,8 @@ CliStatus RunCommand(Session &session, Command cmd,
     flags.recurse_dependency_depth = std::numeric_limits<int>::max();
   }
 
-  if (flags.elaborate ||  //
-      cmd == Command::kDWYU || //
+  if (flags.elaborate ||        //
+      cmd == Command::kDWYU ||  //
       cmd == Command::kCompilationDB || cmd == Command::kCompileFlags) {
     bant::Elaborate(session, &project);
   }

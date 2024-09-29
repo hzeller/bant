@@ -109,8 +109,7 @@ static std::vector<std::string> ExtractOptionsFromBazelrcFile() {
 // actually expands to as cc_library with their corresponding deps = []
 // (without having to parse the convoluted *.bzl file).
 // Broken out in separate function to easily remove this hack later.
-static void ProtobufHack(const BazelTarget &target,
-                         bool is_proto_library,
+static void ProtobufHack(const BazelTarget &target, bool is_proto_library,
                          absl::flat_hash_set<std::string> *already_seen,
                          std::vector<std::string> &result) {
   const std::string_view protobuf_project = target.package.project;
@@ -141,10 +140,9 @@ static void ProtobufHack(const BazelTarget &target,
   // Extra hack: if we depend on some of the common any_proto, timestamp_proto
   // proto buffers, add the headers here.
   if (is_proto_library) {
-    const std::string virt_incdir =
-      absl::StrCat("bazel-bin/external/", protobuf_project.substr(1),
-                   "/src/google/protobuf/_virtual_includes/",
-                   target.target_name);
+    const std::string virt_incdir = absl::StrCat(
+      "bazel-bin/external/", protobuf_project.substr(1),
+      "/src/google/protobuf/_virtual_includes/", target.target_name);
     if (already_seen->insert(virt_incdir).second) {
       result.emplace_back(virt_incdir);
     }
@@ -319,7 +317,6 @@ static void WriteCompilationDB(Session &session, const ParsedProject &project,
 static void WriteCompilationFlags(Session &session,
                                   const ParsedProject &project,
                                   const BazelPattern &pattern) {
-
   // All the cxx options mentioned in the .bazelrc
   for (const std::string &cxxopt : ExtractOptionsFromBazelrcFile()) {
     session.out() << cxxopt << "\n";
@@ -331,7 +328,7 @@ static void WriteCompilationFlags(Session &session,
 }
 
 // Public interface
-void WriteCompilationFlags(Session & session, const ParsedProject &project,
+void WriteCompilationFlags(Session &session, const ParsedProject &project,
                            const BazelPattern &pattern,
                            bool as_compilation_db) {
   if (as_compilation_db) {
