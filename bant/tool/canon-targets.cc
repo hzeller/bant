@@ -44,7 +44,7 @@ size_t CreateCanonicalizeEdits(Session &session, const ParsedProject &project,
     const BazelPackage &current_package = parsed_package->package;
     query::FindTargets(
       parsed_package->ast, {}, [&](const query::Result &target) {
-        auto self = BazelTarget::ParseFrom(target.name, current_package);
+        auto self = current_package.QualifiedTarget(target.name);
         if (!self.has_value()) {
           return;
         }

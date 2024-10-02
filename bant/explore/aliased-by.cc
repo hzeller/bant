@@ -28,7 +28,7 @@ OneToN<BazelTarget, BazelTarget> ExtractAliasedBy(const ParsedProject &p) {
   for (const auto &[_, build_file] : p.ParsedFiles()) {
     query::FindTargets(
       build_file->ast, {"alias"}, [&](const query::Result &details) {
-        auto alias = BazelTarget::ParseFrom(details.name, build_file->package);
+        auto alias = build_file->package.QualifiedTarget(details.name);
         auto actual =
           BazelTarget::ParseFrom(details.actual, build_file->package);
         if (!alias.has_value() || !actual.has_value()) return;

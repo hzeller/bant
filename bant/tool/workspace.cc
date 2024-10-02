@@ -21,7 +21,6 @@
 #include <string_view>
 #include <vector>
 
-#include "absl/strings/str_cat.h"
 #include "bant/explore/query-utils.h"
 #include "bant/frontend/parsed-project.h"
 #include "bant/session.h"
@@ -70,8 +69,7 @@ BazelWorkspace CreateFilteredWorkspace(Session &session,
             query::ExtractStringList(details.node->argument());
         } else {
           // Classical cc_library(), cc_binary() etc that has dependencies.
-          auto target = BazelTarget::ParseFrom(absl::StrCat(":", details.name),
-                                               current_package);
+          auto target = current_package.QualifiedTarget(details.name);
           if (!target.has_value() || !pattern.Match(*target)) {
             return;
           }

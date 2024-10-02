@@ -149,8 +149,8 @@ void DWYUGenerator::InitKnownLibraries() {
                         "cc_proto_library", "grpc_cc_library",  // specialized
                         "cc_test"},  // also indexing test for testonly check.
                        [&](const query::Result &target) {
-                         auto self = BazelTarget::ParseFrom(
-                           absl::StrCat(":", target.name), current_package);
+                         auto self =
+                           current_package.QualifiedTarget(target.name);
                          if (!self.has_value()) {
                            return;
                          }
@@ -582,8 +582,7 @@ size_t DWYUGenerator::CreateEditsForPattern(const BazelPattern &pattern) {
     query::FindTargets(
       parsed_package->ast, {"cc_library", "cc_binary", "cc_test"},
       [&](const query::Result &details) {
-        auto target = BazelTarget::ParseFrom(absl::StrCat(":", details.name),
-                                             current_package);
+        auto target = current_package.QualifiedTarget(details.name);
         if (!target.has_value() || !pattern.Match(*target)) {
           return;
         }

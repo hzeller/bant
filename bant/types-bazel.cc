@@ -37,6 +37,14 @@ std::string BazelPackage::ToString() const {
   return absl::StrCat(project, "//", path);
 }
 
+std::optional<BazelTarget> BazelPackage::QualifiedTarget(
+  std::string_view name) const {
+  if (name.empty()) return std::nullopt;
+  if (name[0] == ':') name.remove_prefix(1);
+  if (name.empty()) return std::nullopt;
+  return BazelTarget(*this, name);
+}
+
 std::string BazelPackage::QualifiedFile(std::string_view relative_file) const {
   if (relative_file.starts_with(':')) {
     relative_file.remove_prefix(1);

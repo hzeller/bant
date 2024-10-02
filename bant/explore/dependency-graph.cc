@@ -126,7 +126,7 @@ DependencyGraph BuildDependencyGraph(Session &session,
     query::FindTargets(parsed->ast, kRulesOfInterest,  //
                        [&](const query::Result &result) {
                          auto target_or =
-                           BazelTarget::ParseFrom(result.name, current_package);
+                           current_package.QualifiedTarget(result.name);
                          if (!target_or || !pattern.Match(*target_or)) return;
                          deps_to_resolve_todo.insert(*target_or);
                        });
@@ -154,7 +154,7 @@ DependencyGraph BuildDependencyGraph(Session &session,
       if (!parsed) continue;
       query::FindTargets(
         parsed->ast, kRulesOfInterest, [&](const query::Result &result) {
-          auto target_or = BazelTarget::ParseFrom(result.name, current_package);
+          auto target_or = current_package.QualifiedTarget(result.name);
           if (!target_or.has_value()) return;
           const bool interested = (deps_to_resolve_todo.erase(*target_or) == 1);
           if (!interested) return;

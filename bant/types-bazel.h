@@ -29,6 +29,8 @@
 #include "re2/re2.h"
 
 namespace bant {
+class BazelTarget;
+
 // Something like //foo/bar or @baz//foo/bar
 struct BazelPackage {
   BazelPackage() = default;
@@ -37,6 +39,9 @@ struct BazelPackage {
 
   // Parse and create package if possible.
   static std::optional<BazelPackage> ParseFrom(std::string_view str);
+
+  // Given a name of a target without package, reutrn a fully qualified target.
+  std::optional<BazelTarget> QualifiedTarget(std::string_view name) const;
 
   std::string project;  // either empty, or something like @foo_bar_baz
   std::string path;     // path relative to project w/o leading/trailing '/'
@@ -84,6 +89,7 @@ class BazelTarget {
   bool operator!=(const BazelTarget &) const = default;
 
  private:
+  friend BazelPackage;
   // Make sure we only use the ParseFrom(). Not always needed, but this way
   // it is harder to accidentally have broken targets.
   BazelTarget(BazelPackage package, std::string_view target)

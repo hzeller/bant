@@ -102,7 +102,7 @@ static void IterateCCLibraryHeaders(const ParsedBuildFile &build_file,
 
   query::FindTargets(
     build_file.ast, kInterestingLibRules, [&](const query::Result &cc_lib) {
-      auto cc_library = BazelTarget::ParseFrom(cc_lib.name, build_file.package);
+      auto cc_library = build_file.package.QualifiedTarget(cc_lib.name);
       if (!cc_library.has_value()) return;
 
       auto hdrs = query::ExtractStringList(cc_lib.hdrs_list);
@@ -227,7 +227,7 @@ static void AppendProtoLibraryHeaders(const ParsedBuildFile &build_file,
   OneToOne<BazelTarget, BazelTarget> proto_lib2cc_proto_lib[2];
   query::FindTargets(
     build_file.ast, kInterestingLibRules, [&](const query::Result &cc_plib) {
-      auto target = BazelTarget::ParseFrom(cc_plib.name, build_file.package);
+      auto target = build_file.package.QualifiedTarget(cc_plib.name);
       if (!target.has_value()) return;
 
       const bool is_grpc = (cc_plib.rule == "cc_grpc_library");
@@ -251,7 +251,7 @@ static void AppendProtoLibraryHeaders(const ParsedBuildFile &build_file,
   // Putting it all together.
   query::FindTargets(
     build_file.ast, {"proto_library"}, [&](const query::Result &proto_lib) {
-      auto target = BazelTarget::ParseFrom(proto_lib.name, build_file.package);
+      auto target = build_file.package.QualifiedTarget(proto_lib.name);
       if (!target.has_value()) return;
 
       for (const bool is_grpc : {false, true}) {
@@ -324,8 +324,7 @@ ProvidedFromTarget ExtractGeneratedFromGenrule(const ParsedProject &project,
       file_content->ast, {"genrule"}, [&](const query::Result &params) {
         const auto genfiles = query::ExtractStringList(params.outs_list);
 
-        auto target =
-          BazelTarget::ParseFrom(params.name, file_content->package);
+        auto target = file_content->package.QualifiedTarget(params.name);
         if (!target.has_value()) return;
 
         for (const std::string_view generated : genfiles) {

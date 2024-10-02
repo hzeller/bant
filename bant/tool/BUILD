@@ -131,6 +131,5 @@ cc_library(
         "//bant/frontend:parsed-project",
         "//bant/util:file-utils",
         "//bant/util:table-printer",
-        "@abseil-cpp//absl/strings",
     ],
 )

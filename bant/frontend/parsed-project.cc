@@ -277,7 +277,7 @@ void PrintProject(Session &session, const BazelPattern &pattern,
       file_content->ast, {}, [&](const query::Result &result) {
         std::optional<BazelTarget> maybe_target;
         if (!result.name.empty()) {
-          maybe_target = BazelTarget::ParseFrom(result.name, package);
+          maybe_target = package.QualifiedTarget(result.name);
         }
         if (!pattern.is_recursive()) {
           // If pattern requires some match, need to check now.

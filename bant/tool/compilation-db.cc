@@ -164,8 +164,7 @@ static std::vector<std::string> CollectIncDirs(const ParsedProject &project) {
       parsed_package->ast,
       {"cc_library", "cc_binary", "cc_test", "proto_library"},
       [&](const query::Result &details) {
-        auto target = BazelTarget::ParseFrom(absl::StrCat(":", details.name),
-                                             current_package);
+        auto target = current_package.QualifiedTarget(details.name);
         // If we're one of those targets that come with the own -I prefix,
         // add all these.
         const auto inc_dirs = query::ExtractStringList(details.includes_list);
@@ -302,8 +301,7 @@ static void WriteCompilationDB(Session &session, const ParsedProject &project,
     query::FindTargets(
       parsed_package->ast, {"cc_library", "cc_binary", "cc_test"},
       [&](const query::Result &details) {
-        auto target = BazelTarget::ParseFrom(absl::StrCat(":", details.name),
-                                             current_package);
+        auto target = current_package.QualifiedTarget(details.name);
         if (!target.has_value() || !pattern.Match(*target)) {
           return;
         }
