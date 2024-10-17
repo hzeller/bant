@@ -152,8 +152,9 @@ static void ProtobufHack(const BazelTarget &target, bool is_proto_library,
 static std::vector<std::string> CollectIncDirs(const ParsedProject &project) {
   std::vector<std::string> result;
 
-  result.emplace_back(".");
-  result.emplace_back("bazel-bin");
+  result.emplace_back(".");                   // Our sources.
+  result.emplace_back("bazel-bin");           // Generated files.
+  result.emplace_back("bazel-out/../../..");  // Root for all external/
 
   // All the -I (or more precisely: -iquote) directories.
   const BazelWorkspace &workspace = project.workspace();
