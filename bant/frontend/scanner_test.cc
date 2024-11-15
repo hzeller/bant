@@ -96,6 +96,7 @@ TEST(ScannerTest, SimpleTokens) {
     {".", TokenType::kDot},
     {"%", TokenType::kPercent},
     {"=", TokenType::kAssign},
+    {"//", TokenType::kFloorDivide},
     {"==", TokenType::kEqualityComparison},
     {"!=", TokenType::kNotEqual},
     {"<=", TokenType::kLessEqual},

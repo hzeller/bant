@@ -50,6 +50,7 @@ std::ostream &operator<<(std::ostream &o, TokenType t) {
   case '.':
   case '%': o << (char)t; break;
 
+  case TokenType::kFloorDivide: o << "//"; break;
   case TokenType::kEqualityComparison: o << "=="; break;
   case TokenType::kNotEqual: o << "!="; break;
   case TokenType::kLessEqual: o << "<="; break;
@@ -251,6 +252,15 @@ Token Scanner::HandleNotOrNotEquals() {
   return {static_cast<TokenType>(type), {start, (size_t)(pos_ - start)}};
 }
 
+Token Scanner::HandleDivideOrFloorDivide() {
+  const ContentPointer start = pos_;
+  int type = (unsigned char)(*pos_++);
+  if (pos_ < end_ && *pos_ == '/') {
+    type += 256, ++pos_;
+  }
+  return {static_cast<TokenType>(type), {start, (size_t)(pos_ - start)}};
+}
+
 Token Scanner::Next() {
   if (has_upcoming_) {
     // We were already called in Peek(). Flush that token.
@@ -274,13 +284,14 @@ Token Scanner::Next() {
   case '+':
   case '-':
   case '*':
-  case '/':
   case '.':
   case '%':
   case '|':
     result = {/*.type =*/(TokenType)*pos_, /*.text =*/{pos_, 1}};
     ++pos_;
     break;
+
+  case '/': result = HandleDivideOrFloorDivide(); break;
 
   case '!': result = HandleNotOrNotEquals(); break;
 

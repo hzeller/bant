@@ -319,6 +319,7 @@ class Parser::Impl {
       case '-':
       case '*':
       case '/':
+      case TokenType::kFloorDivide:
       case TokenType::kLessThan:  // Relational
       case TokenType::kLessEqual:
       case TokenType::kEqualityComparison:

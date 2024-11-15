@@ -48,7 +48,8 @@ enum TokenType : int {
   kGreaterThan = '>',
   kNot = '!',
 
-  // Relational operators with two characters. Needs to be above char range
+  // Operators with two characters. Needs to be above char range
+  kFloorDivide = '/' + 256,         // '//' a.k.a integer division
   kEqualityComparison = '=' + 256,  // '=='
   kNotEqual = '!' + 256,            // '!='
   kLessEqual = '<' + 256,           // '<='
@@ -115,6 +116,7 @@ class Scanner {
   Token HandleIdentifierKeywordRawStringOrInvalid();
   Token HandleAssignOrRelational();
   Token HandleNotOrNotEquals();
+  Token HandleDivideOrFloorDivide();
 
   NamedLineIndexedContent &source_;
   const ContentPointer end_;  // End of input.
