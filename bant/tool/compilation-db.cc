@@ -279,7 +279,7 @@ static void WriteCompilationDBEntry(const ParsedProject &project,
 }
 
 static void WriteCompilationDB(Session &session, const ParsedProject &project,
-                               const BazelPattern &pattern) {
+                               const BazelTargetMatcher &pattern) {
   std::ostream &out = session.out();
   const std::string cwd = std::filesystem::current_path().string();
 
@@ -315,7 +315,7 @@ static void WriteCompilationDB(Session &session, const ParsedProject &project,
 
 static void WriteCompilationFlags(Session &session,
                                   const ParsedProject &project,
-                                  const BazelPattern &pattern) {
+                                  const BazelTargetMatcher &pattern) {
   // All the cxx options mentioned in the .bazelrc
   for (const std::string &cxxopt : ExtractOptionsFromBazelrcFile()) {
     session.out() << cxxopt << "\n";
@@ -328,7 +328,7 @@ static void WriteCompilationFlags(Session &session,
 
 // Public interface
 void WriteCompilationFlags(Session &session, const ParsedProject &project,
-                           const BazelPattern &pattern,
+                           const BazelTargetMatcher &pattern,
                            bool as_compilation_db) {
   if (as_compilation_db) {
     WriteCompilationDB(session, project, pattern);

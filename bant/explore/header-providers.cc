@@ -412,7 +412,7 @@ std::optional<FindResult> FindBySuffix(const ProvidedFromTargetSet &index,
 }
 
 void PrintProvidedSources(Session &session, const std::string &table_header,
-                          const BazelPattern &pattern,
+                          const BazelTargetMatcher &pattern,
                           const ProvidedFromTarget &provided_from_lib) {
   auto printer =
     TablePrinter::Create(session.out(), session.flags().output_format,
@@ -425,7 +425,7 @@ void PrintProvidedSources(Session &session, const std::string &table_header,
 }
 
 void PrintProvidedSources(Session &session, const std::string &table_header,
-                          const BazelPattern &pattern,
+                          const BazelTargetMatcher &pattern,
                           const ProvidedFromTargetSet &provided_from_lib) {
   auto printer =
     TablePrinter::Create(session.out(), session.flags().output_format,

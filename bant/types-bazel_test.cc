@@ -359,8 +359,9 @@ TEST(TypesBazel, CheckPatternTargetMatch) {
 
 TEST(TypesBazel, CheckVisibilityTargetMatch) {
   const BazelPackage p = PackageOrDie("//foo/bar");
-  EXPECT_TRUE(VisibilityOrDie("//visibility:public", p).is_matchall());
-  EXPECT_FALSE(VisibilityOrDie("//visibility:private", p).is_matchall());
+  // Public essentially means: no visibility filter.
+  EXPECT_FALSE(VisibilityOrDie("//visibility:public", p).HasFilter());
+  EXPECT_TRUE(VisibilityOrDie("//visibility:private", p).HasFilter());
 
   // Private means only packages in exactly the context package.
   EXPECT_TRUE(VisibilityOrDie("//visibility:private", p)
@@ -368,7 +369,7 @@ TEST(TypesBazel, CheckVisibilityTargetMatch) {
   EXPECT_FALSE(VisibilityOrDie("//visibility:private", p)
                  .Match(TargetOrDie("//foo/bar/baz:quux")));
 
-  EXPECT_FALSE(VisibilityOrDie("__subpackages__", p).is_matchall());
+  EXPECT_TRUE(VisibilityOrDie("__subpackages__", p).HasFilter());
   EXPECT_TRUE(VisibilityOrDie("__subpackages__", p).is_recursive());
   EXPECT_TRUE(VisibilityOrDie("__subpackages__", p)
                 .Match(TargetOrDie("//foo/bar:hello")));

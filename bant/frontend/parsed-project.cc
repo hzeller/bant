@@ -248,7 +248,7 @@ static void MaybePrintVisibility(List *visibility, std::ostream &out) {
   out << ")";
 }
 
-void PrintProject(Session &session, const BazelPattern &pattern,
+void PrintProject(Session &session, const BazelTargetMatcher &pattern,
                   const ParsedProject &project) {
   const CommandlineFlags &flags = session.flags();
 
@@ -279,11 +279,9 @@ void PrintProject(Session &session, const BazelPattern &pattern,
         if (!result.name.empty()) {
           maybe_target = package.QualifiedTarget(result.name);
         }
-        if (!pattern.is_recursive()) {
-          // If pattern requires some match, need to check now.
-          if (!maybe_target.has_value() || !pattern.Match(*maybe_target)) {
-            return;
-          }
+        // If pattern requires some match, need to check now.
+        if (!maybe_target.has_value() || !pattern.Match(*maybe_target)) {
+          return;
         }
 
         // TODO: instead of just marking the range of the function name,

@@ -24,7 +24,7 @@ namespace bant {
 // Mapping non-overlapping ranges to values and providing way to look up
 // by any subrange.
 //
-// Typical use-case is to map sub-ranges of std::string_views to options.
+// Typical use-case is to map sub-ranges of std::string_views to locators.
 // Range types need to have a begin(), end() iterator (which must not be
 // changing while stored in this map). [comparable]
 template <typename KeyRange, typename ValueType>

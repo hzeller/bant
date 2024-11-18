@@ -50,7 +50,7 @@ static void PrintExternalRepos(
 
 BazelWorkspace CreateFilteredWorkspace(Session &session,
                                        const ParsedProject &project,
-                                       const BazelPattern &pattern) {
+                                       const BazelTargetMatcher &pattern) {
   // Look through the project and fish out all the unique projects we see.
 
   const BazelWorkspace &global_workspace = project.workspace();
@@ -103,10 +103,10 @@ BazelWorkspace CreateFilteredWorkspace(Session &session,
 
 void PrintMatchingWorkspaceExternalRepos(Session &session,
                                          const ParsedProject &project,
-                                         const BazelPattern &pattern) {
+                                         const BazelTargetMatcher &pattern) {
   const BazelWorkspace &to_print =
-    pattern.is_matchall() ? project.workspace()
-                          : CreateFilteredWorkspace(session, project, pattern);
+    pattern.HasFilter() ? CreateFilteredWorkspace(session, project, pattern)
+                        : project.workspace();
 
   PrintExternalRepos(session, to_print.project_location);
 }

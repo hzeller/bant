@@ -100,14 +100,29 @@ inline std::ostream &operator<<(std::ostream &o, const BazelTarget &t) {
   return o << t.ToString();
 }
 
+// An oracle to ask if bazel targets or packages are included in some
+// pattern this matcher represents.
+class BazelTargetMatcher {
+ public:
+  ~BazelTargetMatcher() = default;
+
+  // if false, nothing will be filtered, match will unconditionally return true.
+  virtual bool HasFilter() const = 0;
+
+  virtual bool Match(const BazelTarget &target) const = 0;
+  virtual bool Match(const BazelPackage &package) const = 0;
+};
+
 // A bazel pattern such as //foo/... or //foo:all
 // But also for visibility rules :__pkg__ and :__subpackages__ as they are
 // essentially the same.
 // TODO: there are also relative patterns without leading '//' and also things
 //  like ...:all. Note with that, path() will need to be replace with something/
 //  yielding globbing results.
-class BazelPattern {
+class BazelPattern final : public BazelTargetMatcher {
  public:
+  ~BazelPattern() = default;
+
   // The default constructed pattern always matches anything.
   BazelPattern();
 
@@ -119,16 +134,17 @@ class BazelPattern {
   static std::optional<BazelPattern> ParseVisibility(
     std::string_view pattern, const BazelPackage &context);
 
-  bool is_recursive() const {
-    return (kind_ == MatchKind::kRecursive || kind_ == MatchKind::kAlwaysMatch);
-  }
-  bool is_matchall() const { return kind_ == MatchKind::kAlwaysMatch; }
-
   const std::string &path() const { return match_pattern_.package.path; }
   const std::string &project() const { return match_pattern_.package.project; }
 
-  bool Match(const BazelTarget &target) const;
-  bool Match(const BazelPackage &package) const;
+  bool HasFilter() const final { return kind_ != MatchKind::kAlwaysMatch; }
+  bool is_recursive() const {
+    return (kind_ == MatchKind::kRecursive || kind_ == MatchKind::kAlwaysMatch);
+  }
+
+  // -- BazelTargetMatcher interface
+  bool Match(const BazelTarget &target) const final;
+  bool Match(const BazelPackage &package) const final;
 
  private:
   enum class MatchKind {

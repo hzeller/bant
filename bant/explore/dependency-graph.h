@@ -38,7 +38,7 @@ struct DependencyGraph {
 // Might update "project" with new files that had to be parsed.
 DependencyGraph BuildDependencyGraph(Session &session,
                                      const BazelWorkspace &workspace,
-                                     const BazelPattern &pattern,
+                                     const BazelTargetMatcher &pattern,
                                      int nesting_depth, ParsedProject *project);
 }  // namespace bant
 

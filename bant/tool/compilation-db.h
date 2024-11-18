@@ -36,6 +36,7 @@ std::vector<std::string> ExtractOptionsFromBazelrc(std::string_view content);
 //
 // Requires a fully alaborated "project".
 void WriteCompilationFlags(Session &session, const ParsedProject &project,
-                           const BazelPattern &pattern, bool as_compilation_db);
+                           const BazelTargetMatcher &pattern,
+                           bool as_compilation_db);
 }  // namespace bant
 #endif  // BANT_TOOL_COMPILATiON_DB_

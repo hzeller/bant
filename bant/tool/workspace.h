@@ -28,12 +28,12 @@ namespace bant {
 // referenced by dependencies of targets matching the pattern.
 BazelWorkspace CreateFilteredWorkspace(Session &session,
                                        const ParsedProject &project,
-                                       const BazelPattern &pattern);
+                                       const BazelTargetMatcher &pattern);
 
 // Print versions and paths for external projects mentioned in the workspace.
 // If "pattern" is not matchall, it prints the result of the filtered workspace.
 void PrintMatchingWorkspaceExternalRepos(Session &session,
                                          const ParsedProject &project,
-                                         const BazelPattern &pattern);
+                                         const BazelTargetMatcher &pattern);
 }  // namespace bant
 #endif  // BANT_TOOL_WORKSPACE_H

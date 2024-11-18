@@ -30,7 +30,7 @@
 
 namespace bant {
 size_t CreateCanonicalizeEdits(Session &session, const ParsedProject &project,
-                               const BazelPattern &pattern,
+                               const BazelTargetMatcher &pattern,
                                const EditCallback &emit_canon_edit) {
   size_t edit_counts = 0;
   std::ostream &info_out = session.info();

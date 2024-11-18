@@ -129,7 +129,7 @@ class ParsedProject : public SourceLocator {
 
 // Convenience function to print a fully parsed project, recreated from the
 // AST. Takes grep_regex into account for filtering.
-void PrintProject(Session &session, const BazelPattern &pattern,
+void PrintProject(Session &session, const BazelTargetMatcher &pattern,
                   const ParsedProject &project);
 
 }  // namespace bant

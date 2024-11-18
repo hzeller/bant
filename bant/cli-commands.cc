@@ -93,7 +93,7 @@ void PrintOneToN(bant::Session &session, const BazelPattern &pattern,
 
 static bool NeedsProjectPopulated(Command cmd, const BazelPattern &pattern) {
   // No need to even parse the project if we just print the full workspace
-  if (cmd == Command::kListWorkkspace && pattern.is_matchall()) {
+  if (cmd == Command::kListWorkkspace && !pattern.HasFilter()) {
     return false;  // NOLINT(readability-simplify-boolean-expr)
   }
   return true;
@@ -354,7 +354,7 @@ CliStatus RunCliCommand(Session &session, std::span<std::string_view> args) {
   // Don't look through everything for these.
   if (cmd == Command::kCanonicalizeDeps || cmd == Command::kDWYU ||
       cmd == Command::kPrint) {
-    if (pattern.is_matchall()) {
+    if (!pattern.HasFilter()) {
       session.error() << "Please provide a bazel pattern for this command.\n"
                       << "Examples: //... or //foo/bar:baz\n";
       return CliStatus::kExitFailure;

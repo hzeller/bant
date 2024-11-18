@@ -572,7 +572,7 @@ DWYUGenerator::DWYUGenerator(Session &session, const ParsedProject &project,
   stats.count = known_libs_.size();
 }
 
-size_t DWYUGenerator::CreateEditsForPattern(const BazelPattern &pattern) {
+size_t DWYUGenerator::CreateEditsForPattern(const BazelTargetMatcher &pattern) {
   size_t matching_patterns = 0;
   for (const auto &[_, parsed_package] : project_.ParsedFiles()) {
     const BazelPackage &current_package = parsed_package->package;
@@ -594,7 +594,7 @@ size_t DWYUGenerator::CreateEditsForPattern(const BazelPattern &pattern) {
 }
 
 size_t CreateDependencyEdits(Session &session, const ParsedProject &project,
-                             const BazelPattern &pattern,
+                             const BazelTargetMatcher &pattern,
                              const EditCallback &emit_deps_edit) {
   size_t edits_emitted = 0;
   const EditCallback edit_counting_forwarder =

@@ -102,7 +102,7 @@ void PrintList(std::ostream &out, const char *msg, const Container &c) {
 
 DependencyGraph BuildDependencyGraph(Session &session,
                                      const BazelWorkspace &workspace,
-                                     const BazelPattern &pattern,
+                                     const BazelTargetMatcher &pattern,
                                      int nesting_depth,
                                      ParsedProject *project) {
   // TODO: there will be some implicit dependencies: when using files, they

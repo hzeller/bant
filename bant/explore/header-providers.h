@@ -71,11 +71,11 @@ std::optional<FindResult> FindBySuffix(const ProvidedFromTargetSet &index,
 
 // Pretty provided files and targets they are coming from in two columns.
 void PrintProvidedSources(Session &session, const std::string &table_header,
-                          const BazelPattern &pattern,
+                          const BazelTargetMatcher &pattern,
                           const ProvidedFromTarget &provided_from_lib);
 
 void PrintProvidedSources(Session &session, const std::string &table_header,
-                          const BazelPattern &pattern,
+                          const BazelTargetMatcher &pattern,
                           const ProvidedFromTargetSet &provided_from_lib);
 
 }  // namespace bant

@@ -41,7 +41,7 @@ std::vector<std::string_view> ExtractCCIncludes(NamedLineIndexedContent *src);
 // lists.
 // Return number of edits that have been emitted.
 size_t CreateDependencyEdits(Session &session, const ParsedProject &project,
-                             const BazelPattern &pattern,
+                             const BazelTargetMatcher &pattern,
                              const EditCallback &emit_deps_edit);
 
 }  // namespace bant

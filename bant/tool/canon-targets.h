@@ -33,7 +33,7 @@ namespace bant {
 //  * `foo` without `:` prefix becomes `:foo`
 // Returns number of edits emitted.
 size_t CreateCanonicalizeEdits(Session &session, const ParsedProject &project,
-                               const BazelPattern &pattern,
+                               const BazelTargetMatcher &pattern,
                                const EditCallback &emit_canon_edit);
 }  // namespace bant
 #endif  // BANT_TOOL_CANON_TARGETS_
