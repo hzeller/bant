@@ -61,7 +61,7 @@ static int print_version() {
 
 static int usage(const char *prog, const char *message, int exit_code) {
   print_version();
-  fprintf(stderr, "Usage: %s [options] <command> [bazel-target-pattern]\n",
+  fprintf(stderr, "Usage: %s [options] <command> [bazel-target-pattern...]\n",
           prog);
   fprintf(stderr, R"(Options
     -C <directory> : Change to this project directory first (default = '.')

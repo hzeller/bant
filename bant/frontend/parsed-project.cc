@@ -21,6 +21,7 @@
 #include <iostream>
 #include <memory>
 #include <optional>
+#include <set>
 #include <sstream>
 #include <string>
 #include <string_view>
@@ -116,12 +117,19 @@ ParsedProject::ParsedProject(BazelWorkspace workspace, bool verbose)
 }
 
 int ParsedProject::FillFromPattern(Session &session,
-                                   const BazelPattern &pattern) {
-  const auto build_files = CollectBuildFiles(session, workspace(), pattern);
-  for (const FilesystemPath &build_file : build_files) {
-    AddBuildFile(session, build_file, pattern.project());
+                                   const BazelPatternBundle &bundle) {
+  int count = 0;
+  std::set<FilesystemPath> unique_files;  // bundle might match multiple same
+  for (const BazelPattern &pattern : bundle.patterns()) {
+    const auto build_files = CollectBuildFiles(session, workspace(), pattern);
+    for (const FilesystemPath &build_file : build_files) {
+      if (unique_files.insert(build_file).second) {
+        ++count;
+        AddBuildFile(session, build_file, pattern.project());
+      }
+    }
   }
-  return build_files.size();
+  return count;
 }
 
 ParsedBuildFile *ParsedProject::AddBuildFile(Session &session,

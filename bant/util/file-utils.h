@@ -56,6 +56,14 @@ class FilesystemPath {
   bool is_directory() const;
   bool is_symlink() const;
 
+  // Ideally, this should be canonicalized paths, but this is good enough.
+  bool operator<(const FilesystemPath &other) const {
+    return path_ < other.path_;
+  }
+  bool operator==(const FilesystemPath &other) const {
+    return path_ == other.path_;
+  }
+
  private:
   enum class MemoizedResult : char { kUnknown, kNo, kYes };
   std::string path_;

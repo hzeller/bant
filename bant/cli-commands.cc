@@ -74,7 +74,7 @@ enum class Command {
   kDependsOn,
 };
 
-void PrintOneToN(bant::Session &session, const BazelPattern &pattern,
+void PrintOneToN(bant::Session &session, const BazelTargetMatcher &pattern,
                  const OneToN<BazelTarget, BazelTarget> &table,
                  const std::string &header1, const std::string &header2) {
   auto printer = TablePrinter::Create(
@@ -91,7 +91,8 @@ void PrintOneToN(bant::Session &session, const BazelPattern &pattern,
   printer->Finish();
 }
 
-static bool NeedsProjectPopulated(Command cmd, const BazelPattern &pattern) {
+static bool NeedsProjectPopulated(Command cmd,
+                                  const BazelTargetMatcher &pattern) {
   // No need to even parse the project if we just print the full workspace
   if (cmd == Command::kListWorkkspace && !pattern.HasFilter()) {
     return false;  // NOLINT(readability-simplify-boolean-expr)
@@ -100,7 +101,7 @@ static bool NeedsProjectPopulated(Command cmd, const BazelPattern &pattern) {
 }
 
 CliStatus RunCommand(Session &session, Command cmd,
-                     const BazelPattern &pattern) {
+                     const BazelPatternBundle &patterns) {
   // -- TODO: a lot of the following functionality including choosing what
   // data is needed needs to move into each command itself.
   // We don't have a 'Command' object yet, so linear here.
@@ -115,15 +116,19 @@ CliStatus RunCommand(Session &session, Command cmd,
   }
   const bant::BazelWorkspace &workspace = workspace_or.value();
 
+  // Matchall pattern bundle.
+  BazelPatternBundle kMatchAllBundle;
+  kMatchAllBundle.Finish();
+
   // Has dependent needs to be able to see all the files to know everything
   // that depends on a specific pattern.
-  const BazelPattern dep_pattern =
-    (cmd == Command::kHasDependents) ? BazelPattern() : pattern;
+  const BazelPatternBundle &dep_pattern =
+    (cmd == Command::kHasDependents) ? kMatchAllBundle : patterns;
 
   CommandlineFlags flags = session.flags();
 
   bant::ParsedProject project(workspace, flags.verbose);
-  if (NeedsProjectPopulated(cmd, pattern)) {
+  if (NeedsProjectPopulated(cmd, patterns)) {
     if (project.FillFromPattern(session, dep_pattern) == 0) {
       session.error() << "Pattern did not match any dir with BUILD file.\n";
     }
@@ -178,8 +183,8 @@ CliStatus RunCommand(Session &session, Command cmd,
   // library headers and genrule outputs just match the pattern unless
   // recursive is chosen when we want to print everything the dependency graph
   // gathered.
-  const BazelPattern print_pattern =
-    flags.recurse_dependency_depth > 0 ? BazelPattern() : pattern;
+  const BazelPatternBundle &print_pattern =
+    flags.recurse_dependency_depth > 0 ? kMatchAllBundle : patterns;
 
   // This will be all separate commands in their own class.
   switch (cmd) {
@@ -189,7 +194,7 @@ CliStatus RunCommand(Session &session, Command cmd,
     // so it would already have emitted parse errors. Here we only have to
     // decide if we print anything.
     if (flags.print_ast || flags.print_only_errors) {
-      bant::PrintProject(session, pattern, project);
+      bant::PrintProject(session, patterns, project);
     }
     break;
 
@@ -207,7 +212,7 @@ CliStatus RunCommand(Session &session, Command cmd,
 
   case Command::kDWYU:
     if (bant::CreateDependencyEdits(
-          session, project, pattern,
+          session, project, patterns,
           CreateBuildozerDepsEditCallback(session.out())) > 0) {
       return CliStatus::kExitCleanupFindings;
     }
@@ -215,7 +220,7 @@ CliStatus RunCommand(Session &session, Command cmd,
 
   case Command::kCanonicalizeDeps:
     if (CreateCanonicalizeEdits(
-          session, project, pattern,
+          session, project, patterns,
           CreateBuildozerDepsEditCallback(session.out())) > 0) {
       return CliStatus::kExitCleanupFindings;
     }
@@ -251,7 +256,7 @@ CliStatus RunCommand(Session &session, Command cmd,
   } break;
 
   case Command::kListWorkkspace:
-    PrintMatchingWorkspaceExternalRepos(session, project, pattern);
+    PrintMatchingWorkspaceExternalRepos(session, project, patterns);
     break;
 
   case Command::kAliasedBy:
@@ -268,13 +273,13 @@ CliStatus RunCommand(Session &session, Command cmd,
   case Command::kHasDependents:
     // Print exactly what requested, as we implicitly had to recurse through
     // everything, so print_pattern would be too much.
-    PrintOneToN(session, pattern, graph.has_dependents,  //
+    PrintOneToN(session, patterns, graph.has_dependents,  //
                 "library", "has-dependent");
     break;
 
   case Command::kCompilationDB:
   case Command::kCompileFlags:
-    WriteCompilationFlags(session, project, pattern,
+    WriteCompilationFlags(session, project, patterns,
                           cmd == Command::kCompilationDB);
     break;
 
@@ -286,8 +291,6 @@ CliStatus RunCommand(Session &session, Command cmd,
 }  // namespace
 
 CliStatus RunCliCommand(Session &session, std::span<std::string_view> args) {
-  BazelPattern pattern;
-
   // Commands: right now just switch/casing over it in main, but they will
   // become their own classes eventually.
   Command cmd = Command::kNone;
@@ -334,33 +337,27 @@ CliStatus RunCliCommand(Session &session, std::span<std::string_view> args) {
     return CliStatus::kExitCommandlineClarification;
   }
 
-  if (!args.empty()) {
-    if (auto p = BazelPattern::ParseFrom(args[0]); p.has_value()) {
-      pattern = p.value();
+  BazelPatternBundle patterns;
+  for (const std::string_view arg : args) {
+    if (auto p = BazelPattern::ParseFrom(arg); p.has_value()) {
+      patterns.AddPattern(p.value());
     } else {
       session.error() << "Invalid bazel pattern " << args[0] << "\n";
       return CliStatus::kExitFailure;
     }
-    args = args.subspan(1);
   }
-
-  if (!args.empty()) {
-    // TODO: read a list of patterns.
-    session.error() << args[0] << " Sorry, can only deal with at most "
-                    << "one pattern right now\n";
-    return CliStatus::kExitFailure;
-  }
+  patterns.Finish();
 
   // Don't look through everything for these.
   if (cmd == Command::kCanonicalizeDeps || cmd == Command::kDWYU ||
       cmd == Command::kPrint) {
-    if (!pattern.HasFilter()) {
+    if (!patterns.HasFilter()) {
       session.error() << "Please provide a bazel pattern for this command.\n"
                       << "Examples: //... or //foo/bar:baz\n";
       return CliStatus::kExitFailure;
     }
   }
 
-  return RunCommand(session, cmd, pattern);
+  return RunCommand(session, cmd, patterns);
 }
 }  // namespace bant

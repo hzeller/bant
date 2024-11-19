@@ -312,4 +312,18 @@ bool BazelPattern::Match(const BazelPackage &package) const {
   return false;
 }
 
+bool BazelPatternBundle::Match(const BazelTarget &target) const {
+  for (const auto &pattern : patterns_) {
+    if (pattern.Match(target)) return true;
+  }
+  return false;
+}
+
+bool BazelPatternBundle::Match(const BazelPackage &package) const {
+  for (const auto &pattern : patterns_) {
+    if (pattern.Match(package)) return true;
+  }
+  return false;
+}
+
 }  // namespace bant

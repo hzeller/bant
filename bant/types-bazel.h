@@ -24,6 +24,7 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 #include "bant/workspace.h"
 #include "re2/re2.h"
@@ -137,12 +138,12 @@ class BazelPattern final : public BazelTargetMatcher {
   const std::string &path() const { return match_pattern_.package.path; }
   const std::string &project() const { return match_pattern_.package.project; }
 
-  bool HasFilter() const final { return kind_ != MatchKind::kAlwaysMatch; }
   bool is_recursive() const {
     return (kind_ == MatchKind::kRecursive || kind_ == MatchKind::kAlwaysMatch);
   }
 
   // -- BazelTargetMatcher interface
+  bool HasFilter() const final { return kind_ != MatchKind::kAlwaysMatch; }
   bool Match(const BazelTarget &target) const final;
   bool Match(const BazelPackage &package) const final;
 
@@ -159,9 +160,36 @@ class BazelPattern final : public BazelTargetMatcher {
                                                const BazelPackage &context);
 
   BazelPattern(BazelTarget pattern, MatchKind kind, std::unique_ptr<RE2> regex);
+
   BazelTarget match_pattern_;
   std::shared_ptr<RE2> regex_pattern_;  // shared: makes it copyable.
   MatchKind kind_;
+};
+
+class BazelPatternBundle final : public BazelTargetMatcher {
+ public:
+  void AddPattern(const BazelPattern &p) { patterns_.emplace_back(p); }
+  void Finish() {
+    has_filter_ = !patterns_.empty();
+    if (!has_filter_) {
+      // Make it provide a regular recursive BazelPattern to make things
+      // work seamlessly.
+      patterns_.emplace_back();
+    }
+  }
+
+  const std::vector<BazelPattern> &patterns() const { return patterns_; };
+
+  // -- BazelTargetMatcher interface
+  bool HasFilter() const final { return has_filter_; }
+  bool Match(const BazelTarget &target) const final;
+  bool Match(const BazelPackage &package) const final;
+
+ private:
+  // TODO: maybe also match negative patterns that 'subtract' ? Then store
+  // tuple here <bool, BazelPattern>.
+  std::vector<BazelPattern> patterns_;
+  bool has_filter_ = false;
 };
 }  // namespace bant
 

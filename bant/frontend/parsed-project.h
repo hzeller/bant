@@ -72,7 +72,7 @@ class ParsedProject : public SourceLocator {
   // Given a BazelPattern, collect all the matching BUILD files and add to
   // project.
   // Returns number of build-files added.
-  int FillFromPattern(Session &session, const BazelPattern &pattern);
+  int FillFromPattern(Session &session, const BazelPatternBundle &bundle);
 
   // Parse build file for given package reading from filename.
   ParsedBuildFile *AddBuildFile(Session &session,
