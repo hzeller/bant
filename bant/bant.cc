@@ -34,10 +34,12 @@ int getopt(int, char *const *, const char *);  // NOLINT
 #include <limits>
 #include <map>
 #include <memory>
+#include <string>
 #include <string_view>
 #include <system_error>
 #include <vector>
 
+#include "absl/container/flat_hash_set.h"
 #include "bant/cli-commands.h"
 #include "bant/output-format.h"
 #include "bant/session.h"
@@ -77,6 +79,8 @@ static int usage(const char *prog, const char *message, int exit_code) {
                      pattern. -r0 is equivalent to not providing -r.
     -v             : Verbose; print some stats. Multiple times: more verbose.
     -h             : This help.
+    --//<option>   : configurable flag attribute to be used in select() and
+                     picked up by elaboration (-e)
 
 Commands (unique prefix sufficient):
     %s== Parsing ==%s
@@ -128,6 +132,21 @@ Commands (unique prefix sufficient):
   return exit_code;
 }
 
+// Bazel custom flag extraction, such as --//foo:bar to be used in selectors.
+static void ExtractCustomFlags(int *argc, char *argv[],
+                               absl::flat_hash_set<std::string> *result) {
+  int out_arg = 1;
+  for (int i = 1; i < *argc; ++i) {
+    const std::string_view arg = argv[i];
+    if (arg.starts_with("--//")) {
+      result->emplace(arg.substr(2));
+      continue;
+    }
+    argv[out_arg++] = argv[i];
+  }
+  *argc = out_arg;
+}
+
 int main(int argc, char *argv[]) {
   // non-nullptr streams if chosen by user.
   std::unique_ptr<std::ostream> user_primary_out;
@@ -141,6 +160,12 @@ int main(int argc, char *argv[]) {
   flags.do_color = isatty(STDOUT_FILENO);
 
   bool regex_case_insesitive = false;
+
+  // Since we're using basic getopt() currently, we've to fish out all the
+  // double-dash bazel configs, otherwise getopt() gets confused about unknown
+  // options.
+  // TODO: replace with better flag handling.
+  ExtractCustomFlags(&argc, argv, &flags.custom_flags);
 
   using bant::OutputFormat;
   static const std::map<std::string_view, OutputFormat> kFormatOutNames = {

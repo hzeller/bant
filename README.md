@@ -66,6 +66,13 @@ strings in the AST of a rule matches a pattern.
 bant print ... -g "scan.*test"
 ```
 
+Evaluation of [custom flags] in `select()` also works, and similar to
+`bazel`, you pass these options with `--//...` to bant:
+
+```bash
+bant -e --//bant:static_linked_executables print bant:bant
+```
+
 ![print grep output](img/grep-print.png)
 
 #### Workspace
@@ -227,9 +234,9 @@ need for it).
 ### Synopsis
 
 ```
-bant v0.1.7 <http://bant.build/>
+bant v0.1.x <http://bant.build/>
 Copyright (c) 2024 Henner Zeller. This program is free software; license GPL 2.0.
-Usage: bant [options] <command> [bazel-target-pattern]
+Usage: bazel-bin/bant/bant [options] <command> [bazel-target-pattern...]
 Options
     -C <directory> : Change to this project directory first (default = '.')
     -q             : Quiet: don't print info messages to stderr.
@@ -244,6 +251,8 @@ Options
                      pattern. -r0 is equivalent to not providing -r.
     -v             : Verbose; print some stats. Multiple times: more verbose.
     -h             : This help.
+    --//<option>   : configurable flag attribute to be used in select() and
+                     picked up by elaboration (-e)
 
 Commands (unique prefix sufficient):
     == Parsing ==
@@ -279,11 +288,13 @@ Commands (unique prefix sufficient):
                      → 2 column table: (filename, genrule-target)
 
     == Tools ==
-    compilation-db : (experimental) Emits a compilation db. Redirect output to
-                     compile_commands.json
     dwyu           : DWYU: Depend on What You Use (emit buildozer edit script)
                       -k strict: emit remove even if # keep comment in line.
     canonicalize   : Emit rename edits to canonicalize targets.
+    compile-flags  : (experimental) Emit compile flags to stdout. Redirect to
+                     compile_flags.txt
+    compilation-db : (experimental) Emit compilation db to stdout. Redirect to
+                     compile_commands.json
 ```
 
 ### Usage examples
@@ -374,3 +385,4 @@ Before submit, run `scripts/before-submit.sh` ... and fix potential
 [buildozer]: https://github.com/bazelbuild/buildtools/blob/master/buildozer/README.md
 [nix-devel-env]: https://nixos.wiki/wiki/Development_environment_with_nix-shell
 [build_cleaner]: https://github.com/bazelbuild/bazel/issues/6871
+[custom flags]: https://bazel.build/docs/configurable-attributes#custom-flags

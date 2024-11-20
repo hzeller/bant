@@ -25,6 +25,7 @@
 #include <utility>
 #include <vector>
 
+#include "absl/container/flat_hash_set.h"
 #include "bant/output-format.h"
 #include "bant/types.h"
 #include "bant/util/stat.h"
@@ -57,6 +58,8 @@ struct CommandlineFlags {
   OutputFormat output_format = OutputFormat::kNative;
   std::string grep_regex;
   bool do_color = false;
+  // https://bazel.build/docs/configurable-attributes#custom-flags
+  absl::flat_hash_set<std::string> custom_flags;
 };
 
 // A session contains some settings such as output/verbose requests

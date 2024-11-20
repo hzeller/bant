@@ -51,6 +51,7 @@ cc_binary(
         "//bant/tool:workspace",
         "//bant/util:file-utils",
         "//bant/util:table-printer",
+        "@abseil-cpp//absl/container:flat_hash_set",
         "@abseil-cpp//absl/strings",
     ],
 )
@@ -113,6 +114,7 @@ cc_library(
     deps = [
         ":types",
         "//bant/util:stat",
+        "@abseil-cpp//absl/container:flat_hash_set",
     ],
 )
 

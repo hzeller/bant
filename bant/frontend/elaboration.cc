@@ -51,12 +51,7 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
  public:
   SimpleElaborator(Session &session, ParsedProject *project,
                    const BazelPackage &package)
-      : session_(session), project_(project), package_(package) {
-    // TODO: provide a way to set conditions
-    // https://bazel.build/docs/configurable-attributes
-    // For now, we only support the 'default' condition.
-    conditions_.insert("//conditions:default");
-  }
+      : session_(session), project_(project), package_(package) {}
 
   Node *VisitFunCall(FunCall *f) final {
     const NestCounter c(&nest_level_);
@@ -155,6 +150,7 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
   }
 
   Node *HandleSelect(FunCall *fun) {
+    Node *default_node = fun;  // If we won't find a default, we'll return call
     for (Node *arg : *fun->argument()) {
       List *const select_map = arg->CastAsList();
       if (!select_map || select_map->type() != List::Type::kMap) continue;
@@ -162,12 +158,16 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
         BinOpNode *map_item = item->CastAsBinOp();
         if (!map_item || map_item->op() != ':') continue;
         Scalar *key = map_item->left()->CastAsScalar();
-        if (key && conditions_.contains(key->AsString())) {
+        if (!key) continue;
+        if (session_.flags().custom_flags.contains(key->AsString())) {
           return map_item->right();
+        }
+        if (key->AsString() == "//conditions:default") {
+          default_node = map_item->right();
         }
       }
     }
-    return fun;
+    return default_node;
   }
 
   Node *HandleGlob(FunCall *fun) {
@@ -282,7 +282,6 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
   const BazelPackage &package_;
   int nest_level_ = 0;
   absl::flat_hash_map<std::string_view, Node *> global_variables_;
-  absl::flat_hash_set<std::string> conditions_;
 };
 
 }  // namespace

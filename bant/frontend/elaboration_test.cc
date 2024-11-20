@@ -34,11 +34,12 @@ namespace bant {
 class ElaborationTest : public testing::Test {
  protected:
   std::pair<std::string, std::string> ElabAndPrint(
-    std::string_view to_elaborate, std::string_view expected) {
+    std::string_view to_elaborate, std::string_view expected,
+    const CommandlineFlags &flags = CommandlineFlags{.verbose = 1}) {
     elaborated_ = pp_.Add("//elab", to_elaborate);
     const ParsedBuildFile *expected_parsed = pp_.Add("//expected", expected);
 
-    Session session(&std::cerr, &std::cerr, CommandlineFlags{.verbose = 1});
+    Session session(&std::cerr, &std::cerr, flags);
     std::stringstream elab_print;
     elab_print << bant::Elaborate(session, &pp_.project(), elaborated_->package,
                                   elaborated_->ast);
@@ -131,7 +132,7 @@ TEST_F(ElaborationTest, SelectChoosesConditionDefault) {
 cc_library(
   name = "foo",
   srcs = select({
-     ":foo"                 : ["abc.cc"],
+     "//:foo"               : ["abc.cc"],
      [ "not-a-string"]      : ["baz.cc"],
      "//conditions:default" : ["def.cc"],
    })
@@ -140,9 +141,34 @@ cc_library(
     R"(
 cc_library(
   name = "foo",
-  srcs = ["def.cc"]   # We don't have conditions yet, choosing default
+  srcs = ["def.cc"]   # No condition set, choosing default
 )
 )");
+
+  EXPECT_EQ(result.first, result.second);
+}
+
+TEST_F(ElaborationTest, SelectWithChosenOption) {
+  CommandlineFlags flags = CommandlineFlags{.verbose = 1};
+  flags.custom_flags.emplace("//:foo");
+  auto result = ElabAndPrint(
+    R"(
+cc_library(
+  name = "foo",
+  srcs = select({
+     "//:foo"               : ["abc.cc"],
+     [ "not-a-string"]      : ["baz.cc"],
+     "//conditions:default" : ["def.cc"],
+   })
+)
+)",
+    R"(
+cc_library(
+  name = "foo",
+  srcs = ["abc.cc"]
+)
+)",
+    flags);
 
   EXPECT_EQ(result.first, result.second);
 }
