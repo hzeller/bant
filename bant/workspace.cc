@@ -52,6 +52,7 @@ static constexpr std::string_view kExternalBaseDir =
     result.project = dir.substr(0, tilde_pos);
     result.version = dir.substr(tilde_pos + 1);
   } else {
+    if (dir.ends_with("+")) dir.remove_suffix(1);  // bazel8-ism
     result.project = dir;
   }
   return result;
@@ -131,6 +132,7 @@ std::optional<BazelWorkspace> LoadWorkspace(Session &session) {
 
         // Also a plausible location when archive_override() is used:
         search_dirs.push_back(absl::StrCat(result.name, "~override"));
+        search_dirs.push_back(absl::StrCat(result.name, "+"));  // bazel8-ism
 
         FilesystemPath path;
         bool project_dir_found = false;

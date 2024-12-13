@@ -1,5 +1,5 @@
 # Requires at least bazel 6.
-common --enable_bzlmod
+build --enable_bzlmod
 
 # Building the version number to be baked into the binary.
 build --workspace_status_command="scripts/create-workspace-status.sh"
