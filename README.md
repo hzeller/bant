@@ -252,7 +252,8 @@ Options
     -v             : Verbose; print some stats. Multiple times: more verbose.
     -h             : This help.
     --//<option>   : configurable flag attribute to be used in select() and
-                     picked up by elaboration (-e)
+                     picked up by elaboration (-e) (experimental; does not yet
+                     read config_setting(), but flag value is used directly).
 
 Commands (unique prefix sufficient):
     == Parsing ==
