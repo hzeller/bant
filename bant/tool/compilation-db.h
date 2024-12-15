@@ -35,8 +35,7 @@ std::vector<std::string> ExtractOptionsFromBazelrc(std::string_view content);
 // json compilation database, otherwise as simple compile flags.
 //
 // Requires a fully alaborated "project".
-void WriteCompilationFlags(Session &session, const ParsedProject &project,
-                           const BazelTargetMatcher &pattern,
-                           bool as_compilation_db);
+void WriteCompilationFlags(Session &session, const BazelTargetMatcher &pattern,
+                           ParsedProject *project, bool as_compilation_db);
 }  // namespace bant
 #endif  // BANT_TOOL_COMPILATiON_DB_

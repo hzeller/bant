@@ -67,6 +67,8 @@ inline std::ostream &operator<<(std::ostream &o, const BazelPackage &p) {
   return o << p.ToString();
 }
 
+// TODO: this should probably be called BazelLabel which seems to be the common
+// to refer to it in the bazel documentation.
 class BazelTarget {
  public:
   // Parse target from string. Both forms //foo/bar:baz and :baz are

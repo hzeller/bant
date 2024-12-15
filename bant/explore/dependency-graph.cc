@@ -69,9 +69,9 @@ std::optional<FilesystemPath> PathForPackage(Session &session,
 
 void FindAndParseMissingPackages(Session &session,
                                  const std::set<BazelPackage> &want,
-                                 const BazelWorkspace &workspace,
                                  std::set<BazelPackage> *error_packages,
                                  ParsedProject *project) {
+  const BazelWorkspace &workspace = project->workspace();
   for (const BazelPackage &package : want) {
     if (project->FindParsedOrNull(package) != nullptr) {
       continue;  // have it already.
@@ -101,10 +101,9 @@ void PrintList(std::ostream &out, const char *msg, const Container &c) {
 }  // namespace
 
 DependencyGraph BuildDependencyGraph(Session &session,
-                                     const BazelWorkspace &workspace,
                                      const BazelTargetMatcher &pattern,
-                                     int nesting_depth,
-                                     ParsedProject *project) {
+                                     int nesting_depth, ParsedProject *project,
+                                     const TargetInGraphCallback &walk_cb) {
   // TODO: there will be some implicit dependencies: when using files, they
   // might not come from deps we mention, but are provided by genrules.
 
@@ -145,8 +144,8 @@ DependencyGraph BuildDependencyGraph(Session &session,
     }
 
     // Make sure that we have parsed all packages we're looking through.
-    FindAndParseMissingPackages(session, scan_package, workspace,
-                                &error_packages, project);
+    FindAndParseMissingPackages(session, scan_package, &error_packages,
+                                project);
 
     std::set<BazelTarget> next_round_deps_to_resolve_todo;
     for (const BazelPackage &current_package : scan_package) {
@@ -158,6 +157,10 @@ DependencyGraph BuildDependencyGraph(Session &session,
           if (!target_or.has_value()) return;
           const bool interested = (deps_to_resolve_todo.erase(*target_or) == 1);
           if (!interested) return;
+
+          if (walk_cb) {
+            walk_cb(*target_or, result);
+          }
 
           // The list to insert all the dependencies our current target has.
           std::vector<BazelTarget> &depends_on =

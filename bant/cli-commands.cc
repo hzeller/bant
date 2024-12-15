@@ -135,8 +135,7 @@ CliStatus RunCommand(Session &session, Command cmd,
   }
 
   if (flags.recurse_dependency_depth <= 0 &&
-      (cmd == Command::kDWYU || cmd == Command::kHasDependents ||
-       cmd == Command::kCompilationDB || cmd == Command::kCompileFlags)) {
+      (cmd == Command::kDWYU || cmd == Command::kHasDependents)) {
     flags.recurse_dependency_depth = std::numeric_limits<int>::max();
   }
 
@@ -146,7 +145,7 @@ CliStatus RunCommand(Session &session, Command cmd,
     bant::Elaborate(session, &project);
   }
 
-  // TODO: move dependency graph creation to tools once they are
+  // TODO: move dependency graph creation to interested tools once they are
   // Command-objects.
   bant::DependencyGraph graph;
   switch (cmd) {
@@ -158,13 +157,10 @@ CliStatus RunCommand(Session &session, Command cmd,
   case Command::kListPackages:
   case Command::kDependsOn:
   case Command::kHasDependents:
-  case Command::kCompilationDB:
-  case Command::kCompileFlags:
     if (flags.recurse_dependency_depth >= 0) {
       const size_t before_build_files = project.ParsedFiles().size();
-      graph =
-        bant::BuildDependencyGraph(session, workspace, dep_pattern,
-                                   flags.recurse_dependency_depth, &project);
+      graph = bant::BuildDependencyGraph(
+        session, dep_pattern, flags.recurse_dependency_depth, &project);
       const size_t after_build_files = project.ParsedFiles().size();
       if (session.flags().verbose) {
         session.info() << "Dependency graph expanded build file# from initial "
@@ -279,8 +275,9 @@ CliStatus RunCommand(Session &session, Command cmd,
 
   case Command::kCompilationDB:
   case Command::kCompileFlags:
-    WriteCompilationFlags(session, project, patterns,
+    WriteCompilationFlags(session, patterns, &project,
                           cmd == Command::kCompilationDB);
+
     break;
 
   case Command::kNone:  // nop (implicitly done by parsing)

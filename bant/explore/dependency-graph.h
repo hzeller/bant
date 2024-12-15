@@ -18,11 +18,13 @@
 #ifndef BANT_UTIL_RESOLVE_PACKAGES_
 #define BANT_UTIL_RESOLVE_PACKAGES_
 
+#include <functional>
+
+#include "bant/explore/query-utils.h"
 #include "bant/frontend/parsed-project.h"
 #include "bant/session.h"
 #include "bant/types-bazel.h"
 #include "bant/types.h"
-#include "bant/workspace.h"
 
 namespace bant {
 struct DependencyGraph {
@@ -36,10 +38,15 @@ struct DependencyGraph {
 // targets matched by pattern. With 1, all the dependencies of the 0-level
 // are followed etc..
 // Might update "project" with new files that had to be parsed.
+//
+// If TargetIngraphcallback is non-null, will inform the caller about which
+// targets were walked, including details.
+using TargetInGraphCallback =
+  std::function<void(const BazelTarget &target, const query::Result &details)>;
 DependencyGraph BuildDependencyGraph(Session &session,
-                                     const BazelWorkspace &workspace,
                                      const BazelTargetMatcher &pattern,
-                                     int nesting_depth, ParsedProject *project);
+                                     int nesting_depth, ParsedProject *project,
+                                     const TargetInGraphCallback &cb = nullptr);
 }  // namespace bant
 
 #endif  // BANT_UTIL_RESOLVE_PACKAGES_

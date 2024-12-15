@@ -109,6 +109,7 @@ cc_library(
         "//bant:session",
         "//bant:types-bazel",
         "//bant:workspace",
+        "//bant/explore:dependency-graph",
         "//bant/explore:query-utils",
         "//bant/frontend:parsed-project",
         "//bant/util:file-utils",
