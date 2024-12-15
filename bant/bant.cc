@@ -80,7 +80,8 @@ static int usage(const char *prog, const char *message, int exit_code) {
     -v             : Verbose; print some stats. Multiple times: more verbose.
     -h             : This help.
     --//<option>   : configurable flag attribute to be used in select() and
-                     picked up by elaboration (-e)
+                     picked up by elaboration (-e) (experimental; does not yet
+                     read config_setting(), but flag value is used directly).
 
 Commands (unique prefix sufficient):
     %s== Parsing ==%s
