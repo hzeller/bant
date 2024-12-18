@@ -163,6 +163,20 @@ static void ProtobufHack(const BazelTarget &target,
   }
 }
 
+// The grpc_cc_library() adds an implicit "include/", but since we can't see
+// the corresponding *.bzl file, apply this hack here.
+static void GRPCHack(const BazelTarget &target, const BazelWorkspace &workspace,
+                     absl::flat_hash_set<std::string> *already_seen,
+                     std::vector<std::string> &result) {
+  const std::string_view external_project = target.package.project;
+  auto ext_dir = workspace.FindPathByProject(external_project);
+  if (!ext_dir) return;
+  const std::string prefix_applied = absl::StrCat(ext_dir->path(), "/include");
+  if (already_seen->insert(prefix_applied).second) {
+    result.emplace_back(prefix_applied);
+  }
+}
+
 static std::vector<std::string> CollectIncDirs(
   Session &session, const BazelTargetMatcher &pattern, ParsedProject *project) {
   std::vector<std::string> result;
@@ -208,9 +222,26 @@ static std::vector<std::string> CollectIncDirs(
         }
       }
 
+      if (!details.strip_include_prefix.empty()) {
+        const std::string_view external_project = target.package.project;
+        auto ext_dir = workspace.FindPathByProject(external_project);
+        if (ext_dir) {
+          const std::string prefix_applied =
+            absl::StrCat(ext_dir->path(), "/", details.strip_include_prefix);
+          if (already_seen.insert(prefix_applied).second) {
+            result.emplace_back(prefix_applied);
+          }
+        }
+      }
+
       // If we depend on anything that looks like protobuf, apply this hack.
       const bool is_proto_library = details.rule == "proto_library";
       ProtobufHack(target, workspace, is_proto_library, &already_seen, result);
+
+      // GRPC requires a hack.
+      if (details.rule == "grpc_cc_library") {
+        GRPCHack(target, workspace, &already_seen, result);
+      }
 
       // Now, let's check out the dependencies and see that all of the
       // referenced external projects are covered.
