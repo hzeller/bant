@@ -54,6 +54,28 @@ jobs:
           bazel-bin/bant/bant -V  # Print version
           # TODO: package ?
 
+  WindowsBuild:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install dependencies
+        run: |
+          choco install llvm --allow-downgrade --version=17.0.6
+
+      - name: Test
+        run: |
+          bazel test --noshow_progress --keep_going ...
+
+      - name: Build
+        run: |
+          bazel build --noshow_progress -c opt bant:bant
+          bazel-bin/bant/bant -V  # Print version
+          # TODO: package ?
+
   CodeFormatting:
     runs-on: ubuntu-24.04
     steps:

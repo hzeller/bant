@@ -12,8 +12,8 @@ build --features=parse_headers
 build       --cxxopt=-std=c++23            --host_cxxopt=-std=c++23
 build       --cxxopt=-xc++                 --host_cxxopt=-xc++
 build       --cxxopt=-Wall                 --host_cxxopt=-Wall
-build       --cxxopt=-Wextra               --host_cxxopt=-Wextra
-build       --cxxopt=-Wno-unused-parameter --host_cxxopt=-Wno-unused-parameter
+#build       --cxxopt=-Wextra               --host_cxxopt=-Wextra
+#build       --cxxopt=-Wno-unused-parameter --host_cxxopt=-Wno-unused-parameter
 
 # Avoid costly language features.
 build       --cxxopt=-fno-exceptions       --host_cxxopt=-fno-exceptions
@@ -29,6 +29,7 @@ build --enable_platform_specific_config
 build:macos --macos_minimum_os=10.15
 build:macos --features=-supports_dynamic_linker
 build:macos --cxxopt=-std=c++2b            --host_cxxopt=-std=c++2b
+common:windows --compiler=clang-cl --cxxopt=/std:c++23 --host_cxxopt=/std:c++23 --client_env=BAZEL_CXXOPTS=/std:c++23
 
 # Print out test log on failure.
 test --test_output=errors
