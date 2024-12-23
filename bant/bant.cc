@@ -52,6 +52,11 @@ int getopt(int, char *const *, const char *);  // NOLINT
 #define RED   "\033[1;31m"
 #define RESET "\033[0m"
 
+// If BUILD_VERSION could not be determined for whatever reason
+#ifndef BANT_BUILD_VERSION
+#define BANT_BUILD_VERSION "-unknown (> 0.1.10)"
+#endif
+
 static int print_version() {
   fprintf(stderr,
           "bant v%s <http://bant.build/>\n"
