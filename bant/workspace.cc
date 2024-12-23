@@ -93,6 +93,75 @@ bool BestEffortAugmentFromExternalDir(BazelWorkspace &workspace) {
   return any_found;
 }
 
+static bool LoadWorkspaceFromFile(Session &session,
+                                  const FilesystemPath &ws_file,
+                                  std::ostream &msg_stream,
+                                  BazelWorkspace *workspace) {
+  const std::optional<std::string> content = ReadFileToString(ws_file);
+  if (!content.has_value()) return false;
+
+  // TODO: maybe store the names_content for later use to be able to point
+  // to specific places something is declared.
+  NamedLineIndexedContent named_content(ws_file.path(), content.value());
+  Arena arena(1 << 16);
+  Scanner scanner(named_content);
+  Parser parser(&scanner, &arena, session.info());
+  Node *ast = parser.parse();
+  if (!ast) return false;
+
+  query::FindTargets(
+    ast, {"http_archive", "bazel_dep"}, [&](const query::Result &result) {
+      // Sometimes, the version is attached to the dirs (bazel 6), somtimes
+      // not (before bazel 6: plain file, at bazel 7: just ~, at bazel 8 '+')
+      // Check for both if we have a version.
+      std::vector<std::string> search_dirs;
+      if (!result.version.empty()) {
+        search_dirs.push_back(absl::StrCat(result.name, "~", result.version));
+      }
+      search_dirs.emplace_back(result.name);
+
+      // Also a plausible location when archive_override() is used:
+      search_dirs.push_back(absl::StrCat(result.name, "~override"));
+      search_dirs.push_back(absl::StrCat(result.name, "+"));  // bazel8-ism
+
+      FilesystemPath path;
+      bool project_dir_found = false;
+      for (const std::string_view dir : search_dirs) {
+        path = FilesystemPath(kExternalBaseDir, dir);
+        if (!path.is_directory() || !path.can_read()) continue;
+        project_dir_found = true;
+        break;
+      }
+
+      if (!project_dir_found) {
+        // Maybe we got a different version ?
+        auto maybe_match =
+          Glob(absl::StrCat(kExternalBaseDir, "/", result.name, "~*"));
+        if (!maybe_match.empty()) {
+          path = maybe_match.front();
+          project_dir_found = path.is_directory() && path.can_read();
+        }
+      }
+
+      if (!project_dir_found) {
+        named_content.Loc(msg_stream, result.name)
+          << " Can't find extracted project '" << result.name << "'\n";
+        return;
+      }
+
+      VersionedProject project;
+      project.project = result.name;
+      project.version = result.version;
+      workspace->project_location[project] = path;
+      if (!result.repo_name.empty()) {  // Also store alias.
+        project.project = result.repo_name;
+        workspace->project_location[project] = path;
+      }
+    });
+
+  return true;
+}
+
 std::optional<BazelWorkspace> LoadWorkspace(Session &session) {
   bool workspace_found = false;
   BazelWorkspace workspace;
@@ -109,63 +178,8 @@ std::optional<BazelWorkspace> LoadWorkspace(Session &session) {
     const std::string_view ws = ws_files[i];
     std::ostream &msg_stream = i < 2 ? old_workspace_msg : new_workspace_msg;
 
-    std::optional<std::string> content = ReadFileToString(FilesystemPath(ws));
-    if (!content.has_value()) continue;
-    // TODO: maybe store the names_content for later use. Right now we only
-    // parse once, then don't worry about keeping content.
-    NamedLineIndexedContent named_content(ws, content.value());
-    Arena arena(1 << 16);
-
-    Scanner scanner(named_content);
-    Parser parser(&scanner, &arena, session.info());
-    Node *ast = parser.parse();
-    if (ast) workspace_found = true;
-    query::FindTargets(
-      ast, {"http_archive", "bazel_dep"}, [&](const query::Result &result) {
-        // Sometimes, the versin is attached to the dirs, somtimes not. Not
-        // clear why, but check for both if we have a version.
-        std::vector<std::string> search_dirs;
-        if (!result.version.empty()) {
-          search_dirs.push_back(absl::StrCat(result.name, "~", result.version));
-        }
-        search_dirs.emplace_back(result.name);
-
-        // Also a plausible location when archive_override() is used:
-        search_dirs.push_back(absl::StrCat(result.name, "~override"));
-        search_dirs.push_back(absl::StrCat(result.name, "+"));  // bazel8-ism
-
-        FilesystemPath path;
-        bool project_dir_found = false;
-        for (const std::string_view dir : search_dirs) {
-          path = FilesystemPath(kExternalBaseDir, dir);
-          if (!path.is_directory() || !path.can_read()) continue;
-          project_dir_found = true;
-          break;
-        }
-
-        if (!project_dir_found) {
-          // Maybe we got a different version ?
-          auto maybe_match =
-            Glob(absl::StrCat(kExternalBaseDir, "/", result.name, "~*"));
-          if (!maybe_match.empty()) {
-            path = maybe_match.front();
-            project_dir_found = path.is_directory() && path.can_read();
-            // Should we extract version from path ?
-          }
-        }
-
-        if (!project_dir_found) {
-          named_content.Loc(msg_stream, result.name)
-            << " Can't find extracted project '" << result.name << "'\n";
-          return;
-        }
-
-        VersionedProject project;
-        project.project =
-          result.repo_name.empty() ? result.name : result.repo_name;
-        project.version = result.version;
-        workspace.project_location[project] = path;
-      });
+    workspace_found |= LoadWorkspaceFromFile(session, FilesystemPath(ws),
+                                             msg_stream, &workspace);
   }
 
   // Only if there are issues in old _and_ new workspace set-up, it indicates
