@@ -27,6 +27,7 @@
 #include <vector>
 
 #include "absl/container/flat_hash_set.h"
+#include "absl/strings/match.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/str_replace.h"
 #include "re2/re2.h"
@@ -56,7 +57,7 @@ static std::shared_ptr<PathMatcher> MakeFilenameMatcher(
   std::vector<std::string> re_or_patterns;
   absl::flat_hash_set<std::string> verbatim_match;
   for (const std::string &p : patterns) {
-    if (p.contains('*')) {
+    if (absl::StrContains(p, '*')) {
       const std::string escape_special = RE2::QuoteMeta(p);  // quote everything
       re_or_patterns.emplace_back(  // ... then unquote the pattern back
         absl::StrReplaceAll(escape_special, {{R"(\*\*\/)", ".*/?"},  //
@@ -82,7 +83,7 @@ static std::shared_ptr<PathMatcher> MakeDirectoryMatcher(
     p = p.substr(0, last_slash);  // Only directories for patterns
     // TODO: is it allowed to have patterns like '**.txt' with the '**' not
     // in directory ? Because then we just snipped it off and it won't work...
-    if (p.contains('*')) {
+    if (absl::StrContains(p, '*')) {
       // We need to convert file-patterns into directory patterns. Directories
       // only go up to the last element and we need to match a prefix of
       // directory elments. So foo/bar/baz needs to match foo(/bar(/baz)?)?

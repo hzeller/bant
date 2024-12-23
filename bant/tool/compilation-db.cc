@@ -29,6 +29,7 @@
 #include <vector>
 
 #include "absl/container/flat_hash_set.h"
+#include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "bant/explore/dependency-graph.h"
 #include "bant/explore/query-utils.h"
@@ -115,7 +116,9 @@ static void ProtobufHack(const BazelTarget &target,
                          absl::flat_hash_set<std::string> *already_seen,
                          std::vector<std::string> &result) {
   const std::string_view protobuf_project = target.package.project;
-  if (!protobuf_project.contains("protobuf")) return;  // not interesting.
+  if (!absl::StrContains(protobuf_project, "protobuf")) {
+    return;  // not interesting.
+  }
   auto protobuf_dir = workspace.FindPathByProject(protobuf_project);
   if (!protobuf_dir.has_value()) return;
 

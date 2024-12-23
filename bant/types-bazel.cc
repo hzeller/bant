@@ -247,7 +247,7 @@ std::optional<BazelPattern> BazelPattern::ParseFrom(
     }
     target_pattern.target_name.clear();
     kind = MatchKind::kRecursive;
-  } else if (target_pattern.target_name.contains('*')) {
+  } else if (absl::StrContains(target_pattern.target_name, '*')) {
     // Allow simplified globbing pattern.
     regex = GlobbingToRE2(target_pattern.target_name);
     if (!regex->ok()) {

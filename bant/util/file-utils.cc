@@ -134,19 +134,25 @@ std::optional<std::string> ReadFileToString(const FilesystemPath &filename) {
   const size_t filesize = st.st_size;
   bool success = false;
   std::string content;
-  content.resize_and_overwrite(
-    filesize, [fd, filesize, &success](char *buf, std::size_t alloced_size) {
-      // Need to use filesize; alloced_size is >= requested.
-      size_t bytes_left = filesize;
-      while (bytes_left) {
-        const ssize_t r = read(fd, buf, bytes_left);
-        if (r <= 0) break;
-        bytes_left -= r;
-        buf += r;
-      }
-      success = (bytes_left == 0);
-      return filesize;
-    });
+  auto copy_file_to_buffer = [fd, filesize, &success](char *buf,
+                                                      std::size_t available) {
+    // Need to use filesize; alloced_size is >= requested.
+    size_t bytes_left = filesize;
+    while (bytes_left) {
+      const ssize_t r = read(fd, buf, bytes_left);
+      if (r <= 0) break;
+      bytes_left -= r;
+      buf += r;
+    }
+    success = (bytes_left == 0);
+    return filesize;
+  };
+#if __cplusplus >= 202100L  // Implemented in gcc since 202100
+  content.resize_and_overwrite(filesize, copy_file_to_buffer);
+#else
+  content.resize(filesize);
+  copy_file_to_buffer(const_cast<char *>(content.data()), filesize);
+#endif
   if (!success) return std::nullopt;
   return content;
 }
