@@ -150,13 +150,21 @@ jobs:
             || ( cat bant_clang-tidy.out ; exit 1)
 
   # TODO: can this be done _after_ the tagging had taken place ?
-  BuildStaticBinary:
+  ReleasableArtifacts:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Extract Version
+        run: |
+          # Version number: current tag dot number of commits after tagging.
+          # If at exactly a tag, that will be left as-is
+          BANT_VERSION=$(git describe --match=v* 2>/dev/null \
+                    | sed 's/v\([^-]*\)-\([0-9]*\)-.*/\1-\2/')
+          echo BANT_VERSION=${BANT_VERSION} >> $GITHUB_ENV
 
       - name: Create Cache Timestamp
         id: cache_timestamp
@@ -171,33 +179,48 @@ jobs:
           key: bazelcache_release_${{ steps.cache_timestamp.outputs.time }}
           restore-keys: bazelcache_release_
 
-      - name: Build
+      - name: Build Source Tar
+        run: |
+          OUT_SRC=bant-v${BANT_VERSION}
+          echo "OUT_SRC=${OUT_SRC}" >> $GITHUB_ENV
+
+          mkdir ../${OUT_SRC}
+          cp -r . ../${OUT_SRC}
+
+          # Bake in version number into source
+          sed -i "s/#undef BUILD_RELEASE_TAG/#define BUILD_RELEASE_TAG \"${BANT_VERSION}\"/" ../${OUT_SRC}/bant/bant.cc
+
+          tar --exclude=.git -cvzf ${OUT_SRC}.tar.gz ../${OUT_SRC}
+
+      - name: Build Static Binary
         run: |
           export CC=gcc-13
           export CXX=g++-13
           bazel build --noshow_progress -c opt --//bant:create_static_linked_executables bant:bant
           bazel-bin/bant/bant -V  # Print version
 
-          # Version number: current tag dot number of commits after tagging.
-          # If at exactly a tag, that will be left as-is
-          VERSION=$(git describe --match=v* 2>/dev/null \
-                    | sed 's/v\([^-]*\)-\([0-9]*\)-.*/v\1-\2/')
-          OUT=bant-${VERSION}-linux-static-x86_64
-          echo "OUT=${OUT}" >> $GITHUB_ENV
+          OUT_BIN=bant-v${BANT_VERSION}-linux-static-x86_64
+          echo "OUT_BIN=${OUT_BIN}" >> $GITHUB_ENV
 
-          mkdir -p "${OUT}/bin"
-          install bazel-bin/bant/bant "${OUT}/bin"
-          strip "${OUT}/bin/bant"
+          mkdir -p "${OUT_BIN}/bin"
+          install bazel-bin/bant/bant "${OUT_BIN}/bin"
+          strip "${OUT_BIN}/bin/bant"
 
           # We need to pack it with with tar to retain proper unix permissions.
           # Unfortunately, github then re-packs the result into a *.zip archive.
-          tar cvzf "${OUT}.tar.gz" ${OUT}
+          tar cvzf "${OUT_BIN}.tar.gz" ${OUT_BIN}
 
-      - name: Upload artifact
+      - name: Upload Source tar
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.OUT }}
-          path: ${{ env.OUT }}.tar.gz
+          name: ${{ env.OUT_SRC }}
+          path: ${{ env.OUT_SRC }}.tar.gz
+
+      - name: Upload Binary tar
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.OUT_BIN }}
+          path: ${{ env.OUT_BIN }}.tar.gz
 
   release-tagging:
     name: Version Tagging
