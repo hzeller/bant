@@ -8,4 +8,8 @@ version_from_git() {
 }
 
 # Get version from git including count since last tag.
-echo "BUILD_GIT_VERSION \"$(version_from_git)\""
+BUILD_GIT_VERSION="$(version_from_git)"
+
+if [ ! -z "${BUILD_GIT_VERSION}" ]; then
+    echo "BUILD_GIT_VERSION \"${BUILD_GIT_VERSION}\""
+fi
