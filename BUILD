@@ -8,6 +8,6 @@ package(
 license(
     name = "license",
     package_name = "bant",
-    license_kind = "@rules_license//licenses/spdx:GPL-2.0",
+    license_kind = "@rules_license//licenses/spdx:GPL-3.0",
     license_text = "LICENSE",
 )

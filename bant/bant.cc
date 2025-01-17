@@ -3,7 +3,7 @@
 //
 // This program is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
-// the Free Software Foundation; either version 2 of the License, or
+// the Free Software Foundation; either version 3 of the License, or
 // (at your option) any later version.
 //
 // This program is distributed in the hope that it will be useful,
@@ -66,8 +66,8 @@ static int print_version() {
 #endif
   fprintf(stderr,
           "bant v%s <http://bant.build/>\n"
-          "Copyright (c) 2024 Henner Zeller. "
-          "This program is free software; license GPL 2.0.\n",
+          "Copyright (c) 2024-2025 Henner Zeller. "
+          "This program is free software; license GPL 3.0.\n",
           RELEVANT_VERSION);
   return EXIT_SUCCESS;
 #undef RELEVANT_VERSION
