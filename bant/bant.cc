@@ -67,7 +67,7 @@ static int print_version() {
   fprintf(stderr,
           "bant v%s <http://bant.build/>\n"
           "Copyright (c) 2024-2025 Henner Zeller. "
-          "This program is free software; license GPL 3.0.\n",
+          "This program is free software; GPL 3.0.\n",
           RELEVANT_VERSION);
   return EXIT_SUCCESS;
 #undef RELEVANT_VERSION

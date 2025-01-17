@@ -1,4 +1,4 @@
-[![License: GPL v2](https://img.shields.io/badge/License-GPL_v2-blue.svg)](https://www.gnu.org/licenses/gpl-2.0.html)
+[![License: GPL v3](https://img.shields.io/badge/License-GPL_v3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0.html)
 [![Continuous Integration](https://github.com/hzeller/bant/workflows/ci/badge.svg)](https://github.com/hzeller/bant/actions/workflows/ci.yml)
 
 bant - Build Analysis and Navigation Tool
@@ -234,8 +234,8 @@ need for it).
 ### Synopsis
 
 ```
-bant v0.1.x <http://bant.build/>
-Copyright (c) 2024 Henner Zeller. This program is free software; license GPL 2.0.
+bant v0.1.11 <http://bant.build/>
+Copyright (c) 2024-2025 Henner Zeller. This program is free software; GPL 3.0.
 Usage: bazel-bin/bant/bant [options] <command> [bazel-target-pattern...]
 Options
     -C <directory> : Change to this project directory first (default = '.')
