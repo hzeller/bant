@@ -187,9 +187,6 @@ jobs:
           mkdir ../${OUT_SRC}
           cp -r . ../${OUT_SRC}
 
-          # Bake in version number into source
-          sed -i "s/#undef BUILD_RELEASE_TAG/#define BUILD_RELEASE_TAG \"${BANT_VERSION}\"/" ../${OUT_SRC}/bant/bant.cc
-
           tar --exclude=.git -cvzf ${OUT_SRC}.tar.gz ../${OUT_SRC}
 
       - name: Build Static Binary

@@ -7,13 +7,5 @@ version_from_git() {
 	| sed 's/^v//'
 }
 
-version_from_module_bazel() {
-    awk '/module/  { in_module=1; }
-         /version/ { if (in_module) print $0; }
-         /)/       { in_module=0; }' $(dirname $0)/../MODULE.bazel \
-        | sed 's/.*version[ ]*=[ ]*"\([0-9.]*\)".*/\1/p;d'
-}
-
-# Get version from git including everything since last tag, but if that is
-# not available, just fall back to the version we get from module bazel.
-echo "BUILD_VERSION \"$(version_from_git || version_from_module_bazel)\""
+# Get version from git including count since last tag.
+echo "BUILD_GIT_VERSION \"$(version_from_git)\""
