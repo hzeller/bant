@@ -194,12 +194,13 @@ bool DWYUGenerator::IsTestonlyCompatible(const BazelTarget &target,
 }
 
 // Visiblity check.
-bool DWYUGenerator::CanSee(const BazelTarget &target,
-                           const BazelTarget &dep) const {
-  auto found = known_libs_.find(dep);
+bool DWYUGenerator::CanSee(const BazelTarget &target, const BazelTarget &dep,
+                           std::string *msg) const {
+  const auto found = known_libs_.find(dep);
   if (found == known_libs_.end()) return true;  // Unknown ? Be Bold.
   if (!found->second.deprecation.empty()) {
     // Consider a library with a deprecation as not visible.
+    if (msg) *msg = absl::StrCat("deprecated: ", found->second.deprecation);
     return false;
   }
 
@@ -213,12 +214,14 @@ bool DWYUGenerator::CanSee(const BazelTarget &target,
   // there it is there for some shared object building rules; but we should
   // not depend on it, so pretend we can't see it.
   if (dep.target_name == "protobuf_headers") {
+    if (msg) *msg = "protobuf_headers don't actually provide implementation";
     return false;
   }
 
   List *visibility_list = found->second.visibility;
   if (!visibility_list) return true;
   bool any_valid_visiblity_pattern = false;
+  bool any_non_matching_visibility_pattern = false;
   for (Node *entry : *visibility_list) {
     const Scalar *str = entry->CastAsScalar();
     if (!str) continue;
@@ -228,9 +231,15 @@ bool DWYUGenerator::CanSee(const BazelTarget &target,
     if (vis_or->Match(target)) {
       return true;
     }
+    if (msg) {
+      if (any_non_matching_visibility_pattern) msg->append("; ");
+      absl::StrAppend(msg, project_.Loc(str->AsString()), str->AsString(),
+                      " visibility not matched");
+    }
+    any_non_matching_visibility_pattern = true;
   }
   // There might be variables and other things that we couldn't elaborate.
-  // So in case there was not a single pattern we can expand, assume this to
+  // So in case there was not a any pattern we can expand, assume this to
   // be public visibility.
   return !any_valid_visiblity_pattern;
 }
@@ -259,9 +268,10 @@ DWYUGenerator::DependenciesNeededBySources(
     source.Loc(info_out, inc_file) << " #include \"" << inc_file << "\"\n";
     for (const BazelTarget &possible_provider : alternatives) {
       std::string msg;
-      if (!CanSee(target, possible_provider)) {
+      std::string description;
+      if (!CanSee(target, possible_provider, &description)) {
         if (session_.flags().do_color) msg.append("\033[31m");
-        msg.append(" (not visible)");
+        msg.append(" (").append(description).append(")");
         if (session_.flags().do_color) msg.append("\033[0m");
       }
       source.Loc(info_out, inc_file)
@@ -276,7 +286,7 @@ DWYUGenerator::DependenciesNeededBySources(
     // Add all visible targets.
     auto &result_set = result.emplace_back();
     for (const BazelTarget &t : alternatives) {
-      if (CanSee(target, t)) {
+      if (CanSee(target, t, nullptr)) {
         result_set.insert(t);
       }
     }
@@ -516,12 +526,15 @@ void DWYUGenerator::CreateEditsForTarget(const BazelTarget &target,
     }
 
     const BazelTarget &need_add = *need_add_alternatives.begin();
-    if (CanSee(target, need_add) && IsTestonlyCompatible(target, need_add)) {
+    std::string visibility_msg;
+    if (CanSee(target, need_add, &visibility_msg) &&
+        IsTestonlyCompatible(target, need_add)) {
       emit_deps_edit_(EditRequest::kAdd, target, "",
                       need_add.ToStringRelativeTo(target.package));
     } else if (session_.flags().verbose > 1) {
       project_.Loc(session_.info(), details.name)
-        << ": Would add " << need_add << ", but not visible\n";
+        << ": Would add " << need_add << ", but not visible. " << visibility_msg
+        << "\n";
     }
   }
 }

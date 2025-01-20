@@ -67,7 +67,9 @@ class DWYUGenerator {
   bool IsAlwayslink(const BazelTarget &target) const;
   bool IsTestonlyCompatible(const BazelTarget &target,
                             const BazelTarget &dep) const;
-  bool CanSee(const BazelTarget &target, const BazelTarget &dep) const;
+  // Check if "target" can see "dep". Sets "msg" if not.
+  bool CanSee(const BazelTarget &target, const BazelTarget &dep,
+              std::string *msg) const;
 
   // Given a bunch of sources, grep their content (using TryOpenFile() to
   // get it), and look up all targets providing them.
