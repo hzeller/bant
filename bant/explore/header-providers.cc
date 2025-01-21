@@ -176,6 +176,22 @@ static void IterateCCLibraryHeaders(const ParsedBuildFile &build_file,
     });
 }
 
+// Innsert (key, target_value) into result, but also insert all alises
+// for target_value.
+static void InsertLibAndAliasesToTargetSet(
+  const std::string &key, const BazelTarget &target_value,
+  const OneToN<BazelTarget, BazelTarget> &alias_index,
+  ProvidedFromTargetSet &result) {
+  result[key].insert(target_value);
+  // Also, if there are any aliases in the project for this library,
+  // these would also be considered providers of this lib.
+  if (const auto aliases_found = alias_index.find(target_value);
+      aliases_found != alias_index.end()) {
+    result[key].insert(aliases_found->second.begin(),
+                       aliases_found->second.end());
+  }
+}
+
 static void AppendCCLibraryHeaders(
   const ParsedBuildFile &build_file,
   const OneToN<BazelTarget, BazelTarget> &alias_index, std::ostream &info_out,
@@ -185,14 +201,7 @@ static void AppendCCLibraryHeaders(
                     const std::string &header_fqn) {
       const std::string_view canonicalized = LightCanonicalizePath(header_fqn);
       const std::string key = KeyTransform(canonicalized, suffix_index);
-      result[key].insert(cc_library);
-      // Also, if there are any aliases in the project for this library,
-      // these would also be considered providers of this lib.
-      if (const auto aliases_found = alias_index.find(cc_library);
-          aliases_found != alias_index.end()) {
-        result[key].insert(aliases_found->second.begin(),
-                           aliases_found->second.end());
-      }
+      InsertLibAndAliasesToTargetSet(key, cc_library, alias_index, result);
     });
 }
 
@@ -208,9 +217,10 @@ static void AppendCCLibraryHeaders(
 //  2. find all used proto_library()s that are mentioned in cc_proto_library()s,
 //     derive the header file from the *.proto file and store the mapping
 //     header->cc_library that we're after.
-static void AppendProtoLibraryHeaders(const ParsedBuildFile &build_file,
-                                      bool reverse,
-                                      ProvidedFromTargetSet &result) {
+static void AppendProtoLibraryHeaders(
+  const ParsedBuildFile &build_file,
+  const OneToN<BazelTarget, BazelTarget> &alias_index, bool reverse,
+  ProvidedFromTargetSet &result) {
   // TODO: once we wire the DependencyGraph through, we can make the look-up
   // in one go. Also we wouldn't be limited to proto_library() and
   // cc_proto_library() having to reside in one package.
@@ -286,7 +296,9 @@ static void AppendProtoLibraryHeaders(const ParsedBuildFile &build_file,
           for (const std::string_view suffix : {".pb.h", ".proto.h"}) {
             std::string proto_header = absl::StrCat(stem, middle_name, suffix);
             proto_header = build_file.package.QualifiedFile(proto_header);
-            result[KeyTransform(proto_header, reverse)].insert(cc_proto_lib);
+            const std::string key = KeyTransform(proto_header, reverse);
+            InsertLibAndAliasesToTargetSet(key, cc_proto_lib, alias_index,
+                                           result);
           }
         }
       }
@@ -308,7 +320,8 @@ ProvidedFromTargetSet ExtractHeaderToLibMapping(const ParsedProject &project,
     // provide header files.
     AppendCCLibraryHeaders(*build_file, aliased_by_index,  //
                            info_out, suffix_index, result);
-    AppendProtoLibraryHeaders(*build_file, suffix_index, result);
+    AppendProtoLibraryHeaders(*build_file, aliased_by_index,  //
+                              suffix_index, result);
   }
 
   return result;
