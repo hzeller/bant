@@ -86,10 +86,27 @@ static std::string KeyTransform(std::string_view in, bool suffix_index) {
                       : std::string{in};
 }
 
+// Strip a "file_path" if it starts with the optional "strip_prefix", otherwise
+// return as-is.
+static std::string_view StripIfNeeded(std::string_view file_path,
+                                      std::string_view strip_prefix) {
+  // There can be an include prefix to be removed (typically: "").
+  // In protobuf, strip_include_prefix starts with '/' ???
+  while (strip_prefix.starts_with('/')) strip_prefix.remove_prefix(1);
+  while (strip_prefix.ends_with('/')) strip_prefix.remove_suffix(1);
+
+  const size_t strip_len = strip_prefix.length();
+  if (strip_len > 0 && file_path.length() > strip_len &&
+      file_path.starts_with(strip_prefix) && file_path[strip_len] == '/') {
+    return file_path.substr(strip_len + 1);
+  }
+  return file_path;
+}
+
 // Go through cc_library()s and call callback for each header file it exports.
 using FindHeaderCallback =
   std::function<void(const BazelTarget &library, std::string_view hdr_loc,
-                     const std::string &header_fqn)>;
+                     std::string_view header_fqn)>;
 static void IterateCCLibraryHeaders(const ParsedBuildFile &build_file,
                                     const FindHeaderCallback &callback) {
   // Unfortunately, grpc does not simply have a cc_library(), but its own
@@ -141,20 +158,8 @@ static void IterateCCLibraryHeaders(const ParsedBuildFile &build_file,
         // Assemble the header filename as it can be #include'ed in sources.
         const std::string header_fqn = build_file.package.QualifiedFile(header);
 
-        // There can be an include prefix to be removed (typically: "").
-        std::string_view strip_prefix = cc_lib.strip_include_prefix;
-        // In protobuf, strip_include_prefix starts with '/' ???
-        while (strip_prefix.starts_with('/')) strip_prefix.remove_prefix(1);
-        while (strip_prefix.ends_with('/')) strip_prefix.remove_suffix(1);
-
-        const size_t strip_len = strip_prefix.length();
-        if (strip_len > 0 && header_fqn.length() > strip_len &&
-            header_fqn.starts_with(strip_prefix) &&
-            header_fqn[strip_len] == '/') {
-          callback(*cc_library, header, header_fqn.substr(strip_len + 1));
-        } else {
-          callback(*cc_library, header, header_fqn);
-        }
+        callback(*cc_library, header,
+                 StripIfNeeded(header_fqn, cc_lib.strip_include_prefix));
 
         // The same header could also show up with different prefixes, all of
         // them valid. e.g zlib.h and zlib/include/zlib.h. Emit all of these.
@@ -198,7 +203,7 @@ static void AppendCCLibraryHeaders(
   bool suffix_index, ProvidedFromTargetSet &result) {
   IterateCCLibraryHeaders(
     build_file, [&](const BazelTarget &cc_library, std::string_view hdr_loc,
-                    const std::string &header_fqn) {
+                    std::string_view header_fqn) {
       const std::string_view canonicalized = LightCanonicalizePath(header_fqn);
       const std::string key = KeyTransform(canonicalized, suffix_index);
       InsertLibAndAliasesToTargetSet(key, cc_library, alias_index, result);
@@ -254,7 +259,7 @@ static void AppendProtoLibraryHeaders(
       }
     });
 
-  // We now know libraries that can be linked, but we don't know the
+  // We now know proto cc libraries that can be linked, but we don't know the
   // name of the headers yet. They are derived from the *.proto filename,
   // which are only known to proto_library()s.
   // Looking at the proto_library(), we can derive the header from the *.proto.
@@ -296,7 +301,11 @@ static void AppendProtoLibraryHeaders(
           for (const std::string_view suffix : {".pb.h", ".proto.h"}) {
             std::string proto_header = absl::StrCat(stem, middle_name, suffix);
             proto_header = build_file.package.QualifiedFile(proto_header);
-            const std::string key = KeyTransform(proto_header, reverse);
+            // What is strip_include_prefix is called strip_import_prefix
+            // for proto_library().
+            const std::string_view maybe_stripped =
+              StripIfNeeded(proto_header, proto_lib.strip_import_prefix);
+            const std::string key = KeyTransform(maybe_stripped, reverse);
             InsertLibAndAliasesToTargetSet(key, cc_proto_lib, alias_index,
                                            result);
           }

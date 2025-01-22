@@ -271,4 +271,8 @@ TEST(HeaderProviders, FindBySuffixTest) {
   EXPECT_EQ(result.fuzzy_score, 4);
   EXPECT_THAT(*result.target_set, ElementsAre(T("//foo")));
 }
+
+// Needs test:
+// strip_import_prefix
+// aliases for proto libraries.
 }  // namespace bant

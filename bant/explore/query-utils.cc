@@ -98,6 +98,8 @@ class TargetFinder : public BaseVoidVisitor {
         current_.include_prefix = scalar->AsString();
       } else if (lhs == "strip_include_prefix") {
         current_.strip_include_prefix = scalar->AsString();
+      } else if (lhs == "strip_import_prefix") {
+        current_.strip_import_prefix = scalar->AsString();
       } else if (lhs == "version") {
         current_.version = scalar->AsString();
       } else if (lhs == "repo_name") {
