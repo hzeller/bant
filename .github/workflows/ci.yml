@@ -163,7 +163,7 @@ jobs:
           # Version number: current tag dot number of commits after tagging.
           # If at exactly a tag, that will be left as-is
           BANT_VERSION=$(git describe --match=v* 2>/dev/null \
-                    | sed 's/v\([^-]*\)-\([0-9]*\)-.*/\1-\2/')
+                    | sed 's/^v//' | sed 's/\([^-]*\)-\([0-9]*\)-.*/\1-\2/')
           echo BANT_VERSION=${BANT_VERSION} >> $GITHUB_ENV
 
       - name: Create Cache Timestamp
