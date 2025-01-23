@@ -205,6 +205,13 @@ static std::vector<std::string> CollectIncDirs(
           continue;
         }
         result.emplace_back(inc_path);
+        // HACK: We also need to output the corresponding build path as that
+        // might be a generated include.
+        const std::string_view kReplacePrefix = "bazel-out/../../../external";
+        if (inc_path.starts_with(kReplacePrefix)) {
+          result.emplace_back(absl::StrCat(
+            "bazel-bin/external", inc_path.substr(kReplacePrefix.length())));
+        }
       }
 
       // bazel generates virtual include dirs when "include_prefix" is set.
