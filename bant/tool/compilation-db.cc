@@ -63,15 +63,17 @@ static constexpr std::string_view kCommonDefaultOptions[] = {
 // Return options found in the bazelrc in the sequence they arrive.
 // TODO: just emit the last winning option if multiple same options found.
 //       (right now it emits the _first_)
-// TODO: allow for configuration specific to operating sytems, but not special
-//       configs e.g. build:asan
 // TODO: needs test :)
 std::vector<std::string> ExtractOptionsFromBazelrc(std::string_view content) {
+  // Line prefix we're interested in to look for options.
+  static const LazyRE2 kLinePrefix{R"/(^\s*(build|test|common)(\:linux)? )/"};
+
   // Hack: for cxx options that start with dash (to avoid picking up options
   // meant for Windows that start with slash (we don't do system-specific
   // evaluation). Capture --cxxopt and --copt
-  static const LazyRE2 kCxxExtract{
+  static const LazyRE2 kCoptExtract{
     R"/(--(?:host_)?c(?:xx)?opt\s*=?\s*['"]?(-[^\s"']+))/"};
+
   std::vector<std::string> result;
   const auto bazelrc = ReadFileToString(FilesystemPath(".bazelrc"));
   if (!bazelrc.has_value()) return result;
@@ -80,11 +82,9 @@ std::vector<std::string> ExtractOptionsFromBazelrc(std::string_view content) {
 
   const std::string_view file_content(*bazelrc);
   for (std::string_view line : absl::StrSplit(file_content, '\n')) {
-    // Need to be a space after build|test so that we don't capture special
-    // configurations such as build:asan.
-    if (!line.starts_with("build ") && !line.starts_with("test ")) continue;
+    if (!RE2::PartialMatch(line, *kLinePrefix)) continue;
     std::string_view cxx_opt;
-    while (RE2::FindAndConsume(&line, *kCxxExtract, &cxx_opt)) {
+    while (RE2::FindAndConsume(&line, *kCoptExtract, &cxx_opt)) {
       if (already_seen.insert(cxx_opt).second) {
         result.emplace_back(cxx_opt);
       }
