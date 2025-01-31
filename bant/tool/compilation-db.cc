@@ -31,6 +31,7 @@
 #include "absl/container/flat_hash_set.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_split.h"
 #include "bant/explore/dependency-graph.h"
 #include "bant/explore/query-utils.h"
 #include "bant/frontend/parsed-project.h"
@@ -68,28 +69,31 @@ static constexpr std::string_view kCommonDefaultOptions[] = {
 std::vector<std::string> ExtractOptionsFromBazelrc(std::string_view content) {
   // Hack: for cxx options that start with dash (to avoid picking up options
   // meant for Windows that start with slash (we don't do system-specific
-  // evaluation)
-  // Need to be a space after build|test so that we don't capture special
-  // configurations such as build:asan.
+  // evaluation). Capture --cxxopt and --copt
   static const LazyRE2 kCxxExtract{
-    R"/(--(?:host_)?cxxopt\s*=?\s*['"]?(-[^\s"']+))/"};
+    R"/(--(?:host_)?c(?:xx)?opt\s*=?\s*['"]?(-[^\s"']+))/"};
   std::vector<std::string> result;
   const auto bazelrc = ReadFileToString(FilesystemPath(".bazelrc"));
   if (!bazelrc.has_value()) return result;
 
-  std::string_view run(*bazelrc);
-  std::string_view cxx_opt;
   absl::flat_hash_set<std::string_view> already_seen;
 
-  while (RE2::FindAndConsume(&run, *kCxxExtract, &cxx_opt)) {
-    if (already_seen.insert(cxx_opt).second) {
-      result.emplace_back(cxx_opt);
+  const std::string_view file_content(*bazelrc);
+  for (std::string_view line : absl::StrSplit(file_content, '\n')) {
+    // Need to be a space after build|test so that we don't capture special
+    // configurations such as build:asan.
+    if (!line.starts_with("build ") && !line.starts_with("test ")) continue;
+    std::string_view cxx_opt;
+    while (RE2::FindAndConsume(&line, *kCxxExtract, &cxx_opt)) {
+      if (already_seen.insert(cxx_opt).second) {
+        result.emplace_back(cxx_opt);
+      }
     }
   }
 
   // Hack: when this is defined, this implies -DGTEST_HAS_ABSL
   static const LazyRE2 kAbslGtest{"define.*absl=1"};
-  if (RE2::PartialMatch(*bazelrc, *kAbslGtest)) {
+  if (RE2::PartialMatch(file_content, *kAbslGtest)) {
     result.emplace_back("-DGTEST_HAS_ABSL=1");
   }
 
