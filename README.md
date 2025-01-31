@@ -193,7 +193,7 @@ workspace, and fetched, unpacked, and made visible these into
 Bant never does any fetching, it just observes the existing workspace. This
 means you need to run a `bazel build ...` before to have the workspace set up.
 
-At the very minimum, do a bazel fetch and run all genrules; we can
+Typically it is a good idea to do a bazel fetch and run all genrules; we can
 use `bant` itself to find genrules to be passed to bazel:
 
 ```bash
@@ -210,12 +210,24 @@ of them, e.g. `bazel test ...`
 
 With `bant workspace`, you can see what external projects `bant` is aware of.
 
+### In Projects
+
+Bant is [available](https://registry.bazel.build/modules/bant) on the bazel
+central registry, so you can add `bant` as dev_dependency in your
+MODULE.bazel and write scripts for e.g. build cleaning and compilation DB
+that compiles `bant` without the need for it to be installed locally.
+
+Here is an example in a project, that imports bant in their MODULE.bazel, and
+has two scripts [make-compilation-db.sh][compilation-db-example] and [run-build-cleaner.sh][build-cleaner-example] to enhance the developer experience.
+
 ### In continuous integration
 
-Examples how to use bant in GitHub CI you find for these projects that use
-bant already
+If the projects don't have specific scripts to run, the release of a static
+binary allows to easily use it any environment, such as in a continuous
+integration.
+Some examples how to use bant in GitHub CI you find for these projects:
 
-  * Of course, [bant](https://github.com/hzeller/bant/blob/5a921ba8528ddda8d77a6295eb23dee5166df998/.github/workflows/ci.yml#L87-L113) itself.
+  * [bant](https://github.com/hzeller/bant/blob/5a921ba8528ddda8d77a6295eb23dee5166df998/.github/workflows/ci.yml#L87-L113) itself.
   * [Verible](https://github.com/chipsalliance/verible/blob/27720255a19b7684dd23639e5e5999281657d407/.github/workflows/verible-ci.yml#L118-L151)
 
 Right now, these just report with the exit code of `dwyu`, that changes are needed. Nice-to-have would be an integration that sends actionable diffs right into
@@ -387,3 +399,5 @@ Before submit, run `scripts/before-submit.sh` ... and fix potential
 [nix-devel-env]: https://nixos.wiki/wiki/Development_environment_with_nix-shell
 [build_cleaner]: https://github.com/bazelbuild/bazel/issues/6871
 [custom flags]: https://bazel.build/docs/configurable-attributes#custom-flags
+[build-cleaner-example]: https://github.com/chipsalliance/verible/blob/master/.github/bin/run-build-cleaner.sh
+[compilation-db-example]: https://github.com/chipsalliance/verible/blob/master/.github/bin/make-compilation-db.sh
