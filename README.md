@@ -20,7 +20,7 @@ Bant
     CSV, JSON and S-Expressions).
   * Canonicalizes targets.
   * Is available in the [Bazel Central Registry][on-bcr] for easy
-    [integration in projects][#in-projects] to provide build-cleaner
+    [integration in projects](#in-projects) to provide build-cleaner
     or compilation db features.
 
 ## Commands
