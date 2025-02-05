@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 
 BAZEL=${BAZEL:-bazel}
-"${BAZEL}" fetch ... > /dev/null 2>&1
 
 # Only override compile flags if we're able to build bant.
 "${BAZEL}" build -c opt bant:bant > /dev/null 2>&1 \

@@ -9,14 +9,19 @@ projects.
 
 Bant
   * Helps cleaning up BUILD files by adding missing, and removing superfluous,
-    dependencies (build_cleaner). Outputs `buildozer` script.
-  * Helps finding targets with grep feature that emits the full surrounding
-    target.
+    dependencies ("`build_cleaner`"). Outputs `buildozer` script.
+  * Has a feature to create a compilation DB which should work for most
+    medium-complex C++ projects.
+  * Helps finding targets with "grep" feature that emits the full
+    syntax-highlighted surrounding target.
   * Extracts interesting project information such as the dependency graph,
     headers provided by which libraries etc., and presents them for easy
     post-proccessing (outputs simple tables for `grep` or `awk`, but as well
     CSV, JSON and S-Expressions).
-  * Canonicalize targets.
+  * Canonicalizes targets.
+  * Is available in the [Bazel Central Registry][on-bcr] for easy
+    [integration in projects][#in-projects] to provide build-cleaner
+    or compilation db features.
 
 ## Commands
 
@@ -24,7 +29,7 @@ Bant is invoked with a command and a bazel-like pattern such as `...` or
 `//foo/bar:all`
 
 ```
-bant [options] <command> [bazel-target-pattern]
+bant [options] <command> [bazel-target-pattern...]
 ```
 
 See `bant -h` for general [Synopsis](#synopsis) and available commands.
@@ -53,7 +58,7 @@ bant print @googletest//:gtest
 You see that `gtest` has some files `glob()`'d and other expressions
 that make that rule, which we want to see evaluated.
 With the `-e` option (for `e`laborate), bant can do some basic evaluation
-of these and print the final form:
+of these and print the final form - here you see the filenames are now expanded:
 
 ```bash
 bant print -e @googletest//:gtest
@@ -66,14 +71,17 @@ strings in the AST of a rule matches a pattern.
 bant print ... -g "scan.*test"
 ```
 
-Evaluation of [custom flags] in `select()` also works, and similar to
-`bazel`, you pass these options with `--//...` to bant:
+![print grep output](img/grep-print.png)
+
+Evaluation of [custom flags] in `select()` also works (partially: see note in
+[synopsis](#synopsis) output), and similar to
+`bazel`, you pass these options with `--//...` to bant; let's use that
+to evaluate the effective content of the following rule:
+
 
 ```bash
 bant -e --//bant:static_linked_executables print bant:bant
 ```
-
-![print grep output](img/grep-print.png)
 
 #### Workspace
 
@@ -191,14 +199,16 @@ workspace, and fetched, unpacked, and made visible these into
 `bazel-out/../../../external`.
 
 Bant never does any fetching, it just observes the existing workspace. This
-means you need to run a `bazel build ...` before to have the workspace set up.
+means you need to run a `bazel build ...` and possibly `bazel test` before
+to have the entire workspace set up. Given that you do that during development
+anyway, this is typically not an issue.
 
-Typically it is a good idea to do a bazel fetch and run all genrules; we can
-use `bant` itself to find genrules to be passed to bazel:
+Typically it is a good to at the least run everything that generates files; we
+can use `bant` itself to find rules tha generate files to be passed to
+bazel, e.g.
 
 ```bash
-bazel fetch ...
-bazel build $(bant genrule-outputs ... | awk '{print $2}' | sort | uniq)
+bazel build $(bant list-targets | awk '/genrule|cc_proto_library/ {print $3}')
 ```
 
 (but of course there might be other bazel rules beside obvious genrules that
@@ -212,13 +222,15 @@ With `bant workspace`, you can see what external projects `bant` is aware of.
 
 ### In Projects
 
-Bant is [available](https://registry.bazel.build/modules/bant) on the bazel
-central registry, so you can add `bant` as dev_dependency in your
-MODULE.bazel and write scripts for e.g. build cleaning and compilation DB
-that compiles `bant` without the need for it to be installed locally.
+Bant is [available][on-bcr] on the bazel central registry, so you can add `bant`
+as dev_dependency in your MODULE.bazel and write scripts for e.g.
+build cleaning and compilation DB that compiles `bant` without the need for
+it to be installed locally.
 
 Here is an example in a project, that imports bant in their MODULE.bazel, and
-has two scripts [make-compilation-db.sh][compilation-db-example] and [run-build-cleaner.sh][build-cleaner-example] to enhance the developer experience.
+has two scripts [make-compilation-db.sh][compilation-db-example] and
+[run-build-cleaner.sh][build-cleaner-example] to enhance the developer
+experience.
 
 ### In continuous integration
 
@@ -246,9 +258,9 @@ need for it).
 ### Synopsis
 
 ```
-bant v0.1.11 <http://bant.build/>
+bant v0.1.14 <http://bant.build/>
 Copyright (c) 2024-2025 Henner Zeller. This program is free software; GPL 3.0.
-Usage: bazel-bin/bant/bant [options] <command> [bazel-target-pattern...]
+Usage: bant [options] <command> [bazel-target-pattern...]
 Options
     -C <directory> : Change to this project directory first (default = '.')
     -q             : Quiet: don't print info messages to stderr.
@@ -319,9 +331,11 @@ Commands (unique prefix sufficient):
                                     # (test without -e to see the difference)
  bant print //foo:bar   # Print specific target AST matching pattern
  bant print //foo/...   # Print all build files matching recursive pattern.
- bant workspace         # List all the external projects listed in workspace.
+ bant workspace         # List _all_ the external projects listed in workspace.
+ bant workspace ...     # List only targets needed in the root workspace
+ bant workspace @googletest//...  # List workspace deps needed by given project
  bant list-packages -r  # List all the build files, follow dependencies
- bant list-targets ...  # List all targets in this project
+ bant list-targets ...  # List all targets in the root project
  bant list-targets ... | grep cc_binary   # find all binaries build by project
  bant lib-headers       # For each header found in project, print exporting lib
  bant dwyu ...         # Look which headers are used and suggest add/remove deps
@@ -353,11 +367,12 @@ sudo install -D --strip bazel-bin/bant/bant /usr/local/bin/bant
 
 ### Environment
 
-Compiled using `bazel` >= 6.
+Compiled using `bazel` >= 6 (also 7 and 8, but compatible with bazel 6 until
+its EOL).
 Relevant dependencies are already in the `shell.nix` so you can set up
 your environment [with that automatically][nix-devel-env].
 
-To get a useful compilation database for `clangd` to be happy, run first
+To get a useful compilation database for `clangd` to be happy, run
 
 ```bash
 scripts/make-compilation-db.sh
@@ -401,3 +416,4 @@ Before submit, run `scripts/before-submit.sh` ... and fix potential
 [custom flags]: https://bazel.build/docs/configurable-attributes#custom-flags
 [build-cleaner-example]: https://github.com/chipsalliance/verible/blob/master/.github/bin/run-build-cleaner.sh
 [compilation-db-example]: https://github.com/chipsalliance/verible/blob/master/.github/bin/make-compilation-db.sh
+[on-bcr]: https://registry.bazel.build/modules/bant
