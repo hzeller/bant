@@ -8,17 +8,19 @@ Utility to support projects using the [bazel] build system, in particular C++
 projects.
 
 Bant
-  * Helps cleaning up BUILD files by adding missing, and removing superfluous,
-    dependencies ("`build_cleaner`"). Outputs `buildozer` script.
-  * Has a feature to create a compilation DB which should work for most
-    medium-complex C++ projects.
-  * Helps finding targets with "grep" feature that emits the full
-    syntax-highlighted surrounding target.
-  * Extracts interesting project information such as the dependency graph,
-    headers provided by which libraries etc., and presents them for easy
-    post-proccessing (outputs simple tables for `grep` or `awk`, but as well
-    CSV, JSON and S-Expressions).
-  * Canonicalizes targets.
+  * Helps [cleaning up BUILD dependencies](#dwyu--depend-on-what-you-use) by
+    adding missing, and removing superfluous, dependencies ("`build_cleaner`").
+    Emits a `buildozer` script that can be applied to the project.
+  * Has a feature to create a [compilation DB](#compilation-db) which should
+    work for most medium-complex C++ projects.
+  * Helps printing targets [with "grep" feature](#print) that emits the full
+    syntax-highlighted rule that matches the regex.
+  * Extracts interesting project information such as
+    the [dependency graph](#dependency-graph),
+    [headers provided by which libraries](#lib-headers) etc., and presents
+    them for easy post-proccessing (outputs simple tables for `grep` or `awk`,
+    but as well CSV, JSON and S-Expressions).
+  * [Canonicalizes](#canonicalize) targets.
   * Is available in the [Bazel Central Registry][on-bcr] for easy
     [integration in projects](#in-projects) to provide build-cleaner
     or compilation db features.
@@ -109,6 +111,11 @@ resides.
 bant list-targets //...     # list all targets of current project
 bant list-targets -r //...  # also recursively following all dependencies
 ```
+
+#### Dependency Graph
+
+The commands `depends-on` and `has-dependent` allow to extract the forward and
+reverse dependencies of build targets.
 
 #### lib-headers
 
