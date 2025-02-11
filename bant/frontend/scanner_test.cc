@@ -23,7 +23,7 @@
 #include "gtest/gtest.h"
 
 namespace bant {
-inline bool operator==(const Token &a, const Token &b) {
+static inline bool operator==(const Token &a, const Token &b) {
   return a.type == b.type && a.text == b.text;
 }
 

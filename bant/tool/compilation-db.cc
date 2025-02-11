@@ -43,11 +43,12 @@
 
 namespace bant {
 
+namespace {
 // Make quoted strings a little less painful to print to C++ streams
 struct q {
   std::string_view value;
 };
-std::ostream &operator<<(std::ostream &out, const q &quoted_str) {
+static std::ostream &operator<<(std::ostream &out, const q &quoted_str) {
   out << "\"" << quoted_str.value << "\"";
   return out;
 }
@@ -390,7 +391,10 @@ static void WriteCompilationFlags(Session &session,
   }
 }
 
-// Public interface
+}  // namespace
+
+// -- Public interface
+
 void WriteCompilationFlags(Session &session, const BazelTargetMatcher &pattern,
                            ParsedProject *project, bool as_compilation_db) {
   if (as_compilation_db) {

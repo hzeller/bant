@@ -25,7 +25,7 @@
 #include "bant/frontend/named-content.h"
 
 namespace bant {
-enum TokenType : int {
+enum TokenType : int {  // NOLINT(readability-enum-initial-value)
   // As-is tokens
   kOpenParen = '(',
   kCloseParen = ')',
@@ -55,7 +55,7 @@ enum TokenType : int {
   kLessEqual = '<' + 256,           // '<='
   kGreaterEqual = '>' + 256,        // '>='
 
-  kIdentifier,
+  kIdentifier = 512,
 
   kStringLiteral,
   kNumberLiteral,
