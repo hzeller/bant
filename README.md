@@ -254,13 +254,13 @@ PR comments. And in general a nicer action integration. PRs welcome.
 
 ### Slow file system OS pre-warm
 
-If you work on a slow network file system or operate on some cold storage
-in a CI, it might take some time for bant to follow directories in globbing
-patterns.
-It might be beneficial to pre-warm the OS file system cache with
+If you work on a slow network file system or operate on some cold storage, it
+might add IO-latency for bant to follow directories in `glob()`-ing patterns.
+
+In that case, it might be beneficial to pre-warm the OS file system cache with
 accesses `bant` remembers from last time it ran. If a `~/.cache/bant/` directory
-exists, bant will make use it for this purpose (if you're on a fast SSD, no
-need for it).
+exists, bant will use it for this purpose (So create the directory if you
+want this feature to be active; if you're on a fast SSD, no need for it).
 
 ### Synopsis
 
