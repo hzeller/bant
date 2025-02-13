@@ -167,4 +167,68 @@ TEST(GlobMatchBuilderTest, ExcludeFiles) {
   EXPECT_FALSE(file_is_matching("foo_internal.txt"));
   EXPECT_FALSE(file_is_matching("foo_internals.txt"));
 }
+
+TEST(GlobMatchBuilderTest, CommonIncludePrefix) {
+  {
+    GlobMatchBuilder glob_builder;
+    glob_builder.AddIncludePattern("a");
+    EXPECT_EQ(glob_builder.CommonDirectoryPrefix(), "");  // not a directory
+  }
+
+  {
+    GlobMatchBuilder glob_builder;
+    glob_builder.AddIncludePattern("a/");
+    EXPECT_EQ(glob_builder.CommonDirectoryPrefix(), "a");
+  }
+
+  {
+    GlobMatchBuilder glob_builder;
+    glob_builder.AddIncludePattern("a/");
+    glob_builder.AddIncludePattern("a/**");
+    EXPECT_EQ(glob_builder.CommonDirectoryPrefix(), "a");
+  }
+
+  {
+    GlobMatchBuilder glob_builder;
+    glob_builder.AddIncludePattern("a/");
+    glob_builder.AddIncludePattern("a*/");
+    EXPECT_EQ(glob_builder.CommonDirectoryPrefix(), "");
+  }
+
+  {
+    GlobMatchBuilder glob_builder;
+    glob_builder.AddIncludePattern("a/bar");
+    glob_builder.AddIncludePattern("a/baz");
+    EXPECT_EQ(glob_builder.CommonDirectoryPrefix(), "a");
+  }
+
+  {
+    GlobMatchBuilder glob_builder;
+    glob_builder.AddIncludePattern("a/bar");
+    glob_builder.AddIncludePattern("aa/bar");
+    EXPECT_EQ(glob_builder.CommonDirectoryPrefix(), "");
+  }
+
+  {
+    GlobMatchBuilder glob_builder;
+    glob_builder.AddIncludePattern("a/bar/**");
+    glob_builder.AddIncludePattern("a/bar/");
+    EXPECT_EQ(glob_builder.CommonDirectoryPrefix(), "a/bar");
+  }
+
+  {
+    GlobMatchBuilder glob_builder;
+    glob_builder.AddIncludePattern("a/bar");
+    glob_builder.AddIncludePattern("b/baz");
+    EXPECT_EQ(glob_builder.CommonDirectoryPrefix(), "");
+  }
+
+  {
+    GlobMatchBuilder glob_builder;
+    glob_builder.AddIncludePattern("a/**/bar");
+    glob_builder.AddIncludePattern("a/**/baz");
+    EXPECT_EQ(glob_builder.CommonDirectoryPrefix(), "a");
+  }
+}
+
 }  // namespace bant

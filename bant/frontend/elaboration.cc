@@ -259,7 +259,7 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
 
     size_t checked_files = 0;
     auto result = CollectFilesRecursive(
-      FilesystemPath(start_dir),
+      FilesystemPath(start_dir, match_builder.CommonDirectoryPrefix()),
       [&](const FilesystemPath &dir) {
         return dir_matcher(std::string_view(dir.path()).substr(skip_prefix));
       },

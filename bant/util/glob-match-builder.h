@@ -38,6 +38,9 @@ class GlobMatchBuilder {
   // Build and return predicate to check if a file shall be included in glob.
   std::function<bool(std::string_view)> BuildFileMatchPredicate();
 
+  // The longest common directory prefix of all include patterns.
+  std::string CommonDirectoryPrefix() const;
+
  private:
   std::set<std::string> include_pattern_;
   std::set<std::string> exclude_pattern_;

@@ -123,6 +123,34 @@ void GlobMatchBuilder::AddExcludePattern(std::string_view pattern) {
   exclude_pattern_.insert(std::string{pattern});
 }
 
+static inline std::string_view CommonPrefix(std::string_view a,
+                                            std::string_view b) {
+  if (b.length() < a.length()) std::swap(a, b);  // a is shortest.
+  for (size_t i = 0; i < a.length(); ++i) {
+    if (a[i] != b[i]) return a.substr(0, i);
+  }
+  return a;
+}
+
+std::string GlobMatchBuilder::CommonDirectoryPrefix() const {
+  bool is_first = true;
+  std::string_view common;
+  for (const std::string &pattern : include_pattern_) {
+    if (is_first) {
+      common = pattern;
+      is_first = false;
+    } else {
+      common = CommonPrefix(common, pattern);
+    }
+  }
+  size_t last_slash = 0;
+  for (size_t i = 0; i < common.length(); ++i) {
+    if (common[i] == '/') last_slash = i;
+    if (common[i] == '*') break;
+  }
+  return std::string(common.substr(0, last_slash));
+}
+
 std::function<bool(std::string_view)>
 GlobMatchBuilder::BuildFileMatchPredicate() {
   auto include = MakeFilenameMatcher(include_pattern_);
