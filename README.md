@@ -45,6 +45,80 @@ s-expressions and json are structured outputs interesting in other contexts).
 
 ### Useful everyday commands
 
+#### dwyu : Depend-on What You Use
+
+**`dwyu`** Depend on What You Use (DWYU)[^1]: Determine which dependencies
+are needed in `cc_library()`, `cc_binary()`, and `cc_test()` targets.
+
+If a source file `#include`s a header, DWYU determines if the library
+that provides that header is mentioned in the `deps = [ ... ]`.
+
+For that, `bant` greps through a target's declared sources to find which
+headers they include. Uses the information from `lib-headers` to determine
+which libraries these sources thus need to depend on.
+Emits [buildozer] commands to 'add' or 'remove' dependencies.
+If unclear if a library can be removed, it is conservatively _not_
+suggested for removal.
+
+You can use this to clean up existing builds, or keep your BUILD files
+up-to-date in development.
+I usually just don't even add `deps = [...]` manually anymore but just
+let `bant dwyu` do the work.
+
+The following auto-fixes all dependencies of the project:
+
+```bash
+. <(bant dwyu ...)   # source the buildozer calls in shell
+```
+
+##### Features
+
+If there is a dependency that `bant` would like to remove, but it is needed
+for some reason that can't be derived from the include files it provides
+(and you can't correctly mark it as `alwayslink` because it is coming
+from some external project for instance), you can add a comment that
+contains the word 'keep' in the line in question.
+
+```python
+cc_library(
+  deps = [
+    ":foo"  # build_cleaner keep
+  ]
+)
+```
+Note, a well-defined project should not need this. This feature provides
+an escape hatch if needed. With `-k`, `bant` will be
+strict and ignore `# keep` comments and emit the removal edit anyway.
+
+##### Caveats
+
+   * Does not understand package groups in visibility yet; these will be
+     considered `//visibility:public` and might result in adding
+     dependencies that bazel would not allow.
+   * Will remove dependencies if they provide headers that are not needed
+     by the sources of a target. If you want to keep them linked, you need to
+     declare them as `alwayslink` (libraries that are linked to targets but
+     do _not_ provide any headerss are considered alwayslink implicitly).
+     (this is not really a caveat, it just emphasizes that it is important to
+     properly declare the intent in BUILD files).
+
+The `dwyu` command is essentially a [`build_cleaner`][build_cleaner] for
+C++ targets.
+
+#### compilation-db
+
+Creates a compilation db that can be used by `clang-tidy` or `clangd`.
+**Experimental** right now. It is not exactly emitting all the options bazel
+would use, and is missing virtual includes (provided by `cc_library()` with
+`include_prefix`) so less accurate than tools that make use of bazel actions,
+but should work pretty well for a typical bazel project already.
+
+```bash
+  bant compilation-db > compile_commands.json
+  # or
+  bant compile-flags > compile_flags.txt
+```
+
 #### Print
 
 **`print`** is useful to print a particular rule or rules matching a pattern
@@ -121,74 +195,7 @@ reverse dependencies of build targets.
 
 Use **`lib-headers`** if you want to know the library to depend on
 for a particular header file. Or, automatically update your BUILD
-files with `dwyu`...
-
-#### dwyu : Depend-on What You Use
-
-**`dwyu`** Depend on What You Use (DWYU)[^1]: Determine which dependencies
-are needed in `cc_library()`, `cc_binary()`, and `cc_test()` targets.
-Greps through their declared sources to find which headers they include.
-Uses the information from `lib-headers` to determine which libraries
-these sources thus need to depend on.
-Emit [buildozer] commands to 'add' or 'remove' dependencies.
-If unclear if a library can be removed, it is conservatively _not_
-suggested for removal.
-
-You can use this to clean up existing builds, or keep your BUILD files
-up-to-date in development.
-I usually just don't even add `deps = [...]` manually anymore but just
-let `bant dwyu` do the work.
-
-The following auto-fixes all dependencies of the project:
-
-```bash
-. <(bant dwyu ...)   # source the buildozer calls in shell
-```
-
-##### Features
-
-If there is a dependency that `bant` would like to remove, but it is needed
-for some reason that can't be derived from the include files it provides
-(and you can't correctly mark it as `alwayslink` because it is coming
-from some external project for instance), you can add a comment that
-contains the word 'keep' in the line in question.
-
-```python
-cc_library(
-  deps = [
-    ":foo"  # build_cleaner keep
-  ]
-)
-```
-Note, a well-defined project should not need this. This features provides
-an escape hatch if needed. With `-k`, `bant` will be
-strict and ignore `# keep` comments and emit the removal edit anyway.
-
-##### Caveats
-
-   * Does not understand package groups in visibility yet; these will be
-     considered `//visibility:public` and might result in adding
-     dependencies that bazel would not allow.
-   * Will remove dependencies if they provide headers that are not needed
-     by the sources of a target. If you want to keep them linked, you need to
-     declare them as `alwayslink` (libraries that are linked to targets but
-     do _not_ provide any headerss are considered alwayslink implicitly).
-     (this is not really a caveat, it just emphasizes that it is important to
-     properly declare the intent in BUILD files).
-
-The `dwyu` command is essentially a [`build_cleaner`][build_cleaner] for
-C++ targets.
-
-#### compilation-db
-
-Creates a compilation db that can be used by `clang-tidy` or `clangd`.
-**Experimental** right now. It is not exactly emitting all the options bazel
-would use, and is missing virtual includes (provided by `cc_library()` with
-`include_prefix`) so less accurate than tools that make use of bazel actions.
-
-```bash
-  bant compilation-db > compile_commands.json
-```
+files with `dwyu`.
 
 #### Canonicalize
 
@@ -221,7 +228,7 @@ bazel build $(bant list-targets | awk '/genrule|cc_proto_library/ {print $3}')
 (but of course there might be other bazel rules beside obvious genrules that
 create artifacts, so global `bazel build ...` will catch these as well)
 
-Given that `bazel` adapts the visible external projecgts depending on what
+Given that `bazel` adapts the visible external projects depending on what
 targets are used, it might be worthwhile running a bazel build that needs all
 of them, e.g. `bazel test ...`
 
@@ -298,7 +305,7 @@ Commands (unique prefix sufficient):
                       -v : some stats.
 
     == Extract facts == (Use -f to choose output format) ==
-    workspace      : Print external projects found in WORKSPACE.
+    workspace      : Print external projects found in WORKSPACE/MODULE.bazel
                      Without pattern: All external projects.
                      With pattern   : Subset referenced by matching targets.
                      → 3 column table: (project, version, path)

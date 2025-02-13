@@ -107,7 +107,7 @@ Commands (unique prefix sufficient):
                       -v : some stats.
 
     %s== Extract facts ==%s (Use -f to choose output format) ==
-    workspace      : Print external projects found in WORKSPACE.
+    workspace      : Print external projects found in WORKSPACE/MODULE.bazel
                      Without pattern: All external projects.
                      With pattern   : Subset referenced by matching targets.
                      → 3 column table: (project, version, path)
