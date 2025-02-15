@@ -152,7 +152,7 @@ std::string GlobMatchBuilder::CommonDirectoryPrefix() const {
 }
 
 std::function<bool(std::string_view)>
-GlobMatchBuilder::BuildFileMatchPredicate() {
+GlobMatchBuilder::BuildFileMatchPredicate() const {
   auto include = MakeFilenameMatcher(include_pattern_);
   auto exclude = MakeFilenameMatcher(exclude_pattern_);
   return [=](std::string_view s) {
@@ -162,7 +162,7 @@ GlobMatchBuilder::BuildFileMatchPredicate() {
 }
 
 std::function<bool(std::string_view)>
-GlobMatchBuilder::BuildDirectoryMatchPredicate() {
+GlobMatchBuilder::BuildDirectoryMatchPredicate() const {
   auto dir_matcher = MakeDirectoryMatcher(include_pattern_);
   return [=](std::string_view s) { return dir_matcher->Match(s); };
 }

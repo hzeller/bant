@@ -191,15 +191,20 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     }
 
     // Find directory to start the glob()-ing.
-    const std::string root_dir =
+    const std::string root_dir_assembled =
       package_.FullyQualifiedFile(project_->workspace(), ".");
+
+    // Remove trailing dot.
+    std::string_view root_dir = root_dir_assembled;
+    if (root_dir.ends_with("/.")) root_dir.remove_suffix(1);
+
     const std::vector<FilesystemPath> glob_result =
       MultiGlob(root_dir, query::ExtractStringList(include_list),
                 query::ExtractStringList(exclude_list));
 
     // Allocate buffer enough to hold all the strings; we don't need the
     // root_dir prefix, so don't account for that part.
-    const size_t skip_offset = root_dir.length() + 1;
+    const size_t skip_offset = root_dir.length();
     size_t glob_strings_size = 0;
     for (const auto &f : glob_result) {
       CHECK_LT(skip_offset, f.path().length());
@@ -254,8 +259,10 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     auto file_matcher = match_builder.BuildFileMatchPredicate();
 
     // The glob pattern does not know about the full path up to this point,
-    // just relative to that. This is the prefix we need to skip when matching.
-    const size_t skip_prefix = start_dir.length() + 1;  // w/ slash.
+    // just relative to that. This is the prefix we need to skip when matching,
+    // including the slash between the start-dir and matches.
+    const size_t skip_prefix =
+      start_dir.length() + (start_dir.ends_with("/") ? 0 : 1);
 
     size_t checked_files = 0;
     auto result = CollectFilesRecursive(
