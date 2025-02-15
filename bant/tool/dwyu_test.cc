@@ -904,4 +904,6 @@ cc_binary(
   }
 }
 
+// TODO: stratum test.
+//
 }  // namespace bant

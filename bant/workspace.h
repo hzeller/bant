@@ -29,9 +29,20 @@
 namespace bant {
 struct VersionedProject {
   static std::optional<VersionedProject> ParseFromDir(std::string_view);
+  enum Stratum {
+    kRootProject,
+    kWorkspaceDefined,
+    kDirectoryFound,
+    kUnknown,
+  };
 
   std::string project;
   std::string version;  // TODO: make this better to compare numerical versions
+
+  // Since we allow to also read just the filesystem structure to figure
+  // out what external packages exist, remember the reliability of the
+  // information. We might want to use that when a choice has to be made.
+  Stratum stratum = Stratum::kWorkspaceDefined;
 
   auto operator<=>(const VersionedProject &other) const = default;
 };
@@ -59,6 +70,7 @@ std::optional<BazelWorkspace> LoadWorkspace(Session &session);
 // by putting deps in various bzl files instead of a simple toplevel
 // WORKSPACE or MODULE.bazel.
 // Do some fallback by checking the directories these projects end up.
+// (Stored with lower stratum kDirectoryFound)
 bool BestEffortAugmentFromExternalDir(BazelWorkspace &workspace);
 
 }  // namespace bant

@@ -44,6 +44,7 @@
 #include "bant/types.h"
 #include "bant/util/file-utils.h"
 #include "bant/util/stat.h"
+#include "bant/workspace.h"
 #include "re2/re2.h"
 
 // Looking for source files directly in the source tree, but if not found
@@ -244,6 +245,36 @@ bool DWYUGenerator::CanSee(const BazelTarget &target, const BazelTarget &dep,
   return !any_valid_visiblity_pattern;
 }
 
+namespace {
+struct Range {
+  void Update(int value) {
+    if (!initialized) {
+      min_value = max_value = value;
+      initialized = true;
+      return;
+    }
+    if (value < min_value) min_value = value;
+    if (value > max_value) max_value = value;
+  }
+
+  int min_value = 0;
+  int max_value = 0;
+  bool initialized = false;
+};
+}  // namespace
+
+int DWYUGenerator::GetStratum(const BazelTarget &target) const {
+  const std::string_view project = target.package.project;
+  if (project.empty()) {
+    return VersionedProject::Stratum::kRootProject;
+  }
+  const auto &entry = project_.workspace().FindEntryByProject(project);
+  if (entry == project_.workspace().project_location.end()) {
+    return VersionedProject::Stratum::kUnknown;
+  }
+  return entry->first.stratum;
+}
+
 // TODO: needs to be shorter
 std::vector<absl::btree_set<BazelTarget>>
 DWYUGenerator::DependenciesNeededBySources(
@@ -283,16 +314,29 @@ DWYUGenerator::DependenciesNeededBySources(
   // include visible targets.
   std::vector<absl::btree_set<BazelTarget>> result;
   auto add_to_result = [&](const absl::btree_set<BazelTarget> &alternatives) {
-    // Add all visible targets.
-    auto &result_set = result.emplace_back();
+    Range stratum_range;
+    // Add all visible targets. If there alternatives with different stratum
+    // values, only keep the ones with the lowest value.
+    std::vector<BazelTarget> temp_result;
     for (const BazelTarget &t : alternatives) {
       if (CanSee(target, t, nullptr)) {
-        result_set.insert(t);
+        const int stratum = GetStratum(t);
+        stratum_range.Update(stratum);
+        if (stratum <= stratum_range.min_value) {
+          temp_result.emplace_back(t);
+        }
       }
     }
 
-    if (result_set.empty()) {  // Didn't need to add anything: nothing visible
-      result.pop_back();
+    if (temp_result.empty()) return;
+    auto &result_set = result.emplace_back();
+    for (const BazelTarget &t : temp_result) {
+      if (stratum_range.min_value != stratum_range.max_value &&
+          GetStratum(t) != stratum_range.min_value) {
+        // TODO: maybe even make this a removal candidate ?
+        continue;
+      }
+      result_set.emplace(t);
     }
   };
 

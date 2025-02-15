@@ -87,6 +87,7 @@ bool BestEffortAugmentFromExternalDir(BazelWorkspace &workspace) {
     // If there is any version of that project already, don't bother.
     if (!workspace.FindPathByProject(project_or->project)) {
       any_found = true;
+      project_or->stratum = VersionedProject::Stratum::kDirectoryFound;
       workspace.project_location[*project_or] = project_dir;
     }
   }
@@ -150,13 +151,12 @@ static bool LoadWorkspaceFromFile(Session &session,
       }
 
       VersionedProject project;
-      project.project = result.name;
+      project.project =
+        result.repo_name.empty() ? result.name : result.repo_name;
       project.version = result.version;
       workspace->project_location[project] = path;
-      if (!result.repo_name.empty()) {  // Also store alias.
-        project.project = result.repo_name;
-        workspace->project_location[project] = path;
-      }
+      // TODO: if this is a repo_name alias, would we ever need the original
+      // name stored with a different (less authoritative) stratum ?
     });
 
   return true;

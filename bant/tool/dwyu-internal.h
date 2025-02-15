@@ -71,6 +71,9 @@ class DWYUGenerator {
   bool CanSee(const BazelTarget &target, const BazelTarget &dep,
               std::string *msg) const;
 
+  // Workspace stratum of a bazel target. Relevant to weed out imposters.
+  int GetStratum(const BazelTarget &target) const;
+
   // Given a bunch of sources, grep their content (using TryOpenFile() to
   // get it), and look up all targets providing them.
   // For some, there can be alternatives, so this is a vector of sets.
