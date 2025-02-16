@@ -253,8 +253,8 @@ struct Range {
       initialized = true;
       return;
     }
-    if (value < min_value) min_value = value;
-    if (value > max_value) max_value = value;
+    min_value = std::min(min_value, value);
+    max_value = std::max(max_value, value);
   }
 
   int min_value = 0;
