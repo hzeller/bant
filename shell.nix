@@ -11,12 +11,12 @@ bant_used_stdenv.mkDerivation {
       jdk11
 
       clang-tools_17    # for clang-format
-      clang-tools_18    # for clang-tidy
+      clang-tools_19    # for clang-tidy
       bazel-buildtools  # buildifier, buildozer
     ];
   shellHook = ''
       # clang tidy: use latest.
-      export CLANG_TIDY=${pkgs.clang-tools_18}/bin/clang-tidy
+      export CLANG_TIDY=${pkgs.clang-tools_19}/bin/clang-tidy
 
       # There is too much volatility between even micro-versions of
       # clang-format 18. Let's use 17 for now.
