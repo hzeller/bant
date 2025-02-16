@@ -43,9 +43,7 @@ Play around with the various `-f` output formats of `workspace`,
 just a plain table easy to process with e.g. `awk` and `grep`, but
 s-expressions and json are structured outputs interesting in other contexts).
 
-### Useful everyday commands
-
-#### dwyu : Depend-on What You Use
+### dwyu : Depend-on What You Use
 
 **`dwyu`** Depend on What You Use (DWYU)[^1]: Determine which dependencies
 are needed in `cc_library()`, `cc_binary()`, and `cc_test()` targets.
@@ -71,7 +69,7 @@ The following auto-fixes all dependencies of the project:
 . <(bant dwyu ...)   # source the buildozer calls in shell
 ```
 
-##### Features
+#### Features
 
 If there is a dependency that `bant` would like to remove, but it is needed
 for some reason that can't be derived from the include files it provides
@@ -90,7 +88,7 @@ Note, a well-defined project should not need this. This feature provides
 an escape hatch if needed. With `-k`, `bant` will be
 strict and ignore `# keep` comments and emit the removal edit anyway.
 
-##### Caveats
+#### Caveats
 
    * Does not understand package groups in visibility yet; these will be
      considered `//visibility:public` and might result in adding
@@ -105,7 +103,7 @@ strict and ignore `# keep` comments and emit the removal edit anyway.
 The `dwyu` command is essentially a [`build_cleaner`][build_cleaner] for
 C++ targets.
 
-#### compilation-db
+### compilation-db
 
 Creates a compilation db that can be used by `clang-tidy` or `clangd`.
 **Experimental** right now. It is not exactly emitting all the options bazel
@@ -119,7 +117,7 @@ but should work pretty well for a typical bazel project already.
   bant compile-flags > compile_flags.txt
 ```
 
-#### Print
+### Print
 
 **`print`** is useful to print a particular rule or rules matching a pattern
 `bant print //foo/bar:baz` (it is re-created from the AST, so you see
@@ -159,7 +157,7 @@ to evaluate the effective content of the following rule:
 bant -e --//bant:static_linked_executables print bant:bant
 ```
 
-#### Workspace
+### Workspace
 
 **`workspace`** prints all the external projects found in the workspace.
 
@@ -175,7 +173,7 @@ bant workspace ...        # Print projects referenced in your project
 bant workspace @re2//...  # Print projects referenced by re2
 ```
 
-#### list-targets
+### list-targets
 
 If you want to find the file quickly, `bant list-target //foo/bar:baz`
 will output the filename and exact line/column range where the target
@@ -186,18 +184,18 @@ bant list-targets //...     # list all targets of current project
 bant list-targets -r //...  # also recursively following all dependencies
 ```
 
-#### Dependency Graph
+### Dependency Graph
 
 The commands `depends-on` and `has-dependent` allow to extract the forward and
 reverse dependencies of build targets.
 
-#### lib-headers
+### lib-headers
 
 Use **`lib-headers`** if you want to know the library to depend on
 for a particular header file. Or, automatically update your BUILD
 files with `dwyu`.
 
-#### Canonicalize
+### Canonicalize
 
 **`canonicalize`** emits edits to canonicalize targets, e.g.
 
