@@ -187,7 +187,36 @@ bant list-targets -r //...  # also recursively following all dependencies
 ### Dependency Graph
 
 The commands `depends-on` and `has-dependent` allow to extract the forward and
-reverse dependencies of build targets.
+reverse dependency-edges of build targets in the dependency graph.
+
+#### depends-on
+
+All direct dependencies a target depends on; here as example output as
+s-expressions (check out which formats `-f` has to offer)
+
+```
+$ bant depends-on bant/frontend:parser -fs
+(("//bant/frontend:parser" ("//bant/frontend:linecolumn-map"
+                            "//bant/frontend:named-content"
+                            "//bant/util:memory"
+                            "@abseil-cpp//absl/log:check"
+                            "@abseil-cpp//absl/strings"
+                            "@re2")))
+```
+
+#### has-dependent
+... and the reverse: all targets that directly depend on the given target.
+
+```
+$ bant has-dependent bant/frontend:parser -fs
+(("//bant/frontend:parser" ("//bant:workspace"
+                            "//bant/explore:query-utils"
+                            "//bant/frontend:scanner_test"
+                            "//bant/frontend:parser_test"
+                            "//bant/frontend:parsed-project"
+                            "//bant/frontend:elaboration"
+                            "//bant/tool:dwyu")))
+```
 
 ### lib-headers
 
