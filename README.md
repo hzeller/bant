@@ -196,6 +196,8 @@ s-expressions (check out which formats `-f` has to offer)
 
 ```
 $ bant depends-on bant/frontend:parser -fs
+```
+```lisp
 (("//bant/frontend:parser" ("//bant/frontend:linecolumn-map"
                             "//bant/frontend:named-content"
                             "//bant/util:memory"
