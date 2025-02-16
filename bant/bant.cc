@@ -132,10 +132,10 @@ Commands (unique prefix sufficient):
     dwyu           : DWYU: Depend on What You Use (emit buildozer edit script)
                       -k strict: emit remove even if # keep comment in line.
     canonicalize   : Emit rename edits to canonicalize targets.
-    compile-flags  : (experimental) Emit compile flags to stdout. Redirect to
-                     compile_flags.txt
-    compilation-db : (experimental) Emit compilation db to stdout. Redirect to
-                     compile_commands.json
+    compile-flags  : (experimental) Emit compile flags. Redirect or output with
+                     -o compile_flags.txt
+    compilation-db : (experimental) Emit compilation db. Redirect or output with
+                     -o compile_commands.json
 )",
           BOLD, RESET, BOLD, RESET, BOLD, RESET);
 
