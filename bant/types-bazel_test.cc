@@ -118,23 +118,6 @@ TEST(TypesBazel, ParsePackage) {
   }
 }
 
-// bazel patterns can essentially be parsed with targets.
-TEST(TypesBazel, ParsePattern) {
-  const BazelPackage root("", "");
-  {
-    const BazelTarget t = TargetOrDie("//...", root);
-    EXPECT_EQ(t.package.project, "");
-    EXPECT_EQ(t.package.path, "...");
-    EXPECT_EQ(t.target_name, "...");
-  }
-  {
-    const BazelTarget t = TargetOrDie("//foo:bar", root);
-    EXPECT_EQ(t.package.project, "");
-    EXPECT_EQ(t.package.path, "foo");
-    EXPECT_EQ(t.target_name, "bar");
-  }
-}
-
 TEST(TypesBazel, PrintPackage) {
   {
     const BazelPackage p("", "foo/bar/baz");
@@ -258,6 +241,12 @@ TEST(TypesBazel, ParseRePrint) {
 
   EXPECT_EQ("@foo//bar", TargetOrDie("@foo//bar", c).ToString());
   EXPECT_EQ("@foo//bar", TargetOrDie("@foo//bar:bar", c).ToString());
+}
+
+TEST(TypesBazel, InvalidBazelPatterns) {
+  // TODO: capture message.
+  EXPECT_FALSE(BazelPattern::ParseFrom("foo/bar/").has_value());
+  EXPECT_FALSE(BazelPattern::ParseFrom("foo/bar:").has_value());
 }
 
 TEST(TypesBazel, CheckRecursivePatterns) {

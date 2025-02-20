@@ -256,8 +256,9 @@ static void MaybePrintVisibility(List *visibility, std::ostream &out) {
   out << ")";
 }
 
-void PrintProject(Session &session, const BazelTargetMatcher &pattern,
-                  const ParsedProject &project) {
+size_t PrintProject(Session &session, const BazelTargetMatcher &pattern,
+                    const ParsedProject &project) {
+  size_t count = 0;
   const CommandlineFlags &flags = session.flags();
 
   std::unique_ptr<RE2> regex;
@@ -269,7 +270,7 @@ void PrintProject(Session &session, const BazelTargetMatcher &pattern,
       // This really needs the session passed in so that we can reach the
       // correct error stream.
       std::cerr << "Grep pattern: " << regex->error() << "\n";
-      return;
+      return count;
     }
   }
 
@@ -308,8 +309,10 @@ void PrintProject(Session &session, const BazelTargetMatcher &pattern,
         tmp_out << "\n";
         if (!regex || printer.any_highlight()) {  // w/o regex: always print.
           session.out() << tmp_out.str();
+          ++count;
         }
       });
   }
+  return count;
 }
 }  // namespace bant

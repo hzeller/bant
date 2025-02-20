@@ -190,7 +190,12 @@ CliStatus RunCommand(Session &session, Command cmd,
     // so it would already have emitted parse errors. Here we only have to
     // decide if we print anything.
     if (flags.print_ast || flags.print_only_errors) {
-      bant::PrintProject(session, patterns, project);
+      const size_t count = bant::PrintProject(session, patterns, project);
+      if (count == 0) {
+        session.info() << "No targets matched.\n";
+      } else {
+        session.info() << count << " targets matched.\n";
+      }
     }
     break;
 
@@ -339,7 +344,7 @@ CliStatus RunCliCommand(Session &session, std::span<std::string_view> args) {
     if (auto p = BazelPattern::ParseFrom(arg); p.has_value()) {
       patterns.AddPattern(p.value());
     } else {
-      session.error() << "Invalid bazel pattern " << args[0] << "\n";
+      session.error() << "Invalid bazel pattern " << arg << "\n";
       return CliStatus::kExitFailure;
     }
   }

@@ -256,6 +256,11 @@ std::optional<BazelPattern> BazelPattern::ParseFrom(
     }
     target_pattern.target_name.clear();
     kind = MatchKind::kTargetRegex;
+  } else if (target_pattern.target_name.empty()) {
+    std::cerr << "Pattern '" << pattern << "' looks odd. "
+              << "Are you looking for '" << target_pattern.package.path
+              << ":all' or '" << target_pattern.package.path << "/...' ?\n";
+    return std::nullopt;
   } else {
     kind = MatchKind::kExact;
   }
