@@ -117,8 +117,7 @@ Commands (unique prefix sufficient):
                      → 2 column table: (buildfile, package)
     list-targets   : List BUILD file locations of rules with matching targets
                      → 3 column table: (buildfile:location, ruletype, target)
-    list-leafs     : Like list-targets, but only targets not mentioned
-                     in any deps=[].
+    list-leafs     : Show only targets not referenced anywhere.
                      → 3 column table: (buildfile:location, ruletype, target)
     aliased-by     : List targets and the various aliases pointing to it.
                      → 2 column table: (actual, alias*)

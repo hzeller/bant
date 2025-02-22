@@ -118,6 +118,8 @@ class TargetFinder : public BaseVoidVisitor {
         current_.deps_list = list;
       } else if (lhs == "data") {
         current_.data_list = list;
+      } else if (lhs == "tools") {
+        current_.tools_list = list;
       } else if (lhs == "includes") {
         current_.includes_list = list;
       } else if (lhs == "outs") {

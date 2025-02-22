@@ -25,12 +25,14 @@
 #include <string_view>
 #include <vector>
 
+#include "bant/explore/header-providers.h"
 #include "bant/explore/query-utils.h"
 #include "bant/frontend/ast.h"
 #include "bant/frontend/elaboration.h"
 #include "bant/frontend/parsed-project.h"
 #include "bant/session.h"
 #include "bant/types-bazel.h"
+#include "bant/types.h"
 #include "bant/util/file-utils.h"
 #include "bant/util/stat.h"
 #include "bant/workspace.h"
@@ -99,35 +101,57 @@ void PrintList(std::ostream &out, const char *msg, const Container &c) {
   out << "\n";
 }
 
-// Data dependencies can be other targets, but as well simply files that
-// are already there. Filter out the files, just keep the references to other
-// labels.
-// TODO: there will be some implicit dependencies: when using files, they
-// might not come from deps we mention, but are provided by genrules.
-static void AppendPossibleDataDependencies(
-  List *list, const BazelPackage &context_package,
-  std::vector<std::string_view> &append_to) {
+// Dependencies that can be
+//   * simply files that already exist in the source-tree: don't add
+//   * files, that are generated from genrules. Append genrule.
+//   * Otherwise: it might just be an existing target that we should find.
+//     (if "fallback_is_target", otherwise ignore"
+static void AppendPossibleFileDependencies(
+  List *list, const BazelWorkspace &workspace,
+  const BazelPackage &context_package,
+  const OneToOne<std::string, std::string> &generated_by_target,
+  bool fallback_is_target, std::vector<std::string_view> &append_to) {
   for (const std::string_view path_or_label : query::ExtractStringList(list)) {
-    if (FilesystemPath(context_package.path, path_or_label).can_read()) {
-      continue;  // regulsr file existing in source tree.
+    const std::string as_filename =
+      context_package.FullyQualifiedFile(workspace, path_or_label);
+    if (FilesystemPath(as_filename).can_read()) {
+      continue;  // quick check: regulsr file existing in source tree.
     }
 
-    // Alright, let's resolve this as fully qualified target, as this is also
+    // Alright, let's resolve this as a target, as this is also
     // a way to refer to a file.
     const auto fqt = BazelTarget::ParseFrom(path_or_label, context_package);
     if (!fqt.has_value()) {
       continue;  // If not parseable as target it will also fail downstream.
     }
+
     const FilesystemPath path_in_src_tree(fqt->package.path, fqt->target_name);
     if (path_in_src_tree.can_read()) {
       continue;  // Extracted from fully qualified name: looks like actual file.
     }
 
-    // TODO: check if path_in_src_tree is mentioned in genrule outputs.
-    append_to.push_back(path_or_label);
+    // Not an existing file. Is it generated somewhere ?
+    auto found_genrule = generated_by_target.find(path_in_src_tree.path());
+    if (found_genrule != generated_by_target.end()) {
+      append_to.push_back(found_genrule->second);
+      continue;
+    }
+
+    // Not generated. Let's assume this is a bazel label if requested.
+    if (fallback_is_target) {
+      append_to.push_back(path_or_label);
+    }
   }
 }
 
+static OneToOne<std::string, std::string> FlattenTargetsToString(
+  const ProvidedFromTarget &string_to_target) {
+  OneToOne<std::string, std::string> result;
+  for (const auto &[name, value] : string_to_target) {
+    result.emplace(name, value.ToString());
+  }
+  return result;
+}
 }  // namespace
 
 DependencyGraph BuildDependencyGraph(Session &session,
@@ -144,6 +168,13 @@ DependencyGraph BuildDependencyGraph(Session &session,
 
   Stat &stat = session.GetStatsFor("Dependency follow iterations", "rounds");
   const ScopedTimer timer(&stat.duration);
+
+  // TODO: the genrules should be expanded as we widen to other packages
+  // but typically they are in the same package as the targets we request the
+  // dependency graph to start - so this typically yields a good enough result.
+  const OneToOne<std::string, std::string> generated_by_target =
+    FlattenTargetsToString(
+      ExtractGeneratedFromGenrule(*project, session.info()));
 
   // Build the initial set of targets to follow from the pattern.
   for (const auto &[_, parsed] : project->ParsedFiles()) {
@@ -180,7 +211,7 @@ DependencyGraph BuildDependencyGraph(Session &session,
       if (!parsed) continue;
       query::FindTargets(
         parsed->ast, kRulesOfInterest, [&](const query::Result &result) {
-          auto target_or = current_package.QualifiedTarget(result.name);
+          const auto target_or = current_package.QualifiedTarget(result.name);
           if (!target_or.has_value()) return;
           const bool interested = (deps_to_resolve_todo.erase(*target_or) == 1);
           if (!interested) return;
@@ -189,17 +220,35 @@ DependencyGraph BuildDependencyGraph(Session &session,
             walk_cb(*target_or, result);
           }
 
-          // The list to insert all the dependencies our current target has.
-          std::vector<BazelTarget> &depends_on =
-            graph.depends_on.insert({*target_or, {}}).first->second;
+          // Gather up what this target might depend on. The deps=[] are
+          // obvious, but there might also be dependencies due to files, data,
+          // and tools we use.
 
-          // Follow dependencies, data and alias references.
+          // deps=[]
           auto to_follow = query::ExtractStringList(result.deps_list);
-          AppendPossibleDataDependencies(result.data_list, current_package,
-                                         to_follow);
-          if (!result.actual.empty()) {
+
+          // Possible file dependencies, maybe provided by genrules.
+          for (List *possible_dep : {result.hdrs_list, result.srcs_list}) {
+            AppendPossibleFileDependencies(possible_dep, project->workspace(),
+                                           current_package, generated_by_target,
+                                           /*fallback_is_target=*/false,
+                                           to_follow);
+          }
+
+          // data=[] and tools=[] dependencies could be both, files or targets.
+          for (List *possible_dep : {result.data_list, result.tools_list}) {
+            AppendPossibleFileDependencies(possible_dep, project->workspace(),
+                                           current_package, generated_by_target,
+                                           /*fallback_is_target=*/true,
+                                           to_follow);
+          }
+
+          if (!result.actual.empty()) {  // Follow aliases
             to_follow.push_back(result.actual);
           }
+
+          std::vector<BazelTarget> &depends_on =
+            graph.depends_on.insert({*target_or, {}}).first->second;
 
           for (const auto dep : to_follow) {
             auto dependency_or = BazelTarget::ParseFrom(dep, current_package);

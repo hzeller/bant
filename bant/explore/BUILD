@@ -8,6 +8,7 @@ cc_library(
     srcs = ["dependency-graph.cc"],
     hdrs = ["dependency-graph.h"],
     deps = [
+        ":header-providers",
         ":query-utils",
         "//bant:session",
         "//bant:types",
