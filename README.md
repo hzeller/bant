@@ -145,6 +145,10 @@ strings in the AST of a rule matches a pattern.
 bant print ... -g "scan.*test"
 ```
 
+The output contains the full rule matching the grep result, highlighted text
+if output `isatty()`, the BUILD file and location where it is found, the
+fully qualified name of the target as well as visibility.
+
 ![print grep output](img/grep-print.png)
 
 Evaluation of [custom flags] in `select()` also works (partially: see note in
