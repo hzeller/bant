@@ -166,8 +166,9 @@ DependencyGraph BuildDependencyGraph(Session &session,
           std::vector<BazelTarget> &depends_on =
             graph.depends_on.insert({*target_or, {}}).first->second;
 
-          // Follow dependencies and alias references.
+          // Follow dependencies, data and alias references.
           auto to_follow = query::ExtractStringList(result.deps_list);
+          query::AppendStringList(result.data_list, to_follow);
           if (!result.actual.empty()) {
             to_follow.push_back(result.actual);
           }
