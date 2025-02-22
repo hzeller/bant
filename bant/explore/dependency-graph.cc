@@ -30,11 +30,13 @@
 #include "bant/frontend/ast.h"
 #include "bant/frontend/elaboration.h"
 #include "bant/frontend/parsed-project.h"
+#include "bant/output-format.h"
 #include "bant/session.h"
 #include "bant/types-bazel.h"
 #include "bant/types.h"
 #include "bant/util/file-utils.h"
 #include "bant/util/stat.h"
+#include "bant/util/table-printer.h"
 #include "bant/workspace.h"
 
 namespace bant {
@@ -161,10 +163,13 @@ DependencyGraph BuildDependencyGraph(Session &session,
   // Follow all rules for now.
   const std::initializer_list<std::string_view> kRulesOfInterest = {};
 
-  std::set<BazelPackage> error_packages;
-  std::set<BazelTarget> error_targets;
+  // lhs: dependencies to resolve; rhDes: an example where that was requested.
+  using NeedDependencyWithOneExample = OneToOne<BazelTarget, BazelTarget>;
 
-  std::set<BazelTarget> deps_to_resolve_todo;
+  std::set<BazelPackage> error_packages;
+  NeedDependencyWithOneExample error_target_example;
+
+  NeedDependencyWithOneExample deps_to_resolve_todo;
 
   Stat &stat = session.GetStatsFor("Dependency follow iterations", "rounds");
   const ScopedTimer timer(&stat.duration);
@@ -177,6 +182,7 @@ DependencyGraph BuildDependencyGraph(Session &session,
       ExtractGeneratedFromGenrule(*project, session.info()));
 
   // Build the initial set of targets to follow from the pattern.
+  const BazelTarget root_request;
   for (const auto &[_, parsed] : project->ParsedFiles()) {
     const BazelPackage &current_package = parsed->package;
     if (!pattern.Match(parsed->package)) continue;
@@ -185,7 +191,7 @@ DependencyGraph BuildDependencyGraph(Session &session,
                          auto target_or =
                            current_package.QualifiedTarget(result.name);
                          if (!target_or || !pattern.Match(*target_or)) return;
-                         deps_to_resolve_todo.insert(*target_or);
+                         deps_to_resolve_todo[*target_or] = root_request;
                        });
   }
 
@@ -197,15 +203,15 @@ DependencyGraph BuildDependencyGraph(Session &session,
     // All these targets boil down to a set of packages that we need
     // to have available in the project (and possibly parse if not yet).
     std::set<BazelPackage> scan_package;
-    for (const BazelTarget &t : deps_to_resolve_todo) {
-      scan_package.insert(t.package);
+    for (const auto &[target, _] : deps_to_resolve_todo) {
+      scan_package.insert(target.package);
     }
 
     // Make sure that we have parsed all packages we're looking through.
     FindAndParseMissingPackages(session, scan_package, &error_packages,
                                 project);
 
-    std::set<BazelTarget> next_round_deps_to_resolve_todo;
+    NeedDependencyWithOneExample next_round_deps_to_resolve_todo;
     for (const BazelPackage &current_package : scan_package) {
       const auto *parsed = project->FindParsedOrNull(current_package);
       if (!parsed) continue;
@@ -258,7 +264,8 @@ DependencyGraph BuildDependencyGraph(Session &session,
             // see in this round, put in the next todo.
             if (!graph.depends_on.contains(*dependency_or) &&
                 !deps_to_resolve_todo.contains(*dependency_or)) {
-              next_round_deps_to_resolve_todo.insert(*dependency_or);
+              next_round_deps_to_resolve_todo.emplace(*dependency_or,
+                                                      *target_or);
             }
 
             depends_on.push_back(*dependency_or);
@@ -269,8 +276,8 @@ DependencyGraph BuildDependencyGraph(Session &session,
     }
 
     // Leftover dependencies that could not be resolved.
-    error_targets.insert(deps_to_resolve_todo.begin(),
-                         deps_to_resolve_todo.end());
+    error_target_example.insert(deps_to_resolve_todo.begin(),
+                                deps_to_resolve_todo.end());
 
     deps_to_resolve_todo = next_round_deps_to_resolve_todo;
   } while (!deps_to_resolve_todo.empty() && (nesting_depth-- > 0));
@@ -283,10 +290,17 @@ DependencyGraph BuildDependencyGraph(Session &session,
       PrintList(session.info(), "Dependcy graph: Did not find these packages\n",
                 error_packages);
     }
-    if (!error_targets.empty()) {
-      PrintList(session.info(),
-                "Dependency graph: Did not find these targets\n",
-                error_targets);
+    if (!error_target_example.empty()) {
+      session.info() << "Dependency graph: Did not find these targets\n";
+      auto printer = TablePrinter::Create(session.info(), OutputFormat::kNative,
+                                          {"Dependency", "needed-by"});
+      // Ascii table does not have header, so add our own here.
+      printer->AddRow({"[--- Dependency ---]", "[--- Example Needed By ---]"});
+      for (const auto &[dep, example] : error_target_example) {
+        printer->AddRow({dep.ToString(), example.ToString()});
+      }
+      printer->Finish();
+      session.info() << "\n";
     }
   }
 

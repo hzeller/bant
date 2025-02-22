@@ -18,8 +18,12 @@
 #ifndef BANT_OUTPUT_FORMAT_H
 #define BANT_OUTPUT_FORMAT_H
 namespace bant {
+
+// Output format for commands (chosen with -f option) influencing the
+// table printer.
+// kNative though might also interpreted differently depending on command.
 enum class OutputFormat {
-  kNative,  // Default printing for whatever that command does.
+  kNative,  // Default printing for that command. Table printer: aligned Table
   kSExpr,   // lisp s-expression
   kPList,   // lisp p-list
   kJSON,

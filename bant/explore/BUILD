@@ -19,6 +19,7 @@ cc_library(
         "//bant/frontend:parser",
         "//bant/util:file-utils",
         "//bant/util:stat",
+        "//bant/util:table-printer",
     ],
 )
 
