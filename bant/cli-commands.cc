@@ -62,6 +62,7 @@ enum class Command {
   kPrint,  // Like parse, but we narrow with pattern
   kListPackages,
   kListTargets,
+  kListLeafs,
   kListWorkkspace,
   kLibraryHeaders,
   kAliasedBy,
@@ -154,6 +155,7 @@ CliStatus RunCommand(Session &session, Command cmd,
   case Command::kLibraryHeaders:
   case Command::kGenruleOutputs:
   case Command::kListTargets:
+  case Command::kListLeafs:
   case Command::kListPackages:
   case Command::kDependsOn:
   case Command::kHasDependents:
@@ -236,6 +238,7 @@ CliStatus RunCommand(Session &session, Command cmd,
     printer->Finish();
   } break;
 
+  case Command::kListLeafs:
   case Command::kListTargets: {
     auto printer =
       TablePrinter::Create(session.out(), session.flags().output_format,
@@ -248,6 +251,10 @@ CliStatus RunCommand(Session &session, Command cmd,
           return;
         }
         if (!print_pattern.Match(*target_name)) return;
+        if (cmd == Command::kListLeafs &&
+            graph.has_dependents.contains(*target_name)) {
+          return;
+        }
         printer->AddRow({project.Loc(target.name),
                          std::string(target.rule),  //
                          target_name->ToString()});
@@ -301,6 +308,7 @@ CliStatus RunCliCommand(Session &session, std::span<std::string_view> args) {
     {"print", Command::kPrint},
     {"list-packages", Command::kListPackages},
     {"list-targets", Command::kListTargets},
+    {"list-leafs", Command::kListLeafs},
     {"workspace", Command::kListWorkkspace},
     {"lib-headers", Command::kLibraryHeaders},
     {"aliased-by", Command::kAliasedBy},

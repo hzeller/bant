@@ -173,8 +173,9 @@ bant workspace ...        # Print projects referenced in your project
 bant workspace @re2//...  # Print projects referenced by re2
 ```
 
-### list-targets
+### list-targets, list-leafs
 
+#### list-targets
 If you want to find the file quickly, `bant list-target //foo/bar:baz`
 will output the filename and exact line/column range where the target
 resides.
@@ -183,6 +184,13 @@ resides.
 bant list-targets //...     # list all targets of current project
 bant list-targets -r //...  # also recursively following all dependencies
 ```
+
+#### list-leafs
+Like `list-targets`, but just print targets that are not mentioned in any
+dependencies, i.e. is not mentioned in `has-dependent`. You can use this
+to find all your 'real' leafs, such as tests and binaries but also might
+find some `cc_library` that is not meant to be used somewhere else but is
+a leftover.
 
 ### Dependency Graph
 
@@ -341,6 +349,9 @@ Commands (unique prefix sufficient):
     list-packages  : List all BUILD files and the package they define
                      → 2 column table: (buildfile, package)
     list-targets   : List BUILD file locations of rules with matching targets
+                     → 3 column table: (buildfile:location, ruletype, target)
+    list-leafs     : Like list-targets, but only targets not mentioned
+                     in any deps=[].
                      → 3 column table: (buildfile:location, ruletype, target)
     aliased-by     : List targets and the various aliases pointing to it.
                      → 2 column table: (actual, alias*)
