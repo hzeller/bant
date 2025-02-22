@@ -41,9 +41,15 @@ namespace bant {
 FilesystemPath::FilesystemPath(std::string_view path_up_to,
                                std::string_view filename) {
   while (path_up_to.ends_with('/')) path_up_to.remove_suffix(1);
+  while (filename.starts_with('/')) filename.remove_prefix(1);
   path_.reserve(path_up_to.length() + 1 + filename.length());
-  path_.append(path_up_to).append("/").append(filename);
-  filename_offset_ = path_up_to.size() + 1;
+  if (!path_up_to.empty()) {
+    path_.append(path_up_to).append("/").append(filename);
+    filename_offset_ = path_up_to.size() + 1;
+  } else {
+    path_ = filename;
+    filename_offset_ = 0;
+  }
 }
 
 FilesystemPath::FilesystemPath(std::string_view path_up_to,

@@ -26,6 +26,7 @@
 #include <vector>
 
 #include "bant/explore/query-utils.h"
+#include "bant/frontend/ast.h"
 #include "bant/frontend/elaboration.h"
 #include "bant/frontend/parsed-project.h"
 #include "bant/session.h"
@@ -98,15 +99,41 @@ void PrintList(std::ostream &out, const char *msg, const Container &c) {
   out << "\n";
 }
 
+// Data dependencies can be other targets, but as well simply files that
+// are already there. Filter out the files, just keep the references to other
+// labels.
+// TODO: there will be some implicit dependencies: when using files, they
+// might not come from deps we mention, but are provided by genrules.
+static void AppendPossibleDataDependencies(
+  List *list, const BazelPackage &context_package,
+  std::vector<std::string_view> &append_to) {
+  for (const std::string_view path_or_label : query::ExtractStringList(list)) {
+    if (FilesystemPath(context_package.path, path_or_label).can_read()) {
+      continue;  // regulsr file existing in source tree.
+    }
+
+    // Alright, let's resolve this as fully qualified target, as this is also
+    // a way to refer to a file.
+    const auto fqt = BazelTarget::ParseFrom(path_or_label, context_package);
+    if (!fqt.has_value()) {
+      continue;  // If not parseable as target it will also fail downstream.
+    }
+    const FilesystemPath path_in_src_tree(fqt->package.path, fqt->target_name);
+    if (path_in_src_tree.can_read()) {
+      continue;  // Extracted from fully qualified name: looks like actual file.
+    }
+
+    // TODO: check if path_in_src_tree is mentioned in genrule outputs.
+    append_to.push_back(path_or_label);
+  }
+}
+
 }  // namespace
 
 DependencyGraph BuildDependencyGraph(Session &session,
                                      const BazelTargetMatcher &pattern,
                                      int nesting_depth, ParsedProject *project,
                                      const TargetInGraphCallback &walk_cb) {
-  // TODO: there will be some implicit dependencies: when using files, they
-  // might not come from deps we mention, but are provided by genrules.
-
   // Follow all rules for now.
   const std::initializer_list<std::string_view> kRulesOfInterest = {};
 
@@ -168,7 +195,8 @@ DependencyGraph BuildDependencyGraph(Session &session,
 
           // Follow dependencies, data and alias references.
           auto to_follow = query::ExtractStringList(result.deps_list);
-          query::AppendStringList(result.data_list, to_follow);
+          AppendPossibleDataDependencies(result.data_list, current_package,
+                                         to_follow);
           if (!result.actual.empty()) {
             to_follow.push_back(result.actual);
           }

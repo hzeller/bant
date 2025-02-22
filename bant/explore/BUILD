@@ -15,6 +15,7 @@ cc_library(
         "//bant:workspace",
         "//bant/frontend:elaboration",
         "//bant/frontend:parsed-project",
+        "//bant/frontend:parser",
         "//bant/util:file-utils",
         "//bant/util:stat",
     ],
