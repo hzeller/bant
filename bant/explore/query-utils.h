@@ -20,6 +20,7 @@
 
 #include <functional>
 #include <initializer_list>
+#include <optional>
 #include <string_view>
 #include <vector>
 
@@ -72,6 +73,14 @@ void FindTargets(Node *ast,
 void FindTargetsAllowEmptyName(
   Node *ast, std::initializer_list<std::string_view> rules_of_interest,
   const TargetFindCallback &cb);
+
+// Given a function call (e.g. from a rule invocation), extract the node
+// assigned to the given keyword.
+Node *FindKWArg(FunCall *fun, std::string_view keyword);
+
+// Find string argument if available on that keyword, otherwise nullopt.
+std::optional<std::string_view> FindKWArgAsStringView(FunCall *fun,
+                                                      std::string_view keyword);
 
 // Utility function: extract list of non-empty strings from list-node and
 // return as vector.

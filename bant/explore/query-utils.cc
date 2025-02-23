@@ -18,6 +18,7 @@
 #include "bant/explore/query-utils.h"
 
 #include <initializer_list>
+#include <optional>
 #include <string_view>
 #include <vector>
 
@@ -192,6 +193,55 @@ void FindTargetsAllowEmptyName(
   Node *ast, std::initializer_list<std::string_view> rules_of_interest,
   const TargetFindCallback &cb) {
   TargetFinder(rules_of_interest, true, cb).WalkNonNull(ast);
+}
+
+namespace {
+class KeywordExtractor : public BaseVoidVisitor {
+ public:
+  explicit KeywordExtractor(std::string_view looking_for_keyword)
+      : looking_for_keyword_(looking_for_keyword) {}
+
+  void VisitList(List *l) final {  // Like VisitList(), but with early exit.
+    if (l == nullptr) return;
+    for (Node *node : *l) {
+      WalkNonNull(node);
+      if (node_found_) {
+        return;  // Mission accomplished
+      }
+    }
+  }
+
+  void VisitAssignment(Assignment *a) final {
+    if (!a->maybe_identifier() || !a->value()) return;
+    if (a->maybe_identifier()->id() == looking_for_keyword_) {
+      node_found_ = a->value();
+    }
+    // Not recursing deeper; only interested in fun-args assignment list.
+  }
+
+  Node *node_found() const { return node_found_; }
+
+ private:
+  const std::string_view looking_for_keyword_;
+  Node *node_found_ = nullptr;
+};
+}  // namespace
+
+Node *FindKWArg(FunCall *fun, std::string_view keyword) {
+  KeywordExtractor extractor(keyword);
+  extractor.VisitFunCall(fun);
+  return extractor.node_found();
+}
+
+std::optional<std::string_view> FindKWArgAsStringView(
+  FunCall *fun, std::string_view keyword) {
+  Node *node = FindKWArg(fun, keyword);
+  if (!node) return std::nullopt;
+  Scalar *scalar = node->CastAsScalar();
+  if (!scalar || scalar->type() != Scalar::ScalarType::kString) {
+    return std::nullopt;
+  }
+  return scalar->AsString();
 }
 
 void AppendStringList(List *list, std::vector<std::string_view> &append_to) {

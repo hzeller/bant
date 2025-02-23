@@ -93,4 +93,35 @@ cc_library(
     }
   });
 }
+
+TEST(QueryUtils, ExtractKWArg) {
+  ParsedProjectTestUtil pp;
+  const ParsedBuildFile *build_file = pp.Add("//", R"(
+foo(
+  name = "bar",
+  "hello",                         # Don't trip over non kw-args
+  flub = "baz",
+  flob = "foobar",
+  flab = [ "this", "is", "a", "list"],
+)
+)");
+  EXPECT_TRUE(build_file);
+  FindTargets(build_file->ast, {"foo"}, [](const query::Result &found) {
+    EXPECT_EQ(found.name, "bar");
+    auto kw_arg_value = FindKWArgAsStringView(found.node, "doesnotexist");
+    EXPECT_FALSE(kw_arg_value.has_value());
+
+    kw_arg_value = FindKWArgAsStringView(found.node, "flub");
+    EXPECT_TRUE(kw_arg_value.has_value());
+    EXPECT_EQ(*kw_arg_value, "baz");
+
+    kw_arg_value = FindKWArgAsStringView(found.node, "flob");
+    EXPECT_TRUE(kw_arg_value.has_value());
+    EXPECT_EQ(*kw_arg_value, "foobar");
+
+    kw_arg_value = FindKWArgAsStringView(found.node, "flab");
+    EXPECT_FALSE(kw_arg_value.has_value());  // a list, not a string.
+  });
+}
+
 }  // namespace bant::query
