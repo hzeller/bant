@@ -35,9 +35,7 @@ struct Result {
   FunCall *node = nullptr;
   std::string_view rule;  // rule, sucha as cc_library, cc_binary,...
   std::string_view name;
-  std::string_view actual;     // for aliases.
-  std::string_view version;    // in bazel_dep()
-  std::string_view repo_name;  // in bazel_dep()
+  std::string_view actual;  // for aliases.
   std::string_view deprecation;
   List *srcs_list = nullptr;
   List *hdrs_list = nullptr;

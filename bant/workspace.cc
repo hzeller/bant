@@ -116,8 +116,9 @@ static bool LoadWorkspaceFromFile(Session &session,
       // not (before bazel 6: plain file, at bazel 7: just ~, at bazel 8 '+')
       // Check for both if we have a version.
       std::vector<std::string> search_dirs;
-      if (!result.version.empty()) {
-        search_dirs.push_back(absl::StrCat(result.name, "~", result.version));
+      auto version = query::FindKWArgAsStringView(result.node, "version");
+      if (version.has_value()) {
+        search_dirs.push_back(absl::StrCat(result.name, "~", *version));
       }
       search_dirs.emplace_back(result.name);
 
@@ -150,10 +151,12 @@ static bool LoadWorkspaceFromFile(Session &session,
         return;
       }
 
+      auto repo_name = query::FindKWArgAsStringView(result.node, "repo_name");
       VersionedProject project;
-      project.project =
-        result.repo_name.empty() ? result.name : result.repo_name;
-      project.version = result.version;
+      project.project = repo_name.has_value() ? *repo_name : result.name;
+      if (version.has_value()) {
+        project.version = *version;
+      }
       workspace->project_location[project] = path;
       // TODO: if this is a repo_name alias, would we ever need the original
       // name stored with a different (less authoritative) stratum ?
