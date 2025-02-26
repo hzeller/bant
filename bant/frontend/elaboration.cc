@@ -194,9 +194,10 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     const std::string root_dir_assembled =
       package_.FullyQualifiedFile(project_->workspace(), ".");
 
-    // Remove trailing dot.
+    // Remove trailing dot. If current dir, make sure it does end with slash.
     std::string_view root_dir = root_dir_assembled;
     if (root_dir.ends_with("/.")) root_dir.remove_suffix(1);
+    if (root_dir == ".") root_dir = "./";
 
     const std::vector<FilesystemPath> glob_result =
       MultiGlob(root_dir, query::ExtractStringList(include_list),
@@ -244,6 +245,7 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     std::string_view start_dir,  //
     const std::vector<std::string_view> &include,
     const std::vector<std::string_view> &exclude) {
+    CHECK(!start_dir.empty());
     bant::Stat &glob_stats =
       session_.GetStatsFor("  - of which glob() walking", "files");
     const ScopedTimer timer(&glob_stats.duration);

@@ -167,6 +167,8 @@ cc_test(
         ":parsed-project_testutil",
         "//bant:session",
         "//bant/explore:query-utils",
+        "@abseil-cpp//absl/log:check",
+        "@abseil-cpp//absl/strings:str_format",
         "@googletest//:gtest",
         "@googletest//:gtest_main",
     ],

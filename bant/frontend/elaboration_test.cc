@@ -17,12 +17,17 @@
 
 #include "bant/frontend/elaboration.h"
 
+#include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <sstream>
 #include <string>
 #include <string_view>
+#include <system_error>
 #include <utility>
 
+#include "absl/log/check.h"
+#include "absl/strings/str_format.h"
 #include "bant/explore/query-utils.h"
 #include "bant/frontend/parsed-project.h"
 #include "bant/frontend/parsed-project_testutil.h"
@@ -32,11 +37,15 @@
 namespace bant {
 
 class ElaborationTest : public testing::Test {
- protected:
-  std::pair<std::string, std::string> ElabAndPrint(
-    std::string_view to_elaborate, std::string_view expected,
+ public:
+  // Put "to_elaborate" into "package" and elaborate.
+  // Also parse "expected" into package //expected and return printout of
+  // each package.
+  std::pair<std::string, std::string> ElabInPackageAndPrint(
+    std::string_view package, std::string_view to_elaborate,
+    std::string_view expected,
     const CommandlineFlags &flags = CommandlineFlags{.verbose = 1}) {
-    elaborated_ = pp_.Add("//elab", to_elaborate);
+    elaborated_ = pp_.Add(package, to_elaborate);
     const ParsedBuildFile *expected_parsed = pp_.Add("//expected", expected);
 
     Session session(&std::cerr, &std::cerr, flags);
@@ -47,6 +56,13 @@ class ElaborationTest : public testing::Test {
     std::stringstream expect_print;
     expect_print << expected_parsed->ast;
     return {elab_print.str(), expect_print.str()};
+  }
+
+  // Like ElabInPackageAndPrint(), but default package to //elab.
+  std::pair<std::string, std::string> ElabAndPrint(
+    std::string_view to_elaborate, std::string_view expected,
+    const CommandlineFlags &flags = CommandlineFlags{.verbose = 1}) {
+    return ElabInPackageAndPrint("//elab", to_elaborate, expected, flags);
   }
 
   // Returns the last elaborated file.
@@ -209,4 +225,90 @@ cc_library(
     EXPECT_EQ(project().Loc(result.include_prefix), "//elab/BUILD:5:36:");
   });
 }
+
+namespace fs = std::filesystem;
+
+// TODO: lift out if useful in other tests.
+class ChangeToTmpDir {
+ public:
+  explicit ChangeToTmpDir(std::string_view base)
+      : dir_before_(fs::current_path(error_receiver_)) {
+    auto dir = fs::path(::testing::TempDir()) / base;
+    CHECK(fs::create_directory(dir, error_receiver_));
+    fs::current_path(dir, error_receiver_);
+  }
+
+  ~ChangeToTmpDir() { fs::current_path(dir_before_, error_receiver_); }
+
+  void touch(std::string_view relative_to, std::string_view file) {
+    fs::path path;
+    if (!relative_to.empty()) {
+      path = fs::path(relative_to) / file;
+    } else {
+      path = file;
+    }
+    if (path.has_parent_path()) {
+      fs::create_directories(path.parent_path(), error_receiver_);
+    }
+    const std::ofstream touch(path);  // destructor will flush file.
+  }
+
+ private:
+  std::error_code error_receiver_;
+  fs::path dir_before_;
+};
+
+static std::pair<std::string, std::string> TestGlobFile(
+  std::string_view test_name, ElaborationTest *test, std::string_view package,
+  std::string_view filename, std::string_view glob_pattern) {
+  ChangeToTmpDir tmpdir(test_name);
+
+  // Creating the file relative to the package path, as we glob relative to it.
+  tmpdir.touch(package, filename);
+
+  return test->ElabInPackageAndPrint(
+    package.empty() ? "//" : package,
+    absl::StrFormat(R"(foo = glob(include = ["%s"]))", glob_pattern),
+    absl::StrFormat(R"(foo = ["%s"])", filename));
+}
+
+TEST_F(ElaborationTest, GlobInToplevel) {
+  auto result = TestGlobFile("GlobInToplevel", this, "",  //
+                             "foo.txt", "*.txt");
+  EXPECT_EQ(result.first, result.second);
+}
+
+TEST_F(ElaborationTest, GlobInSubpackage) {
+  auto result = TestGlobFile("GlobInSubpackage", this, "some/pkg",  //
+                             "foo.txt", "*.txt");
+  EXPECT_EQ(result.first, result.second);
+}
+
+TEST_F(ElaborationTest, GlobDirInToplevel) {
+  auto result = TestGlobFile("GlobDirInToplevel", this, "",  //
+                             "abc/foo.xyz", "**/*.xyz");
+  EXPECT_EQ(result.first, result.second);
+}
+
+TEST_F(ElaborationTest, GlobDirKnownPrefixInToplevel) {
+  // Test common prefix optimization - search only needs to start in abc/
+  auto result = TestGlobFile("GlobDirKnownPrefixInToplevel", this, "",  //
+                             "abc/foo.xyz", "abc/*.xyz");
+  EXPECT_EQ(result.first, result.second);
+}
+
+TEST_F(ElaborationTest, GlobDirInSubpackage) {
+  auto result = TestGlobFile("GlobDirInSubpackage", this, "some/pkg",  //
+                             "abc/foo.xyz", "**/*.xyz");
+  EXPECT_EQ(result.first, result.second);
+}
+
+TEST_F(ElaborationTest, GlobDirKnownPrefixInSubpackage) {
+  // Test common prefix optimization - search only needs to start in abc/
+  auto result =
+    TestGlobFile("GlobDirKnownPrefixInSubpackage", this, "some/pkg",  //
+                 "abc/foo.xyz", "abc/*.xyz");
+  EXPECT_EQ(result.first, result.second);
+}
+
 }  // namespace bant
