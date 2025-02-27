@@ -41,6 +41,7 @@ class ParserTest : public testing::Test {
     Scanner scanner(source);
     Parser parser(&scanner, &arena_, std::cerr);
     bant::List *first_pass = parser.parse();
+    EXPECT_FALSE(parser.parse_error()) << text;
     RoundTripPrintParseAgainTest(first_pass);
     return first_pass;
   }
@@ -461,5 +462,18 @@ a = 42 + 8
 TEST_F(ParserTest, ParseTernary) {
   Node *n = Parse("[foo() if a + b else baz()]");
   EXPECT_EQ(Print(n), "[[foo() if a + b else baz()]]");
+}
+
+// Testing some functionality that can be used for initial 'macro'
+// implementation - testing assignment of a tuple of of function calls
+// to a variable. Not perfect, but it will allow us to formulate things in
+// what our parser supports and is readable.
+TEST_F(ParserTest, ParseTupleAssignmentUsedForMacros) {
+  Parse(R"(
+FOO = (
+  foo(name = "foo"),
+  bar(name = "bar")
+)
+)");
 }
 }  // namespace bant

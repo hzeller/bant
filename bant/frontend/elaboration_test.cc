@@ -103,6 +103,24 @@ cc_library(
   EXPECT_EQ(result.first, result.second);
 }
 
+TEST_F(ElaborationTest, OnlyIdentifiersOnRhsAreExpanded) {
+  auto result = ElabAndPrint(
+    R"(
+name = "hello"
+cc_library(
+   name = name    # same name, but lhs an rhs need to be treated differently
+)
+)",
+    R"(
+name = "hello"
+cc_library(
+  name = "hello"  # ... and they are
+)
+)");
+
+  EXPECT_EQ(result.first, result.second);
+}
+
 TEST_F(ElaborationTest, ConcatLists) {
   auto result = ElabAndPrint(
     R"(
