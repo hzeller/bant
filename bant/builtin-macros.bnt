@@ -1,0 +1,22 @@
+# -*- Python -*-
+# Bant built-in macros written in bant declarative language itself.
+#
+# Assignments of tuples with declarations to identifiers representing the
+# macro name.
+#
+# The tuples contain regular bazel rules that are expanded in place of the
+# original rule with that macro-name; this provides more information for bant
+# to see through the build-rules for commands such as `bant dwyu`.
+#
+# At macro expansion time, names from the macro kwargs are expanded inside.
+#
+# Note: Initial implementation, this mmight change any time. This file is
+# compiled into the binary.
+
+# TODO: this test needs to move out of here once we start using macros.
+test_example = (
+    genrule(
+        name = name + "-gen",
+        outs = [name + "-gen.cc"],
+    ),
+)

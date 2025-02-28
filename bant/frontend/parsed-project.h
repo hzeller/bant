@@ -24,6 +24,7 @@
 #include <string_view>
 #include <utility>
 
+#include "absl/container/flat_hash_map.h"
 #include "bant/frontend/ast.h"
 #include "bant/frontend/named-content.h"
 #include "bant/frontend/source-locator.h"
@@ -101,6 +102,10 @@ class ParsedProject : public SourceLocator {
   void RegisterLocationRange(std::string_view range,
                              const SourceLocator *source_locator);
 
+  // Find content of a macro with given name or nullptr if no such macro
+  // exists.
+  List *FindMacro(std::string_view name) const;
+
   // -- SourceLocator implementation
   FileLocation GetLocation(std::string_view text) const final;
   std::string_view GetSurroundingLine(std::string_view text) const final;
@@ -121,10 +126,16 @@ class ParsedProject : public SourceLocator {
                                        std::string_view filename,
                                        std::string content);
 
+  // For now, we only have built-in macros. This will need to be refined once
+  // we read from files at runtime.
+  void InitializeBuiltinMacros();
+
   Arena arena_{1 << 20};
   const BazelWorkspace workspace_;
+  NamedLineIndexedContent bant_builtins_;
   int error_count_ = 0;
   Package2Parsed package_to_parsed_;
+  absl::flat_hash_map<std::string_view, List *> macros_;
   DisjointRangeMap<std::string_view, const SourceLocator *> location_maps_;
 };
 

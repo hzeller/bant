@@ -137,3 +137,23 @@ cc_library(
     hdrs = ["generated-build-version.h"],
     visibility = ["//visibility:private"],
 )
+
+genrule(
+    name = "builtin-macros-gen",
+    srcs = ["builtin-macros.bnt"],
+    outs = ["builtin-macros.h"],
+    cmd = """
+    (
+      echo "#pragma once"
+      echo "#include <string_view>"
+      echo 'static inline constexpr std::string_view kBuiltinMacros = R"macros('
+      cat $<
+      echo ')macros";'
+    ) > $@
+     """,
+)
+
+cc_library(
+    name = "builtin-macros",
+    hdrs = ["builtin-macros.h"],
+)

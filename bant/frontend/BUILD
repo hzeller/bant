@@ -111,6 +111,7 @@ cc_library(
         ":named-content",
         ":parser",
         ":source-locator",
+        "//bant:builtin-macros",
         "//bant:session",
         "//bant:types",
         "//bant:types-bazel",
@@ -120,6 +121,7 @@ cc_library(
         "//bant/util:file-utils",
         "//bant/util:memory",
         "//bant/util:stat",
+        "@abseil-cpp//absl/container:flat_hash_map",
         "@abseil-cpp//absl/log:check",
         "@re2",
     ],
@@ -135,6 +137,31 @@ cc_library(
         "//bant:session",
         "//bant:types-bazel",
         "@abseil-cpp//absl/strings",
+    ],
+)
+
+cc_library(
+    name = "substitute-copy",
+    srcs = ["substitute-copy.cc"],
+    hdrs = ["substitute-copy.h"],
+    deps = [
+        ":parser",
+        "//bant/explore:query-utils",
+        "//bant/util:memory",
+    ],
+)
+
+cc_test(
+    name = "substitute-copy_test",
+    srcs = ["substitute-copy_test.cc"],
+    deps = [
+        ":named-content",
+        ":parser",
+        ":substitute-copy",
+        "//bant/explore:query-utils",
+        "//bant/util:memory",
+        "@googletest//:gtest",
+        "@googletest//:gtest_main",
     ],
 )
 
@@ -169,6 +196,32 @@ cc_test(
         "//bant/explore:query-utils",
         "@abseil-cpp//absl/log:check",
         "@abseil-cpp//absl/strings:str_format",
+        "@googletest//:gtest",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_library(
+    name = "macro-substitutor",
+    srcs = ["macro-substitutor.cc"],
+    hdrs = ["macro-substitutor.h"],
+    deps = [
+        ":parsed-project",
+        ":parser",
+        ":substitute-copy",
+        "//bant:session",
+        "//bant/explore:query-utils",
+        "//bant/util:stat",
+    ],
+)
+
+cc_test(
+    name = "macro-substitutor_test",
+    srcs = ["macro-substitutor_test.cc"],
+    deps = [
+        ":macro-substitutor",
+        ":parsed-project_testutil",
+        "//bant:session",
         "@googletest//:gtest",
         "@googletest//:gtest_main",
     ],

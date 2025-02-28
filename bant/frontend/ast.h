@@ -384,6 +384,7 @@ class NodeVisitor {
 // Replace nodes with whatever walk on that node yielded.
 // Friends with all the owners of nodes, so allowed to assign to private nodes.
 // Basis for all kinds of expression eval stuff.
+// TODO: given that this is only needed in elaboration, maybe move there.
 class BaseNodeReplacementVisitor : public NodeVisitor {
  public:
   Node *VisitAssignment(Assignment *a) override {
@@ -416,14 +417,14 @@ class BaseNodeReplacementVisitor : public NodeVisitor {
     return b;
   }
 
-  Node *VisitListComprehension(ListComprehension *lh) override {
-    // Dance around that we actually don't know if a BinOp comes back.
-    if (Node *walk_result = WalkNonNull(lh->for_node_)) {
+  Node *VisitListComprehension(ListComprehension *lc) override {
+    // Dance around that we actually don't know if a BinOp type comes back.
+    if (Node *walk_result = WalkNonNull(lc->for_node_)) {
       if (BinOpNode *binop = walk_result->CastAsBinOp()) {
-        lh->for_node_ = binop;
+        lc->for_node_ = binop;
       }
     }
-    return lh;
+    return lc;
   }
 
   Node *VisitTernary(Ternary *t) override {

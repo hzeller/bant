@@ -29,6 +29,7 @@ cc_library(
     hdrs = ["query-utils.h"],
     deps = [
         "//bant/frontend:parser",
+        "@abseil-cpp//absl/container:flat_hash_map",
         "@abseil-cpp//absl/container:flat_hash_set",
     ],
 )
@@ -40,6 +41,7 @@ cc_test(
         ":query-utils",
         "//bant/frontend:parsed-project",
         "//bant/frontend:parsed-project_testutil",
+        "//bant/frontend:parser",
         "@googletest//:gtest",
         "@googletest//:gtest_main",
     ],

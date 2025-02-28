@@ -29,6 +29,7 @@
 #include <vector>
 
 #include "absl/log/check.h"
+#include "bant/builtin-macros.h"
 #include "bant/explore/query-utils.h"
 #include "bant/frontend/ast.h"
 #include "bant/frontend/parser.h"
@@ -112,8 +113,10 @@ std::vector<FilesystemPath> CollectBuildFiles(Session &session,
 }  // namespace
 
 ParsedProject::ParsedProject(BazelWorkspace workspace, bool verbose)
-    : workspace_(std::move(workspace)) {
+    : workspace_(std::move(workspace)),
+      bant_builtins_("(bant-builtin)", kBuiltinMacros) {
   arena_.SetVerbose(verbose);
+  InitializeBuiltinMacros();
 }
 
 int ParsedProject::FillFromPattern(Session &session,
@@ -314,5 +317,31 @@ size_t PrintProject(Session &session, const BazelTargetMatcher &pattern,
       });
   }
   return count;
+}
+
+List *ParsedProject::FindMacro(std::string_view name) const {
+  auto found = macros_.find(name);
+  if (found != macros_.end()) return found->second;
+  return nullptr;
+}
+
+void ParsedProject::InitializeBuiltinMacros() {
+  // A few CHECK()s here; ok to crash as builtins are compiled-in part of bant.
+  Scanner scanner(bant_builtins_);  // directly parsing compiled-in string-view
+  Parser parser(&scanner, &arena_, std::cerr);
+  List *const builtin_list = parser.parse();
+  CHECK(!parser.parse_error()) << "Issue in bant/builtin-macros.bnt";
+  for (Node *n : *builtin_list) {
+    Assignment *const macro_assignment = n->CastAsAssignment();
+    CHECK(macro_assignment) << "Expected assignment, got " << n;
+    Identifier *const name = macro_assignment->maybe_identifier();
+    CHECK(name) << "Not an identifier on lhs of " << macro_assignment;
+    Node *const rhs = macro_assignment->value();
+    List *const rhs_tuple = rhs->CastAsList();
+    CHECK(rhs_tuple) << "builtin-macros.bnt: expected tuple, got " << rhs;
+    CHECK(rhs_tuple->type() == List::Type::kTuple) << rhs;
+    macros_.emplace(name->id(), rhs_tuple);
+  }
+  RegisterLocationRange(bant_builtins_.content(), &bant_builtins_);
 }
 }  // namespace bant

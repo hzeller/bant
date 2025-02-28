@@ -192,9 +192,32 @@ void FindTargetsAllowEmptyName(
 }
 
 namespace {
-class KeywordExtractor : public BaseVoidVisitor {
+// TODO: instead of double dispatch, we should probably just go to through
+// the argument list and fish out Assignments.
+class KeywordMapExtractor : public BaseVoidVisitor {
  public:
-  explicit KeywordExtractor(std::string_view looking_for_keyword)
+  explicit KeywordMapExtractor(KwMap *to_fill) : map_to_fill_(to_fill) {}
+
+  void VisitList(List *l) final {  // Like VisitList(), but with early exit.
+    if (l == nullptr) return;
+    for (Node *node : *l) {
+      WalkNonNull(node);
+    }
+  }
+
+  void VisitAssignment(Assignment *a) final {
+    if (!a->maybe_identifier() || !a->value()) return;
+    map_to_fill_->emplace(a->maybe_identifier()->id(), a->value());
+    // Not recursing deeper; only interested in fun-args assignment list.
+  }
+
+ private:
+  KwMap *map_to_fill_;
+};
+
+class SingleKeywordExtractor : public BaseVoidVisitor {
+ public:
+  explicit SingleKeywordExtractor(std::string_view looking_for_keyword)
       : looking_for_keyword_(looking_for_keyword) {}
 
   void VisitList(List *l) final {  // Like VisitList(), but with early exit.
@@ -223,8 +246,15 @@ class KeywordExtractor : public BaseVoidVisitor {
 };
 }  // namespace
 
+KwMap ExtractKwArgs(FunCall *fun) {
+  KwMap result;
+  KeywordMapExtractor extractor(&result);
+  extractor.VisitFunCall(fun);
+  return result;
+}
+
 Node *FindKWArg(FunCall *fun, std::string_view keyword) {
-  KeywordExtractor extractor(keyword);
+  SingleKeywordExtractor extractor(keyword);
   extractor.VisitFunCall(fun);
   return extractor.node_found();
 }

@@ -24,6 +24,7 @@
 #include <string_view>
 #include <vector>
 
+#include "absl/container/flat_hash_map.h"
 #include "bant/frontend/ast.h"
 
 namespace bant::query {
@@ -71,6 +72,11 @@ void FindTargets(Node *ast,
 void FindTargetsAllowEmptyName(
   Node *ast, std::initializer_list<std::string_view> rules_of_interest,
   const TargetFindCallback &cb);
+
+// Get all the keyword arguments fron the function call.
+// TODO: location of KwMap type in this header might be too specific.
+using KwMap = absl::flat_hash_map<std::string_view, Node *>;
+KwMap ExtractKwArgs(FunCall *fun);
 
 // Given a function call (e.g. from a rule invocation), extract the node
 // assigned to the given keyword.
