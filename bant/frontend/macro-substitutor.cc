@@ -37,7 +37,8 @@ class NestCounter {
 
 class MacroSubstitutor : public BaseNodeReplacementVisitor {
  public:
-  explicit MacroSubstitutor(ParsedProject *project) : project_(project) {}
+  explicit MacroSubstitutor(Session &session, ParsedProject *project)
+      : session_(session), project_(project) {}
 
   Node *VisitFunCall(FunCall *f) final {
     const NestCounter c(&nest_level_);
@@ -45,6 +46,10 @@ class MacroSubstitutor : public BaseNodeReplacementVisitor {
     Node *macro = project_->FindMacro(f->identifier()->id());
     if (!macro) return f;  // No such macro, function is left as-is.
     ++substitution_count_;
+    if (session_.flags().verbose > 1) {
+      session_.info() << project_->Loc(f->identifier()->id())
+                      << " Expanded macro " << f->identifier()->id() << "()\n";
+    }
     const query::KwMap call_params = query::ExtractKwArgs(f);
     return VariableSubstituteCopy(macro, project_->arena(), call_params);
   }
@@ -52,6 +57,7 @@ class MacroSubstitutor : public BaseNodeReplacementVisitor {
   int substitution_count() const { return substitution_count_; }
 
  private:
+  Session &session_;
   ParsedProject *const project_;
   int nest_level_ = 0;
   int substitution_count_ = 0;
@@ -63,7 +69,7 @@ Node *MacroSubstitute(Session &session, ParsedProject *project, Node *ast) {
   bant::Stat &substitute_stats =
     session.GetStatsFor("  - substituting", "macros");
   const ScopedTimer timer(&substitute_stats.duration);
-  MacroSubstitutor substitutor(project);
+  MacroSubstitutor substitutor(session, project);
   Node *result = ast->Accept(&substitutor);
   substitute_stats.count += substitutor.substitution_count();
   return result;

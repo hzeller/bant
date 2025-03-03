@@ -19,7 +19,7 @@
 # rules found in various projects. For now, this is build into bant,
 # but eventually these should be files loaded per project.
 
-## Verible
+## Found in bazel_rules_hdl, verible:
 genlex = genrule(
     name = name,
     srcs = [src],
