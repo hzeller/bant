@@ -103,7 +103,9 @@ class ParsedProject : public SourceLocator {
                              const SourceLocator *source_locator);
 
   // Find content of a macro with given name or nullptr if no such macro
-  // exists.
+  // exists. The returned node and any of its nodes must not be altered.
+  // (So VariableSubstituteCopy(), careful if it ends up in Elaboration with
+  // modifying content such as glob()).
   List *FindMacro(std::string_view name) const;
 
   // -- SourceLocator implementation
@@ -126,13 +128,15 @@ class ParsedProject : public SourceLocator {
                                        std::string_view filename,
                                        std::string content);
 
-  // For now, we only have built-in macros. This will need to be refined once
-  // we read from files at runtime.
-  void InitializeBuiltinMacros();
+  // Set content of bant file defining the maccros to be found in FindMacro().
+  // Typically, this will only happen once with the built-in macros, but
+  // can be called in tests to set a specific test content.
+  // Passed string view must outlive ParsedProject lifetime.
+  void SetBuiltinMacroContent(std::string_view content);
 
   Arena arena_{1 << 20};
   const BazelWorkspace workspace_;
-  NamedLineIndexedContent bant_builtins_;
+  std::unique_ptr<NamedLineIndexedContent> macro_content_;
   int error_count_ = 0;
   Package2Parsed package_to_parsed_;
   absl::flat_hash_map<std::string_view, List *> macros_;

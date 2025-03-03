@@ -32,6 +32,7 @@
 #include "bant/builtin-macros.h"
 #include "bant/explore/query-utils.h"
 #include "bant/frontend/ast.h"
+#include "bant/frontend/named-content.h"
 #include "bant/frontend/parser.h"
 #include "bant/frontend/print-visitor.h"
 #include "bant/frontend/scanner.h"
@@ -113,10 +114,9 @@ std::vector<FilesystemPath> CollectBuildFiles(Session &session,
 }  // namespace
 
 ParsedProject::ParsedProject(BazelWorkspace workspace, bool verbose)
-    : workspace_(std::move(workspace)),
-      bant_builtins_("(bant-builtin)", kBuiltinMacros) {
+    : workspace_(std::move(workspace)) {
   arena_.SetVerbose(verbose);
-  InitializeBuiltinMacros();
+  SetBuiltinMacroContent(kBuiltinMacros);
 }
 
 int ParsedProject::FillFromPattern(Session &session,
@@ -325,9 +325,11 @@ List *ParsedProject::FindMacro(std::string_view name) const {
   return nullptr;
 }
 
-void ParsedProject::InitializeBuiltinMacros() {
+void ParsedProject::SetBuiltinMacroContent(std::string_view content) {
+  macro_content_ =
+    std::make_unique<NamedLineIndexedContent>("(bant-builtin)", content);
   // A few CHECK()s here; ok to crash as builtins are compiled-in part of bant.
-  Scanner scanner(bant_builtins_);  // directly parsing compiled-in string-view
+  Scanner scanner(*macro_content_);  // directly parsing compiled-in string-view
   Parser parser(&scanner, &arena_, std::cerr);
   List *const builtin_list = parser.parse();
   CHECK(!parser.parse_error()) << "Issue in bant/builtin-macros.bnt";
@@ -342,6 +344,9 @@ void ParsedProject::InitializeBuiltinMacros() {
     CHECK(rhs_tuple->type() == List::Type::kTuple) << rhs;
     macros_.emplace(name->id(), rhs_tuple);
   }
-  RegisterLocationRange(bant_builtins_.content(), &bant_builtins_);
+  // NOTE: if we call SetBuiltinMacroContent() multiple times, e.g. in
+  // tests, the location_map_ will retain deleted pointers of SourceLocator,
+  // which is not an issue in tests as we never access the old content.
+  RegisterLocationRange(macro_content_->content(), macro_content_.get());
 }
 }  // namespace bant

@@ -20,7 +20,6 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
-#include <sstream>
 #include <string>
 #include <string_view>
 #include <system_error>
@@ -29,6 +28,7 @@
 #include "absl/log/check.h"
 #include "absl/strings/str_format.h"
 #include "bant/explore/query-utils.h"
+#include "bant/frontend/ast.h"
 #include "bant/frontend/parsed-project.h"
 #include "bant/frontend/parsed-project_testutil.h"
 #include "bant/session.h"
@@ -49,13 +49,11 @@ class ElaborationTest : public testing::Test {
     const ParsedBuildFile *expected_parsed = pp_.Add("//expected", expected);
 
     Session session(&std::cerr, &std::cerr, flags);
-    std::stringstream elab_print;
-    elab_print << bant::Elaborate(session, &pp_.project(), elaborated_->package,
-                                  elaborated_->ast);
+    const std::string elab_print = ToString(bant::Elaborate(
+      session, &pp_.project(), elaborated_->package, elaborated_->ast));
 
-    std::stringstream expect_print;
-    expect_print << expected_parsed->ast;
-    return {elab_print.str(), expect_print.str()};
+    const std::string expect_print = ToString(expected_parsed->ast);
+    return {elab_print, expect_print};
   }
 
   // Like ElabInPackageAndPrint(), but default package to //elab.

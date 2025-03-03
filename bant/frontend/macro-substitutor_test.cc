@@ -18,10 +18,11 @@
 #include "bant/frontend/macro-substitutor.h"
 
 #include <iostream>
-#include <sstream>
 #include <string>
 #include <string_view>
+#include <utility>
 
+#include "bant/frontend/ast.h"
 #include "bant/frontend/parsed-project_testutil.h"
 #include "bant/session.h"
 #include "gtest/gtest.h"
@@ -30,30 +31,53 @@ namespace bant {
 // TODO: the Elaborator test also has something similar. Unify ?
 class MacroSubstituteTest : public testing::Test {
  public:
-  std::string MacroSubstituteAndPrint(std::string_view to_substitute) {
+  std::pair<std::string, std::string> MacroSubstituteAndPrint(
+    std::string_view to_substitute, std::string_view expected) {
     const CommandlineFlags flags = CommandlineFlags{.verbose = 1};
-    substituted_ = pp_.Add("//substitute", to_substitute);
+    const auto &substitute_parsed = pp_.Add("//substitute", to_substitute);
 
     Session session(&std::cerr, &std::cerr, flags);
-    std::stringstream subst_print;
-    subst_print << MacroSubstitute(session, &pp_.project(), substituted_->ast);
-    // TODO: add toplevel tuple parsing in parser, so that we can actually
-    // provide an expected version.
-    return subst_print.str();
+    const std::string sub_print = ToString(
+      MacroSubstitute(session, &pp_.project(), substitute_parsed->ast));
+
+    // Parse and re-print expected to get same formatting.
+    const std::string expect_print =
+      ToString(pp_.Add("//expect", expected)->ast);
+
+    return {sub_print, expect_print};
   }
+
+  void SetMacroContent(std::string_view macros) { pp_.SetMacroContent(macros); }
 
  private:
   ParsedProjectTestUtil pp_;
-  const ParsedBuildFile *substituted_ = nullptr;
 };
 
 TEST_F(MacroSubstituteTest, BasicTest) {
-  const std::string result = MacroSubstituteAndPrint(R"(
-test_example(name = "foobar")
+  SetMacroContent(R"(
+some_macro_rule = (
+   cc_library(
+     name = name,
+     deps = ["a", "b", some_dep] + some_list,
+   ),    # <- comma, important to parse this as single value tuple
+)
 )");
-  EXPECT_EQ(result, R"([(genrule(
-            name = "foobar" + "-gen",
-            outs = ["foobar" + "-gen.cc"]
-        ),)])");
+
+  const auto result = MacroSubstituteAndPrint(R"input(
+some_macro_rule(
+   name = "foobar",
+   some_dep = "baz",
+   some_list = [ "x", "y", "z" ],
+)
+)input",
+                                              R"expanded(
+( # Expanded: is tuple
+  cc_library(
+     name = "foobar",
+     deps = ["a", "b", "baz"] + ["x", "y", "z"],
+  ),
+)
+)expanded");
+  EXPECT_EQ(result.first, result.second);
 }
 }  // namespace bant

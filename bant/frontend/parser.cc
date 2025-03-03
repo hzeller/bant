@@ -105,19 +105,22 @@ class Parser::Impl {
       if (tok.type == '(') {  // tuple assignment. Rarely seen in the wild.
         List *lhs = ParseList(
           Make<List>(List::Type::kTuple),
-          [&]() { return ParseOptionalIdentifier(); }, TokenType::kCloseParen);
+          [&]() { return ExpressionOrAssignment(); }, TokenType::kCloseParen);
         if (lhs == nullptr) {
-          ErrAt(tok) << "expected LHS of a tuple assignment\n";
+          ErrAt(tok) << "expected a tuple.n";
           return statement_list;
         }
-        const Token assign = scanner_->Next();
-        if (assign.type != TokenType::kAssign) {
-          ErrAt(assign) << "Assignment operator = expected, got " << assign
-                        << "\n";
-          return statement_list;
+        const Token after_tuple = scanner_->Peek();
+        if (after_tuple.type == TokenType::kAssign) {
+          const Token assign = scanner_->Next();
+          statement_list->Append(
+            node_arena_, ParseNodeAssignRhs(lhs, tok.text, assign.text));
+        } else {
+          // Looks like a toplevel tuple. This is not really something that
+          // happens in BUILD files, but might be the result of macro-expansion
+          // or List comprehension, so we want to be able to roundtrip these.
+          statement_list->Append(node_arena_, lhs);
         }
-        statement_list->Append(node_arena_,
-                               ParseNodeAssignRhs(lhs, tok.text, assign.text));
         continue;
       }
 

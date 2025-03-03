@@ -12,11 +12,3 @@
 #
 # Note: Initial implementation, this mmight change any time. This file is
 # compiled into the binary.
-
-# TODO: this test needs to move out of here once we start using macros.
-test_example = (
-    genrule(
-        name = name + "-gen",
-        outs = [name + "-gen.cc"],
-    ),
-)

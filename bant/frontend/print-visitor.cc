@@ -18,6 +18,7 @@
 #include "bant/frontend/print-visitor.h"
 
 #include <ostream>
+#include <sstream>
 #include <string>
 #include <string_view>
 
@@ -187,4 +188,11 @@ std::ostream &operator<<(std::ostream &o, Node *n) {
   }
   return o;
 }
+
+std::string ToString(Node *n) {
+  std::stringstream print;
+  print << n;
+  return print.str();
+}
+
 }  // namespace bant

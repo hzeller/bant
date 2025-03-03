@@ -18,8 +18,6 @@
 #include "bant/frontend/substitute-copy.h"
 
 #include <iostream>
-#include <sstream>
-#include <string>
 #include <string_view>
 
 #include "bant/explore/query-utils.h"
@@ -48,12 +46,6 @@ class VariableSubstituteCopyTest : public testing::Test {
  private:
   Arena arena_{4096};
 };
-
-static std::string ToString(Node *n) {
-  std::stringstream print;
-  print << n;
-  return print.str();
-}
 
 TEST_F(VariableSubstituteCopyTest, TestVarReplacement) {
   constexpr std::string_view kOriginal = R"(

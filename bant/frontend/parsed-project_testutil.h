@@ -46,6 +46,10 @@ class ParsedProjectTestUtil {
   // The project.
   ParsedProject &project() { return project_; }
 
+  void SetMacroContent(std::string_view macros) {
+    project_.SetBuiltinMacroContent(macros);
+  }
+
   void ElaborateAll() {
     Session session(&std::cerr, &std::cerr, CommandlineFlags{.verbose = 1});
     Elaborate(session, &project_);

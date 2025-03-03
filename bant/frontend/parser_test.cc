@@ -469,11 +469,22 @@ TEST_F(ParserTest, ParseTernary) {
 // to a variable. Not perfect, but it will allow us to formulate things in
 // what our parser supports and is readable.
 TEST_F(ParserTest, ParseTupleAssignmentUsedForMacros) {
-  Parse(R"(
+  // This is how macros are defined.
+  Parse(R"macro(
 FOO = (
   foo(name = "foo"),
   bar(name = "bar")
 )
-)");
+)macro");
+
+  // ...and this is how they are expanded in the end. Make sure it
+  // roundtrips properly
+  Parse(R"tuple(
+(
+  foo(name = "foo"),
+  bar(name = "bar")
+)
+)tuple");
 }
+
 }  // namespace bant

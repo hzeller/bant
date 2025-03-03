@@ -21,6 +21,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <ostream>
+#include <string>
 #include <string_view>
 
 #include "bant/frontend/scanner.h"
@@ -63,6 +64,7 @@ class Node {
 // Printing a node. If pointer is non-null, it is dereferenced and printed.
 // (defined in print-visitor.*)
 std::ostream &operator<<(std::ostream &o, Node *n);
+std::string ToString(Node *n);
 
 class Scalar : public Node {
  public:

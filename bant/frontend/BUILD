@@ -192,6 +192,7 @@ cc_test(
         ":elaboration",
         ":parsed-project",
         ":parsed-project_testutil",
+        ":parser",
         "//bant:session",
         "//bant/explore:query-utils",
         "@abseil-cpp//absl/log:check",
@@ -221,6 +222,7 @@ cc_test(
     deps = [
         ":macro-substitutor",
         ":parsed-project_testutil",
+        ":parser",
         "//bant:session",
         "@googletest//:gtest",
         "@googletest//:gtest_main",
