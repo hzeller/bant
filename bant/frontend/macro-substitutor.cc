@@ -60,11 +60,12 @@ class MacroSubstitutor : public BaseNodeReplacementVisitor {
 
 Node *MacroSubstitute(Session &session, ParsedProject *project, Node *ast) {
   if (!ast) return ast;
-  bant::Stat &substitute_stats = session.GetStatsFor("Substituting", "macros");
+  bant::Stat &substitute_stats =
+    session.GetStatsFor("  - substituting", "macros");
   const ScopedTimer timer(&substitute_stats.duration);
   MacroSubstitutor substitutor(project);
-  ast->Accept(&substitutor);
+  Node *result = ast->Accept(&substitutor);
   substitute_stats.count += substitutor.substitution_count();
-  return ast;
+  return result;
 }
 }  // namespace bant

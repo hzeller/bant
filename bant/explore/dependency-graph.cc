@@ -45,7 +45,7 @@ namespace {
 std::optional<FilesystemPath> PathForPackage(Session &session,
                                              const BazelWorkspace &workspace,
                                              const BazelPackage &package) {
-  Stat &stat = session.GetStatsFor("  - of which exist-check", "BUILD files");
+  Stat &stat = session.GetStatsFor("  - exist-check", "BUILD files");
 
   std::string start_path;
   if (!package.project.empty()) {

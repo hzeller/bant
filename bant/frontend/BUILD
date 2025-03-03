@@ -170,6 +170,7 @@ cc_library(
     srcs = ["elaboration.cc"],
     hdrs = ["elaboration.h"],
     deps = [
+        ":macro-substitutor",
         ":parsed-project",
         ":parser",
         ":source-locator",

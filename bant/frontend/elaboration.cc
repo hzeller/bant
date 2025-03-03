@@ -28,6 +28,7 @@
 #include "absl/log/check.h"
 #include "bant/explore/query-utils.h"
 #include "bant/frontend/ast.h"
+#include "bant/frontend/macro-substitutor.h"
 #include "bant/frontend/parsed-project.h"
 #include "bant/frontend/source-locator.h"
 #include "bant/session.h"
@@ -56,6 +57,11 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
   Node *VisitFunCall(FunCall *f) final {
     const NestCounter c(&nest_level_);
     BaseNodeReplacementVisitor::VisitFunCall(f);
+    if (Node *maybe_macro = MacroSubstitute(session_, project_, f);
+        maybe_macro != f) {
+      maybe_macro->Accept(this);  // expr. eval. TODO: limit features to that.
+      return maybe_macro;
+    }
     const std::string_view fun_name = f->identifier()->id();
     if (fun_name == "glob") {
       return HandleGlob(f);
@@ -247,7 +253,7 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     const std::vector<std::string_view> &exclude) {
     CHECK(!start_dir.empty());
     bant::Stat &glob_stats =
-      session_.GetStatsFor("  - of which glob() walking", "files");
+      session_.GetStatsFor("  - glob() walking", "files");
     const ScopedTimer timer(&glob_stats.duration);
 
     GlobMatchBuilder match_builder;
