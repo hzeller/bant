@@ -42,7 +42,7 @@ class MacroSubstitutor : public BaseNodeReplacementVisitor {
   Node *VisitFunCall(FunCall *f) final {
     const NestCounter c(&nest_level_);
     if (nest_level_ != 1) return BaseNodeReplacementVisitor::VisitFunCall(f);
-    List *macro = project_->FindMacro(f->identifier()->id());
+    Node *macro = project_->FindMacro(f->identifier()->id());
     if (!macro) return f;  // No such macro, function is left as-is.
     ++substitution_count_;
     const query::KwMap call_params = query::ExtractKwArgs(f);

@@ -108,7 +108,7 @@ class ParsedProject : public SourceLocator {
   // exists. The returned node and any of its nodes must not be altered.
   // (So VariableSubstituteCopy(), careful if it ends up in Elaboration with
   // modifying content such as glob()).
-  List *FindMacro(std::string_view name) const;
+  Node *FindMacro(std::string_view name) const;
 
   // -- SourceLocator implementation
   FileLocation GetLocation(std::string_view text) const final;
@@ -141,7 +141,7 @@ class ParsedProject : public SourceLocator {
   std::unique_ptr<NamedLineIndexedContent> macro_content_;
   int error_count_ = 0;
   Package2Parsed package_to_parsed_;
-  absl::flat_hash_map<std::string_view, List *> macros_;
+  absl::flat_hash_map<std::string_view, Node *> macros_;
   DisjointRangeMap<std::string_view, const SourceLocator *> location_maps_;
 };
 

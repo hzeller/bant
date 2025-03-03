@@ -53,13 +53,39 @@ class MacroSubstituteTest : public testing::Test {
   ParsedProjectTestUtil pp_;
 };
 
-TEST_F(MacroSubstituteTest, BasicTest) {
+TEST_F(MacroSubstituteTest, MacroBodyIsFunCall) {
+  SetMacroContent(R"(
+some_macro_rule = cc_library(
+     name = name,
+     deps = ["a", "b", some_dep] + some_list,
+   )
+)");
+
+  const auto result = MacroSubstituteAndPrint(R"input(
+some_macro_rule(
+   name = "foobar",
+   some_dep = "baz",
+   some_list = [ "x", "y", "z" ],
+)
+)input",
+                                              R"expanded(
+cc_library(
+    name = "foobar",
+    deps = ["a", "b", "baz"] + ["x", "y", "z"],
+)
+)expanded");
+
+  EXPECT_EQ(result.first, result.second);
+}
+
+TEST_F(MacroSubstituteTest, MacroBodyIsTuple) {
   SetMacroContent(R"(
 some_macro_rule = (
+   genrule(name = name + "-gen"),
    cc_library(
      name = name,
      deps = ["a", "b", some_dep] + some_list,
-   ),    # <- comma, important to parse this as single value tuple
+   ),
 )
 )");
 
@@ -72,12 +98,14 @@ some_macro_rule(
 )input",
                                               R"expanded(
 ( # Expanded: is tuple
+  genrule(name = "foobar" + "-gen"),
   cc_library(
      name = "foobar",
      deps = ["a", "b", "baz"] + ["x", "y", "z"],
   ),
 )
 )expanded");
+
   EXPECT_EQ(result.first, result.second);
 }
 }  // namespace bant

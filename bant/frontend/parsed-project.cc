@@ -323,7 +323,7 @@ size_t PrintProject(Session &session, const BazelTargetMatcher &pattern,
   return count;
 }
 
-List *ParsedProject::FindMacro(std::string_view name) const {
+Node *ParsedProject::FindMacro(std::string_view name) const {
   auto found = macros_.find(name);
   if (found != macros_.end()) return found->second;
   return nullptr;
@@ -347,11 +347,7 @@ absl::Status ParsedProject::SetBuiltinMacroContent(std::string_view content) {
     CHECK(macro_assignment) << "Expected assignment, got " << n;
     Identifier *const name = macro_assignment->maybe_identifier();
     CHECK(name) << "Not an identifier on lhs of " << macro_assignment;
-    Node *const rhs = macro_assignment->value();
-    List *const rhs_tuple = rhs->CastAsList();
-    CHECK(rhs_tuple) << "builtin-macros.bnt: expected tuple, got " << rhs;
-    CHECK(rhs_tuple->type() == List::Type::kTuple) << rhs;
-    macros_.emplace(name->id(), rhs_tuple);
+    macros_.emplace(name->id(), macro_assignment->value());
   }
   RegisterLocationRange(macro_content_->content(), macro_content_.get());
   return absl::OkStatus();

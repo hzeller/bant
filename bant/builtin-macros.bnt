@@ -13,22 +13,21 @@
 # Note: Initial implementation, this mmight change any time. This file is
 # compiled into the binary.
 
+## TODO simplify various protobuf hacks in bant by providing equivalent macros
+
+##
 # rules found in various projects. For now, this is build into bant,
 # but eventually these should be files loaded per project.
 
 ## Verible
-genlex = (
-    genrule(
-        name = name,
-        srcs = [src],
-        outs = [out],
-    ),
+genlex = genrule(
+    name = name,
+    srcs = [src],
+    outs = [out],
 )
 
-genyacc = (
-    genrule(
-        name = name,
-        srcs = [src],
-        outs = [header_out, source_out] + extra_outs,
-    ),
+genyacc = genrule(
+    name = name,
+    srcs = [src],
+    outs = [header_out, source_out] + extra_outs,
 )
