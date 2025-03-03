@@ -123,6 +123,7 @@ cc_library(
         "//bant/util:stat",
         "@abseil-cpp//absl/container:flat_hash_map",
         "@abseil-cpp//absl/log:check",
+        "@abseil-cpp//absl/status:status",
         "@re2",
     ],
 )
@@ -136,6 +137,7 @@ cc_library(
         ":parsed-project",
         "//bant:session",
         "//bant:types-bazel",
+        "@abseil-cpp//absl/log:check",
         "@abseil-cpp//absl/strings",
     ],
 )

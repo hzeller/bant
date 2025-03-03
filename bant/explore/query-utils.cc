@@ -273,6 +273,7 @@ std::optional<std::string_view> FindKWArgAsStringView(
 void AppendStringList(List *list, std::vector<std::string_view> &append_to) {
   if (list == nullptr) return;
   for (Node *n : *list) {
+    if (!n) continue;  // Parse error of sorts.
     Scalar *scalar = n->CastAsScalar();
     if (!scalar) continue;
     if (const std::string_view str = scalar->AsString(); !str.empty()) {

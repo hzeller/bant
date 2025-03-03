@@ -22,6 +22,7 @@
 #include <string>
 #include <string_view>
 
+#include "absl/log/check.h"
 #include "absl/strings/str_cat.h"
 #include "bant/frontend/elaboration.h"
 #include "bant/frontend/parsed-project.h"
@@ -47,7 +48,7 @@ class ParsedProjectTestUtil {
   ParsedProject &project() { return project_; }
 
   void SetMacroContent(std::string_view macros) {
-    project_.SetBuiltinMacroContent(macros);
+    CHECK_OK(project_.SetBuiltinMacroContent(macros));
   }
 
   void ElaborateAll() {
@@ -56,7 +57,7 @@ class ParsedProjectTestUtil {
   }
 
  private:
-  ParsedProject project_{{}, false};
+  ParsedProject project_{{}, false, false};
 };
 }  // namespace bant
 

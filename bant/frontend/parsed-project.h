@@ -25,6 +25,7 @@
 #include <utility>
 
 #include "absl/container/flat_hash_map.h"
+#include "absl/status/status.h"
 #include "bant/frontend/ast.h"
 #include "bant/frontend/named-content.h"
 #include "bant/frontend/source-locator.h"
@@ -69,7 +70,8 @@ class ParsedProject : public SourceLocator {
   using Package2Parsed =
     OneToOne<BazelPackage, std::unique_ptr<ParsedBuildFile>>;
 
-  ParsedProject(BazelWorkspace workspace, bool verbose);
+  ParsedProject(BazelWorkspace workspace, bool verbose,
+                bool with_builtin_macros = true);
 
   // Given a BazelPattern, collect all the matching BUILD files and add to
   // project.
@@ -132,7 +134,7 @@ class ParsedProject : public SourceLocator {
   // Typically, this will only happen once with the built-in macros, but
   // can be called in tests to set a specific test content.
   // Passed string view must outlive ParsedProject lifetime.
-  void SetBuiltinMacroContent(std::string_view content);
+  absl::Status SetBuiltinMacroContent(std::string_view content);
 
   Arena arena_{1 << 20};
   const BazelWorkspace workspace_;

@@ -29,6 +29,7 @@
 #include <vector>
 
 #include "absl/log/check.h"
+#include "absl/status/status.h"
 #include "bant/builtin-macros.h"
 #include "bant/explore/query-utils.h"
 #include "bant/frontend/ast.h"
@@ -113,10 +114,13 @@ std::vector<FilesystemPath> CollectBuildFiles(Session &session,
 }
 }  // namespace
 
-ParsedProject::ParsedProject(BazelWorkspace workspace, bool verbose)
+ParsedProject::ParsedProject(BazelWorkspace workspace, bool verbose,
+                             bool with_builtin_macros)
     : workspace_(std::move(workspace)) {
   arena_.SetVerbose(verbose);
-  SetBuiltinMacroContent(kBuiltinMacros);
+  if (with_builtin_macros) {
+    CHECK_OK(SetBuiltinMacroContent(kBuiltinMacros));
+  }
 }
 
 int ParsedProject::FillFromPattern(Session &session,
@@ -325,14 +329,19 @@ List *ParsedProject::FindMacro(std::string_view name) const {
   return nullptr;
 }
 
-void ParsedProject::SetBuiltinMacroContent(std::string_view content) {
+absl::Status ParsedProject::SetBuiltinMacroContent(std::string_view content) {
+  if (macro_content_) {
+    // In tests, call ParsedProject without builtin-macros
+    return absl::InternalError("Attempt to register multiple built-ins");
+  }
   macro_content_ =
     std::make_unique<NamedLineIndexedContent>("(bant-builtin)", content);
-  // A few CHECK()s here; ok to crash as builtins are compiled-in part of bant.
   Scanner scanner(*macro_content_);  // directly parsing compiled-in string-view
   Parser parser(&scanner, &arena_, std::cerr);
   List *const builtin_list = parser.parse();
-  CHECK(!parser.parse_error()) << "Issue in bant/builtin-macros.bnt";
+  if (parser.parse_error()) {
+    return absl::InternalError("Issue in bant/builtin-macros.bnt");
+  }
   for (Node *n : *builtin_list) {
     Assignment *const macro_assignment = n->CastAsAssignment();
     CHECK(macro_assignment) << "Expected assignment, got " << n;
@@ -344,9 +353,7 @@ void ParsedProject::SetBuiltinMacroContent(std::string_view content) {
     CHECK(rhs_tuple->type() == List::Type::kTuple) << rhs;
     macros_.emplace(name->id(), rhs_tuple);
   }
-  // NOTE: if we call SetBuiltinMacroContent() multiple times, e.g. in
-  // tests, the location_map_ will retain deleted pointers of SourceLocator,
-  // which is not an issue in tests as we never access the old content.
   RegisterLocationRange(macro_content_->content(), macro_content_.get());
+  return absl::OkStatus();
 }
 }  // namespace bant
