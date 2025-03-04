@@ -53,6 +53,7 @@ struct Result {
   std::string_view strip_import_prefix;   // ... similar, used in proto_library
   bool alwayslink = false;
   bool testonly = false;
+  bool bant_skip_dependency_check = false;  // No dwyu; used in builtin macros.
 };
 
 // Callback of a query.

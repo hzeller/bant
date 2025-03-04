@@ -18,8 +18,9 @@
 ##
 # rules found in various projects. For now, this is build into bant,
 # but eventually these should be files loaded per project.
-# Note: these only need to be 'approximate' as they should state what comes
-# in and out, but no action details needed.
+# Note: these only need to be 'approximate', enough for bant to know what files
+# and libraries are provided, broken down into bazel building blocks.
+# Use bant_skip_dependency_check = True in cc_library() to skip dwyu there.
 ##
 
 ## Found in bazel_rules_hdl, verible:
@@ -34,6 +35,13 @@ genyacc = genrule(
     srcs = [src],
     outs = [header_out, source_out] + extra_outs,
 )
+
+## LLVM-project
+# gentbl_cc_library = genrule(
+#     name = name,
+#     srcs = [td_file],
+#     outs = tbl_outs,   # TODO: foreach tuple get the second element
+# )
 
 ## Found in XLS
 xls_dslx_opt_ir = genrule(
@@ -50,31 +58,13 @@ cc_xls_ir_jit_wrapper = cc_library(
     name = name,
     srcs = [name + ".cc"],
     hdrs = [name + ".h"],
-    deps = [
-        # Not all wrapperss use all dependencies, but need to provide a superset
-        # as bant actually looks at the header, then complains :)
-        "//xls/common/status:status_macros",  # build_cleaner keep
-        "//xls/interpreter:evaluator_options",  # build_cleaner keep
-        "//xls/ir:bits",  # build_cleaner keep
-        "//xls/jit:block_base_jit_wrapper",  # build_cleaner keep
-        "//xls/jit:function_base_jit_wrapper",  # build_cleaner keep
-        "//xls/jit:proc_base_jit_wrapper",  # build_cleaner keep
-        "//xls/public:value",  # build_cleaner keep
-        "@com_google_absl//absl/container:flat_hash_map",  # build_cleaner keep
-        "@com_google_absl//absl/status",  # build_cleaner keep
-        "@com_google_absl//absl/status:statusor",  # build_cleaner keep
-    ],
+    bant_skip_dependency_check = True,
 )
 
 xls_dslx_ir_wrapper = cc_library(
     name = name + "_wrapper",
     hdrs = [name + "_wrapper.h"],
-    deps = [
-        "//xls/jit:function_base_jit_wrapper",
-        "//xls/public:value",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/status:statusor",
-    ],
+    bant_skip_dependency_check = True,
 )
 
 xls_ir_cc_library = (
@@ -85,10 +75,7 @@ xls_ir_cc_library = (
     cc_library(
         name = name,
         hdrs = [name + ".h"],
-        deps = [
-            "@com_google_absl//absl/status:statusor",
-            "//xls/ir:value",
-        ],
+        bant_skip_dependency_check = True,
     ),
 )
 
@@ -111,9 +98,3 @@ xls_ir_verilog = genrule(
         verilog_file,
     ],
 )
-
-# gentbl_cc_library = genfile(
-#     name = name,
-#     srcs = [td_file],
-#     outs = tbl_outs,   # TODO: foreach tuple get the second element
-# )

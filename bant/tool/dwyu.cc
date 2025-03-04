@@ -474,6 +474,8 @@ DWYUGenerator::DependenciesNeededBySources(
 void DWYUGenerator::CreateEditsForTarget(const BazelTarget &target,
                                          const query::Result &details,
                                          const ParsedBuildFile &build_file) {
+  if (details.bant_skip_dependency_check) return;
+
   // Looking at the include files the sources reference, map these back
   // to the dependencies that provide them: these are the deps we
   // needed.

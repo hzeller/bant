@@ -136,6 +136,8 @@ class TargetFinder : public BaseVoidVisitor {
         current_.alwayslink = (id->id() == "True");
       } else if (lhs == "testonly") {
         current_.testonly = (id->id() == "True");
+      } else if (lhs == "bant_skip_dependency_check") {
+        current_.bant_skip_dependency_check = (id->id() == "True");
       }
     }
   }
