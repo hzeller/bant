@@ -287,7 +287,8 @@ DependencyGraph BuildDependencyGraph(Session &session,
     // genrules or protobuffer rules. Goal: should be zero.
     // But for now: hide behind 'verbose' flag, to not be too noisy.
     if (!error_packages.empty()) {
-      PrintList(session.info(), "Dependcy graph: Did not find these packages\n",
+      PrintList(session.info(),
+                "Dependency graph: Did not find these packages\n",
                 error_packages);
     }
     if (!error_target_example.empty()) {
