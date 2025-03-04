@@ -570,6 +570,9 @@ void DWYUGenerator::CreateEditsForTarget(const BazelTarget &target,
     }
 
     const BazelTarget &need_add = *need_add_alternatives.begin();
+    if (need_add == target) {  // That's us. Not needed (but why not caught?)
+      continue;
+    }
     std::string visibility_msg;
     if (CanSee(target, need_add, &visibility_msg) &&
         IsTestonlyCompatible(target, need_add)) {

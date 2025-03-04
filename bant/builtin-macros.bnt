@@ -18,6 +18,9 @@
 ##
 # rules found in various projects. For now, this is build into bant,
 # but eventually these should be files loaded per project.
+# Note: these only need to be 'approximate' as they should state what comes
+# in and out, but no action details needed.
+##
 
 ## Found in bazel_rules_hdl, verible:
 genlex = genrule(
@@ -31,3 +34,86 @@ genyacc = genrule(
     srcs = [src],
     outs = [header_out, source_out] + extra_outs,
 )
+
+## Found in XLS
+xls_dslx_opt_ir = genrule(
+    name = name,
+    outs = [
+        name + ".ir",  # sometimes, they are derived from the name
+        name + ".opt.ir",
+        ir_file,  # ... sometimes from kwargs passed to rule.
+        opt_ir_file,
+    ],
+)
+
+cc_xls_ir_jit_wrapper = cc_library(
+    name = name,
+    srcs = [name + ".cc"],
+    hdrs = [name + ".h"],
+    deps = [
+        # Not all wrapperss use all dependencies, but need to provide a superset
+        # as bant actually looks at the header, then complains :)
+        "//xls/common/status:status_macros",  # build_cleaner keep
+        "//xls/interpreter:evaluator_options",  # build_cleaner keep
+        "//xls/ir:bits",  # build_cleaner keep
+        "//xls/jit:block_base_jit_wrapper",  # build_cleaner keep
+        "//xls/jit:function_base_jit_wrapper",  # build_cleaner keep
+        "//xls/jit:proc_base_jit_wrapper",  # build_cleaner keep
+        "//xls/public:value",  # build_cleaner keep
+        "@com_google_absl//absl/container:flat_hash_map",  # build_cleaner keep
+        "@com_google_absl//absl/status",  # build_cleaner keep
+        "@com_google_absl//absl/status:statusor",  # build_cleaner keep
+    ],
+)
+
+xls_dslx_ir_wrapper = cc_library(
+    name = name + "_wrapper",
+    hdrs = [name + "_wrapper.h"],
+    deps = [
+        "//xls/jit:function_base_jit_wrapper",
+        "//xls/public:value",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+    ],
+)
+
+xls_ir_cc_library = (
+    genrule(
+        name = name + "-gen",
+        outs = [name + ".h"],
+    ),
+    cc_library(
+        name = name,
+        hdrs = [name + ".h"],
+        deps = [
+            "@com_google_absl//absl/status:statusor",
+            "//xls/ir:value",
+        ],
+    ),
+)
+
+xls_dslx_verilog = genrule(
+    name = name,
+    outs = [
+        # todo: not correct yet. e.g. sig.textproto is derived from .v
+        name + ".block.ir",
+        name + ".codegen_options.textproto",
+        name + ".sig.textproto",
+        verilog_file,
+    ],
+)
+
+xls_ir_verilog = genrule(
+    name = name,
+    outs = [
+        # TODO: see xls_dslx_verilog
+        name + ".block.ir",
+        verilog_file,
+    ],
+)
+
+# gentbl_cc_library = genfile(
+#     name = name,
+#     srcs = [td_file],
+#     outs = tbl_outs,   # TODO: foreach tuple get the second element
+# )
