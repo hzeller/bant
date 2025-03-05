@@ -114,12 +114,29 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
         }
       }
       {
-        Scalar *left = bin_op->left()->CastAsScalar();
-        Scalar *right = bin_op->right()->CastAsScalar();
-        if (left && right && left->type() == right->type() &&
-            left->type() == Scalar::ScalarType::kString) {
-          return ConcatStrings(project_->GetLocation(bin_op->source_range()),
-                               left->AsString(), right->AsString());
+        Scalar *lhs = bin_op->left()->CastAsScalar();
+        Scalar *rhs = bin_op->right()->CastAsScalar();
+        if (lhs && rhs && lhs->type() == rhs->type()) {
+          const auto &location = project_->GetLocation(bin_op->source_range());
+          if (lhs->type() == Scalar::ScalarType::kString) {
+            return ConcatStrings(location, lhs->AsString(), rhs->AsString());
+          }
+          if (lhs->type() == Scalar::ScalarType::kInt) {
+            return MakeIntWithStringRep(location, lhs->AsInt() + rhs->AsInt());
+          }
+        }
+      }
+      return bin_op;  // Unimplemented op. Return as-is.
+    }
+    case '-': {
+      {
+        Scalar *lhs = bin_op->left()->CastAsScalar();
+        Scalar *rhs = bin_op->right()->CastAsScalar();
+        if (lhs && rhs && lhs->type() == rhs->type()) {
+          const auto &location = project_->GetLocation(bin_op->source_range());
+          if (lhs->type() == Scalar::ScalarType::kInt) {
+            return MakeIntWithStringRep(location, lhs->AsInt() - rhs->AsInt());
+          }
         }
       }
       return bin_op;  // Unimplemented op. Return as-is.
@@ -134,7 +151,29 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
       }
       return bin_op;
     }
+    case '[': {
+      List *list = bin_op->left()->CastAsList();
+      Scalar *index = bin_op->right()->CastAsScalar();
+      if (list && index && index->type() == Scalar::ScalarType::kInt) {
+        return ArrayAccess(bin_op, list, index->AsInt());
+      }
+      return bin_op;
+    }
     default: return bin_op;
+    }
+  }
+
+  Node *VisitUnaryExpr(UnaryExpr *unary) final {
+    Scalar *scalar = unary->node()->CastAsScalar();
+    if (!scalar) return unary;
+    if (scalar->type() != Scalar::ScalarType::kInt) return unary;
+    switch (unary->op()) {
+    case '+': return scalar;
+    case '-':
+      return MakeIntWithStringRep(project_->GetLocation(scalar->AsString()),
+                                  -scalar->AsInt());
+    default:
+      return unary;
     }
   }
 
@@ -164,6 +203,12 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
                                     Make<FixedSourceLocator>(op_location));
 
     return Make<StringScalar>(assembled, false, false);
+  }
+
+  IntScalar *MakeIntWithStringRep(const FileLocation &loc, int64_t value) {
+    std::string_view representation = CopyToArenaString(std::to_string(value),
+                                                        loc);
+    return Make<IntScalar>(representation, value);
   }
 
   // calls on strings, of the form "foo".method()
@@ -210,6 +255,13 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     }
     return MakeNewStringScalarFrom(absl::StrJoin(view_list, separator),
                                    project_->GetLocation(separator));
+  }
+
+  static Node *ArrayAccess(Node *orig, List *list, int64_t index) {
+    const int64_t list_size = list->size();
+    if (index < 0) index = list_size + index;
+    if (index < 0 || index >= list_size) return orig;
+    return (*list)[index];
   }
 
   Node *HandleSelect(FunCall *fun) {
@@ -353,9 +405,10 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     return static_cast<char *>(project_->arena()->Alloc(len));
   }
 
-  // Create a new string scalar that resolves to the given location.
-  StringScalar *MakeNewStringScalarFrom(std::string_view in_str,
-                                        const FileLocation &loc) {
+  // Create a new string in arena, copy the value and return the new,
+  // locatable string_view
+  std::string_view CopyToArenaString(std::string_view in_str,
+                                     const FileLocation &loc) {
     // Copy into arena
     const size_t result_size = in_str.size();
     char *new_str = MakeStr(result_size);
@@ -364,8 +417,12 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
 
     // Make sure it can be resolved to a location
     project_->RegisterLocationRange(arena_str, Make<FixedSourceLocator>(loc));
+    return arena_str;
+  }
 
-    return Make<StringScalar>(arena_str, false, false);
+  StringScalar *MakeNewStringScalarFrom(std::string_view in_str,
+                                        const FileLocation &loc) {
+    return Make<StringScalar>(CopyToArenaString(in_str, loc), false, false);
   }
 
   Session &session_;

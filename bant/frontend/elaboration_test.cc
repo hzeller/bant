@@ -205,6 +205,23 @@ cc_library(
   EXPECT_EQ(result.first, result.second);
 }
 
+// Note: arithmetic is really basic, as we don't implement precedence yet
+TEST_F(ElaborationTest, BasicArith) {
+  auto result = ElabAndPrint(
+    R"(
+FOO = 1 + 3 + 9
+BAR = 3 - 7
+BAZ = (-9) + 7  # Since we don't do precedence yet, need to paren around value
+)",
+    R"(
+FOO = 13
+BAR = -4
+BAZ = -2
+)");
+
+  EXPECT_EQ(result.first, result.second);
+}
+
 TEST_F(ElaborationTest, ConcatStrings) {
   auto result = ElabAndPrint(
     R"(
@@ -277,6 +294,37 @@ BAZ = ",".join(["Hello", not_a_constant])  # left as is
 QUX = "tuple is ok"
 )");
 
+  EXPECT_EQ(result.first, result.second);
+}
+
+TEST_F(ElaborationTest, ArrayAccess) {
+  auto result = ElabAndPrint(
+    R"(
+FOO_0       = ["a", "b", "c"][0]
+FOO_2       = ["a", "b", "c"][2]
+NOF_OO      = ["a", "b", "c"][42]
+
+BAR_BACK    = ["a", "b", "c"][ 0 - 1]  # bin-op
+BAR_BACK_1  = ["a", "b", "c"][-1]  # unary minus
+BAR_BEGIN   = ["a", "b", "c"][-3]
+NO_BAR      = ["a", "b", "c"][-42]
+
+MULTI_DIM   = [("a", "b"), ("c", "d")][1][0]
+MULTI_DIM2   = [("a", "b"), ("c", "d")][-2][1]
+)",
+    R"(
+FOO_0       = "a"
+FOO_2       = "c"
+NOF_OO      = ["a", "b", "c"][42]
+
+BAR_BACK    = "c"
+BAR_BACK_1  = "c"
+BAR_BEGIN   = "a"
+NO_BAR      = ["a", "b", "c"][-42]
+
+MULTI_DIM   = "c"
+MULTI_DIM2  = "b"
+)");
   EXPECT_EQ(result.first, result.second);
 }
 

@@ -224,6 +224,8 @@ class List : public Node {
   bool empty() const { return list_.size() == 0; }
 
   void Append(Arena *arena, Node *value) { list_.Append(value, arena); }
+
+  Node *operator[](size_t pos) const { return list_[pos]; }
   iterator begin() { return list_.begin(); }
   iterator end() { return list_.end(); }
 
