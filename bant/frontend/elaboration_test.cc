@@ -242,6 +242,44 @@ cc_library(
   });
 }
 
+TEST_F(ElaborationTest, FormatString) {
+  auto result = ElabAndPrint(
+    R"(
+FOO = "Hello {}".format("World")
+BAR = "{} is {}.".format("Answer", 42)
+SHORT_FMT = "Just {} no more fmt.".format("Parameters", "are", "too", "many")
+SHORT_ARGS = "Some {} and {} and {}".format("text", 123)
+NOT_ALL_CONST = "{} and {}".format("text", not_a_constant)
+)",
+    R"(
+FOO = "Hello World"
+BAR = "Answer is 42."
+SHORT_FMT = "Just Parameters no more fmt."
+SHORT_ARGS = "Some text and 123 and {}"
+NOT_ALL_CONST = "{} and {}".format("text", not_a_constant)
+)");
+
+  EXPECT_EQ(result.first, result.second);
+}
+
+TEST_F(ElaborationTest, JoinStrings) {
+  auto result = ElabAndPrint(
+    R"(
+FOO = "😊".join(["Hello", "universe", 42, "is" + " answer"])
+BAR = ",".join()                           # invalid non-parameter
+BAZ = ",".join(["Hello", not_a_constant])  # parameter not fully const-eval'ed
+QUX = " is ".join(("tuple", "ok"))         # besides arrays, tuples are also ok
+)",
+    R"(
+FOO = "Hello😊universe😊42😊is answer"
+BAR = ",".join()  # left as is
+BAZ = ",".join(["Hello", not_a_constant])  # left as is
+QUX = "tuple is ok"
+)");
+
+  EXPECT_EQ(result.first, result.second);
+}
+
 namespace fs = std::filesystem;
 
 // TODO: lift out if useful in other tests.

@@ -31,11 +31,13 @@
 namespace bant {
 class VoidVisitor;
 class NodeVisitor;
-class Identifier;
+
 class Assignment;
-class Scalar;
-class List;
 class BinOpNode;
+class FunCall;
+class Identifier;
+class List;
+class Scalar;
 
 // Constructors are not public, only accessible via Arena. Use Arena::New()
 // for all nodes.
@@ -56,6 +58,7 @@ class Node {
   virtual Scalar *CastAsScalar() { return nullptr; }
   virtual List *CastAsList() { return nullptr; }
   virtual BinOpNode *CastAsBinOp() { return nullptr; }
+  virtual FunCall *CastAsFunCall() { return nullptr; }
 
   virtual void Accept(VoidVisitor *v) = 0;
   virtual Node *Accept(NodeVisitor *v) = 0;
@@ -213,6 +216,7 @@ class BinOpNode : public BinNode {
 // List, maps and tuples are all lists.
 class List : public Node {
  public:
+  using iterator = ArenaDeque<Node *>::iterator;
   enum class Type { kList, kMap, kTuple };
 
   Type type() const { return type_; }
@@ -220,8 +224,8 @@ class List : public Node {
   bool empty() const { return list_.size() == 0; }
 
   void Append(Arena *arena, Node *value) { list_.Append(value, arena); }
-  ArenaDeque<Node *>::iterator begin() { return list_.begin(); }
-  ArenaDeque<Node *>::iterator end() { return list_.end(); }
+  iterator begin() { return list_.begin(); }
+  iterator end() { return list_.end(); }
 
   List *CastAsList() final { return this; }
 
@@ -303,6 +307,8 @@ class FunCall : public BinNode {
  public:
   Identifier *identifier() { return static_cast<Identifier *>(left_); }
   List *argument() { return static_cast<List *>(right_); }
+
+  FunCall *CastAsFunCall() final { return this; }
 
   void Accept(VoidVisitor *v) final;
   Node *Accept(NodeVisitor *v) final;

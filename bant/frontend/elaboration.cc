@@ -26,6 +26,7 @@
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/log/check.h"
+#include "absl/strings/str_join.h"
 #include "bant/explore/query-utils.h"
 #include "bant/frontend/ast.h"
 #include "bant/frontend/macro-substitutor.h"
@@ -123,6 +124,16 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
       }
       return bin_op;  // Unimplemented op. Return as-is.
     }
+    case '.': {
+      {
+        Scalar *lhs = bin_op->left()->CastAsScalar();
+        FunCall *method_call = bin_op->right()->CastAsFunCall();
+        if (lhs && method_call && lhs->type() == Scalar::ScalarType::kString) {
+          return StringMethodCall(bin_op, lhs->AsString(), method_call);
+        }
+      }
+      return bin_op;
+    }
     default: return bin_op;
     }
   }
@@ -142,7 +153,7 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
   StringScalar *ConcatStrings(const FileLocation &op_location,
                               std::string_view left, std::string_view right) {
     const size_t new_length = left.size() + right.size();
-    char *new_str = static_cast<char *>(project_->arena()->Alloc(new_length));
+    char *new_str = MakeStr(new_length);
     memcpy(new_str, left.data(), left.size());
     memcpy(new_str + left.size(), right.data(), right.size());
     const std::string_view assembled{new_str, new_length};
@@ -153,6 +164,52 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
                                     Make<FixedSourceLocator>(op_location));
 
     return Make<StringScalar>(assembled, false, false);
+  }
+
+  // calls on strings, of the form "foo".method()
+  Node *StringMethodCall(Node *orig, std::string_view str, FunCall *method) {
+    const std::string_view method_name = method->identifier()->id();
+    if (method_name == "format") {
+      return HandleStringFormat(orig, str, method->argument());
+    }
+    if (method_name == "join") {
+      return HandleStringJoin(orig, str, method->argument());
+    }
+    return orig;
+  }
+
+  Node *HandleStringFormat(Node *orig, std::string_view fmt, List *args) {
+    // Very simple string format just looking for {}.
+    std::string assembled;
+    size_t last_curly_pos = 0;
+    size_t curly_pos;
+    List::iterator value_it = args->begin();
+    while (value_it != args->end() &&
+           (curly_pos = fmt.find("{}", last_curly_pos)) != std::string::npos) {
+      assembled.append(fmt.substr(last_curly_pos, curly_pos - last_curly_pos));
+      Scalar *scalar = (*value_it)->CastAsScalar();
+      if (!scalar) return orig;  // Can only format if all args known.
+      assembled.append(scalar->AsString());
+      last_curly_pos = curly_pos + 2;
+      ++value_it;
+    }
+    assembled.append(fmt.substr(last_curly_pos));
+    return MakeNewStringScalarFrom(assembled, project_->GetLocation(fmt));
+  }
+
+  Node *HandleStringJoin(Node *orig, std::string_view separator, List *args) {
+    if (args->empty()) return orig;
+    List *list_param = (*args->begin())->CastAsList();
+    if (!list_param) return orig;
+    std::vector<std::string_view> view_list;
+    view_list.reserve(list_param->size());
+    for (Node *element : *list_param) {
+      Scalar *scalar = element->CastAsScalar();
+      if (!scalar) return orig;  // Can only join if all values known constants.
+      view_list.push_back(scalar->AsString());
+    }
+    return MakeNewStringScalarFrom(absl::StrJoin(view_list, separator),
+                                   project_->GetLocation(separator));
   }
 
   Node *HandleSelect(FunCall *fun) {
@@ -290,6 +347,25 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
   template <typename T, class... U>
   T *Make(U &&...args) {
     return project_->arena()->New<T>(std::forward<U>(args)...);
+  }
+
+  char *MakeStr(size_t len) {
+    return static_cast<char *>(project_->arena()->Alloc(len));
+  }
+
+  // Create a new string scalar that resolves to the given location.
+  StringScalar *MakeNewStringScalarFrom(std::string_view in_str,
+                                        const FileLocation &loc) {
+    // Copy into arena
+    const size_t result_size = in_str.size();
+    char *new_str = MakeStr(result_size);
+    memcpy(new_str, in_str.data(), result_size);  // NOLINT
+    const std::string_view arena_str(new_str, result_size);
+
+    // Make sure it can be resolved to a location
+    project_->RegisterLocationRange(arena_str, Make<FixedSourceLocator>(loc));
+
+    return Make<StringScalar>(arena_str, false, false);
   }
 
   Session &session_;
