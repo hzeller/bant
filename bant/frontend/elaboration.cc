@@ -18,6 +18,7 @@
 #include "bant/frontend/elaboration.h"
 
 #include <cstddef>
+#include <cstdint>
 #include <cstring>
 #include <string>
 #include <string_view>
@@ -172,8 +173,7 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     case '-':
       return MakeIntWithStringRep(project_->GetLocation(scalar->AsString()),
                                   -scalar->AsInt());
-    default:
-      return unary;
+    default: return unary;
     }
   }
 
@@ -206,8 +206,8 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
   }
 
   IntScalar *MakeIntWithStringRep(const FileLocation &loc, int64_t value) {
-    std::string_view representation = CopyToArenaString(std::to_string(value),
-                                                        loc);
+    const std::string_view representation =
+      CopyToArenaString(std::to_string(value), loc);
     return Make<IntScalar>(representation, value);
   }
 

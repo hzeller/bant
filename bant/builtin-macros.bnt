@@ -37,11 +37,20 @@ genyacc = genrule(
 )
 
 ## LLVM-project
-# gentbl_cc_library = genrule(
-#     name = name,
-#     srcs = [td_file],
-#     outs = tbl_outs,   # TODO: foreach tuple get the second element
-# )
+gentbl_cc_library = (
+    # first approximation not sure if well reflected.
+    genrule(
+        name = name + "-gen",
+        srcs = [td_file],
+        # TODO: foreach tuple get the last element; for now: only the first
+        outs = [tbl_outs[0][-1]],
+    ),
+    cc_library(
+        name = name,
+        hdrs = [tbl_outs[0][-1]],
+        bant_skip_dependency_check = True,
+    ),
+)
 
 ## Found in XLS
 xls_dslx_opt_ir = genrule(
