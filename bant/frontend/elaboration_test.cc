@@ -297,6 +297,26 @@ QUX = "tuple is ok"
   EXPECT_EQ(result.first, result.second);
 }
 
+TEST_F(ElaborationTest, RsplitStrings) {
+  auto result = ElabAndPrint(
+    R"(
+S = "some space separated".rsplit()
+A = "some-filename.foo.bar.txt".rsplit(".")
+B = "some-filename.foo.bar.txt".rsplit(".", 1)
+C = "some-filename".rsplit(".", 1)
+D = ("remove-suffix.txt".rsplit(".", 1))[0]
+)",
+    R"(
+S = ["some", "space", "separated"]
+A = ["some-filename", "foo", "bar", "txt"]
+B = ["some-filename.foo.bar", "txt"]
+C = ["some-filename"]
+D = "remove-suffix"
+)");
+
+  EXPECT_EQ(result.first, result.second);
+}
+
 TEST_F(ElaborationTest, ArrayAccess) {
   auto result = ElabAndPrint(
     R"(

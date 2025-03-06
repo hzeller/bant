@@ -20,6 +20,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <limits>
+#include <ranges>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -50,6 +52,7 @@ class NestCounter {
   int *const value_;
 };
 
+// TODO: number of handled operations and functions gets big. Split up.
 class SimpleElaborator : public BaseNodeReplacementVisitor {
  public:
   SimpleElaborator(Session &session, ParsedProject *project,
@@ -220,6 +223,10 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     if (method_name == "join") {
       return HandleStringJoin(orig, str, method->argument());
     }
+    if (method_name == "rsplit") {
+      return HandleStringRsplit(orig, str, method->argument());
+    }
+
     return orig;
   }
 
@@ -255,6 +262,50 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     }
     return MakeNewStringScalarFrom(absl::StrJoin(view_list, separator),
                                    project_->GetLocation(separator));
+  }
+
+  Node *HandleStringRsplit(Node *orig, std::string_view str, List *args) {
+    std::string_view split_string = " ";
+    int64_t max_split = std::numeric_limits<int64_t>::max();
+
+    List::iterator arg_it = args->begin();
+    if (arg_it != args->end()) {
+      Scalar *split_by = (*arg_it)->CastAsScalar();
+      if (!split_by || split_by->type() != Scalar::ScalarType::kString) {
+        return orig;  // need a constant string here.
+      }
+      split_string = split_by->AsString();
+      ++arg_it;
+    }
+    if (arg_it != args->end()) {
+      Scalar *count = (*arg_it)->CastAsScalar();
+      if (!count || count->type() != Scalar::ScalarType::kInt) {
+        return orig;
+      }
+      max_split = count->AsInt();
+    }
+    if (split_string.empty()) split_string = " ";
+    const size_t split_len = split_string.length();
+    int pos = str.size() - 1;
+    std::vector<StringScalar *> elements;
+    for (/**/; pos > 0 && max_split > 0; --max_split) {
+      const size_t start_of_split = str.rfind(split_string, pos);
+      if (start_of_split == std::string_view::npos) break;
+      const size_t after = start_of_split + split_len;
+      const std::string_view part = str.substr(after, pos - after + 1);
+      // The string_view is from the original file, so it already has location
+      elements.push_back(Make<StringScalar>(part, false, false));
+      pos = start_of_split - 1;
+    }
+    if (pos > 0) {
+      const std::string_view remaining = str.substr(0, pos + 1);
+      elements.push_back(Make<StringScalar>(remaining, false, false));
+    }
+    List *result = Make<List>(List::Type::kList);
+    for (StringScalar *substr : elements | std::views::reverse) {
+      result->Append(project_->arena(), substr);
+    }
+    return result;
   }
 
   static Node *ArrayAccess(Node *orig, List *list, int64_t index) {
