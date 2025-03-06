@@ -75,8 +75,13 @@ enum TokenType : int {  // NOLINT(readability-enum-initial-value)
 std::ostream &operator<<(std::ostream &o, TokenType t);
 
 struct Token {
-  TokenType type;
+  constexpr Token() = default;
+  constexpr Token(TokenType type, std::string_view text,
+                  bool newline_since_last = false)
+      : text(text), type(type), newline_since_last_token(newline_since_last) {}
+  // NB: order of fields is for better packing of struct.
   std::string_view text;                  // Referring to original content.
+  TokenType type;                         // token id
   bool newline_since_last_token = false;  // to accomodate Python-ism's
 };
 
