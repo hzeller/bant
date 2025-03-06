@@ -21,9 +21,14 @@
 # Note: these only need to be 'approximate', enough for bant to know what files
 # and libraries are provided, broken down into bazel building blocks.
 # Use bant_skip_dependency_check = True in cc_library() to skip dwyu there.
+#
+# Genrules often have the same name as corresponding cc_library(); this allows
+# to accurately report where something is coming from. Same name for different
+# things is not valid of course of real bulid files, but if dwyu purposes,
+# they are in different name spaces.
 ##
 
-## Found in bazel_rules_hdl, verible:
+### Found in bazel_rules_hdl, verible.
 genlex = genrule(
     name = name,
     srcs = [src],
@@ -36,11 +41,11 @@ genyacc = genrule(
     outs = [header_out, source_out] + extra_outs,
 )
 
-## LLVM-project
+### LLVM-project.
 gentbl_cc_library = (
     # first approximation not sure if well reflected.
     genrule(
-        name = name + "-gen",
+        name = name,
         srcs = [td_file],
         # TODO: foreach tuple get the last element; for now: only the first
         outs = [tbl_outs[0][-1]],
@@ -52,7 +57,15 @@ gentbl_cc_library = (
     ),
 )
 
-## Found in XLS
+### Found in XLS.
+xls_dslx_ir = genrule(
+    name = name,
+    outs = [
+        name + ".ir",
+        ir_file,
+    ],
+)
+
 xls_dslx_opt_ir = genrule(
     name = name,
     outs = [
@@ -63,11 +76,31 @@ xls_dslx_opt_ir = genrule(
     ],
 )
 
+xls_ir_opt_ir = genrule(
+    name = name,
+    outs = [
+        name + ".opt.ir",  # from name
+        opt_ir_file,  # from kwarg
+    ],
+)
+
 cc_xls_ir_jit_wrapper = cc_library(
     name = name,
     srcs = [name + ".cc"],
     hdrs = [name + ".h"],
     bant_skip_dependency_check = True,
+)
+
+xls_dslx_cpp_type_library = (
+    genrule(
+        name = name,
+        outs = [name + ".h"],
+    ),
+    cc_library(
+        name = name,
+        hdrs = [name + ".h"],
+        bant_skip_dependency_check = True,
+    ),
 )
 
 xls_dslx_ir_wrapper = cc_library(
@@ -78,7 +111,7 @@ xls_dslx_ir_wrapper = cc_library(
 
 xls_ir_cc_library = (
     genrule(
-        name = name + "-gen",
+        name = name,
         outs = [name + ".h"],
     ),
     cc_library(
@@ -91,10 +124,10 @@ xls_ir_cc_library = (
 xls_dslx_verilog = genrule(
     name = name,
     outs = [
-        # todo: not correct yet. e.g. sig.textproto is derived from .v
-        name + ".block.ir",
-        name + ".codegen_options.textproto",
-        name + ".sig.textproto",
+        (verilog_file.rsplit(".", 1))[0] + ".block.ir",
+        (verilog_file.rsplit(".", 1))[0] + ".codegen_options.textproto",
+        (verilog_file.rsplit(".", 1))[0] + ".schedule_options.textproto",
+        (verilog_file.rsplit(".", 1))[0] + ".sig.textproto",
         verilog_file,
     ],
 )
@@ -102,8 +135,10 @@ xls_dslx_verilog = genrule(
 xls_ir_verilog = genrule(
     name = name,
     outs = [
-        # TODO: see xls_dslx_verilog
-        name + ".block.ir",
+        (verilog_file.rsplit(".", 1))[0] + ".block.ir",
+        (verilog_file.rsplit(".", 1))[0] + ".codegen_options.textproto",
+        (verilog_file.rsplit(".", 1))[0] + ".schedule_options.textproto",
+        (verilog_file.rsplit(".", 1))[0] + ".sig.textproto",
         verilog_file,
     ],
 )
