@@ -26,14 +26,18 @@ TEST(ArenaDeque, SimpleOps) {
   ArenaDeque<int, 3, 96> container;  // deliberately funky min..max
 
   // Make sure that multiple crossings of block-boundaries work well.
+  // This test is O(N^2). But with low N.
   for (int i = 0; i < 300; ++i) {
     container.Append(i, &a);
+
+    // Checking iterator access up to this point.
     int count = 0;
     for (const int value : container) {
       EXPECT_EQ(value, count);
       count++;
     }
 
+    // Checking operator[] access up to this point.
     for (int j = 0; j < i; ++j) {
       EXPECT_EQ(container[j], j);
     }

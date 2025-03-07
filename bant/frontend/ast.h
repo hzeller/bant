@@ -215,8 +215,10 @@ class BinOpNode : public BinNode {
 
 // List, maps and tuples are all lists.
 class List : public Node {
+  using Container = ArenaDeque<Node *, 2, 32>;
+
  public:
-  using iterator = ArenaDeque<Node *>::iterator;
+  using iterator = Container::iterator;
   enum class Type { kList, kMap, kTuple };
 
   Type type() const { return type_; }
@@ -240,7 +242,7 @@ class List : public Node {
   explicit List(Type t) : type_(t) {}
 
   const Type type_;
-  ArenaDeque<Node *> list_;
+  Container list_;
 };
 
 // List comprehension for the given type (not only List, but also Map or tuple)
