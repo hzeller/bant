@@ -46,7 +46,10 @@ class ElaborationTest : public testing::Test {
     std::string_view expected,
     const CommandlineFlags &flags = CommandlineFlags{.verbose = 1}) {
     elaborated_ = pp_.Add(package, to_elaborate);
+
     const ParsedBuildFile *expected_parsed = pp_.Add("//expected", expected);
+
+    EXPECT_EQ(pp_.project().error_count(), 0) << "invalid test inputs.";
 
     Session session(&std::cerr, &std::cerr, flags);
     const std::string elab_print = ToString(bant::Elaborate(
@@ -155,6 +158,46 @@ cc_library(
 )
 )");
 
+  EXPECT_EQ(result.first, result.second);
+}
+
+TEST_F(ElaborationTest, ListComprehension) {
+  auto result = ElabAndPrint(
+    R"lc-in(
+A = [ "num={}".format(i) for i in [1, 2, 3] ]
+B = [ "pair=({}, {})".format(i, j) for (i,j) in [(1,2), (10,20), (23,42)] ]
+
+IN_LIST = ["a", "b" ]
+C = [ "{}.h".format(file) for file in IN_LIST ]  # IN_LIST: expand first
+
+D = [ ">{}, {}, {}<".format(i, j, k)
+      for i in [1, 2]
+      for j in [7, 8]
+      for k in ["a", "b"]
+    ]
+)lc-in",
+    R"lc-result(
+A = [ "num=1", "num=2", "num=3" ]
+B = [ "pair=(1, 2)", "pair=(10, 20)", "pair=(23, 42)"]
+
+IN_LIST = ["a", "b" ]
+C = [ "a.h", "b.h" ]
+
+# Note: this is not a correct starlark-equivalent result: the order of
+# evaluation should be outside-in, and the result should be a single list,
+# not a nested one.
+# It will work for toplevel rules, but not
+D = [
+     [
+       [">1, 7, a<", ">2, 7, a<"],
+       [">1, 8, a<", ">2, 8, a<"],
+     ],
+     [
+       [">1, 7, b<", ">2, 7, b<"],
+       [">1, 8, b<", ">2, 8, b<"],
+     ],
+]
+)lc-result");
   EXPECT_EQ(result.first, result.second);
 }
 

@@ -248,7 +248,11 @@ class List : public Node {
 // List comprehension for the given type (not only List, but also Map or tuple)
 class ListComprehension : public Node {
  public:
-  // (FOR subject (IN variable-list-tuple iteratable))
+  //          FOR (binop)
+  //        ↙     ↘
+  // subject       IN (binop)
+  //              ↙    ↘
+  //        varlist  var-iterable
   BinOpNode *for_node() { return for_node_; }
   List::Type type() const { return type_; }
 

@@ -176,6 +176,7 @@ cc_library(
         ":parsed-project",
         ":parser",
         ":source-locator",
+        ":substitute-copy",
         "//bant:session",
         "//bant:types-bazel",
         "//bant/explore:query-utils",

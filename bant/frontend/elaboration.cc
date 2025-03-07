@@ -34,7 +34,9 @@
 #include "bant/frontend/ast.h"
 #include "bant/frontend/macro-substitutor.h"
 #include "bant/frontend/parsed-project.h"
+#include "bant/frontend/scanner.h"
 #include "bant/frontend/source-locator.h"
+#include "bant/frontend/substitute-copy.h"
 #include "bant/session.h"
 #include "bant/types-bazel.h"
 #include "bant/util/file-utils.h"
@@ -103,6 +105,9 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     BinOpNode *bin_op = post_visit->CastAsBinOp();  // still binop ?
     if (!bin_op) return post_visit;
     switch (bin_op->op()) {
+    case TokenType::kFor: {
+      return ProcessFor(b);
+    }
     case '+': {
       {
         List *left = bin_op->left()->CastAsList();
@@ -180,7 +185,53 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     }
   }
 
+  Node *VisitListComprehension(ListComprehension *lc) final {
+    return lc->for_node()->Accept(this);
+  }
+
  private:
+  Node *ProcessFor(BinOpNode *for_node) {
+    Node *const subject = for_node->left();
+
+    BinOpNode *const in_node = for_node->right()->CastAsBinOp();
+    if (!in_node) return for_node;
+
+    List *const var_tuple = in_node->left()->Accept(this)->CastAsList();
+    List *const iterate_over = in_node->right()->Accept(this)->CastAsList();
+    if (!var_tuple || !iterate_over) {
+      return for_node;
+    }
+
+    for (Node *is_var : *var_tuple) {
+      if (!is_var->CastAsIdentifier()) return for_node;  // verify all variables
+    }
+    List *result = Make<List>(List::Type::kList);
+    query::KwMap varmap;
+    for (Node *element : *iterate_over) {
+      // Values can be a list/tuple or a single value.
+      List::iterator name_it = var_tuple->begin();
+      // Multi-var case for (a, b) in [(1, 2), (3, 4), (5, 6)]
+      if (List *values = element->CastAsList(); values) {
+        List::iterator value_it = values->begin();
+        while (name_it != var_tuple->end() && value_it != values->end()) {
+          Identifier *id = (*name_it)->CastAsIdentifier();
+          varmap[id->id()] = *value_it;
+          ++name_it;
+          ++value_it;
+        }
+      } else {  // Single value case for (a) in [1, 2, 3]
+        Identifier *id = (*name_it)->CastAsIdentifier();
+        varmap[id->id()] = element;
+      }
+
+      Node *substituted =
+        VariableSubstituteCopy(subject, project_->arena(), varmap);
+      Node *elabed = substituted->Accept(this);  // Apply elaboration
+      result->Append(project_->arena(), elabed);
+    }
+    return result;
+  }
+
   List *ConcatLists(List *left, List *right) {
     List *result = Make<List>(left->type());
     for (Node *n : *left) {
