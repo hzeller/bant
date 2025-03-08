@@ -29,20 +29,26 @@
 
 namespace bant {
 
+struct ElaborationOptions {
+  bool builtin_macro_expansion = false;
+};
+
 // Elaborate and modify given AST in the context of the parsed project.
 // The project supplies the arena to allocate possibly new nodes and to provide
 // SourceLocator services to query and register.
 //
 // Returns (possibly modified) AST.
 Node *Elaborate(Session &session, ParsedProject *project,
-                const BazelPackage &package, Node *ast);
+                const BazelPackage &package, const ElaborationOptions &options,
+                Node *ast);
 
 // Elaborate given build file.
 void Elaborate(Session &session, ParsedProject *project,
-               ParsedBuildFile *build_file);
+               const ElaborationOptions &options, ParsedBuildFile *build_file);
 
 // Elaborate all files in the given project.
-void Elaborate(Session &session, ParsedProject *project);
+void Elaborate(Session &session, ParsedProject *project,
+               const ElaborationOptions &options);
 }  // namespace bant
 
 #endif  // BANT_ELABORATION_H

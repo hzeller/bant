@@ -99,6 +99,7 @@ Commands (unique prefix sufficient):
     %s== Parsing ==%s
     print          : Print AST matching pattern. -E : only files w/ parse errors
                       -e : elaborate; light eval: expand variables, concat etc.
+                      -b : elaborate with built-in macro expansion.
                       -g <regex> : 'grep' - only print targets where any string
                                     matches regex.
                       -i If '-g' is given: case insensitive
@@ -189,7 +190,7 @@ int main(int argc, char *argv[]) {
     {"json", OutputFormat::kJSON},     {"graphviz", OutputFormat::kGraphviz},
   };
   int opt;
-  while ((opt = getopt(argc, argv, "C:qo:vhpecbf:r::Vkg:i")) != -1) {
+  while ((opt = getopt(argc, argv, "C:qo:vhpEecbf:r::Vkg:i")) != -1) {
     switch (opt) {
     case 'C': {
       std::error_code err;
@@ -201,6 +202,7 @@ int main(int argc, char *argv[]) {
       break;
     }
 
+    case 'G': /* reseved */ break;
     case 'q':  //
       user_info_out.reset(new std::ostream(nullptr));
       info_out = user_info_out.get();
@@ -236,9 +238,7 @@ int main(int argc, char *argv[]) {
       // "print" options
     case 'p': flags.print_ast = true; break;
     case 'E': flags.print_only_errors = true; break;
-    case 'b':  // old option.
-      fprintf(stderr, "Note, the name of -b option changed to -e\n");
-      [[fallthrough]];
+    case 'b': flags.elaborate = flags.builtin_macro_expand = true; break;
     case 'e': flags.elaborate = true; break;
     case 'f': {
       auto found = kFormatOutNames.lower_bound(optarg);

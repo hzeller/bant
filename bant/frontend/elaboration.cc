@@ -58,16 +58,22 @@ class NestCounter {
 class SimpleElaborator : public BaseNodeReplacementVisitor {
  public:
   SimpleElaborator(Session &session, ParsedProject *project,
-                   const BazelPackage &package)
-      : session_(session), project_(project), package_(package) {}
+                   const BazelPackage &package,
+                   const ElaborationOptions &options)
+      : session_(session),
+        project_(project),
+        options_(options),
+        package_(package) {}
 
   Node *VisitFunCall(FunCall *f) final {
     const NestCounter c(&nest_level_);
     BaseNodeReplacementVisitor::VisitFunCall(f);
-    if (Node *maybe_macro = MacroSubstitute(session_, project_, f);
-        maybe_macro != f) {
-      maybe_macro->Accept(this);  // expr. eval. TODO: limit features to that.
-      return maybe_macro;
+    if (options_.builtin_macro_expansion) {
+      if (Node *maybe_macro = MacroSubstitute(session_, project_, f);
+          maybe_macro != f) {
+        maybe_macro->Accept(this);  // expr. eval. TODO: limit features to that.
+        return maybe_macro;
+      }
     }
     const std::string_view fun_name = f->identifier()->id();
     if (fun_name == "glob") {
@@ -535,6 +541,7 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
 
   Session &session_;
   ParsedProject *const project_;
+  const ElaborationOptions options_;
   const BazelPackage &package_;
   int nest_level_ = 0;
   absl::flat_hash_map<std::string_view, Node *> global_variables_;
@@ -543,25 +550,27 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
 }  // namespace
 
 Node *Elaborate(Session &session, ParsedProject *project,
-                const BazelPackage &package, Node *ast) {
-  SimpleElaborator elaborator(session, project, package);
+                const BazelPackage &package, const ElaborationOptions &options,
+                Node *ast) {
+  SimpleElaborator elaborator(session, project, package, options);
   return elaborator.WalkNonNull(ast);
 }
 
 void Elaborate(Session &session, ParsedProject *project,
-               ParsedBuildFile *build_file) {
+               const ElaborationOptions &options, ParsedBuildFile *build_file) {
   bant::Stat &elab_stats = session.GetStatsFor("Elaborated", "packages");
   const ScopedTimer timer(&elab_stats.duration);
   ++elab_stats.count;
 
   Node *const result =
-    Elaborate(session, project, build_file->package, build_file->ast);
+    Elaborate(session, project, build_file->package, options, build_file->ast);
   CHECK_EQ(result, build_file->ast) << "Toplevel should never be replaced.";
 }
 
-void Elaborate(Session &session, ParsedProject *project) {
+void Elaborate(Session &session, ParsedProject *project,
+               const ElaborationOptions &options) {
   for (const auto &[package, build_file] : project->ParsedFiles()) {
-    Elaborate(session, project, build_file.get());
+    Elaborate(session, project, options, build_file.get());
   }
 }
 }  // namespace bant

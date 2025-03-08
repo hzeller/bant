@@ -140,10 +140,16 @@ CliStatus RunCommand(Session &session, Command cmd,
     flags.recurse_dependency_depth = std::numeric_limits<int>::max();
   }
 
-  if (flags.elaborate ||        //
-      cmd == Command::kDWYU ||  //
+  if (cmd == Command::kDWYU ||  //
       cmd == Command::kCompilationDB || cmd == Command::kCompileFlags) {
-    bant::Elaborate(session, &project);
+    flags.elaborate = true;
+    flags.builtin_macro_expand = true;
+  }
+
+  if (flags.elaborate) {
+    const ElaborationOptions options{.builtin_macro_expansion =
+                                       flags.builtin_macro_expand};
+    bant::Elaborate(session, &project, options);
   }
 
   // TODO: move dependency graph creation to interested tools once they are

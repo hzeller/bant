@@ -44,16 +44,22 @@ class ElaborationTest : public testing::Test {
   std::pair<std::string, std::string> ElabInPackageAndPrint(
     std::string_view package, std::string_view to_elaborate,
     std::string_view expected,
-    const CommandlineFlags &flags = CommandlineFlags{.verbose = 1}) {
+    const CommandlineFlags &flags = CommandlineFlags{
+      .verbose = 1,
+      .builtin_macro_expand = true,
+    }) {
     elaborated_ = pp_.Add(package, to_elaborate);
 
     const ParsedBuildFile *expected_parsed = pp_.Add("//expected", expected);
 
     EXPECT_EQ(pp_.project().error_count(), 0) << "invalid test inputs.";
 
+    const ElaborationOptions elab_options{.builtin_macro_expansion =
+                                            flags.builtin_macro_expand};
     Session session(&std::cerr, &std::cerr, flags);
-    const std::string elab_print = ToString(bant::Elaborate(
-      session, &pp_.project(), elaborated_->package, elaborated_->ast));
+    const std::string elab_print =
+      ToString(bant::Elaborate(session, &pp_.project(), elaborated_->package,
+                               elab_options, elaborated_->ast));
 
     const std::string expect_print = ToString(expected_parsed->ast);
     return {elab_print, expect_print};
@@ -62,7 +68,10 @@ class ElaborationTest : public testing::Test {
   // Like ElabInPackageAndPrint(), but default package to //elab.
   std::pair<std::string, std::string> ElabAndPrint(
     std::string_view to_elaborate, std::string_view expected,
-    const CommandlineFlags &flags = CommandlineFlags{.verbose = 1}) {
+    const CommandlineFlags &flags = CommandlineFlags{
+      .verbose = 1,
+      .builtin_macro_expand = true,
+    }) {
     return ElabInPackageAndPrint("//elab", to_elaborate, expected, flags);
   }
 

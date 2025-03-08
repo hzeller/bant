@@ -53,7 +53,8 @@ class ParsedProjectTestUtil {
 
   void ElaborateAll() {
     Session session(&std::cerr, &std::cerr, CommandlineFlags{.verbose = 1});
-    Elaborate(session, &project_);
+    const ElaborationOptions elab_options{.builtin_macro_expansion = true};
+    Elaborate(session, &project_, elab_options);
   }
 
  private:

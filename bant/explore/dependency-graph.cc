@@ -76,6 +76,9 @@ void FindAndParseMissingPackages(Session &session,
                                  const std::set<BazelPackage> &want,
                                  std::set<BazelPackage> *error_packages,
                                  ParsedProject *project) {
+  static constexpr ElaborationOptions kAlwaysMaccroExpand{
+    .builtin_macro_expansion = true,
+  };
   const BazelWorkspace &workspace = project->workspace();
   for (const BazelPackage &package : want) {
     if (project->FindParsedOrNull(package) != nullptr) {
@@ -90,7 +93,7 @@ void FindAndParseMissingPackages(Session &session,
     // building, as it might expand more dpendencies.
     // TODO: but do we need expensive glob() enabled ?
     ParsedBuildFile *file = project->AddBuildFile(session, *path, package);
-    bant::Elaborate(session, project, file);
+    bant::Elaborate(session, project, kAlwaysMaccroExpand, file);
   }
 }
 
