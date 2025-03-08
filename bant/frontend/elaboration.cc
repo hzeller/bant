@@ -186,6 +186,8 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
   }
 
   Node *VisitListComprehension(ListComprehension *lc) final {
+    // TODO: properly implement flat output with multiple `for`.
+    // Target v0.2.0+
     return lc->for_node()->Accept(this);
   }
 
@@ -283,6 +285,10 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
 
   Node *HandleStringFormat(Node *orig, std::string_view fmt, List *args) {
     // Very simple string format just looking for {}.
+    // TODO: support (Target 0.2.0+)
+    //   * {variablename} for kw-args
+    //   * {1} numeric
+    //   * {} sequene without number.
     std::string assembled;
     size_t last_curly_pos = 0;
     size_t curly_pos;
