@@ -138,6 +138,15 @@ of these and print the final form - here you see the filenames are now expanded:
 bant print -e @googletest//:gtest
 ```
 
+In general, evaluation is very limited right now and only does some
+transformations that are immediately useful for dependency analysis, such
+as globbing files, variable expansion and some list comprehension. That is
+why it's called elaboration not evaluation right now :).
+
+(With `-b`, bant [builtin-macros](./bant/builtin-macros.bnt) are also expanded;
+these are usually used internally for `dwyu` to better see through dependencies,
+so might be useful when debugging these).
+
 As targets to print, the usual bazel patterns apply, such as exact label names,
 `...`, or `:all`; also, some `*`-globbing label names is supported in the
 labels in a package (not in the path):
@@ -153,9 +162,9 @@ strings in the AST of a rule matches a pattern.
 bant print ... -g "scan.*test"
 ```
 
-The output contains the full rule matching the grep result, highlighted text
-if output `isatty()`, the BUILD file and location where it is found, the
-fully qualified name of the target as well as visibility.
+The output contains the full rule matching the grep pattern, highlighted text
+if output `isatty()`, the BUILD file, and location where it is found, the
+fully qualified name of the target, as well as visibility.
 
 ![print grep output](img/grep-print.png)
 
@@ -196,6 +205,9 @@ resides.
 bant list-targets //...     # list all targets of current project
 bant list-targets -r //...  # also recursively following all dependencies
 ```
+
+If `-b` is given, the built-in macros are applied, so special rules are
+expanded, making more obscure rules become `genrule` and `cc_library`.
 
 #### list-leafs
 Like `list-targets`, but just print targets that are not mentioned in any
@@ -241,8 +253,8 @@ $ bant has-dependent bant/frontend:parser -fs
 ### lib-headers
 
 Use **`lib-headers`** if you want to know the library to depend on
-for a particular header file. Or, automatically update your BUILD
-files with `dwyu`.
+for a particular header file. Useful to manually figure out what dependency
+to include (alternatively: use `dwyu` to do that automatically).
 
 ### Canonicalize
 
@@ -319,7 +331,7 @@ want this feature to be active; if you're on a fast SSD, no need for it).
 ### Synopsis
 
 ```
-bant v0.1.14 <http://bant.build/>
+bant v0.1.14+ <http://bant.build/>
 Copyright (c) 2024-2025 Henner Zeller. This program is free software; GPL 3.0.
 Usage: bant [options] <command> [bazel-target-pattern...]
 Options
@@ -344,6 +356,7 @@ Commands (unique prefix sufficient):
     == Parsing ==
     print          : Print AST matching pattern. -E : only files w/ parse errors
                       -e : elaborate; light eval: expand variables, concat etc.
+                      -b : elaborate with built-in macro expansion.
                       -g <regex> : 'grep' - only print targets where any string
                                     matches regex.
                       -i If '-g' is given: case insensitive
@@ -362,8 +375,7 @@ Commands (unique prefix sufficient):
                      → 2 column table: (buildfile, package)
     list-targets   : List BUILD file locations of rules with matching targets
                      → 3 column table: (buildfile:location, ruletype, target)
-    list-leafs     : Like list-targets, but only targets not mentioned
-                     in any deps=[].
+    list-leafs     : Show only targets not referenced anywhere.
                      → 3 column table: (buildfile:location, ruletype, target)
     aliased-by     : List targets and the various aliases pointing to it.
                      → 2 column table: (actual, alias*)
@@ -442,16 +454,21 @@ To get a useful compilation database for `clangd` to be happy, run
 scripts/make-compilation-db.sh
 ```
 
+(using bant itself to do so...)
+
 Before submit, run `scripts/before-submit.sh` ... and fix potential
 `clang-tidy` issues (or update `.clang-tidy` if it is not useful).
 
 ### Goals
   * **Goal**: Reading bazel-like BUILD files, and evaluating enough to
-    do useful things with content. Initial target C++ projects, but could be
-    expanded later.
+    do useful things with content as feature-needs require.
+    Initially for C++ projects, but could be expanded later.
 
   * **Non-Goal**: parse full starlark (e.g. *.bzl files with rule
-    `def`-initions)
+    `def`-initions). Our goal is to understand enough to be useful providing
+    the features. If needed, rather expand the way we process our built-in
+    macros and possibly have an offline-way to convert the *.bzl rules into
+    bant macros.
 
 [^1]: Build-dependency analog to what [Include What You Use](https://include-what-you-use.org/) is for source files.
 
