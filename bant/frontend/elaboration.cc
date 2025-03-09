@@ -174,6 +174,32 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
       }
       return bin_op;
     }
+
+      // Document all the ones not yet implemented
+    case kDivide:
+    case kFloorDivide:
+    case kPercent:
+    case kPipeOrBitwiseOr:
+    case kAnd:
+    case kOr:
+    case kLessThan:
+    case kLessEqual:
+    case kEqualityComparison:
+    case kGreaterEqual:
+    case kGreaterThan:
+    case kNotEqual:
+    case kNotIn: {
+      // TODO: implement. So far only implemention of ops observed in the
+      // field. For that observation and choose priority: turn on this log :)
+      // Looks like next candidate might be '%' for formatting...
+      if (session_.flags().verbose > 1) {
+        project_->Loc(session_.info(), bin_op->source_range())
+          << "Op `" << bin_op->op() << "` not implemented yet.\n";
+      }
+    }
+      [[fallthrough]];
+    case kIn:  // Strange: this should be handled by list comprehension.
+      [[fallthrough]];
     default: return bin_op;
     }
   }
