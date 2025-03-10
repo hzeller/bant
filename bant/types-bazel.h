@@ -58,9 +58,6 @@ struct BazelPackage {
                                  std::string_view relative_file) const;
 
   auto operator<=>(const BazelPackage &o) const = default;
-  bool operator<(const BazelPackage &) const = default;
-  bool operator==(const BazelPackage &) const = default;
-  bool operator!=(const BazelPackage &) const = default;
 };
 
 inline std::ostream &operator<<(std::ostream &o, const BazelPackage &p) {
@@ -87,9 +84,6 @@ class BazelTarget {
   std::string ToStringRelativeTo(const BazelPackage &other_package) const;
 
   auto operator<=>(const BazelTarget &o) const = default;
-  bool operator<(const BazelTarget &) const = default;
-  bool operator==(const BazelTarget &) const = default;
-  bool operator!=(const BazelTarget &) const = default;
 
  private:
   friend BazelPackage;
