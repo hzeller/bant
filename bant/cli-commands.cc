@@ -35,6 +35,7 @@
 #include "bant/session.h"
 #include "bant/types-bazel.h"
 #include "bant/types.h"
+#include "bant/util/stat.h"
 #include "bant/util/table-printer.h"
 #include "bant/workspace.h"
 
@@ -129,9 +130,13 @@ CliStatus RunCommand(Session &session, Command cmd,
 
   bant::ParsedProject project(workspace, flags.verbose);
   if (NeedsProjectPopulated(cmd, patterns)) {
-    if (project.FillFromPattern(session, dep_pattern) == 0) {
+    Stat &stats = session.GetStatsFor("Initial load from pattern", "packages");
+    const ScopedTimer timer(&stats.duration);
+    const int packages_added = project.FillFromPattern(session, dep_pattern);
+    if (packages_added == 0) {
       session.error() << "Pattern did not match any dir with BUILD file.\n";
     }
+    stats.count += packages_added;
   }
 
   if (flags.recurse_dependency_depth <= 0 &&
