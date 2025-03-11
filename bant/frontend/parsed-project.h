@@ -79,10 +79,14 @@ class ParsedProject : public SourceLocator {
   // Returns number of build-files added.
   int FillFromPattern(Session &session, const BazelPatternBundle &bundle);
 
-  // Parse build file for given package reading from filename.
-  ParsedBuildFile *AddBuildFile(Session &session,
-                                const FilesystemPath &build_file,
-                                const BazelPackage &package);
+  // Given package and content, parse. Main workhorse.
+  // Content is std::move()'d thus by value.
+  // "read_stat" contains information how long it took to aquire content.
+  ParsedBuildFile *AddBuildFileContent(Session &session,
+                                       const BazelPackage &package,
+                                       std::string_view filename,
+                                       std::string content,
+                                       const Stat &read_stat);
 
   // A map of Package -> ParsedBuildFile
   const Package2Parsed &ParsedFiles() const { return package_to_parsed_; }
@@ -123,15 +127,10 @@ class ParsedProject : public SourceLocator {
   ParsedBuildFile *AddBuildFile(Session &session,
                                 const FilesystemPath &build_file,
                                 std::string_view project);
-
-  // Given package and content, parse. Main workhorse.
-  // Content is std::move()'d thus by value.
-  // "read_stat" contains information how long it took to aquire content.
-  ParsedBuildFile *AddBuildFileContent(Session &session,
-                                       const BazelPackage &package,
-                                       std::string_view filename,
-                                       std::string content,
-                                       const Stat &read_stat);
+  // Parse build file for given package reading from filename.
+  ParsedBuildFile *AddBuildFile(Session &session,
+                                const FilesystemPath &build_file,
+                                const BazelPackage &package);
 
   // Set content of bant file defining the maccros to be found in FindMacro().
   // Typically, this will only happen once with the built-in macros, but

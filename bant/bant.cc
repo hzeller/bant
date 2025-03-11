@@ -191,7 +191,7 @@ int main(int argc, char *argv[]) {
     {"json", OutputFormat::kJSON},     {"graphviz", OutputFormat::kGraphviz},
   };
   int opt;
-  while ((opt = getopt(argc, argv, "C:qo:vhpEecbf:r::Vkg:i")) != -1) {
+  while ((opt = getopt(argc, argv, "C:qo:vhpEecbf:r::Vkg:iT:")) != -1) {
     switch (opt) {
     case 'C': {
       std::error_code err;
@@ -248,6 +248,7 @@ int main(int argc, char *argv[]) {
       }
       flags.output_format = found->second;
     } break;
+    case 'T': flags.io_threads = atoi(optarg); break;
     case 'v': flags.verbose++; break;  // More -v, more detail.
     case 'V': return print_version();
     default: return usage(argv[0], nullptr, EXIT_SUCCESS);

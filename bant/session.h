@@ -57,6 +57,7 @@ struct CommandlineFlags {
   bool ignore_keep_comment = false;
   int recurse_dependency_depth = 0;
   OutputFormat output_format = OutputFormat::kNative;
+  int io_threads = 0;  // <= 0: synchronous operation.
   std::string grep_regex;
   bool do_color = false;
   // https://bazel.build/docs/configurable-attributes#custom-flags

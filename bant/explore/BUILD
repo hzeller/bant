@@ -20,6 +20,7 @@ cc_library(
         "//bant/util:file-utils",
         "//bant/util:stat",
         "//bant/util:table-printer",
+        "//bant/util:thread-pool",
     ],
 )
 

@@ -41,6 +41,7 @@ struct DependencyGraph {
 //
 // If TargetIngraphcallback is non-null, will inform the caller about which
 // targets were walked, including details.
+// Uses threads for io operations if specified in the session flags.
 using TargetInGraphCallback =
   std::function<void(const BazelTarget &target, const query::Result &details)>;
 DependencyGraph BuildDependencyGraph(Session &session,
