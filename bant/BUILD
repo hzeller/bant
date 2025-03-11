@@ -103,6 +103,7 @@ cc_library(
         "//bant/frontend:parser",
         "//bant/util:file-utils",
         "//bant/util:memory",
+        "//bant/util:stat",
         "@abseil-cpp//absl/strings",
     ],
 )

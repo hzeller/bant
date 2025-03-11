@@ -28,11 +28,11 @@ std::string Stat::ToString() const {
   const int64_t duration_usec = absl::ToInt64Microseconds(duration);
   if (bytes_processed.has_value() && duration_usec > 0) {
     const float megabyte_per_sec = 1.0f * *bytes_processed / duration_usec;
-    return absl::StrFormat("%d %s with %.2f KiB in %.3fms (%.2f MB/sec)", count,
-                           subject, *bytes_processed / 1024,
+    return absl::StrFormat("%4d %s with %.2f KiB in %8.3fms (%7.2f MB/sec)",
+                           count, subject, *bytes_processed / 1024,
                            duration_usec / 1000.0, megabyte_per_sec);
   }
-  return absl::StrFormat("%d %s in %.3fms", count, subject,
+  return absl::StrFormat("%4d %s in %.3fms", count, subject,
                          duration_usec / 1000.0);
 }
 }  // namespace bant

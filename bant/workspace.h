@@ -71,7 +71,8 @@ std::optional<BazelWorkspace> LoadWorkspace(Session &session);
 // WORKSPACE or MODULE.bazel.
 // Do some fallback by checking the directories these projects end up.
 // (Stored with lower stratum kDirectoryFound)
-bool BestEffortAugmentFromExternalDir(BazelWorkspace &workspace);
+bool BestEffortAugmentFromExternalDir(Session &session,
+                                      BazelWorkspace &workspace);
 
 }  // namespace bant
 

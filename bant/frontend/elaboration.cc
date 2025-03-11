@@ -502,7 +502,7 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     const std::vector<std::string_view> &exclude) {
     CHECK(!start_dir.empty());
     bant::Stat &glob_stats =
-      session_.GetStatsFor("  - glob() walking", "files");
+      session_.GetStatsFor("  - glob() walk ", "files");
     const ScopedTimer timer(&glob_stats.duration);
 
     GlobMatchBuilder match_builder;

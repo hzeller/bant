@@ -19,7 +19,6 @@
 
 #include <cstdlib>
 #include <iterator>
-#include <limits>
 #include <map>
 #include <span>
 #include <string>
@@ -113,7 +112,7 @@ CliStatus RunCommand(Session &session, Command cmd,
     return CliStatus::kExitFailure;
   }
   if (kAugmentWorkspacdFromDirectoryStructure) {
-    BestEffortAugmentFromExternalDir(workspace_or.value());
+    BestEffortAugmentFromExternalDir(session, workspace_or.value());
   }
   const bant::BazelWorkspace &workspace = workspace_or.value();
 

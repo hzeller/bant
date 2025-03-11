@@ -35,6 +35,7 @@
 #include "bant/session.h"
 #include "bant/util/arena.h"
 #include "bant/util/file-utils.h"
+#include "bant/util/stat.h"
 
 namespace bant {
 
@@ -76,8 +77,13 @@ std::optional<FilesystemPath> BazelWorkspace::FindPathByProject(
   return found->second;
 }
 
-bool BestEffortAugmentFromExternalDir(BazelWorkspace &workspace) {
-  bool any_found = false;
+bool BestEffortAugmentFromExternalDir(Session &session,
+                                      BazelWorkspace &workspace) {
+  bant::Stat &workspace_stats =
+    session.GetStatsFor("Augment workspace from ext. dir", "directories");
+  const ScopedTimer timer(&workspace_stats.duration);
+
+  int found_count = 0;
   const std::string pattern = absl::StrCat(kExternalBaseDir, "/*");
   for (const FilesystemPath &project_dir : Glob(pattern)) {
     if (!project_dir.is_directory()) continue;
@@ -86,20 +92,21 @@ bool BestEffortAugmentFromExternalDir(BazelWorkspace &workspace) {
     if (!project_or) continue;
     // If there is any version of that project already, don't bother.
     if (!workspace.FindPathByProject(project_or->project)) {
-      any_found = true;
+      found_count++;
       project_or->stratum = VersionedProject::Stratum::kDirectoryFound;
       workspace.project_location[*project_or] = project_dir;
     }
   }
-  return any_found;
+  workspace_stats.count += found_count;
+  return found_count > 0;
 }
 
-static bool LoadWorkspaceFromFile(Session &session,
-                                  const FilesystemPath &ws_file,
-                                  std::ostream &msg_stream,
-                                  BazelWorkspace *workspace) {
+static int LoadWorkspaceFromFile(Session &session,
+                                 const FilesystemPath &ws_file,
+                                 std::ostream &msg_stream,
+                                 BazelWorkspace *workspace) {
   const std::optional<std::string> content = ReadFileToString(ws_file);
-  if (!content.has_value()) return false;
+  if (!content.has_value()) return 0;
 
   // TODO: maybe store the names_content for later use to be able to point
   // to specific places something is declared.
@@ -108,8 +115,9 @@ static bool LoadWorkspaceFromFile(Session &session,
   Scanner scanner(named_content);
   Parser parser(&scanner, &arena, session.info());
   Node *ast = parser.parse();
-  if (!ast) return false;
+  if (!ast) return 0;
 
+  int count_added = 0;
   query::FindTargets(
     ast, {"http_archive", "bazel_dep"}, [&](const query::Result &result) {
       // Sometimes, the version is attached to the dirs (bazel 6), somtimes
@@ -158,15 +166,20 @@ static bool LoadWorkspaceFromFile(Session &session,
         project.version = *version;
       }
       workspace->project_location[project] = path;
+      count_added++;
       // TODO: if this is a repo_name alias, would we ever need the original
       // name stored with a different (less authoritative) stratum ?
     });
 
-  return true;
+  return count_added;
 }
 
 std::optional<BazelWorkspace> LoadWorkspace(Session &session) {
-  bool workspace_found = false;
+  bant::Stat &workspace_stats =
+    session.GetStatsFor("Load workspace from file       ", "modules");
+  const ScopedTimer timer(&workspace_stats.duration);
+
+  int workspace_found = 0;
   BazelWorkspace workspace;
 
   constexpr std::array<std::string_view, 4> ws_files = {
@@ -181,7 +194,7 @@ std::optional<BazelWorkspace> LoadWorkspace(Session &session) {
     const std::string_view ws = ws_files[i];
     std::ostream &msg_stream = i < 2 ? old_workspace_msg : new_workspace_msg;
 
-    workspace_found |= LoadWorkspaceFromFile(session, FilesystemPath(ws),
+    workspace_found += LoadWorkspaceFromFile(session, FilesystemPath(ws),
                                              msg_stream, &workspace);
   }
 
@@ -195,6 +208,7 @@ std::optional<BazelWorkspace> LoadWorkspace(Session &session) {
                       "to extract external projects\n";
   }
   if (!workspace_found) return std::nullopt;
+  workspace_stats.count += workspace_found;
   return workspace;
 }
 }  // namespace bant
