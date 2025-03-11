@@ -72,6 +72,12 @@ cc_test(
 )
 
 cc_library(
+    name = "thread-pool",
+    srcs = ["thread-pool.cc"],
+    hdrs = ["thread-pool.h"],
+)
+
+cc_library(
     name = "file-utils",
     srcs = [
         "file-utils.cc",
@@ -83,6 +89,7 @@ cc_library(
     ],
     deps = [
         ":stat",
+        ":thread-pool",
         "@abseil-cpp//absl/cleanup",
         "@abseil-cpp//absl/container:flat_hash_set",
         "@abseil-cpp//absl/strings",

@@ -20,80 +20,25 @@
 #include <dirent.h>
 #include <unistd.h>
 
-#include <condition_variable>
 #include <cstdint>
 #include <cstdlib>
-#include <deque>
 #include <filesystem>
 #include <fstream>
 #include <functional>
 #include <ios>
 #include <memory>
-#include <mutex>
 #include <string>
 #include <string_view>
 #include <system_error>
-#include <thread>
-#include <vector>
 
 #include "absl/container/flat_hash_set.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
+#include "bant/util/thread-pool.h"
 
 namespace bant {
 namespace {
 static constexpr int kPrewarmParallelism = 32;
-
-// Simplistic thread-pool.
-class ThreadPool {
- public:
-  explicit ThreadPool(int count) {
-    while (count--) {
-      threads_.push_back(new std::thread(&ThreadPool::Runner, this));
-    }
-  }
-
-  ~ThreadPool() {
-    CancelAllWork();
-    for (std::thread *t : threads_) {
-      t->join();
-      delete t;
-    }
-  }
-
-  void ExecAsync(const std::function<void()> &fun) {
-    lock_.lock();
-    work_queue_.push_back(fun);
-    lock_.unlock();
-    cv_.notify_one();
-  }
-
-  void CancelAllWork() {
-    lock_.lock();
-    exiting_ = true;
-    lock_.unlock();
-    cv_.notify_all();
-  }
-
- private:
-  void Runner() {
-    for (;;) {
-      std::unique_lock<std::mutex> l(lock_);
-      cv_.wait(l, [this]() { return !work_queue_.empty() || exiting_; });
-      if (exiting_) return;
-      auto process_work_item = work_queue_.front();
-      work_queue_.pop_front();
-      l.unlock();
-      process_work_item();
-    }
-  }
-
-  std::vector<std::thread *> threads_;
-  std::mutex lock_;
-  std::condition_variable cv_;
-  std::deque<std::function<void()>> work_queue_;
-  bool exiting_ = false;
-};
 
 class FilesystemPrewarmCache {
  public:
@@ -129,22 +74,30 @@ void FilesystemPrewarmCache::InitCacheFile(const std::string &cache_file) {
       if (line.length() < 2) continue;
       const char type = line[0];
       if (type == 'F') {
-        pool_->ExecAsync([line]() {
+        const std::function<bool()> access_file_fun = [line]() -> bool {
           const int discard [[maybe_unused]] = access(line.c_str() + 1, F_OK);
-        });
+          return true;
+        };
+        (void)pool_->ExecAsync(access_file_fun);
       } else if (type == 'D') {
-        pool_->ExecAsync([line]() {
+        const std::function<bool()> opendir_fun = [line]() {
           DIR *const dir = opendir(line.c_str() + 1);
           if (dir) {
             const auto *discard [[maybe_unused]] = readdir(dir);  // force first
             closedir(dir);
           }
-        });
+          return true;
+        };
+        (void)pool_->ExecAsync(opendir_fun);
       }
     }
 
-    // As last operation, let's shutdown ourselves.
-    pool_->ExecAsync([this]() { pool_->CancelAllWork(); });
+    // Last action: finish threadss
+    const std::function<bool()> finish = [this]() {
+      pool_->CancelAllWork();
+      return true;
+    };
+    (void)pool_->ExecAsync(finish);
   }
   input.close();
 
