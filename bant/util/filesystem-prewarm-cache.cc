@@ -27,10 +27,12 @@
 #include <functional>  // for std::hash
 #include <ios>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <string_view>
 #include <system_error>
 
+#include "absl/base/thread_annotations.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
@@ -56,12 +58,14 @@ class FilesystemPrewarmCache {
  private:
   void WritePrefixed(char prefix, std::string_view f) {
     if (!writer_) return;
+    const std::unique_lock<std::mutex> l(write_lock_);
     if (!already_seen_.insert(std::string{f}).second) return;
     *writer_ << prefix << f << "\n";
   }
 
+  std::mutex write_lock_;
   std::unique_ptr<std::fstream> writer_;
-  absl::flat_hash_set<std::string> already_seen_;
+  absl::flat_hash_set<std::string> already_seen_ ABSL_GUARDED_BY(write_lock_);
   std::unique_ptr<ThreadPool> pool_;
 };
 

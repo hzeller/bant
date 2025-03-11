@@ -101,6 +101,7 @@ cc_library(
     deps = [
         ":stat",
         ":thread-pool",
+        "@abseil-cpp//absl/base:core_headers",
         "@abseil-cpp//absl/cleanup",
         "@abseil-cpp//absl/container:flat_hash_set",
         "@abseil-cpp//absl/strings",
