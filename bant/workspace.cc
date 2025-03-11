@@ -101,12 +101,12 @@ bool BestEffortAugmentFromExternalDir(Session &session,
   return found_count > 0;
 }
 
-static int LoadWorkspaceFromFile(Session &session,
-                                 const FilesystemPath &ws_file,
-                                 std::ostream &msg_stream,
-                                 BazelWorkspace *workspace) {
+static std::optional<int> LoadWorkspaceFromFile(Session &session,
+                                                const FilesystemPath &ws_file,
+                                                std::ostream &msg_stream,
+                                                BazelWorkspace *workspace) {
   const std::optional<std::string> content = ReadFileToString(ws_file);
-  if (!content.has_value()) return 0;
+  if (!content.has_value()) return std::nullopt;
 
   // TODO: maybe store the names_content for later use to be able to point
   // to specific places something is declared.
@@ -115,7 +115,7 @@ static int LoadWorkspaceFromFile(Session &session,
   Scanner scanner(named_content);
   Parser parser(&scanner, &arena, session.info());
   Node *ast = parser.parse();
-  if (!ast) return 0;
+  if (!ast) return std::nullopt;
 
   int count_added = 0;
   query::FindTargets(
@@ -190,12 +190,16 @@ std::optional<BazelWorkspace> LoadWorkspace(Session &session) {
   std::stringstream old_workspace_msg;
   std::stringstream new_workspace_msg;
 
+  bool any_success = false;
   for (size_t i = 0; i < ws_files.size(); ++i) {
     const std::string_view ws = ws_files[i];
     std::ostream &msg_stream = i < 2 ? old_workspace_msg : new_workspace_msg;
 
-    workspace_found += LoadWorkspaceFromFile(session, FilesystemPath(ws),
-                                             msg_stream, &workspace);
+    auto count_or = LoadWorkspaceFromFile(session, FilesystemPath(ws),
+                                          msg_stream, &workspace);
+    if (!count_or.has_value()) continue;
+    any_success = true;
+    workspace_found += *count_or;
   }
 
   // Only if there are issues in old _and_ new workspace set-up, it indicates
@@ -207,7 +211,7 @@ std::optional<BazelWorkspace> LoadWorkspace(Session &session) {
     session.info() << "Note: need to run a bazel build at least once "
                       "to extract external projects\n";
   }
-  if (!workspace_found) return std::nullopt;
+  if (!any_success) return std::nullopt;
   workspace_stats.count += workspace_found;
   return workspace;
 }
