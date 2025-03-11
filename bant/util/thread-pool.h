@@ -28,6 +28,7 @@
 
 namespace bant {
 // Simple thread-pool.
+//
 // Passing in functions, returning futures.
 //
 // Why not use std::async() ? That standard is so generic and vaguely
@@ -49,23 +50,25 @@ class ThreadPool {
   // As a special case: if initialized with no threads, the function is
   // executed synchronously.
   template <class T>
-  [[nodiscard]] std::future<T> ExecAsync(const std::function<T()> &f) {
+  [[nodiscard]] std::future<T> ExecAsync(const std::function<T()> &fun) {
     auto *p = new std::promise<T>();
     std::future<T> future_result = p->get_future();
     // NOLINT, as clang-tidy assumes memory leak where is none.
-    auto promise_fulfiller = [p, f]() {  // NOLINT
-      p->set_value(f());
+    auto promise_fulfiller = [p, fun]() {  // NOLINT
+      p->set_value(fun());
       delete p;
     };
-    EnqueueWork(promise_fulfiller);
+    ExecAsync(promise_fulfiller);
     return future_result;
   }
+
+  // Functions without return value.
+  void ExecAsync(const std::function<void()> &fun);
 
   void CancelAllWork();
 
  private:
   void Runner();
-  void EnqueueWork(const std::function<void()> &work);
 
   std::vector<std::thread *> threads_;
   std::mutex lock_;

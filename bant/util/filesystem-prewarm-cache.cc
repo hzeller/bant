@@ -24,7 +24,7 @@
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
-#include <functional>
+#include <functional>  // for std::hash
 #include <ios>
 #include <memory>
 #include <string>
@@ -74,30 +74,23 @@ void FilesystemPrewarmCache::InitCacheFile(const std::string &cache_file) {
       if (line.length() < 2) continue;
       const char type = line[0];
       if (type == 'F') {
-        const std::function<bool()> access_file_fun = [line]() -> bool {
+        pool_->ExecAsync([line]() {
           const int discard [[maybe_unused]] = access(line.c_str() + 1, F_OK);
-          return true;
-        };
-        (void)pool_->ExecAsync(access_file_fun);
+        });
       } else if (type == 'D') {
-        const std::function<bool()> opendir_fun = [line]() {
+        pool_->ExecAsync([line]() {
           DIR *const dir = opendir(line.c_str() + 1);
           if (dir) {
             const auto *discard [[maybe_unused]] = readdir(dir);  // force first
             closedir(dir);
           }
           return true;
-        };
-        (void)pool_->ExecAsync(opendir_fun);
+        });
       }
     }
 
     // Last action: finish threadss
-    const std::function<bool()> finish = [this]() {
-      pool_->CancelAllWork();
-      return true;
-    };
-    (void)pool_->ExecAsync(finish);
+    pool_->ExecAsync([this]() { pool_->CancelAllWork(); });
   }
   input.close();
 

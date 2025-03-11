@@ -50,15 +50,15 @@ void ThreadPool::Runner() {
   }
 }
 
-void ThreadPool::EnqueueWork(const std::function<void()> &work) {
+void ThreadPool::ExecAsync(const std::function<void()> &fun) {
   if (threads_.empty()) {
-    work();  // synchronous execution
+    fun();  // synchronous execution
     return;
   }
 
   {
     const std::unique_lock<std::mutex> l(lock_);
-    work_queue_.emplace_back(work);
+    work_queue_.emplace_back(fun);
   }
   cv_.notify_one();
 }

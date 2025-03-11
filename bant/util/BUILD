@@ -77,6 +77,17 @@ cc_library(
     hdrs = ["thread-pool.h"],
 )
 
+cc_test(
+    name = "thread-pool_test",
+    srcs = ["thread-pool_test.cc"],
+    deps = [
+        ":thread-pool",
+        "@abseil-cpp//absl/time",
+        "@googletest//:gtest",
+        "@googletest//:gtest_main",
+    ],
+)
+
 cc_library(
     name = "file-utils",
     srcs = [
