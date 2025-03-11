@@ -24,6 +24,14 @@
 #include "absl/time/time.h"
 
 namespace bant {
+void Stat::Add(const Stat &other) {
+  count += other.count;
+  duration += other.duration;
+  if (other.bytes_processed.has_value()) {
+    AddBytesProcessed(*other.bytes_processed);
+  }
+}
+
 std::string Stat::ToString() const {
   const int64_t duration_usec = absl::ToInt64Microseconds(duration);
   if (bytes_processed.has_value() && duration_usec > 0) {

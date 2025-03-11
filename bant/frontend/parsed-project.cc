@@ -163,38 +163,31 @@ ParsedBuildFile *ParsedProject::AddBuildFile(Session &session,
 ParsedBuildFile *ParsedProject::AddBuildFile(Session &session,
                                              const FilesystemPath &build_file,
                                              const BazelPackage &package) {
-  Stat &fread_stat = session.GetStatsFor("read(BUILD)      ", "BUILD files");
-  Stat &parse_stat = session.GetStatsFor("Parse & build AST", "BUILD files");
-  std::optional<std::string> content;
-  {
-    const ScopedTimer timer(&fread_stat.duration);
-    content = ReadFileToString(build_file);
-    ++fread_stat.count;
-  }
+  Stat open_and_read_stat;
+  std::optional<std::string> content =
+    ReadFileToStringUpdateStat(build_file, open_and_read_stat);
   if (!content.has_value()) {
-    std::cerr << "Could not read " << build_file.path() << "\n";
+    session.info() << "Could not read " << build_file.path() << "\n";
     ++error_count_;
     return nullptr;
   }
 
-  const ScopedTimer timer(&parse_stat.duration);
-  ParsedBuildFile *result = AddBuildFileContent(session.streams(),  //
-                                                package,
-                                                build_file.path(),  //
-                                                std::move(*content));
-  if (!result) return nullptr;
-
-  ++parse_stat.count;
-  const size_t processed = result->source_.size();
-  parse_stat.AddBytesProcessed(processed);
-  fread_stat.AddBytesProcessed(processed);
-  return result;
+  return AddBuildFileContent(session, package,
+                             build_file.path(),  //
+                             std::move(*content), open_and_read_stat);
 }
 
-ParsedBuildFile *ParsedProject::AddBuildFileContent(SessionStreams &message_out,
+ParsedBuildFile *ParsedProject::AddBuildFileContent(Session &session,
                                                     const BazelPackage &package,
                                                     std::string_view filename,
-                                                    std::string content) {
+                                                    std::string content,
+                                                    const Stat &read_stat) {
+  Stat &fread_stat = session.GetStatsFor("read(BUILD)      ", "BUILD files");
+  fread_stat.Add(read_stat);
+
+  Stat &parse_stat = session.GetStatsFor("Parse & build AST", "BUILD files");
+  const ScopedTimer timer(&parse_stat.duration);
+
   auto inserted = package_to_parsed_.emplace(
     package, new ParsedBuildFile(filename, std::move(content)));
 
@@ -202,9 +195,9 @@ ParsedBuildFile *ParsedProject::AddBuildFileContent(SessionStreams &message_out,
     ParsedBuildFile *existing = inserted.first->second.get();
     // Should typically not happen, but maybe both BUILD and BUILD.bazel are
     // there ? Report for the user to figure out.
-    message_out.info() << filename << ": Package " << package
-                       << " already seen before in "
-                       << existing->source_.source_name() << "\n";
+    session.info() << filename << ": Package " << package
+                   << " already seen before in "
+                   << existing->source_.source_name() << "\n";
     return existing;
   }
 
@@ -215,12 +208,18 @@ ParsedBuildFile *ParsedProject::AddBuildFileContent(SessionStreams &message_out,
   parse_result.ast = parser.parse();
   parse_result.errors = error_collect.str();
   if (parser.parse_error()) {
-    message_out.error() << error_collect.str();
+    session.error() << error_collect.str();
     ++error_count_;
   }
   parse_result.package = package;
 
   RegisterLocationRange(parse_result.source_.content(), &parse_result.source_);
+
+  ++parse_stat.count;
+  const size_t processed = parse_result.source_.size();
+  parse_stat.AddBytesProcessed(processed);
+  fread_stat.AddBytesProcessed(processed);
+
   return inserted.first->second.get();
 }
 

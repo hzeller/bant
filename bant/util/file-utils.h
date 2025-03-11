@@ -27,6 +27,8 @@
 #include <string_view>
 #include <vector>
 
+#include "bant/util/stat.h"
+
 namespace bant {
 
 // This is a replacement for std::filesyste::path which seems to do a lot
@@ -78,6 +80,10 @@ std::vector<FilesystemPath> Glob(std::string_view glob_pattern);
 // Given a filename, read the content of the file into a string. If there was
 // an error, return a nullopt.
 std::optional<std::string> ReadFileToString(const FilesystemPath &filename);
+
+// Same, but update read time and count of stat
+std::optional<std::string> ReadFileToStringUpdateStat(
+  const FilesystemPath &filename, Stat &stat);
 
 // Collect files found recursively (BFS) and return.
 // Uses predicate "want_dir_p" to check if directory should be entered, and

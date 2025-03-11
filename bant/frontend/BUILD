@@ -137,6 +137,7 @@ cc_library(
         ":parsed-project",
         "//bant:session",
         "//bant:types-bazel",
+        "//bant/util:stat",
         "@abseil-cpp//absl/log:check",
         "@abseil-cpp//absl/strings",
     ],

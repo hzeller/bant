@@ -28,6 +28,7 @@
 #include "bant/frontend/parsed-project.h"
 #include "bant/session.h"
 #include "bant/types-bazel.h"
+#include "bant/util/stat.h"
 
 namespace bant {
 class ParsedProjectTestUtil {
@@ -38,10 +39,11 @@ class ParsedProjectTestUtil {
                              std::string_view content) {
     auto package_or = BazelPackage::ParseFrom(package_str);
     if (!package_or.has_value()) return nullptr;
-    SessionStreams streams(&std::cerr, &std::cerr);
+    Session session(&std::cerr, &std::cerr, {});
+    const Stat empty_stat;
     const std::string fake_filename = absl::StrCat(package_str, "/BUILD");
-    return project_.AddBuildFileContent(streams, *package_or, fake_filename,
-                                        std::string(content));
+    return project_.AddBuildFileContent(session, *package_or, fake_filename,
+                                        std::string(content), empty_stat);
   }
 
   // The project.

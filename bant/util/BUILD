@@ -82,6 +82,7 @@ cc_library(
         "filesystem-prewarm-cache.h",
     ],
     deps = [
+        ":stat",
         "@abseil-cpp//absl/cleanup",
         "@abseil-cpp//absl/container:flat_hash_set",
         "@abseil-cpp//absl/strings",

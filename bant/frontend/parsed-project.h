@@ -35,6 +35,7 @@
 #include "bant/util/arena.h"
 #include "bant/util/disjoint-range-map.h"
 #include "bant/util/file-utils.h"
+#include "bant/util/stat.h"
 #include "bant/workspace.h"
 
 namespace bant {
@@ -123,12 +124,14 @@ class ParsedProject : public SourceLocator {
                                 const FilesystemPath &build_file,
                                 std::string_view project);
 
-  // Given package and content, parse. Main workhorse. Content is std::move()'d
-  // thus by value.
-  ParsedBuildFile *AddBuildFileContent(SessionStreams &message_out,
+  // Given package and content, parse. Main workhorse.
+  // Content is std::move()'d thus by value.
+  // "read_stat" contains information how long it took to aquire content.
+  ParsedBuildFile *AddBuildFileContent(Session &session,
                                        const BazelPackage &package,
                                        std::string_view filename,
-                                       std::string content);
+                                       std::string content,
+                                       const Stat &read_stat);
 
   // Set content of bant file defining the maccros to be found in FindMacro().
   // Typically, this will only happen once with the built-in macros, but

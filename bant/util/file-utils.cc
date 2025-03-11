@@ -36,6 +36,7 @@
 #include "absl/cleanup/cleanup.h"
 #include "absl/container/flat_hash_set.h"
 #include "bant/util/filesystem-prewarm-cache.h"
+#include "bant/util/stat.h"
 
 namespace bant {
 FilesystemPath::FilesystemPath(std::string_view path_up_to,
@@ -160,6 +161,17 @@ std::optional<std::string> ReadFileToString(const FilesystemPath &filename) {
   copy_file_to_buffer(const_cast<char *>(content.data()), filesize);
 #endif
   if (!success) return std::nullopt;
+  return content;
+}
+
+std::optional<std::string> ReadFileToStringUpdateStat(
+  const FilesystemPath &filename, Stat &fread_stat) {
+  std::optional<std::string> content;
+  const ScopedTimer timer(&fread_stat.duration);
+  content = ReadFileToString(filename);
+  if (content.has_value()) {
+    ++fread_stat.count;
+  }
   return content;
 }
 

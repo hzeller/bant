@@ -43,7 +43,11 @@ class ScopedTimer {
 
 struct Stat {
   explicit Stat(std::string_view subject) : subject(subject) {}
-  std::string_view subject;  // Descriptive name this stat is counting.
+
+  // Stat constructor without parameter should only be used for intermediate
+  // stats to be Add()-ed later.
+  Stat() : Stat("no-stat-subject") {}
+  const std::string_view subject;  // Descriptive name this stat is counting.
 
   int count = 0;
   absl::Duration duration;
@@ -57,6 +61,9 @@ struct Stat {
       bytes_processed = byte_count;
     }
   }
+
+  // Add a stat collected separately.
+  void Add(const Stat &other);
 
   // Print readable string with "subject" used to describe the count.
   std::string ToString() const;
