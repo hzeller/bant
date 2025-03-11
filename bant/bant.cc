@@ -85,10 +85,10 @@ static int usage(const char *prog, const char *message, int exit_code) {
                    : native (default), s-expr, plist, json, csv
                      Unique prefix ok, so -fs , -fp, -fj or -fc is sufficient.
     -r             : Follow dependencies recursively starting from pattern.
-                     Without parameter, follows dependencies to the end.
+                     Without numeric parameter, follows dependencies to the end.
                      An optional parameter allows to limit the nesting depth,
                      e.g. -r2 just follows two levels after the toplevel
-                     pattern. -r0 is equivalent to not providing -r.
+                     pattern.
     -v             : Verbose; print some stats. Multiple times: more verbose.
     -h             : This help.
     --//<option>   : configurable flag attribute to be used in select() and
@@ -133,6 +133,7 @@ Commands (unique prefix sufficient):
 
     %s== Tools ==%s
     dwyu           : DWYU: Depend on What You Use (emit buildozer edit script)
+                     Default invocation uses -r4
                       -k strict: emit remove even if # keep comment in line.
     canonicalize   : Emit rename edits to canonicalize targets.
     compile-flags  : (experimental) Emit compile flags. Redirect or output with

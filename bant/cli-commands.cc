@@ -137,7 +137,8 @@ CliStatus RunCommand(Session &session, Command cmd,
 
   if (flags.recurse_dependency_depth <= 0 &&
       (cmd == Command::kDWYU || cmd == Command::kHasDependents)) {
-    flags.recurse_dependency_depth = std::numeric_limits<int>::max();
+    constexpr int kReasonableDefaultDependencyDepth = 4;
+    flags.recurse_dependency_depth = kReasonableDefaultDependencyDepth;
   }
 
   if (cmd == Command::kDWYU ||  //
