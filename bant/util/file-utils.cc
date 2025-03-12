@@ -171,6 +171,7 @@ std::optional<std::string> ReadFileToStringUpdateStat(
   content = ReadFileToString(filename);
   if (content.has_value()) {
     ++fread_stat.count;
+    fread_stat.AddBytesProcessed(content->size());
   }
   return content;
 }

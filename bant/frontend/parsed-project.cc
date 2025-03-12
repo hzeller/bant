@@ -182,8 +182,7 @@ ParsedBuildFile *ParsedProject::AddBuildFileContent(Session &session,
                                                     std::string_view filename,
                                                     std::string content,
                                                     const Stat &read_stat) {
-  Stat &fread_stat = session.GetStatsFor("read(BUILD)      ", "BUILD files");
-  fread_stat.Add(read_stat);
+  session.GetStatsFor("read(BUILD)      ", "BUILD files").Add(read_stat);
 
   Stat &parse_stat = session.GetStatsFor("Parse & build AST", "BUILD files");
   const ScopedTimer timer(&parse_stat.duration);
@@ -218,7 +217,6 @@ ParsedBuildFile *ParsedProject::AddBuildFileContent(Session &session,
   ++parse_stat.count;
   const size_t processed = parse_result.source_.size();
   parse_stat.AddBytesProcessed(processed);
-  fread_stat.AddBytesProcessed(processed);
 
   return inserted.first->second.get();
 }
