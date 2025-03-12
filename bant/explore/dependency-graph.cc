@@ -290,29 +290,31 @@ DependencyGraph BuildDependencyGraph(Session &session,
             to_follow.push_back(result.actual);
           }
 
-          AsyncDepenedencyResults async_checked_deps;
-          // Possible file dependencies, maybe provided by genrules.
-          for (List *possible_dep : {result.hdrs_list, result.srcs_list}) {
-            AppendPossibleFileDependencies(
-              &io_thread_pool, possible_dep, project->workspace(),
-              current_package, generated_by_target,
-              /*fallback_is_target=*/false, async_checked_deps);
-          }
-
-          // data=[] and tools=[] dependencies could be both, files or targets.
-          for (List *possible_dep : {result.data_list, result.tools_list}) {
-            AppendPossibleFileDependencies(
-              &io_thread_pool, possible_dep, project->workspace(),
-              current_package, generated_by_target,
-              /*fallback_is_target=*/true, async_checked_deps);
-          }
-
-          // Harvest the result of async determined need to add dependency.
           {
             Stat &all = session.GetStatsFor("  - checked   ",
                                             "srcs/hdrs/data dependencies");
             const ScopedTimer timer(&all.duration);
+            AsyncDepenedencyResults async_checked_deps;
+            // Possible file dependencies, maybe provided by genrules.
+            for (List *possible_dep : {result.hdrs_list, result.srcs_list}) {
+              AppendPossibleFileDependencies(
+                &io_thread_pool, possible_dep, project->workspace(),
+                current_package, generated_by_target,
+                /*fallback_is_target=*/false, async_checked_deps);
+            }
+
+            // data=[] and tools=[] dependencies could be both, files or
+            // targets.
+            for (List *possible_dep : {result.data_list, result.tools_list}) {
+              AppendPossibleFileDependencies(
+                &io_thread_pool, possible_dep, project->workspace(),
+                current_package, generated_by_target,
+                /*fallback_is_target=*/true, async_checked_deps);
+            }
+
             all.count += async_checked_deps.size();
+
+            // Harvest the result of async determined need to add dependency.
             Stat &file_add = session.GetStatsFor("  - considered", "of them");
             for (auto &async_result : async_checked_deps) {
               std::optional<std::string_view> maybe_add = async_result.get();
