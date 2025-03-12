@@ -142,46 +142,60 @@ void PrintList(std::ostream &out, const char *msg, const Container &c) {
   out << "\n";
 }
 
+using MaybeDependency = std::optional<std::string_view>;
+using AsyncDepenedencyResults = std::vector<std::future<MaybeDependency>>;
+
 // Dependencies that can be
-//   * simply files that already exist in the source-tree: don't add
-//   * files, that are generated from genrules. Append genrule.
+//   * Simply files that already exist in the source-tree: Good, nothing to do.
+//   * Files, that are generated from genrules. Use genrule as dependency.
 //   * Otherwise: it might just be an existing target that we should find.
 //     (if "fallback_is_target", otherwise ignore"
+// This involves checking existence of files thus might be slow on network
+// file systems. Use io thread pool and add futures to "append_to".
+// (TODO: number of parameters get out of hand...)
 static void AppendPossibleFileDependencies(
-  List *list, const BazelWorkspace &workspace,
+  ThreadPool *io_thread_pool, List *list, const BazelWorkspace &workspace,
   const BazelPackage &context_package,
   const OneToOne<std::string, std::string> &generated_by_target,
-  bool fallback_is_target, std::vector<std::string_view> &append_to) {
+  bool fallback_is_target, AsyncDepenedencyResults &append_to) {
   for (const std::string_view path_or_label : query::ExtractStringList(list)) {
-    const std::string as_filename =
-      context_package.FullyQualifiedFile(workspace, path_or_label);
-    if (FilesystemPath(as_filename).can_read()) {
-      continue;  // quick check: regulsr file existing in source tree.
-    }
+    const auto is_relevant_dep = [path_or_label, &workspace, &context_package,
+                                  &generated_by_target,
+                                  fallback_is_target]() -> MaybeDependency {
+      const std::string as_filename =
+        context_package.FullyQualifiedFile(workspace, path_or_label);
+      if (FilesystemPath(as_filename).can_read()) {
+        return std::nullopt;  // physical file existing in source tree.
+      }
 
-    // Alright, let's resolve this as a target, as this is also
-    // a way to refer to a file.
-    const auto fqt = BazelTarget::ParseFrom(path_or_label, context_package);
-    if (!fqt.has_value()) {
-      continue;  // If not parseable as target it will also fail downstream.
-    }
+      // Alright, let's resolve this as a target, as this is also
+      // a way to refer to a file.
+      const auto fqt = BazelTarget::ParseFrom(path_or_label, context_package);
+      if (!fqt.has_value()) {
+        return std::nullopt;  // does not look like a label.
+      }
 
-    const FilesystemPath path_in_src_tree(fqt->package.path, fqt->target_name);
-    if (path_in_src_tree.can_read()) {
-      continue;  // Extracted from fully qualified name: looks like actual file.
-    }
+      const FilesystemPath path_in_src_tree(fqt->package.path,
+                                            fqt->target_name);
+      if (path_in_src_tree.can_read()) {
+        return std::nullopt;  // Looks like physical file.
+      }
 
-    // Not an existing file. Is it generated somewhere ?
-    auto found_genrule = generated_by_target.find(path_in_src_tree.path());
-    if (found_genrule != generated_by_target.end()) {
-      append_to.push_back(found_genrule->second);
-      continue;
-    }
+      // Not an existing file. Is it generated somewhere ?
+      auto found_genrule = generated_by_target.find(path_in_src_tree.path());
+      if (found_genrule != generated_by_target.end()) {
+        return found_genrule->second;
+      }
 
-    // Not generated. Let's assume this is a bazel label if requested.
-    if (fallback_is_target) {
-      append_to.push_back(path_or_label);
-    }
+      // Not generated. Let's assume this is a bazel label if requested.
+      if (fallback_is_target) {
+        return path_or_label;
+      }
+      return std::nullopt;
+    };
+
+    append_to.emplace_back(
+      io_thread_pool->ExecAsync<MaybeDependency>(is_relevant_dep));
   }
 }
 
@@ -272,25 +286,41 @@ DependencyGraph BuildDependencyGraph(Session &session,
 
           // deps=[]
           auto to_follow = query::ExtractStringList(result.deps_list);
+          if (!result.actual.empty()) {  // Follow aliases
+            to_follow.push_back(result.actual);
+          }
 
+          AsyncDepenedencyResults async_checked_deps;
           // Possible file dependencies, maybe provided by genrules.
           for (List *possible_dep : {result.hdrs_list, result.srcs_list}) {
-            AppendPossibleFileDependencies(possible_dep, project->workspace(),
-                                           current_package, generated_by_target,
-                                           /*fallback_is_target=*/false,
-                                           to_follow);
+            AppendPossibleFileDependencies(
+              &io_thread_pool, possible_dep, project->workspace(),
+              current_package, generated_by_target,
+              /*fallback_is_target=*/false, async_checked_deps);
           }
 
           // data=[] and tools=[] dependencies could be both, files or targets.
           for (List *possible_dep : {result.data_list, result.tools_list}) {
-            AppendPossibleFileDependencies(possible_dep, project->workspace(),
-                                           current_package, generated_by_target,
-                                           /*fallback_is_target=*/true,
-                                           to_follow);
+            AppendPossibleFileDependencies(
+              &io_thread_pool, possible_dep, project->workspace(),
+              current_package, generated_by_target,
+              /*fallback_is_target=*/true, async_checked_deps);
           }
 
-          if (!result.actual.empty()) {  // Follow aliases
-            to_follow.push_back(result.actual);
+          // Harvest the result of async determined need to add dependency.
+          {
+            Stat &all = session.GetStatsFor("  - checked   ",
+                                            "srcs/hdrs/data dependencies");
+            const ScopedTimer timer(&all.duration);
+            all.count += async_checked_deps.size();
+            Stat &file_add = session.GetStatsFor("  - considered", "of them");
+            for (auto &async_result : async_checked_deps) {
+              std::optional<std::string_view> maybe_add = async_result.get();
+              if (maybe_add.has_value()) {
+                to_follow.push_back(*maybe_add);
+                ++file_add.count;
+              }
+            }
           }
 
           std::vector<BazelTarget> &depends_on =
