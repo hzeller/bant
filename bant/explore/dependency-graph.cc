@@ -225,7 +225,8 @@ DependencyGraph BuildDependencyGraph(Session &session,
 
   NeedDependencyWithOneExample deps_to_resolve_todo;
 
-  Stat &stat = session.GetStatsFor("Dependency follow iterations", "rounds");
+  Stat &stat = session.GetStatsFor("Dependency follow iterations",
+                                   "rounds w/ elaboration");
   const ScopedTimer timer(&stat.duration);
 
   // TODO: the genrules should be expanded as we widen to other packages
@@ -290,9 +291,12 @@ DependencyGraph BuildDependencyGraph(Session &session,
             to_follow.push_back(result.actual);
           }
 
+          session.GetStatsFor("  - deps[] dependencies follow  ", "labels")
+            .count += to_follow.size();
+
           {
-            Stat &all = session.GetStatsFor("  - checked   ",
-                                            "srcs/hdrs/data dependencies");
+            Stat &all = session.GetStatsFor("  - checked srcs[],hdrs[],data[]",
+                                            "elements");
             const ScopedTimer timer(&all.duration);
             AsyncDepenedencyResults async_checked_deps;
             // Possible file dependencies, maybe provided by genrules.
@@ -315,7 +319,8 @@ DependencyGraph BuildDependencyGraph(Session &session,
             all.count += async_checked_deps.size();
 
             // Harvest the result of async determined need to add dependency.
-            Stat &file_add = session.GetStatsFor("  - considered", "of them");
+            Stat &file_add =
+              session.GetStatsFor("  - from these, deduced & follow", "labels");
             for (auto &async_result : async_checked_deps) {
               std::optional<std::string_view> maybe_add = async_result.get();
               if (maybe_add.has_value()) {
