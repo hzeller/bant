@@ -176,6 +176,19 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
       }
       return bin_op;  // Unimplemented op. Return as-is.
     }
+    case '*': {
+      {
+        Scalar *lhs = bin_op->left()->CastAsScalar();
+        Scalar *rhs = bin_op->right()->CastAsScalar();
+        if (lhs && rhs && lhs->type() == rhs->type()) {
+          const auto &location = project_->GetLocation(bin_op->source_range());
+          if (lhs->type() == Scalar::ScalarType::kInt) {
+            return MakeIntWithStringRep(location, lhs->AsInt() * rhs->AsInt());
+          }
+        }
+      }
+      return bin_op;
+    }
     case '.': {
       {
         Scalar *lhs = bin_op->left()->CastAsScalar();

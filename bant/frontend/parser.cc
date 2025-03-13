@@ -21,11 +21,14 @@
 
 #include "bant/frontend/parser.h"
 
+#include <algorithm>
 #include <cassert>
 #include <functional>
+#include <initializer_list>
 #include <iostream>
 #include <string_view>
 
+#include "absl/base/macros.h"
 #include "bant/frontend/ast.h"
 #include "bant/frontend/scanner.h"
 #include "bant/util/arena.h"
@@ -75,6 +78,20 @@ namespace bant {
 // Simple recursive descent parser. As Parser::Impl to not clobber the header
 // file with all the parse methods needed for the productions.
 class Parser::Impl {
+  static constexpr std::initializer_list<TokenType> kPrecedenceList[] = {
+    // Strong to weak
+    {},      // handled by ParseAtom()
+    {kDot},  // scoped invocation
+    {kMultiply, kDivide, kFloorDivide, kPercent},
+    {kPlus, kMinus},
+    // TOOD: shift, and bitwise and/xor. Note: the following are smushed
+    // together as evaluation of them is not implemented;
+    {kPipeOrBitwiseOr, kAnd, kOr},
+    {kLessThan, kLessEqual, kEqualityComparison, kGreaterEqual, kGreaterThan,
+     kNotEqual, kIn, kNotIn},
+    // kAssign but not handled here.
+  };
+
  public:
   Impl(Scanner *token_source, Arena *allocator, std::ostream &err_out)
       : scanner_(token_source), node_arena_(allocator), err_out_(err_out) {}
@@ -293,64 +310,63 @@ class Parser::Impl {
     }
   }
 
-  Node *ParseExpression(bool can_be_optional = false) {
-    LOG_ENTER();
-    Node *n;
+  static constexpr bool IsTokenIn(TokenType t,
+                                  std::initializer_list<TokenType> list) {
+    return std::find(list.begin(), list.end(), t) != list.end();
+  }
 
+  Node *ParseAtom(bool can_be_optional) {
+    LOG_ENTER();
+    Node *n = nullptr;
     switch (scanner_->Peek().type) {
     case '-':
     case TokenType::kNot: {
       const Token tok = scanner_->Next();
-      n = Make<UnaryExpr>(tok.type, ParseExpression(can_be_optional));
+      n = Make<UnaryExpr>(tok.type, ParseAtom(can_be_optional));
       break;
     }
     case '(': n = ParseParenExpressionOrTuple(); break;
     default: n = ParseValueOrIdentifier(can_be_optional);
     }
-    if (n == nullptr) return n;
 
-    for (;;) {  // The array access is the only one who can continue.
-      const Token upcoming = scanner_->Peek();
-      if (upcoming.type == TokenType::kIf) {
-        return ParseIfElse(n);
-      }
-
-      // TODO: properly handle precdence. Needed once we actually do
-      // expression eval. For now: just accept language.
-      switch (upcoming.type) {
-      case '+':  // Arithmeteic
-      case '-':
-      case '*':
-      case '/':
-      case TokenType::kFloorDivide:
-      case TokenType::kLessThan:  // Relational
-      case TokenType::kLessEqual:
-      case TokenType::kEqualityComparison:
-      case TokenType::kGreaterEqual:
-      case TokenType::kGreaterThan:
-      case TokenType::kNotEqual:
-      case TokenType::kIn:
-      case TokenType::kNotIn:
-      case TokenType::kAnd:
-      case TokenType::kOr:
-      case TokenType::kPipeOrBitwiseOr:
-      case '.':    // scoped invocation
-      case '%': {  // format expr.
-        const Token op = scanner_->Next();
-        return Make<BinOpNode>(n, ParseExpression(), op.type, op.text);
-      }
-      case '[': {
-        if (upcoming.newline_since_last_token) {  // new toplevel construct.
-          return n;
-        }
-        const Token op = scanner_->Next();  // '[' operation.
-        n = Make<BinOpNode>(n, ParseArrayOrSliceAccess(), op.type, op.text);
-        // Suffix expression, maybe there is more. Don't return, continue.
-        break;
-      }
-      default: return n;
-      }
+    // Check for array access. Strong binding
+    Token upcoming = scanner_->Peek();
+    if (upcoming.type == TokenType::kIf) {
+      return ParseIfElse(n);  // TODO: figure out what precendence level this is
     }
+
+    for (/**/; upcoming.type == '['; upcoming = scanner_->Peek()) {
+      if (upcoming.newline_since_last_token) {  // new toplevel construct
+        return n;
+      }
+      const Token op = scanner_->Next();  // '[' operation.
+      n = Make<BinOpNode>(n, ParseArrayOrSliceAccess(), op.type, op.text);
+      // Suffix expression, maybe there is more.
+    }
+    return n;
+  }
+
+  Node *ParseWithPrecedence(int prec, bool can_be_optional = false) {
+    if (prec == 0) {
+      return ParseAtom(can_be_optional);
+    }
+    LOG_ENTER();
+    Node *n = ParseWithPrecedence(prec - 1, can_be_optional);
+    if (n == nullptr) return n;
+    for (;;) {
+      const Token upcoming = scanner_->Peek();
+      if (!IsTokenIn(upcoming.type, kPrecedenceList[prec])) break;
+      const Token op = scanner_->Next();
+      Node *const right = ParseWithPrecedence(prec - 1);
+      n = Make<BinOpNode>(n, right, op.type, op.text);
+    }
+    return n;
+  }
+
+  Node *ParseExpression(bool can_be_optional = false) {
+    // TODO: implement array access and if/else
+    return ParseWithPrecedence(ABSL_ARRAYSIZE(kPrecedenceList) - 1,
+                               can_be_optional);
   }
 
   Node *ParseParenExpressionOrTuple() {

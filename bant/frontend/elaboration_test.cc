@@ -263,12 +263,22 @@ TEST_F(ElaborationTest, BasicArith) {
     R"(
 FOO = 1 + 3 + 9
 BAR = 3 - 7
-BAZ = (-9) + 7  # Since we don't do precedence yet, need to paren around value
+BAQ = 3 - -7
+BAZ = -9 + 7
+QIX = 9 * 9 + 1  # simple precedence
+QUX = 1 + 9 * 9  # .. test
+FIX = 9 * (9 + 1)
+FUX = (1 + 9) * 9
 )",
     R"(
 FOO = 13
 BAR = -4
+BAQ = 10
 BAZ = -2
+QIX = 82
+QUX = 82
+FIX = 90
+FUX = 90
 )");
 
   EXPECT_EQ(result.first, result.second);
@@ -280,7 +290,9 @@ TEST_F(ElaborationTest, ConcatStrings) {
 BAZ = "baz"
 cc_library(
   name = "foo" + "bar" + BAZ,
-  include_prefix = ("foo" + "bar") + "qux",
+#                      ^-- column 24 (second plus assembles the final string)
+  include_prefix = "foo" + ("bar" + "qux"),
+#                        ^-- column 26 (evaluated after "barqux" assembled)
 )
 )",
     R"(
@@ -295,19 +307,13 @@ cc_library(
 
   // Let's see that the 'location' of the assembled string points to the
   // original '+' operand.
-  //
-  // Unlike one would expect intuitively, the way the parser currently handles
-  // '+' is right-associative, so evaluation happens from right to left:
-  // "foo" + ("bar" + BAZ)).
-  // Since string-concat is assoicative that is a perfectly fine.
-  // But this is why the first, not last, '+' is shown as file location.
   query::FindTargets(elaborated()->ast, {}, [&](const query::Result &result) {
     EXPECT_EQ(result.name, "foobarbaz");
-    EXPECT_EQ(project().Loc(result.name), "//elab/BUILD:4:16:");
+    EXPECT_EQ(project().Loc(result.name), "//elab/BUILD:4:24:");
 
-    // Parenthesis around second expression: Second plus is 'location'
+    // Parenthesis around right sub-expression: First plus is 'location'
     EXPECT_EQ(result.include_prefix, "foobarqux");
-    EXPECT_EQ(project().Loc(result.include_prefix), "//elab/BUILD:5:36:");
+    EXPECT_EQ(project().Loc(result.include_prefix), "//elab/BUILD:6:26:");
   });
 }
 
@@ -332,6 +338,7 @@ BAR = "{} is {}.".format("Answer", 42)
 SHORT_FMT = "Just {} no more fmt.".format("Parameters", "are", "too", "many")
 SHORT_ARGS = "Some {} and {} and {}".format("text", 123)
 NOT_ALL_CONST = "{} and {}".format("text", not_a_constant)
+HIGH_PRECEDENCE_DOT = "foo_" + "here {}".format("bar") + "_baz"
 )",
     R"(
 FOO = "Hello World"
@@ -339,6 +346,7 @@ BAR = "Answer is 42."
 SHORT_FMT = "Just Parameters no more fmt."
 SHORT_ARGS = "Some text and 123 and {}"
 NOT_ALL_CONST = "{} and {}".format("text", not_a_constant)
+HIGH_PRECEDENCE_DOT = "foo_here bar_baz"
 )");
 
   EXPECT_EQ(result.first, result.second);

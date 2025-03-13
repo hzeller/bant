@@ -71,6 +71,7 @@ cc_library(
         ":linecolumn-map",
         ":named-content",
         "//bant/util:memory",
+        "@abseil-cpp//absl/base:core_headers",
         "@abseil-cpp//absl/log:check",
         "@abseil-cpp//absl/strings",
         "@re2",
