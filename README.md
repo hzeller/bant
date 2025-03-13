@@ -129,6 +129,8 @@ project where it is harder to even find the right file; consider
 bant print @googletest//:gtest
 ```
 
+#### Expression evaluation
+
 You see that `gtest` has some files `glob()`'d and other expressions
 that make that rule, which we want to see evaluated.
 With the `-e` option (for `e`laborate), bant can do some basic evaluation
@@ -138,15 +140,33 @@ of these and print the final form - here you see the filenames are now expanded:
 bant print -e @googletest//:gtest
 ```
 
-In general, evaluation is very limited right now and only does some
-transformations that are immediately useful for dependency analysis, such
-as globbing files, variable expansion and some list comprehension. That is
-why it's called elaboration not evaluation right now :).
+In general, evaluation is limited right now and only does some
+transformations that are immediately useful for dependency analysis;
+implemented as need arises (That is why it's called elaboration not evaluation
+right now :)). Use `-e` to enable the elaboration in `print`.
 
-(With `-b`, bant [builtin-macros](./bant/builtin-macros.bnt) are also expanded;
-these are usually used internally for `dwyu` to better see through dependencies,
-so might be useful when debugging these).
+Expressions that can be const-evaluated are then replaced with a literal of
+the result. Suported are:
 
+  * Variable substitution.
+  * `glob()` expansion.
+  * List comprehension. This expands list comprehensions used in BUILD files
+    to programmatically create lists with a loop. This can be in lists for
+    e.g. source files or even toplevel loops creating a bunch of target rules.
+  * Some common string methods (`"str".format()`, `"str".join()` and
+    `"str".rsplit()`). Also the modulo operator for formatting strings the
+    classic way `"str %s %s" % (foo,bar)`.
+  * Array accesses.
+  * String and list concatenation with `+`.
+  * Some basic arithmetic ops.
+  * Macro substitution of [builtin-macros] to help bant better see through
+    some constructs (used in `dwyu`; to enable in printing: use `-b`).
+
+If you suspect an operation is not evaluated, invoke bant with extra verbose
+`-vv` - it will show what operations it glossed over (If observed in the field:
+good candiate to implement next).
+
+#### Grep
 As targets to print, the usual bazel patterns apply, such as exact label names,
 `...`, or `:all`; also, some `*`-globbing label names is supported in the
 labels in a package (not in the path):
@@ -324,16 +344,22 @@ If you work on a slow network file system or operate on some cold storage, it
 might add IO-latency for bant to follow directories in `glob()`-ing patterns.
 
 In that case, it might be beneficial to pre-warm the OS file system cache with
-accesses `bant` remembers from last time it ran. If a `~/.cache/bant/` directory
-exists, bant will use it for this purpose (So create the directory if you
-want this feature to be active; if you're on a fast SSD, no need for it).
+accesses `bant` remembers from last time it ran. Create a `~/.cache/bant/`
+a directory to activate this feature.
+
+In addition, there is an option `-T<num>` which allows to set number of threads
+used for some of the internal IO operations.
+
+Note, this is _only_ really useful if you're on a slow network drive or HDD.
+On a commonly used fast SSD, this will not make a difference, probably adding
+overhead.
 
 ### Synopsis
 
 ```
-bant v0.1.14+ <http://bant.build/>
+bant v0.2.0 <http://bant.build/>
 Copyright (c) 2024-2025 Henner Zeller. This program is free software; GPL 3.0.
-Usage: bant [options] <command> [bazel-target-pattern...]
+Usage: bazel-bin/bant/bant [options] <command> [bazel-target-pattern...]
 Options
     -C <directory> : Change to this project directory first (default = '.')
     -q             : Quiet: don't print info messages to stderr.
@@ -342,10 +368,10 @@ Options
                    : native (default), s-expr, plist, json, csv
                      Unique prefix ok, so -fs , -fp, -fj or -fc is sufficient.
     -r             : Follow dependencies recursively starting from pattern.
-                     Without parameter, follows dependencies to the end.
+                     Without numeric parameter, follows dependencies to the end.
                      An optional parameter allows to limit the nesting depth,
                      e.g. -r2 just follows two levels after the toplevel
-                     pattern. -r0 is equivalent to not providing -r.
+                     pattern.
     -v             : Verbose; print some stats. Multiple times: more verbose.
     -h             : This help.
     --//<option>   : configurable flag attribute to be used in select() and
@@ -390,6 +416,7 @@ Commands (unique prefix sufficient):
 
     == Tools ==
     dwyu           : DWYU: Depend on What You Use (emit buildozer edit script)
+                     Default invocation uses -r4
                       -k strict: emit remove even if # keep comment in line.
     canonicalize   : Emit rename edits to canonicalize targets.
     compile-flags  : (experimental) Emit compile flags. Redirect or output with
@@ -480,3 +507,4 @@ Before submit, run `scripts/before-submit.sh` ... and fix potential
 [build-cleaner-example]: https://github.com/chipsalliance/verible/blob/master/.github/bin/run-build-cleaner.sh
 [compilation-db-example]: https://github.com/chipsalliance/verible/blob/master/.github/bin/make-compilation-db.sh
 [on-bcr]: https://registry.bazel.build/modules/bant
+[builtin-macros]: ./bant/builtin-macros.bnt
