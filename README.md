@@ -18,7 +18,7 @@ Bant
   * Extracts interesting project information such as
     the [dependency graph](#dependency-graph),
     [headers provided by which libraries](#lib-headers) etc., and presents
-    them for easy post-proccessing (outputs simple tables for `grep` or `awk`,
+    them for easy post-processing (outputs simple tables for `grep` or `awk`,
     but as well CSV, JSON and S-Expressions).
   * [Canonicalizes](#canonicalize) targets.
   * Is available in the [Bazel Central Registry][on-bcr] for easy
@@ -96,7 +96,7 @@ strict and ignore `# keep` comments and emit the removal edit anyway.
    * Will remove dependencies if they provide headers that are not needed
      by the sources of a target. If you want to keep them linked, you need to
      declare them as `alwayslink` (libraries that are linked to targets but
-     do _not_ provide any headerss are considered alwayslink implicitly).
+     do _not_ provide any headers are considered alwayslink implicitly).
      (this is not really a caveat, it just emphasizes that it is important to
      properly declare the intent in BUILD files).
 
@@ -146,7 +146,7 @@ implemented as need arises (That is why it's called elaboration not evaluation
 right now :)). Use `-e` to enable the elaboration in `print`.
 
 Expressions that can be const-evaluated are then replaced with a literal of
-the result. Suported are:
+the result. Supported are:
 
   * Variable substitution.
   * `glob()` expansion.
@@ -158,13 +158,14 @@ the result. Suported are:
     classic way `"str %s %s" % (foo,bar)`.
   * Array accesses.
   * String and list concatenation with `+`.
-  * Some basic arithmetic ops.
-  * Macro substitution of [builtin-macros] to help bant better see through
-    some constructs (used in `dwyu`; to enable in printing: use `-b`).
+  * Some basic arithmetic operators.
+  * Macro substitution of [builtin-macros] (in a bant-specific syntax) to
+    help bant better see through some constructs (used in `dwyu`; to enable
+    in printing: use `-b`).
 
 If you suspect an operation is not evaluated, invoke bant with extra verbose
 `-vv` - it will show what operations it glossed over (If observed in the field:
-good candiate to implement next).
+good candidate to implement next).
 
 #### Grep
 As targets to print, the usual bazel patterns apply, such as exact label names,
@@ -297,7 +298,7 @@ to have the entire workspace set up. Given that you do that during development
 anyway, this is typically not an issue.
 
 Typically it is a good to at the least run everything that generates files; we
-can use `bant` itself to find rules tha generate files to be passed to
+can use `bant` itself to find rules that generate files to be passed to
 bazel, e.g.
 
 ```bash
@@ -305,7 +306,8 @@ bazel build $(bant list-targets | awk '/genrule|cc_proto_library/ {print $3}')
 ```
 
 (but of course there might be other bazel rules beside obvious genrules that
-create artifacts, so global `bazel build ...` will catch these as well)
+create artifacts, so `bant list-targets -b` could expand more of these
+or global `bazel build ...` will catch these as well)
 
 Given that `bazel` adapts the visible external projects depending on what
 targets are used, it might be worthwhile running a bazel build that needs all
