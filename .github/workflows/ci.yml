@@ -34,7 +34,7 @@ jobs:
         run: |
           export CC=gcc-13
           export CXX=g++-13
-          bazel test --noshow_progress --keep_going ...
+          bazel test --noshow_progress --keep_going --test_output=errors ...
 
   MacOsBuild:
     runs-on: macos-latest
@@ -46,7 +46,7 @@ jobs:
 
       - name: Test
         run: |
-          bazel test --noshow_progress --keep_going ...
+          bazel test --noshow_progress --keep_going --test_output=errors ...
 
       - name: Build
         run: |
@@ -99,8 +99,10 @@ jobs:
 
       - name: Get Bant
         run: |
+          # This tests the static binary provided in the release, so
+          # instead of simply compiling and running locally, we fetch that.
           # TODO: provide this as action where we simply say with version=...
-          VERSION="v0.1.9"
+          VERSION="v0.1.14"
           STATIC_VERSION="bant-${VERSION}-linux-static-x86_64"
           wget "https://github.com/hzeller/bant/releases/download/${VERSION}/${STATIC_VERSION}.tar.gz"
           tar xvzf "${STATIC_VERSION}.tar.gz"
@@ -149,7 +151,6 @@ jobs:
           CLANG_TIDY=clang-tidy-18 scripts/run-clang-tidy-cached.cc \
             || ( cat bant_clang-tidy.out ; exit 1)
 
-  # TODO: can this be done _after_ the tagging had taken place ?
   ReleasableArtifacts:
     runs-on: ubuntu-24.04
     steps:
@@ -210,14 +211,10 @@ jobs:
       - name: Upload Source tar
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.OUT_SRC }}
-          path: ${{ env.OUT_SRC }}.tar.gz
-
-      - name: Upload Binary tar
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ env.OUT_BIN }}
-          path: ${{ env.OUT_BIN }}.tar.gz
+          name: ${{ env.OUT_SRC }}-source-and-binaries
+          path: |
+            ${{ env.OUT_SRC }}.tar.gz
+            ${{ env.OUT_BIN }}.tar.gz
 
   release-tagging:
     name: Version Tagging
