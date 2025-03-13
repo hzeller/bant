@@ -311,6 +311,19 @@ cc_library(
   });
 }
 
+TEST_F(ElaborationTest, PercentFormat) {
+  auto result = ElabAndPrint(
+    R"(
+FOO = "Hello %s" % ("World",)
+BAR = "%s is %s." % ("Answer", 42)
+)",
+    R"(
+FOO = "Hello World"
+BAR = "Answer is 42."
+)");
+
+  EXPECT_EQ(result.first, result.second);
+}
 TEST_F(ElaborationTest, FormatStringPositional) {
   auto result = ElabAndPrint(
     R"(

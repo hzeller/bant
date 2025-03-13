@@ -186,6 +186,14 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
       }
       return bin_op;
     }
+    case '%': {
+      Scalar *lhs = bin_op->left()->CastAsScalar();
+      List *rhs = bin_op->right()->CastAsList();
+      if (lhs && rhs && lhs->type() == Scalar::ScalarType::kString) {
+        return HandlePercentFormat(bin_op, lhs->AsString(), rhs);
+      }
+      return bin_op;
+    }
     case '[': {
       List *list = bin_op->left()->CastAsList();
       Scalar *index = bin_op->right()->CastAsScalar();
@@ -198,7 +206,6 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
       // Document all the ones not yet implemented
     case kDivide:
     case kFloorDivide:
-    case kPercent:
     case kPipeOrBitwiseOr:
     case kAnd:
     case kOr:
@@ -378,6 +385,25 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
       ++specifier_count;
     }
     assembled.append(fmt.substr(last_pos));
+    return MakeNewStringScalarFrom(assembled, project_->GetLocation(fmt));
+  }
+
+  // Very simplistic right now: only understands %s
+  Node *HandlePercentFormat(Node *orig, std::string_view fmt, List *args) {
+    std::string assembled;
+    size_t last_fmt_pos = 0;
+    size_t fmt_pos;
+    List::iterator value_it = args->begin();
+    while (value_it != args->end() &&
+           (fmt_pos = fmt.find("%s", last_fmt_pos)) != std::string::npos) {
+      assembled.append(fmt.substr(last_fmt_pos, fmt_pos - last_fmt_pos));
+      Scalar *scalar = (*value_it)->CastAsScalar();
+      if (!scalar) return orig;  // Can only format if all args known.
+      assembled.append(scalar->AsString());
+      last_fmt_pos = fmt_pos + 2;
+      ++value_it;
+    }
+    assembled.append(fmt.substr(last_fmt_pos));
     return MakeNewStringScalarFrom(assembled, project_->GetLocation(fmt));
   }
 
