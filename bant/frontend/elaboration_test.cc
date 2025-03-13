@@ -311,7 +311,7 @@ cc_library(
   });
 }
 
-TEST_F(ElaborationTest, FormatString) {
+TEST_F(ElaborationTest, FormatStringPositional) {
   auto result = ElabAndPrint(
     R"(
 FOO = "Hello {}".format("World")
@@ -326,6 +326,44 @@ BAR = "Answer is 42."
 SHORT_FMT = "Just Parameters no more fmt."
 SHORT_ARGS = "Some text and 123 and {}"
 NOT_ALL_CONST = "{} and {}".format("text", not_a_constant)
+)");
+
+  EXPECT_EQ(result.first, result.second);
+}
+
+TEST_F(ElaborationTest, FormatStringSelectArg) {
+  auto result = ElabAndPrint(
+    R"(
+FOO = "Hello {0}".format("World")
+BAR = "{1} is {0}.".format("Answer", 42)
+SHORT_FMT = "Just {3} no more fmt.".format("Parameters", "are", "too", "many")
+SHORT_ARGS = "Some {} and {1} and {0} and {}".format("text", 123)
+INVALID_ARGS = "Some {77}".format("text")
+)",
+    R"(
+FOO = "Hello World"
+BAR = "42 is Answer."
+SHORT_FMT = "Just many no more fmt."
+SHORT_ARGS = "Some text and 123 and text and {}"
+INVALID_ARGS = "Some "
+)");
+
+  EXPECT_EQ(result.first, result.second);
+}
+
+TEST_F(ElaborationTest, FormatStringKwArg) {
+  auto result = ElabAndPrint(
+    R"(
+FOO = "Hello {address}".format(address = "World")
+BAR = "{text} is {number}.".format( text = "Answer", number = 42)
+MIXED = "{text} and {1}".format( text = "hello", "world" )
+MIXED_1 = "{0} and {1}".format( text = "hello", "world" )
+)",
+    R"(
+FOO = "Hello World"
+BAR = "Answer is 42."
+MIXED = "hello and world"
+MIXED_1 = "hello and world"
 )");
 
   EXPECT_EQ(result.first, result.second);

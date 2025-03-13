@@ -289,4 +289,5 @@ std::vector<std::string_view> ExtractStringList(List *list) {
   AppendStringList(list, result);
   return result;
 }
+
 }  // namespace bant::query

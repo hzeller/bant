@@ -21,6 +21,7 @@
 #include <cstdint>
 #include <cstring>
 #include <limits>
+#include <optional>
 #include <ranges>
 #include <string>
 #include <string_view>
@@ -42,9 +43,28 @@
 #include "bant/util/file-utils.h"
 #include "bant/util/glob-match-builder.h"
 #include "bant/util/stat.h"
+#include "re2/re2.h"
 
 namespace bant {
 namespace {
+// Given a list, extract all the posargs from it (or, if this is a kwargs
+// list, extract the values from the rhs), iff all of these values are
+// scalars
+std::optional<std::vector<std::string_view>> ExtractScalarPosArgs(List *list) {
+  std::vector<std::string_view> result;
+  if (list == nullptr) return std::nullopt;
+  for (Node *n : *list) {
+    if (!n) continue;  // Parse error of sorts.
+    if (BinOpNode *binop = n->CastAsBinOp(); binop && binop->op() == '=') {
+      n = binop->right();
+    }
+    Scalar *scalar = n->CastAsScalar();
+    if (!scalar) return std::nullopt;
+    result.emplace_back(scalar->AsString());
+  }
+  return result;
+}
+
 class NestCounter {
  public:
   explicit NestCounter(int *value) : value_(value) { ++*value_; }
@@ -303,7 +323,7 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
   Node *StringMethodCall(Node *orig, std::string_view str, FunCall *method) {
     const std::string_view method_name = method->identifier()->id();
     if (method_name == "format") {
-      return HandleStringFormat(orig, str, method->argument());
+      return HandleStringFormat(orig, str, method);
     }
     if (method_name == "join") {
       return HandleStringJoin(orig, str, method->argument());
@@ -315,26 +335,49 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     return orig;
   }
 
-  Node *HandleStringFormat(Node *orig, std::string_view fmt, List *args) {
-    // Very simple string format just looking for {}.
-    // TODO: support (Target 0.2.0+)
-    //   * {variablename} for kw-args
-    //   * {1} numeric
-    //   * {} sequene without number.
+  Node *HandleStringFormat(Node *orig, std::string_view fmt, FunCall *method) {
+    static const LazyRE2 kFmtExtract{
+      R"REGEX(({(?:([0-9]+)?|([a-zA-Z_][a-zA-Z0-9_]*))}))REGEX"};
+
     std::string assembled;
-    size_t last_curly_pos = 0;
-    size_t curly_pos;
-    List::iterator value_it = args->begin();
-    while (value_it != args->end() &&
-           (curly_pos = fmt.find("{}", last_curly_pos)) != std::string::npos) {
-      assembled.append(fmt.substr(last_curly_pos, curly_pos - last_curly_pos));
-      Scalar *scalar = (*value_it)->CastAsScalar();
-      if (!scalar) return orig;  // Can only format if all args known.
-      assembled.append(scalar->AsString());
-      last_curly_pos = curly_pos + 2;
-      ++value_it;
+    const auto kwargs = query::ExtractKwArgs(method);
+    const auto posargs_or = ExtractScalarPosArgs(method->argument());
+    if (!posargs_or) {
+      return orig;
     }
-    assembled.append(fmt.substr(last_curly_pos));
+    const auto &posargs = *posargs_or;
+
+    std::string_view match;
+    std::optional<int> num;
+    std::optional<std::string_view> str;
+
+    size_t specifier_count = 0;
+    std::string_view run = fmt;
+    size_t last_pos = 0;
+    while (RE2::FindAndConsume(&run, *kFmtExtract, &match, &num, &str)) {
+      const size_t new_pos = match.data() - fmt.data();
+      assembled.append(fmt.substr(last_pos, new_pos - last_pos));
+      last_pos = new_pos + match.size();
+      if (num.has_value()) {
+        if (*num >= 0 && *num < (int)posargs.size()) {
+          assembled.append(posargs[*num]);
+        }
+      } else if (str.has_value()) {
+        if (const auto found = kwargs.find(*str); found != kwargs.end()) {
+          if (Scalar *scalar = found->second->CastAsScalar(); scalar) {
+            assembled.append(scalar->AsString());
+          } else {
+            return orig;  // parameter that can not be converted to scalar.
+          }
+        }
+      } else if (specifier_count < posargs.size()) {
+        assembled.append(posargs[specifier_count]);
+      } else {
+        assembled.append(match);  // Nothing matches ? Keep specifier.
+      }
+      ++specifier_count;
+    }
+    assembled.append(fmt.substr(last_pos));
     return MakeNewStringScalarFrom(assembled, project_->GetLocation(fmt));
   }
 
