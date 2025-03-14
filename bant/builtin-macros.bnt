@@ -47,12 +47,12 @@ gentbl_cc_library = (
     genrule(
         name = name,
         srcs = [td_file],
-        # TODO: foreach tuple get the last element; for now: only the first
-        outs = [tbl_outs[0][-1]],
+        # tbl_outs is a list of tuples, second value the filename we need.
+        outs = [filename for (_, filename) in tbl_outs],
     ),
     cc_library(
         name = name,
-        hdrs = [tbl_outs[0][-1]],
+        hdrs = [filename for (_, filename) in tbl_outs],
         bant_skip_dependency_check = True,
     ),
 )
