@@ -135,17 +135,15 @@ TEST_F(ElaborationTest, ConcatLists) {
   auto result = ElabAndPrint(
     R"(
 FOO = ["baz.cc", "qux.cc"]
-cc_library(
-  name = "foo",
-  srcs = [ "foo.cc" ] + [ "bar.cc" ] + FOO
-)
+BAR = [ "foo.cc" ] + [ "bar.cc" ] + FOO
+LEFT_EMPTY = [] + ["a", "b"]
+RIGHT_EMPTY = ["a", "b"] + []
 )",
     R"(
 FOO = ["baz.cc", "qux.cc"]
-cc_library(
-  name = "foo",
-  srcs = [ "foo.cc", "bar.cc", "baz.cc", "qux.cc" ],
-)
+BAR = [ "foo.cc", "bar.cc", "baz.cc", "qux.cc" ]
+LEFT_EMPTY = ["a", "b"]
+RIGHT_EMPTY = ["a", "b"]
 )");
 
   EXPECT_EQ(result.first, result.second);
@@ -155,16 +153,10 @@ TEST_F(ElaborationTest, ConcatListWithUndefinedValue) {
   auto result = ElabAndPrint(
     R"(
 # UNDEFINED_VALUE
-cc_library(
-  name = "foo",
-  srcs = [ "foo.cc" ] + UNDEFINED + [ "bar.cc" ],
-)
+FOO = [ "foo.cc" ] + UNDEFINED + [ "bar.cc" ]
 )",
     R"(
-cc_library(
-  name = "foo",
-  srcs = [ "foo.cc", "bar.cc" ]    # best effort result
-)
+FOO = [ "foo.cc", "bar.cc" ]    # best effort result
 )");
 
   EXPECT_EQ(result.first, result.second);
@@ -294,6 +286,8 @@ cc_library(
   include_prefix = "foo" + ("bar" + "qux"),
 #                        ^-- column 26 (evaluated after "barqux" assembled)
 )
+LEFT_EMPTY = "" + "a"
+RIGHT_EMPTY = "b" + ""
 )",
     R"(
 BAZ = "baz"
@@ -301,6 +295,8 @@ cc_library(
   name = "foobarbaz",
   include_prefix = "foobarqux",
 )
+LEFT_EMPTY = "a"
+RIGHT_EMPTY = "b"
 )");
 
   EXPECT_EQ(result.first, result.second);

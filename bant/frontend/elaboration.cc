@@ -154,7 +154,7 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
         if (lhs && rhs && lhs->type() == rhs->type()) {
           const auto &location = project_->GetLocation(bin_op->source_range());
           if (lhs->type() == Scalar::ScalarType::kString) {
-            return ConcatStrings(location, lhs->AsString(), rhs->AsString());
+            return ConcatStrings(location, lhs, rhs);
           }
           if (lhs->type() == Scalar::ScalarType::kInt) {
             return MakeIntWithStringRep(location, lhs->AsInt() + rhs->AsInt());
@@ -307,6 +307,8 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
   }
 
   List *ConcatLists(List *left, List *right) {
+    if (right->empty()) return left;
+    if (left->empty()) return right;
     List *result = Make<List>(left->type());
     for (Node *n : *left) {
       result->Append(project_->arena(), n);
@@ -317,16 +319,21 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     return result;
   }
 
-  StringScalar *ConcatStrings(const FileLocation &op_location,
-                              std::string_view left, std::string_view right) {
-    const size_t new_length = left.size() + right.size();
+  Scalar *ConcatStrings(const FileLocation &op_location,  //
+                        Scalar *left, Scalar *right) {
+    const std::string_view left_str = left->AsString();
+    if (left_str.empty()) return right;
+    const std::string_view right_str = right->AsString();
+    if (right_str.empty()) return left;
+
+    const size_t new_length = left_str.size() + right_str.size();
     char *new_str = MakeStr(new_length);
-    memcpy(new_str, left.data(), left.size());
-    memcpy(new_str + left.size(), right.data(), right.size());
+    memcpy(new_str, left_str.data(), left_str.size());
+    memcpy(new_str + left_str.size(), right_str.data(), right_str.size());
     const std::string_view assembled{new_str, new_length};
 
     // Whenever anyone is asking for where this string is coming from, tell
-    // them the original location where the operation is coming from.
+    // them the original location of the concat + operation.
     project_->RegisterLocationRange(assembled,
                                     Make<FixedSourceLocator>(op_location));
 
