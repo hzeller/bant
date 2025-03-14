@@ -127,8 +127,8 @@ void FindAndParseMissingPackages(ThreadPool *io_thread_pool, Session &session,
     // building, as it might expand more dpendencies.
     // TODO: but do we need expensive glob() enabled ?
     ParsedBuildFile *file = project->AddBuildFileContent(
-      session, *result.package, result.path->filename(),
-      std::move(*result.content), result.read_stats);
+      session, *result.package, *result.path, std::move(*result.content),
+      result.read_stats);
     bant::Elaborate(session, project, kAlwaysMaccroExpand, file);
   }
 }

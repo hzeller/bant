@@ -23,11 +23,11 @@
 #include <string_view>
 
 #include "absl/log/check.h"
-#include "absl/strings/str_cat.h"
 #include "bant/frontend/elaboration.h"
 #include "bant/frontend/parsed-project.h"
 #include "bant/session.h"
 #include "bant/types-bazel.h"
+#include "bant/util/file-utils.h"
 #include "bant/util/stat.h"
 
 namespace bant {
@@ -41,7 +41,7 @@ class ParsedProjectTestUtil {
     if (!package_or.has_value()) return nullptr;
     Session session(&std::cerr, &std::cerr, {});
     const Stat empty_stat;
-    const std::string fake_filename = absl::StrCat(package_str, "/BUILD");
+    const FilesystemPath fake_filename(package_str, "BUILD");
     return project_.AddBuildFileContent(session, *package_or, fake_filename,
                                         std::string(content), empty_stat);
   }

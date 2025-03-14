@@ -84,7 +84,7 @@ class ParsedProject : public SourceLocator {
   // "read_stat" contains information how long it took to aquire content.
   ParsedBuildFile *AddBuildFileContent(Session &session,
                                        const BazelPackage &package,
-                                       std::string_view filename,
+                                       const FilesystemPath &file,
                                        std::string content,
                                        const Stat &read_stat);
 

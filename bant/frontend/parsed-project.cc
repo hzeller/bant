@@ -173,13 +173,13 @@ ParsedBuildFile *ParsedProject::AddBuildFile(Session &session,
   }
 
   return AddBuildFileContent(session, package,
-                             build_file.path(),  //
+                             build_file,  //
                              std::move(*content), open_and_read_stat);
 }
 
 ParsedBuildFile *ParsedProject::AddBuildFileContent(Session &session,
                                                     const BazelPackage &package,
-                                                    std::string_view filename,
+                                                    const FilesystemPath &file,
                                                     std::string content,
                                                     const Stat &read_stat) {
   session.GetStatsFor("read(BUILD)      ", "BUILD files").Add(read_stat);
@@ -188,13 +188,13 @@ ParsedBuildFile *ParsedProject::AddBuildFileContent(Session &session,
   const ScopedTimer timer(&parse_stat.duration);
 
   auto inserted = package_to_parsed_.emplace(
-    package, new ParsedBuildFile(filename, std::move(content)));
+    package, new ParsedBuildFile(file.path(), std::move(content)));
 
   if (!inserted.second) {
     ParsedBuildFile *existing = inserted.first->second.get();
     // Should typically not happen, but maybe both BUILD and BUILD.bazel are
     // there ? Report for the user to figure out.
-    session.info() << filename << ": Package " << package
+    session.info() << file.path() << ": Package " << package
                    << " already seen before in "
                    << existing->source_.source_name() << "\n";
     return existing;
