@@ -50,7 +50,7 @@ class SessionStreams {
 // in some commands)
 struct CommandlineFlags {
   int verbose = 0;
-  bool print_ast = false;
+  bool print_ast = false;  // Print ast instead of just rules.
   bool print_only_errors = false;
   bool elaborate = false;
   bool builtin_macro_expand = false;

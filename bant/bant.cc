@@ -97,9 +97,10 @@ static int usage(const char *prog, const char *message, int exit_code) {
 
 Commands (unique prefix sufficient):
     %s== Parsing ==%s
-    print          : Print AST matching pattern. -E : only files w/ parse errors
+    print          : Print rules matching pattern. (-E : only files w/ errors)
+                      -a : print all toplevel items in packages, not just rules.
                       -e : elaborate; light eval: expand variables, concat etc.
-                      -b : elaborate with built-in macro expansion.
+                      -b : elaborate including expansion of built-in macros.
                       -g <regex> : 'grep' - only print targets where any string
                                     matches regex.
                       -i If '-g' is given: case insensitive
@@ -191,7 +192,7 @@ int main(int argc, char *argv[]) {
     {"json", OutputFormat::kJSON},     {"graphviz", OutputFormat::kGraphviz},
   };
   int opt;
-  while ((opt = getopt(argc, argv, "C:qo:vhpEecbf:r::Vkg:iT:")) != -1) {
+  while ((opt = getopt(argc, argv, "C:qo:vhaEecbf:r::Vkg:iT:")) != -1) {
     switch (opt) {
     case 'C': {
       std::error_code err;
@@ -237,7 +238,7 @@ int main(int argc, char *argv[]) {
       regex_case_insesitive = true;
       break;
       // "print" options
-    case 'p': flags.print_ast = true; break;
+    case 'a': flags.print_ast = true; break;
     case 'E': flags.print_only_errors = true; break;
     case 'b': flags.elaborate = flags.builtin_macro_expand = true; break;
     case 'e': flags.elaborate = true; break;

@@ -149,8 +149,10 @@ class ParsedProject : public SourceLocator {
 
 // Convenience function to print a fully parsed project, recreated from the
 // AST. Takes grep_regex into account for filtering.
-size_t PrintProject(Session &session, const BazelTargetMatcher &pattern,
-                    const ParsedProject &project);
+// Returns matches of rules/nodes and total number of nodes considered.
+std::pair<size_t, size_t> PrintProject(Session &session,
+                                       const BazelTargetMatcher &pattern,
+                                       const ParsedProject &project);
 
 }  // namespace bant
 #endif  // BANT_PROJECT_PARDER_

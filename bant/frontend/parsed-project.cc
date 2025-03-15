@@ -260,9 +260,46 @@ static void MaybePrintVisibility(List *visibility, std::ostream &out) {
   out << ")";
 }
 
-size_t PrintProject(Session &session, const BazelTargetMatcher &pattern,
-                    const ParsedProject &project) {
+// -- TODO: maybe printing should move to a different file.
+
+// If we have an arbitrary node, find the fist string to latch on to report
+// a file position.
+static std::optional<std::string_view> FindFirstLocatableString(Node *ast) {
+  class FindFirstString : public BaseVoidVisitor {
+   public:
+    void VisitFunCall(FunCall *f) override {
+      WalkNonNull(f->identifier());
+      WalkNonNull(f->right());
+    }
+    void VisitBinOpNode(BinOpNode *b) final {
+      if (result_.has_value()) return;  // Done already, can stop walking.
+      BaseVoidVisitor::VisitBinOpNode(b);
+    }
+
+    void VisitScalar(Scalar *s) final {
+      if (result_.has_value()) return;
+      if (!s->AsString().empty()) result_ = s->AsString();
+    }
+    void VisitIdentifier(Identifier *id) final {
+      if (result_.has_value()) return;
+      if (id) result_ = id->id();
+    }
+    std::optional<std::string_view> found() { return result_; }
+
+   private:
+    std::optional<std::string_view> result_;
+  };
+
+  FindFirstString finder;
+  ast->Accept(&finder);
+  return finder.found();
+}
+
+std::pair<size_t, size_t> PrintProject(Session &session,
+                                       const BazelTargetMatcher &pattern,
+                                       const ParsedProject &project) {
   size_t count = 0;
+  size_t total = 0;
   const CommandlineFlags &flags = session.flags();
 
   std::unique_ptr<RE2> regex;
@@ -274,7 +311,7 @@ size_t PrintProject(Session &session, const BazelTargetMatcher &pattern,
       // This really needs the session passed in so that we can reach the
       // correct error stream.
       std::cerr << "Grep pattern: " << regex->error() << "\n";
-      return count;
+      return {count, total};
     }
   }
 
@@ -286,6 +323,31 @@ size_t PrintProject(Session &session, const BazelTargetMatcher &pattern,
       continue;
     }
 
+    total += file_content->ast->size();
+
+    // Detailed print of package if requested...
+    if (flags.print_ast) {
+      for (Node *item : *file_content->ast) {
+        std::stringstream tmp_out;
+        auto position_or = FindFirstLocatableString(item);
+        if (position_or.has_value()) {
+          if (flags.do_color) tmp_out << "\033[2;37m";
+          tmp_out << "# " << project.Loc(*position_or);
+          if (flags.do_color) tmp_out << "\033[0m";
+        }
+        tmp_out << "\n";
+        PrintVisitor printer(tmp_out, regex.get(), flags.do_color);
+        printer.WalkNonNull(item);
+        tmp_out << "\n";
+        if (!regex || printer.any_highlight()) {  // w/o regex: always print.
+          session.out() << tmp_out.str();
+          ++count;
+        }
+      }
+      continue;
+    }
+
+    // Just print matching rules.
     query::FindTargetsAllowEmptyName(
       file_content->ast, {}, [&](const query::Result &result) {
         std::optional<BazelTarget> maybe_target;
@@ -317,7 +379,7 @@ size_t PrintProject(Session &session, const BazelTargetMatcher &pattern,
         }
       });
   }
-  return count;
+  return {count, total};
 }
 
 Node *ParsedProject::FindMacro(std::string_view name) const {

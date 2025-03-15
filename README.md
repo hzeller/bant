@@ -129,10 +129,20 @@ project where it is harder to even find the right file; consider
 bant print @googletest//:gtest
 ```
 
+By default, `print` outputs _rules_ matching the pattern, so only these
+are printed. You won't see other constructs parsed in the package,
+such as variable assignments or unevaluated list-comprehensions that are yet
+to build rules.
+
+With `-a` (for AST, or "all", if you will), the _entire_ parsed content of the
+surrounding package is printed. Say you have list-comprehensions
+that generate rules that you want to see, but don't `-e`laborate yet; you can
+use `-a` to show these.
+
 #### Expression evaluation
 
-You see that `gtest` has some files `glob()`'d and other expressions
-that make that rule, which we want to see evaluated.
+In the example above you saw that `gtest` has some files `glob()`'d and
+other expressions that make that rule, which we want to see evaluated.
 With the `-e` option (for `e`laborate), bant can do some basic evaluation
 of these and print the final form - here you see the filenames are now expanded:
 
@@ -140,7 +150,7 @@ of these and print the final form - here you see the filenames are now expanded:
 bant print -e @googletest//:gtest
 ```
 
-In general, evaluation is limited right now and only does some
+In general, elaboration is limited right now and only does some
 transformations that are immediately useful for dependency analysis;
 implemented as need arises (That is why it's called elaboration not evaluation
 right now :)). Use `-e` to enable the elaboration in `print`.
@@ -359,9 +369,9 @@ overhead.
 ### Synopsis
 
 ```
-bant v0.2.0 <http://bant.build/>
+bant v0.2.0+ <http://bant.build/>
 Copyright (c) 2024-2025 Henner Zeller. This program is free software; GPL 3.0.
-Usage: bazel-bin/bant/bant [options] <command> [bazel-target-pattern...]
+Usage: bant [options] <command> [bazel-target-pattern...]
 Options
     -C <directory> : Change to this project directory first (default = '.')
     -q             : Quiet: don't print info messages to stderr.
@@ -382,9 +392,10 @@ Options
 
 Commands (unique prefix sufficient):
     == Parsing ==
-    print          : Print AST matching pattern. -E : only files w/ parse errors
+    print          : Print rules matching pattern. (-E : only files w/ errors)
+                      -a : print all toplevel items in packages, not just rules.
                       -e : elaborate; light eval: expand variables, concat etc.
-                      -b : elaborate with built-in macro expansion.
+                      -b : elaborate including expansion of built-in macros.
                       -g <regex> : 'grep' - only print targets where any string
                                     matches regex.
                       -i If '-g' is given: case insensitive

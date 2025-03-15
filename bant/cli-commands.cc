@@ -59,7 +59,7 @@ constexpr bool kAugmentWorkspacdFromDirectoryStructure = true;
 enum class Command {
   kNone,
   kParse,
-  kPrint,  // Like parse, but we narrow with pattern
+  kPrint,  // Like parse, but print; if (!print_ast) narrow with pattern.
   kListPackages,
   kListTargets,
   kListLeafs,
@@ -197,21 +197,28 @@ CliStatus RunCommand(Session &session, Command cmd,
 
   // This will be all separate commands in their own class.
   switch (cmd) {
-  case Command::kPrint: flags.print_ast = true; [[fallthrough]];
-  case Command::kParse:
+  case Command::kPrint:
+  case Command::kParse: {
     // Parsing has already be done by now by building the dependency graph,
     // so it would already have emitted parse errors. Here we only have to
     // decide if we print anything.
-    if (flags.print_ast || flags.print_only_errors) {
-      const size_t count = bant::PrintProject(session, patterns, project);
+    if (flags.print_ast || cmd == Command::kPrint || flags.print_only_errors) {
+      const auto [count, total] =
+        bant::PrintProject(session, patterns, project);
       if (count == 0) {
-        session.info() << "No targets matched.\n";
+        session.info() << "No";
       } else {
-        session.info() << count << " targets matched.\n";
+        session.info() << count;
       }
+      const char *const kind = flags.print_ast ? " toplevel nodes" : " rules";
+      session.info() << kind << " matched (out of " << total;
+      if (!flags.print_ast) {
+        session.info() << " toplevel nodes; use -a to not narrow to rules";
+      }
+      session.info() << ")\n";
     }
     break;
-
+  }
   case Command::kLibraryHeaders:  //
     bant::PrintProvidedSources(
       session, "header", print_pattern,
