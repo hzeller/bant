@@ -208,12 +208,7 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
       return bin_op;
     }
     case '[': {
-      List *list = bin_op->left()->CastAsList();
-      Scalar *index = bin_op->right()->CastAsScalar();
-      if (list && index && index->type() == Scalar::ScalarType::kInt) {
-        return ArrayAccess(bin_op, list, index->AsInt());
-      }
-      return bin_op;
+      return HandleArrayOrSliceAccess(bin_op);
     }
 
       // Document all the ones not yet implemented
@@ -486,11 +481,58 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     return result;
   }
 
-  static Node *ArrayAccess(Node *orig, List *list, int64_t index) {
-    const int64_t list_size = list->size();
-    if (index < 0) index = list_size + index;
-    if (index < 0 || index >= list_size) return orig;
-    return (*list)[index];
+  static Node *MapAccess(Node *orig, List *list, std::string_view key) {
+    for (Node *element : *list) {
+      BinOpNode *const kv = element->CastAsBinOp();
+      if (!kv || kv->op() != ':') return orig;
+      Scalar *const key_scalar = kv->left()->CastAsScalar();
+      if (!key_scalar) return orig;
+      if (key_scalar->AsString() == key) return kv->right();
+    }
+    return orig;
+  }
+
+  static std::optional<int> GetOptionalIntScalar(Node *n) {
+    if (!n) return std::nullopt;
+    Scalar *scalar = n->CastAsScalar();
+    if (!scalar) return std::nullopt;
+    if (scalar->type() != Scalar::ScalarType::kInt) return std::nullopt;
+    return scalar->AsInt();
+  }
+
+  Node *HandleArrayOrSliceAccess(BinOpNode *bin_op) {
+    List *const list = bin_op->left()->CastAsList();
+    if (list) {
+      Scalar *const index = bin_op->right()->CastAsScalar();
+      if (!index) {
+        BinOpNode *const slice_access = bin_op->right()->CastAsBinOp();
+        if (slice_access->op() != ':') return bin_op;  // should not happen
+        const auto start = GetOptionalIntScalar(slice_access->left());
+        const auto end = GetOptionalIntScalar(slice_access->right());
+        return list->AsSlice(project_->arena(), start, end);
+      }
+      if (list->type() == List::Type::kMap) {
+        return MapAccess(bin_op, list, index->AsString());
+      }
+      if (index->type() == Scalar::ScalarType::kInt) {
+        return list->AtIndex(index->AsInt(), bin_op);
+      }
+    }
+    // Still here ? Maybe this is a string.
+    Scalar *const scalar = bin_op->left()->CastAsScalar();
+    if (scalar && scalar->type() == Scalar::ScalarType::kString) {
+      Scalar *const index = bin_op->right()->CastAsScalar();
+      if (index) {
+        if (index->type() != Scalar::ScalarType::kInt) return bin_op;
+        return scalar->AtIndex(project_->arena(), index->AsInt());
+      }
+      BinOpNode *const slice_access = bin_op->right()->CastAsBinOp();
+      if (!slice_access || slice_access->op() != ':') return bin_op;
+      const auto start = GetOptionalIntScalar(slice_access->left());
+      const auto end = GetOptionalIntScalar(slice_access->right());
+      return scalar->AsSlice(project_->arena(), start, end);
+    }
+    return bin_op;
   }
 
   Node *HandleSelect(FunCall *fun) {

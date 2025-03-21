@@ -20,6 +20,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <ostream>
 #include <string>
 #include <string_view>
@@ -84,6 +85,18 @@ class Scalar : public Node {
 
   void Accept(VoidVisitor *v) final;
   Node *Accept(NodeVisitor *v) final;
+
+  // -- the following are implemented here, as any Scalar can also be intepreted
+  // as string.
+
+  // Convenience function: Create a new string object that is a slice
+  // of this object, interpreted as string.
+  Scalar *AsSlice(Arena *arena, std::optional<int> start,
+                  std::optional<int> end);
+
+  // Similar to slice access, just return a string containing a single char.
+  // (no distinguishing string from 'char' type, which we don't have)
+  Scalar *AtIndex(Arena *arena, int index);
 
  protected:
   explicit Scalar(std::string_view value) : string_rep_(value) {}
@@ -228,6 +241,8 @@ class List : public Node {
   void Append(Arena *arena, Node *value) { list_.Append(value, arena); }
 
   Node *operator[](size_t pos) const { return list_[pos]; }
+  Node *at(size_t pos) const { return list_[pos]; }
+
   iterator begin() { return list_.begin(); }
   iterator end() { return list_.end(); }
 
@@ -235,6 +250,15 @@ class List : public Node {
 
   void Accept(VoidVisitor *v) final;
   Node *Accept(NodeVisitor *v) final;
+
+  // Convenience function: Create a new list object that is a slice
+  // of this list oject or nullptr if out of range.
+  List *AsSlice(Arena *arena, std::optional<int> start,
+                std::optional<int> end) const;
+
+  // Return Elmenet at index, or fallback if no such index exists.
+  // Handles negative indexes as indexing 'from the back'
+  Node *AtIndex(int index, Node *fallback) const;
 
  private:
   friend class Arena;

@@ -17,10 +17,14 @@
 
 #include "bant/frontend/ast.h"
 
+#include <algorithm>
 #include <charconv>
+#include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <string_view>
 #include <system_error>
+#include <utility>
 
 #include "bant/util/arena.h"
 
@@ -73,4 +77,56 @@ StringScalar *StringScalar::FromLiteral(Arena *arena,
   return arena->New<StringScalar>(literal, is_triple_quoted, is_raw);
 }
 
+static std::pair<int, int> EffectiveSliceRange(std::optional<int> start,
+                                               std::optional<int> end,
+                                               size_t size) {
+  int from = start.has_value() ? *start : 0;
+  int to = end.has_value() ? *end : size;
+  if (from < 0) from = size + from;  // Look from back
+  from = std::max(from, 0);          // Don't overshoot
+  if (to < 0) to = size + to;
+  to = std::max(to, 0);
+  if (to > (int)size) to = size;
+  return {from, to};
+}
+
+List *List::AsSlice(Arena *arena, std::optional<int> start,
+                    std::optional<int> end) const {
+  const auto [from, to] = EffectiveSliceRange(start, end, size());
+  List *result = arena->New<List>(type());
+  for (int i = from; i < to; ++i) {
+    result->Append(arena, at(i));
+  }
+  return result;
+}
+
+Node *List::AtIndex(int index, Node *fallback) const {
+  const int64_t list_size = size();
+  if (index < 0) index = list_size + index;
+  if (index < 0 || index >= list_size) return fallback;
+  return at(index);
+}
+
+Scalar *Scalar::AsSlice(Arena *arena, std::optional<int> start,
+                        std::optional<int> end) {
+  const std::string_view as_string = AsString();
+  const auto [from, to] = EffectiveSliceRange(start, end, as_string.size());
+  const int len = to - from;
+  const std::string_view slice =
+    (len >= 0) ? as_string.substr(from, len) : as_string.substr(from, 0);
+  if (slice == as_string) return this;
+  return arena->New<StringScalar>(slice, false, false);
+}
+
+Scalar *Scalar::AtIndex(Arena *arena, int index) {
+  const std::string_view as_string = AsString();
+  const int str_len = as_string.length();
+  if (index < 0) index = str_len + index;
+  // Handle invalid accesses gracefully
+  const std::string_view slice = (index >= 0 && index < str_len)
+                                   ? as_string.substr(index, 1)
+                                   : as_string.substr(0, 0);
+  if (slice == as_string) return this;
+  return arena->New<StringScalar>(slice, false, false);
+}
 }  // namespace bant

@@ -424,7 +424,51 @@ D = "remove-suffix"
   EXPECT_EQ(result.first, result.second);
 }
 
-TEST_F(ElaborationTest, ArrayAccess) {
+TEST_F(ElaborationTest, StringIndexAccess) {
+  auto result = ElabAndPrint(
+    R"(
+FOO = "hello"[0]
+BAR1 = "hello"[-1]
+BAR2 = "hello"[4]
+BAZ1 = "hello"[-10]  # graceful out of bounds handling
+BAZ2 = "hello"[10]
+  )",
+    R"(
+FOO = "h"
+BAR1 = "o"
+BAR2 = "o"
+BAZ1 = ""
+BAZ2 = ""
+)");
+  EXPECT_EQ(result.first, result.second);
+}
+
+TEST_F(ElaborationTest, StringSliceAccess) {
+  auto result = ElabAndPrint(
+    R"(
+FOO = "hello"[0]
+FOO = "hello"[0:1]
+FOO = "hello"[0:2]
+FOO = "hello"[7 + -7:1+1]
+BAR = "hello"[-2:1]
+BAZ = "hello"[-2:-1]
+QUX = "hello"[-40:-2]
+ALL = "hello"[-40:40]
+  )",
+    R"(
+FOO = "h"
+FOO = "h"
+FOO = "he"
+FOO = "he"
+BAR = ""
+BAZ = "l"
+QUX = "hel"
+ALL = "hello"
+)");
+  EXPECT_EQ(result.first, result.second);
+}
+
+TEST_F(ElaborationTest, ArrayIndexAccess) {
   auto result = ElabAndPrint(
     R"(
 FOO_0       = ["a", "b", "c"][0]
@@ -451,6 +495,60 @@ NO_BAR      = ["a", "b", "c"][-42]
 
 MULTI_DIM   = "c"
 MULTI_DIM2  = "b"
+)");
+  EXPECT_EQ(result.first, result.second);
+}
+
+TEST_F(ElaborationTest, ArraySliceAccess) {
+  auto result = ElabAndPrint(
+    R"(
+MYLIST = ["a", "b", "c"]
+FOO_0  = MYLIST[0:1]
+FOO_1  = MYLIST[:1]
+FOO_2  = MYLIST[1:2]
+FOO_2  = MYLIST[1:3]
+FOO_3  = MYLIST[1:30]  # graceful clipping
+BAR_0  = MYLIST[-1:]
+BAR_1  = MYLIST[2:2]
+BAR_2  = MYLIST[-1:-1]
+BAR_3  = MYLIST[-3:-1]
+BAR_4  = MYLIST[-7:-1]  # graceful clipping
+)",
+    R"(
+MYLIST = ["a", "b", "c"]
+FOO_0  = ["a"]
+FOO_1  = ["a"]
+FOO_2  = ["b"]
+FOO_2  = ["b", "c"]
+FOO_3  = ["b", "c"]
+BAR_0  = ["c"]
+BAR_1  = []
+BAR_2  = []
+BAR_3  = ["a", "b"]
+BAR_4  = ["a", "b"]
+)");
+  EXPECT_EQ(result.first, result.second);
+}
+
+TEST_F(ElaborationTest, MapAccess) {
+  auto result = ElabAndPrint(
+    R"(
+# Map with different types as keys
+FOO = { 'hello' : 'hi', 'answer' : '42', 1024 : 'kibi' }
+BAR = FOO['hello']
+KIB = FOO[1024]
+KIB2 = FOO[512 * 2]
+BAZ = FOO['no-such-key']
+QUX = FOO[1]
+  )",
+    R"(
+FOO = { 'hello' : 'hi', 'answer' : '42', 1024 : 'kibi' }
+BAR = "hi"
+KIB = "kibi"
+KIB2 = "kibi"
+# Keys not found: Don't fail but keep expression as-is
+BAZ = { 'hello' : 'hi', 'answer' : '42', 1024 : 'kibi' }['no-such-key']
+QUX = { 'hello' : 'hi', 'answer' : '42', 1024 : 'kibi' }[1]
 )");
   EXPECT_EQ(result.first, result.second);
 }

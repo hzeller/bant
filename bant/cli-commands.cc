@@ -211,7 +211,7 @@ CliStatus RunCommand(Session &session, Command cmd,
         session.info() << count;
       }
       const char *const kind = flags.print_ast ? " toplevel nodes" : " rules";
-      session.info() << kind << " matched (out of " << total;
+      session.info() << kind << " matched (from " << total;
       if (!flags.print_ast) {
         session.info() << " toplevel nodes; use -a to not narrow to rules";
       }
