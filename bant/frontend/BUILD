@@ -220,7 +220,9 @@ cc_library(
         ":substitute-copy",
         "//bant:session",
         "//bant/explore:query-utils",
+        "//bant/util:memory",
         "//bant/util:stat",
+        "@abseil-cpp//absl/log:check",
     ],
 )
 

@@ -108,4 +108,71 @@ some_macro_rule(
 
   EXPECT_EQ(result.first, result.second);
 }
+
+TEST_F(MacroSubstituteTest, MacroBodyForwardKwArgsFunction) {
+  SetMacroContent(R"(
+some_macro_rule = bant_forward_args(
+    cc_library(
+      visibility = "//visibility:public",
+    )
+  )
+)");
+
+  const auto result = MacroSubstituteAndPrint(R"input(
+some_macro_rule(
+   name = "foobar",
+   deps = ["baz"],
+)
+)input",
+                                              R"expanded(
+cc_library(
+    # Original parameters passed in
+    name = "foobar",
+    deps = ["baz"],
+    visibility = "//visibility:public",
+)
+)expanded");
+
+  EXPECT_EQ(result.first, result.second);
+}
+
+TEST_F(MacroSubstituteTest, MacroBodyForwardKwArgsToMultipleFunctionsInTuple) {
+  SetMacroContent(R"(
+some_macro_rule = bant_forward_args(
+      cc_library(
+        visibility = "//visibility:public",
+        stop_expansion = foo(),
+      ),
+      another_rule(
+        answer = 42,
+      )
+   )
+)");
+
+  const auto result = MacroSubstituteAndPrint(R"input(
+some_macro_rule(
+   name = "foobar",   # These will be forwarded to any fun calls found inside
+   deps = ["baz"],
+)
+)input",
+                                              R"expanded(
+(  # <- Expansion is a tuple as it has multiple elements
+cc_library(
+    # Original parameters passed in
+    name = "foobar",
+    deps = ["baz"],
+    visibility = "//visibility:public",
+    stop_expansion = foo(),
+),
+another_rule(
+    name = "foobar",
+    deps = ["baz"],
+    answer = 42,
+),
+)
+)expanded");
+
+  EXPECT_EQ(result.first, result.second);
+}
+
 }  // namespace bant

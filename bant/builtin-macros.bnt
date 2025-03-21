@@ -1,17 +1,27 @@
 # -*- Python -*-
 # Bant built-in macros written in bant declarative language itself.
 #
-# Assignments of tuples with declarations to identifiers representing the
-# macro name.
+# Defining callable macros, expanded if its name is called like a function
+# Parameters to these macros can be used inside the macro body in two ways:
 #
-# The tuples contain regular bazel rules that are expanded in place of the
+# * Here, the kwarg values are expanded inside the macro call like variables:
+#    foo = x                    # expands foo(x = 42) => 42
+#    foo = bar(val = x)         # expands foo(x = 42) => bar(val = 42)
+#    foo = (bar(a=x), baz(b=x)) # expands foo(x = 42) => (bar(a=42), baz(b=42))
+#
+# * With `bant_forward_args()`, each of its arguments that are function calls
+#  gets the whole list of original kwargs pasted in, merged with other
+#  parameters provided in the macro body:
+#    foo = bant_forward_args(bar(hello = "world")) expands
+#     foo(name = "x", deps = [])
+#     => bar(name = "x", deps = [], hello = "world")
+#
+# The expansions contain regular bazel rules that are used in place of the
 # original rule with that macro-name; this provides more information for bant
 # to see through the build-rules for commands such as `bant dwyu`.
 #
-# At macro expansion time, names from the macro kwargs are expanded inside.
-#
-# Note: Initial implementation, this mmight change any time. This file is
-# compiled into the binary.
+# Note: Initial implementation, syntax mmight change any time.
+# This file is compiled into bant.
 
 ## TODO simplify various protobuf hacks in bant by providing equivalent macros
 
