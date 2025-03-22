@@ -115,9 +115,9 @@ class TestableDWYUGenerator : public bant::DWYUGenerator {
 // Putthing it all together
 class DWYUTestFixture {
  public:
-  explicit DWYUTestFixture(const ParsedProject &project)
+  explicit DWYUTestFixture(const ParsedProject &project, int verbose_level = 1)
       : session_{&log_messages_, &log_messages_,
-                 CommandlineFlags{.verbose = 2}},
+                 CommandlineFlags{.verbose = verbose_level}},
         dwyu_(session_, project, edit_expector_.checker()){};
 
   ~DWYUTestFixture() {
@@ -201,7 +201,7 @@ cc_library(
   // Fuzzy matching. We match files from the suffix so as a fallback
   // we allow for matching that.
   {  // Files that match full path but are longer are guessed to belong
-    DWYUTestFixture tester(pp.project());
+    DWYUTestFixture tester(pp.project(), /*verbose_level=*/2);
     tester.ExpectAdd(":foo");  // fuzzyily can match header file, add library.
     tester.AddSource("some/path/bar.h", "");
     tester.AddSource("some/path/bar.cc", R"(
@@ -212,7 +212,7 @@ cc_library(
   }
 
   {  // Files that are somewhat shorter are also matched.
-    DWYUTestFixture tester(pp.project());
+    DWYUTestFixture tester(pp.project(), /*verbose_level=*/2);
     tester.ExpectAdd(":foo");  // fuzzyily can match header file, add library.
     tester.AddSource("some/path/bar.h", "");
     tester.AddSource("some/path/bar.cc", R"(
