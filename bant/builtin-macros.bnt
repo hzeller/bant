@@ -119,6 +119,19 @@ xls_dslx_ir_wrapper = cc_library(
     bant_skip_dependency_check = True,
 )
 
+# Looks like the following two are the same from bant's point of view.
+xls_ir_cc_library_macro = (
+    genrule(
+        name = name,
+        outs = [name + ".h"],
+    ),
+    cc_library(
+        name = name,
+        hdrs = [name + ".h"],
+        bant_skip_dependency_check = True,
+    ),
+)
+
 xls_ir_cc_library = (
     genrule(
         name = name,
