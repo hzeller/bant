@@ -230,7 +230,7 @@ cc_library(
 #include "wrongpath/foo.h"
 )");
     tester.RunForTarget("//some/path:bar");
-    EXPECT_THAT(tester.LogContent(), HasSubstr("foo.h -- Missing"));
+    EXPECT_THAT(tester.LogContent(), HasSubstr("unknown provider -- Missing"));
   }
 }
 
@@ -724,8 +724,7 @@ cc_library(
 #include "some/path/unaccounted-header.h"
 )");
   tester.RunForTarget("//some/path:bar");
-  EXPECT_THAT(tester.LogContent(),
-              HasSubstr("unknown provider for some/path/unaccounted-header.h"));
+  EXPECT_THAT(tester.LogContent(), HasSubstr("unknown provider"));
 }
 
 TEST(DWYUTest, DoNotRemove_AlwayslinkDependency) {

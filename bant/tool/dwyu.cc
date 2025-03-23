@@ -24,6 +24,7 @@
 #include <optional>
 #include <ostream>
 #include <set>
+#include <sstream>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -61,6 +62,36 @@ static constexpr std::string_view kSourceLocations[] = {
 #undef LINK_PREFIX
 
 namespace bant {
+
+// TODO: refine, and put somewhere else.
+class Colored {
+ public:
+  friend std::ostream &operator<<(std::ostream &o, const Colored &c) {
+    // maybe also remember the stream to emit \033[0m when going out of scope,
+    // at the end of a print expression, but that feels possibly too clever.
+    if (c.do_color_) {
+      o << c.escape_code_;
+    }
+    return o;
+  }
+
+ protected:
+  Colored(const Session &s, const char *escape_code)
+      : do_color_(s.flags().do_color), escape_code_(escape_code) {}
+
+ private:
+  const bool do_color_;
+  const char *const escape_code_;
+};
+
+class Red : public Colored {
+ public:
+  explicit Red(const Session &s) : Colored(s, "\033[31m") {}
+};
+class Norm : public Colored {
+ public:
+  explicit Norm(const Session &s) : Colored(s, "\033[0m") {}
+};
 
 // Given a header file, check if it is in the list. Take possible prefix
 // into account.
@@ -298,15 +329,13 @@ DWYUGenerator::DependenciesNeededBySources(
     if (session_.flags().verbose < 3) return;
     source.Loc(info_out, inc_file) << " #include \"" << inc_file << "\"\n";
     for (const BazelTarget &possible_provider : alternatives) {
-      std::string msg;
-      std::string description;
-      if (!CanSee(target, possible_provider, &description)) {
-        if (session_.flags().do_color) msg.append("\033[31m");
-        msg.append(" (").append(description).append(")");
-        if (session_.flags().do_color) msg.append("\033[0m");
+      std::stringstream msg;
+      std::string why;
+      if (!CanSee(target, possible_provider, &why)) {
+        msg << Red(session_) << " (" << why << ")" << Norm(session_);
       }
       source.Loc(info_out, inc_file)
-        << "    | " << possible_provider << msg << "\n";
+        << "    | " << possible_provider << msg.str() << "\n";
     }
   };
 
@@ -465,11 +494,13 @@ DWYUGenerator::DependenciesNeededBySources(
       // Be careful with remove suggestion, so consider 'not accounted for'.
       if (session_.flags().verbose) {
         // Until all common reasons why we don't find a provider is resolved,
-        // keep this hidden behind verbose.
+        // report.
         maybe_log_sourcereference(src_name, source_content->path, target);
+        source.Loc(info_out, inc_file) << " #include \"" << inc_file << "\"\n";
         source.Loc(info_out, inc_file)
-          << " unknown provider for " << inc_file
-          << " -- Missing or from non-standard bazel-rule ?\n";
+          << Red(session_) << "    ? ^ unknown provider "
+          << "-- Missing or from non-standard bazel-rule ?" << Norm(session_)
+          << "\n";
       }
     }
   }
