@@ -90,15 +90,16 @@ strict and ignore `# keep` comments and emit the removal edit anyway.
 
 #### Caveats
 
-   * Does not understand package groups in visibility yet; these will be
-     considered `//visibility:public` and might result in adding
-     dependencies that bazel would not allow.
    * Will remove dependencies if they provide headers that are not needed
      by the sources of a target. If you want to keep them linked, you need to
      declare them as `alwayslink` (libraries that are linked to targets but
      do _not_ provide any headers are considered alwayslink implicitly).
      (this is not really a caveat, it just emphasizes that it is important to
      properly declare the intent in BUILD files).
+   * While bant is pretty good to not mess up dependencies, you should always
+     double-check if the project compiles and works after a clean-up.
+     There are `-v`, `-vv`, and `-vvv` verbosity levels that provide
+     increasingly detailed logging in case you need to debug.
 
 The `dwyu` command is essentially a [`build_cleaner`][build_cleaner] for
 C++ targets.

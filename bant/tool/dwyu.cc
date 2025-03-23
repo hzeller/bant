@@ -498,7 +498,7 @@ DWYUGenerator::DependenciesNeededBySources(
         maybe_log_sourcereference(src_name, source_content->path, target);
         source.Loc(info_out, inc_file) << " #include \"" << inc_file << "\"\n";
         source.Loc(info_out, inc_file)
-          << Red(session_) << "    ? ^ unknown provider "
+          << Red(session_) << "    ?      ^ unknown provider "
           << "-- Missing or from non-standard bazel-rule ?" << Norm(session_)
           << "\n";
       }
