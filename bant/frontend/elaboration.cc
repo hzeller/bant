@@ -208,9 +208,8 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     }
     case '%': {
       Scalar *lhs = bin_op->left()->CastAsScalar();
-      List *rhs = bin_op->right()->CastAsList();
-      if (lhs && rhs && lhs->type() == Scalar::ScalarType::kString) {
-        return HandlePercentFormat(bin_op, lhs->AsString(), rhs);
+      if (lhs && lhs->type() == Scalar::ScalarType::kString) {
+        return HandlePercentFormat(bin_op, lhs->AsString(), bin_op->right());
       }
       return bin_op;
     }
@@ -411,7 +410,18 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
   }
 
   // Very simplistic right now: only understands %s
-  Node *HandlePercentFormat(Node *orig, std::string_view fmt, List *args) {
+  Node *HandlePercentFormat(Node *orig, std::string_view fmt, Node *what) {
+    if (List *list = what->CastAsList(); list) {
+      return HandlePercentFormatList(orig, fmt, list);
+    }
+    if (Scalar *value = what->CastAsScalar(); value) {
+      return HandlePercentFormatValue(orig, fmt, value);
+    }
+    return orig;
+  }
+
+  // TODO: the following two methods are somewhat duplicated; combine.
+  Node *HandlePercentFormatList(Node *orig, std::string_view fmt, List *args) {
     std::string assembled;
     size_t last_fmt_pos = 0;
     size_t fmt_pos;
@@ -419,11 +429,27 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     while (value_it != args->end() &&
            (fmt_pos = fmt.find("%s", last_fmt_pos)) != std::string::npos) {
       assembled.append(fmt.substr(last_fmt_pos, fmt_pos - last_fmt_pos));
-      Scalar *scalar = (*value_it)->CastAsScalar();
-      if (!scalar) return orig;  // Can only format if all args known.
-      assembled.append(scalar->AsString());
+      Scalar *value = (*value_it)->CastAsScalar();
+      if (!value) return orig;  // Can only format if all args known.
+      assembled.append(value->AsString());
       last_fmt_pos = fmt_pos + 2;
       ++value_it;
+    }
+    assembled.append(fmt.substr(last_fmt_pos));
+    return MakeNewStringScalarFrom(assembled, project_->GetLocation(fmt));
+  }
+
+  Node *HandlePercentFormatValue(Node *orig, std::string_view fmt,
+                                 Scalar *value) {
+    std::string assembled;
+    size_t last_fmt_pos = 0;
+    if (const size_t fmt_pos = fmt.find("%s", last_fmt_pos);
+        fmt_pos != std::string::npos) {
+      assembled.append(fmt.substr(last_fmt_pos, fmt_pos - last_fmt_pos));
+      assembled.append(value->AsString());
+      last_fmt_pos = fmt_pos + 2;
+    } else {
+      return orig;
     }
     assembled.append(fmt.substr(last_fmt_pos));
     return MakeNewStringScalarFrom(assembled, project_->GetLocation(fmt));

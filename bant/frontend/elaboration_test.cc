@@ -316,12 +316,14 @@ RIGHT_EMPTY = "b"
 TEST_F(ElaborationTest, PercentFormat) {
   auto result = ElabAndPrint(
     R"(
-FOO = "Hello %s" % ("World",)
-BAR = "%s is %s." % ("Answer", 42)
+FOO = "Hello %s" % "World"
+BAR = "Hello %s..." % ("World",)
+BAZ = "%s is %s." % ("Answer", 42)
 )",
     R"(
 FOO = "Hello World"
-BAR = "Answer is 42."
+BAR = "Hello World..."
+BAZ = "Answer is 42."
 )");
 
   EXPECT_EQ(result.first, result.second);
