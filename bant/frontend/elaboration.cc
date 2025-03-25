@@ -255,7 +255,7 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
   Node *VisitListComprehension(ListComprehension *lc) final {
     // TODO: properly implement flat output with multiple `for`.
     // Target v0.2.0+
-    return lc->for_node()->Accept(this);
+    return WalkNonNull(lc->for_node());
   }
 
  private:
@@ -263,10 +263,10 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     Node *const subject = for_node->left();
 
     BinOpNode *const in_node = for_node->right()->CastAsBinOp();
-    if (!in_node) return for_node;
+    if (!in_node || !in_node->left() || !in_node->right()) return for_node;
 
-    List *const var_tuple = in_node->left()->Accept(this)->CastAsList();
-    List *const iterate_over = in_node->right()->Accept(this)->CastAsList();
+    List *const var_tuple = WalkNonNull(in_node->left())->CastAsList();
+    List *const iterate_over = WalkNonNull(in_node->right())->CastAsList();
     if (!var_tuple || !iterate_over) {
       return for_node;
     }
@@ -295,8 +295,8 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
 
       Node *substituted =
         VariableSubstituteCopy(subject, project_->arena(), varmap);
-      Node *elabed = substituted->Accept(this);  // Apply elaboration
-      result->Append(project_->arena(), elabed);
+      Node *elabed = WalkNonNull(substituted);  // Apply elaboration
+      if (elabed) result->Append(project_->arena(), elabed);
     }
     return result;
   }
@@ -506,7 +506,7 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
       Scalar *const index = bin_op->right()->CastAsScalar();
       if (!index) {
         BinOpNode *const slice_access = bin_op->right()->CastAsBinOp();
-        if (slice_access->op() != ':') return bin_op;  // should not happen
+        if (!slice_access || slice_access->op() != ':') return bin_op;
         const auto start = GetOptionalIntScalar(slice_access->left());
         const auto end = GetOptionalIntScalar(slice_access->right());
         return list->AsSlice(project_->arena(), start, end);
@@ -714,6 +714,10 @@ Node *Elaborate(Session &session, ParsedProject *project,
 
 void Elaborate(Session &session, ParsedProject *project,
                const ElaborationOptions &options, ParsedBuildFile *build_file) {
+  // If the build file has errors, AST is not well defined and might contain
+  // nullptr nodes and is not worth error check. Bail out early.
+  if (!build_file->errors.empty()) return;
+
   bant::Stat &elab_stats = session.GetStatsFor("Elaborated", "packages");
   const ScopedTimer timer(&elab_stats.duration);
   ++elab_stats.count;
