@@ -197,6 +197,13 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
           return StringMethodCall(bin_op, lhs->AsString(), method_call);
         }
       }
+      {
+        List *lhs = bin_op->left()->CastAsList();
+        FunCall *method_call = bin_op->right()->CastAsFunCall();
+        if (lhs && method_call) {
+          return ListMethodCall(bin_op, lhs, method_call);
+        }
+      }
       return bin_op;
     }
     case '%': {
@@ -354,7 +361,7 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
       return HandleStringRsplit(orig, str, method->argument());
     }
 
-    return orig;
+    return orig;  // Not handled.
   }
 
   Node *HandleStringFormat(Node *orig, std::string_view fmt, FunCall *method) {
@@ -479,6 +486,29 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
       result->Append(project_->arena(), substr);
     }
     return result;
+  }
+
+  List *ExtractMapItems(List *map_list, bool want_key) {
+    List *result = Make<List>(List::Type::kList);
+    for (Node *element : *map_list) {
+      BinOpNode *const kv = element->CastAsBinOp();
+      if (!kv || kv->op() != ':') continue;  // ¯\_(ツ)_/¯
+      result->Append(project_->arena(), want_key ? kv->left() : kv->right());
+    }
+    return result;
+  }
+
+  Node *ListMethodCall(Node *orig, List *list, FunCall *method) {
+    const std::string_view method_name = method->identifier()->id();
+    if (list->type() == List::Type::kMap) {
+      if (method_name == "keys") {
+        return ExtractMapItems(list, true);
+      }
+      if (method_name == "values") {
+        return ExtractMapItems(list, false);
+      }
+    }
+    return orig;  // Not handled.
   }
 
   static Node *MapAccess(Node *orig, List *list, std::string_view key) {

@@ -553,6 +553,40 @@ QUX = { 'hello' : 'hi', 'answer' : '42', 1024 : 'kibi' }[1]
   EXPECT_EQ(result.first, result.second);
 }
 
+TEST_F(ElaborationTest, MapKeys) {
+  auto result = ElabAndPrint(
+    R"(
+FOO = { 'hello' : 'hi', 'answer' : '42', 1024 : 'kibi' }
+BAR = FOO.keys()
+BAZ = { 'x' : 1, 'y' : 2, 'z' : 3}.keys()
+QUX = [element for element in { 'x' : 1, 'y' : 2, 'z' : 3}.keys()]
+  )",
+    R"(
+FOO = { 'hello' : 'hi', 'answer' : '42', 1024 : 'kibi' }
+BAR = [ 'hello', 'answer', 1024 ]
+BAZ = [ 'x', 'y', 'z' ]
+QUX = [ 'x', 'y', 'z' ]
+)");
+  EXPECT_EQ(result.first, result.second);
+}
+
+TEST_F(ElaborationTest, MapValues) {
+  auto result = ElabAndPrint(
+    R"(
+FOO = { 'hello' : 'hi', 'answer' : '42', 1024 : 'kibi' }
+BAR = FOO.values()
+BAZ = { 'x' : 1, 'y' : 2, 'z' : 3}.values()
+QUX = [element for element in { 'x' : 1, 'y' : 2, 'z' : 3}.values()]
+  )",
+    R"(
+FOO = { 'hello' : 'hi', 'answer' : '42', 1024 : 'kibi' }
+BAR = [ 'hi', '42', 'kibi' ]
+BAZ = [ 1, 2, 3 ]
+QUX = [ 1, 2, 3 ]
+)");
+  EXPECT_EQ(result.first, result.second);
+}
+
 namespace fs = std::filesystem;
 
 // TODO: lift out if useful in other tests.
