@@ -631,7 +631,7 @@ void DWYUGenerator::CreateEditsForTarget(const BazelTarget &target,
 
 std::vector<std::string_view> ExtractCCIncludes(NamedLineIndexedContent *src) {
   static const LazyRE2 kIncRe{
-    R"/((?m)("|^\s*#\s*include\s+"((\.\./)*[0-9a-zA-Z_/+-]+(\.[a-zA-Z]+)*)"))/"};
+    R"/((?m)("|\/\/.*$|^\s*#\s*include\s+"((\.\./)*[0-9a-zA-Z_/+-]+(\.[a-zA-Z]+)*)"))/"};
 
   // We don't actually understand strings in c++, so we just pretend by
   // toggle ignore whenever we see one.
@@ -643,6 +643,8 @@ std::vector<std::string_view> ExtractCCIncludes(NamedLineIndexedContent *src) {
   while (RE2::FindAndConsume(&run, *kIncRe, &outer, &header_path)) {
     if (outer == "\"") {
       best_effort_in_nested_quote_toggle = !best_effort_in_nested_quote_toggle;
+    } else if (outer.starts_with("//")) {
+      // ignore comment.
     } else if (!best_effort_in_nested_quote_toggle) {
       result.push_back(header_path);
     }

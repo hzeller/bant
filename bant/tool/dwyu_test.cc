@@ -73,13 +73,19 @@ R"(
 #include /* foo */ "this-is-silly.h"  // Some things are too far :)
 #include "../dotdot.h"         // mmh, who is doing this ?
 #include "more-special-c++.h"  // other characters used.
+// #include "not-seen.h"
+// Here is a single quote-char (") which should not mess up the next include
+#include "should-be-seen.h"  // another one (")
+#include "this-as-well.h"
 )";
   NamedLineIndexedContent scanned_src("<text>", kTestContent);
   const auto includes = ExtractCCIncludes(&scanned_src);
   EXPECT_THAT(includes, ElementsAre("CaSe-dash_underscore.h", "but-this.h",
                                     "with/suffix.hh", "with/suffix.pb.h",
                                     "with/suffix.inc", "w/space.h",
-                                    "../dotdot.h", "more-special-c++.h"));
+                                    "../dotdot.h", "more-special-c++.h",
+                                    "should-be-seen.h", "this-as-well.h"));
+  // Let's check some locations.
   EXPECT_EQ(PosOfPart(scanned_src, includes, 0), (LineColumn{2, 10}));
   EXPECT_EQ(PosOfPart(scanned_src, includes, 1), (LineColumn{5, 13}));
 
