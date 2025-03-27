@@ -38,6 +38,13 @@
 # they are in different name spaces.
 ##
 
+### bazel-skylib
+expand_template = genrule(
+    name = name,
+    srcs = [template],
+    outs = [out],
+)
+
 ### Found in bazel_rules_hdl, verible.
 genlex = genrule(
     name = name,
