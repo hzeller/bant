@@ -47,7 +47,7 @@ class Arena {
 
   // Convenience allocation calling T constructor in place
   template <typename T, class... U>
-  T *New(U &&...args) {
+  [[nodiscard]] T *New(U &&...args) {
     return new (Alloc(sizeof(T))) T(std::forward<U>(args)...);
   }
 

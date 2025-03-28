@@ -292,6 +292,9 @@ class Parser::Impl {
         scanner_->Next();
         return ParseFunCall(t);
       }
+      if (t.text == "False" || t.text == "True") {
+        return IntScalar::FromLiteral(node_arena_, t.text);
+      }
       return Make<Identifier>(t.text);
     case TokenType::kOpenSquare:
       scanner_->Next();
@@ -566,7 +569,7 @@ class Parser::Impl {
 
   // Convenience factory creating in our Arena, forwarding to constructor.
   template <typename T, class... U>
-  T *Make(U &&...args) {
+  [[nodiscard]] T *Make(U &&...args) {
     return node_arena_->New<T>(std::forward<U>(args)...);
   }
 

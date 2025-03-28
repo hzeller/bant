@@ -95,6 +95,8 @@ class TargetFinder : public BaseVoidVisitor {
         current_.alwayslink = scalar->AsInt();
       } else if (lhs == "testonly") {
         current_.testonly = scalar->AsInt();
+      } else if (lhs == "bant_skip_dependency_check") {
+        current_.bant_skip_dependency_check = scalar->AsInt();
       } else if (lhs == "include_prefix") {
         current_.include_prefix = scalar->AsString();
       } else if (lhs == "strip_include_prefix") {
@@ -127,17 +129,6 @@ class TargetFinder : public BaseVoidVisitor {
         current_.textual_hdrs = list;
       } else if (lhs == "public_hdrs") {
         current_.public_hdrs = list;
-      }
-    } else if (Identifier *id = a->value()->CastAsIdentifier()) {
-      // If alwayslink has been a 'True' constant, the constant expression
-      // eval will be flattening that to a scalar once implemented.
-      // But until then, we need to check for the constant symbol manually.
-      if (lhs == "alwayslink") {
-        current_.alwayslink = (id->id() == "True");
-      } else if (lhs == "testonly") {
-        current_.testonly = (id->id() == "True");
-      } else if (lhs == "bant_skip_dependency_check") {
-        current_.bant_skip_dependency_check = (id->id() == "True");
       }
     }
   }

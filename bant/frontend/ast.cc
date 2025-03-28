@@ -30,8 +30,17 @@
 
 namespace bant {
 IntScalar *IntScalar::FromLiteral(Arena *arena, std::string_view literal) {
-  int64_t val = 0;
   const std::string_view string_rep = literal;
+  // Boolean scalars.
+  if (literal == "False") {
+    return arena->New<IntScalar>(string_rep, 0);
+  }
+  if (literal == "True") {
+    return arena->New<IntScalar>(string_rep, 1);
+  }
+
+  // Well, it's a number then.
+  int64_t val = 0;
   int base = 10;
   if (literal.size() >= 2) {
     switch (literal[1]) {

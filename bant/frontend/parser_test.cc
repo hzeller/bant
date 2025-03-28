@@ -166,6 +166,8 @@ static Scalar *ExtractScalar(bant::List *list) {
 TEST_F(ParserTest, IntConversion) {
   EXPECT_EQ(ExtractScalar(Parse("a=0o123"))->AsInt(), 0123);
   EXPECT_EQ(ExtractScalar(Parse("a=0xabc"))->AsInt(), 0xabc);
+  EXPECT_EQ(ExtractScalar(Parse("a=True"))->AsInt(), 1);
+  EXPECT_EQ(ExtractScalar(Parse("a=False"))->AsInt(), 0);
 }
 
 TEST_F(ParserTest, Assignments) {
