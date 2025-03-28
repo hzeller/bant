@@ -30,6 +30,7 @@
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/log/check.h"
+#include "absl/log/log.h"
 #include "absl/strings/str_join.h"
 #include "bant/explore/query-utils.h"
 #include "bant/frontend/ast.h"
@@ -161,7 +162,7 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
           }
         }
       }
-      return bin_op;  // Unimplemented op. Return as-is.
+      break;
     }
     case '-': {
       {
@@ -174,7 +175,7 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
           }
         }
       }
-      return bin_op;  // Unimplemented op. Return as-is.
+      break;
     }
     case '*': {
       {
@@ -187,7 +188,7 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
           }
         }
       }
-      return bin_op;
+      break;
     }
     case '.': {
       {
@@ -204,20 +205,25 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
           return ListMethodCall(bin_op, lhs, method_call);
         }
       }
-      return bin_op;
+      break;
     }
     case '%': {
       Scalar *lhs = bin_op->left()->CastAsScalar();
       if (lhs && lhs->type() == Scalar::ScalarType::kString) {
         return HandlePercentFormat(bin_op, lhs->AsString(), bin_op->right());
       }
-      return bin_op;
+      break;
     }
     case '[': {
       return HandleArrayOrSliceAccess(bin_op);
     }
 
-      // Document all the ones not yet implemented
+      // Operations that we don't worry about reporting as non-implmeneted.
+    case ':':  // map element 'operator'. Not doing anything with it.
+    case kIn:  // Mostly in list-comprehension, but should implement set query.
+      return bin_op;
+
+    // Document all the ones not yet implemented
     case kDivide:
     case kFloorDivide:
     case kPipeOrBitwiseOr:
@@ -229,20 +235,28 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     case kGreaterEqual:
     case kGreaterThan:
     case kNotEqual:
-    case kNotIn: {
-      // TODO: implement. So far only implemention of ops observed in the
-      // field. For that observation and choose priority: turn on this log :)
-      // Looks like next candidate might be '%' for formatting...
-      if (session_.flags().verbose > 1) {
-        project_->Loc(session_.info(), bin_op->source_range())
-          << "Op `" << bin_op->op() << "` not implemented yet.\n";
+    case kNotIn:
+      // binops, known to not be handled (yet)
+      break;
+
+    default:
+      // These are tokens that should not be a bin-operator.
+      LOG(DFATAL) << "Unexpected bin-op " << bin_op->op();
+    }
+
+    // TODO: implement. So far only implemention of ops observed in the
+    // field. For that observation and choose priority: turn on this log :)
+    // Looks like next candidate might be '%' for formatting...
+    if (session_.flags().verbose > 1) {
+      auto &log = project_->Loc(session_.info(), bin_op->source_range());
+      log << "Op `" << bin_op->op() << "` for operands not implemented yet;";
+      if (session_.flags().verbose > 2) {
+        log << " (" << bin_op << ")";  // Noisy: whole operation around.
       }
+      log << "\n";
     }
-      [[fallthrough]];
-    case kIn:  // Strange: this should be handled by list comprehension.
-      [[fallthrough]];
-    default: return bin_op;
-    }
+    // Return unimplemented nodes as-is.
+    return bin_op;
   }
 
   Node *VisitUnaryExpr(UnaryExpr *unary) final {
