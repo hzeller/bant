@@ -131,6 +131,10 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     Node *post_visit = BaseNodeReplacementVisitor::VisitBinOpNode(b);
     BinOpNode *bin_op = post_visit->CastAsBinOp();  // still binop ?
     if (!bin_op) return post_visit;
+
+    // Some of the following ops are only partially implemented. If they
+    // are, we return from there, otherwise we end up at the bottom to
+    // report a worthwhile operation to implement.
     switch (bin_op->op()) {
     case TokenType::kFor: {
       return ProcessFor(b);
@@ -214,6 +218,15 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
       }
       break;
     }
+    case '|': {
+      List *lhs = bin_op->left()->CastAsList();
+      List *rhs = bin_op->right()->CastAsList();
+      if (lhs && lhs->type() == List::Type::kMap &&  //
+          rhs && rhs->type() == List::Type::kMap) {
+        return MergeMaps(bin_op, lhs, rhs);
+      }
+      break;
+    }
     case '[': {
       return HandleArrayOrSliceAccess(bin_op);
     }
@@ -226,7 +239,6 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     // Document all the ones not yet implemented
     case kDivide:
     case kFloorDivide:
-    case kPipeOrBitwiseOr:
     case kAnd:
     case kOr:
     case kLessThan:
@@ -325,11 +337,10 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     if (right->empty()) return left;
     if (left->empty()) return right;
     List *result = Make<List>(left->type());
-    for (Node *n : *left) {
-      result->Append(project_->arena(), n);
-    }
-    for (Node *n : *right) {
-      result->Append(project_->arena(), n);
+    for (List *list : {left, right}) {
+      for (Node *n : *list) {
+        result->Append(project_->arena(), n);
+      }
     }
     return result;
   }
@@ -353,6 +364,35 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
                                     Make<FixedSourceLocator>(op_location));
 
     return Make<StringScalar>(assembled, false, false);
+  }
+
+  Node *MergeMaps(Node *fallback, List *lhs, List *rhs) {
+    // First pass: Find effective node mapping and ensure all keys are scalars
+    absl::flat_hash_map<std::string_view, Node *> collect;
+    for (List *list : {lhs, rhs}) {
+      for (Node *element : *list) {
+        BinOpNode *kv = element->CastAsBinOp();
+        if (!kv || kv->op() != ':') return fallback;
+        Scalar *key = kv->left()->CastAsScalar();
+        if (!key) return fallback;
+        collect[key->AsString()] = element;
+      }
+    }
+
+    List *result = Make<List>(List::Type::kMap);
+    // We need to keep the original order, so walk through the og lists.
+    for (List *list : {lhs, rhs}) {
+      for (Node *element : *list) {
+        // We already know that the following pointer chasins is safe.
+        auto key = element->CastAsBinOp()->left()->CastAsScalar()->AsString();
+        auto found = collect.find(key);
+        if (found == collect.end()) continue;
+        result->Append(project_->arena(), found->second);
+        collect.erase(found);
+      }
+    }
+
+    return result;
   }
 
   IntScalar *MakeIntWithStringRep(const FileLocation &loc, int64_t value) {

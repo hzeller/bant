@@ -589,6 +589,31 @@ QUX = [ 1, 2, 3 ]
   EXPECT_EQ(result.first, result.second);
 }
 
+TEST_F(ElaborationTest, MapMerge) {
+  auto result = ElabAndPrint(
+    R"(
+FOO = {'something' : 'foo'} | {'another' : 'bar'}
+FOO = {'to_replace' : 'foo'} | {'to_replace' : 'bar'}
+FOO = ({'keep' : 1, 'original': 2, 'key' : 3, 'order': 4} |
+       {'order': 8, 'key' : 7, 'additional': 9, 'keep' : 5, 'original' : 6})
+BAR = { not_a_constexpr : 'foo'} | {'another' : 'bar'}
+
+const_evaluated = "hello"
+BAZ = { const_evaluated : 'foo'} | {'another' : 'bar'}
+)",
+    R"(
+FOO = {'something': 'foo', 'another': 'bar'}
+FOO = {'to_replace': 'bar'}
+FOO = {'keep': 5, 'original': 6, 'key': 7, 'order': 8, 'additional': 9}
+BAR = { not_a_constexpr : 'foo'} | {'another' : 'bar'}
+
+const_evaluated = "hello"
+BAZ = {'hello': 'foo', 'another': 'bar'}
+)");
+
+  EXPECT_EQ(result.first, result.second);
+}
+
 namespace fs = std::filesystem;
 
 // TODO: lift out if useful in other tests.
