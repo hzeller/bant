@@ -23,6 +23,7 @@
 #include <limits>
 #include <optional>
 #include <ranges>
+#include <stack>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -287,7 +288,9 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
   Node *VisitListComprehension(ListComprehension *lc) final {
     // TODO: properly implement flat output with multiple `for`.
     // Target v0.2.0+
+    current_lh_type_.push(lc->type());
     return WalkNonNull(lc->for_node());
+    current_lh_type_.pop();
   }
 
  private:
@@ -306,7 +309,7 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     for (Node *is_var : *var_tuple) {
       if (!is_var->CastAsIdentifier()) return for_node;  // verify all variables
     }
-    List *result = Make<List>(List::Type::kList);
+    List *result = Make<List>(current_lh_type_.top());
     query::KwMap varmap;
     for (Node *element : *iterate_over) {
       // Values can be a list/tuple or a single value.
@@ -568,12 +571,25 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     return result;
   }
 
-  List *ExtractMapItems(List *map_list, bool want_key) {
+  enum class MapExtract { kKeys, kValues, kItems };
+  List *ExtractMapItems(List *map_list, MapExtract what) {
     List *result = Make<List>(List::Type::kList);
     for (Node *element : *map_list) {
       BinOpNode *const kv = element->CastAsBinOp();
       if (!kv || kv->op() != ':') continue;  // ¯\_(ツ)_/¯
-      result->Append(project_->arena(), want_key ? kv->left() : kv->right());
+      Node *n;
+      switch (what) {
+      case MapExtract::kKeys: n = kv->left(); break;
+      case MapExtract::kValues: n = kv->right(); break;
+      case MapExtract::kItems: {
+        List *tuple = Make<List>(List::Type::kTuple);
+        tuple->Append(project_->arena(), kv->left());
+        tuple->Append(project_->arena(), kv->right());
+        n = tuple;
+        break;
+      }
+      }
+      result->Append(project_->arena(), n);
     }
     return result;
   }
@@ -582,10 +598,13 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     const std::string_view method_name = method->identifier()->id();
     if (list->type() == List::Type::kMap) {
       if (method_name == "keys") {
-        return ExtractMapItems(list, true);
+        return ExtractMapItems(list, MapExtract::kKeys);
       }
       if (method_name == "values") {
-        return ExtractMapItems(list, false);
+        return ExtractMapItems(list, MapExtract::kValues);
+      }
+      if (method_name == "items") {
+        return ExtractMapItems(list, MapExtract::kItems);
       }
     }
     return orig;  // Not handled.
@@ -810,6 +829,9 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
   const ElaborationOptions options_;
   const BazelPackage &package_;
   int nest_level_ = 0;
+  // Stack is a meh-abstraction here; should be addressed when list
+  // comprehension is fixed.
+  std::stack<List::Type> current_lh_type_;
   absl::flat_hash_map<std::string_view, Node *> global_variables_;
 };
 

@@ -167,6 +167,7 @@ TEST_F(ElaborationTest, ListComprehension) {
     R"lc-in(
 A = [ "num={}".format(i) for i in [1, 2, 3] ]
 B = [ "pair=({}, {})".format(i, j) for (i,j) in [(1,2), (10,20), (23,42)] ]
+M = { foo : bar for (foo,bar) in [("x", 1), ("y", 2), ("z", 3)] }
 
 IN_LIST = ["a", "b" ]
 C = [ "{}.h".format(file) for file in IN_LIST ]  # IN_LIST: expand first
@@ -180,6 +181,7 @@ D = [ ">{}, {}, {}<".format(i, j, k)
     R"lc-result(
 A = [ "num=1", "num=2", "num=3" ]
 B = [ "pair=(1, 2)", "pair=(10, 20)", "pair=(23, 42)"]
+M = { "x" : 1, "y" : 2, "z" : 3 }
 
 IN_LIST = ["a", "b" ]
 C = [ "a.h", "b.h" ]
@@ -560,12 +562,16 @@ TEST_F(ElaborationTest, MapKeys) {
     R"(
 FOO = { 'hello' : 'hi', 'answer' : '42', 1024 : 'kibi' }
 BAR = FOO.keys()
-BAZ = { 'x' : 1, 'y' : 2, 'z' : 3}.keys()
+BARITEMS = FOO.items()
+
+BAZ = { 'x' : 1, 'y' : 2, 'z' : 3}.keys()  # call directly on literal
 QUX = [element for element in { 'x' : 1, 'y' : 2, 'z' : 3}.keys()]
   )",
     R"(
 FOO = { 'hello' : 'hi', 'answer' : '42', 1024 : 'kibi' }
 BAR = [ 'hello', 'answer', 1024 ]
+BARITEMS = [ ('hello', 'hi'), ('answer', '42'), (1024, 'kibi') ]
+
 BAZ = [ 'x', 'y', 'z' ]
 QUX = [ 'x', 'y', 'z' ]
 )");
