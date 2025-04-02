@@ -413,16 +413,44 @@ TEST_F(ElaborationTest, RsplitStrings) {
     R"(
 S = "some space separated".rsplit()
 A = "some-filename.foo.bar.txt".rsplit(".")
+A1 = "some-filename.foo.bar.txt".rsplit(".", -1)  # equivalent to split all
 B = "some-filename.foo.bar.txt".rsplit(".", 1)
 C = "some-filename".rsplit(".", 1)
-D = ("remove-suffix.txt".rsplit(".", 1))[0]
+D = ("remove-suffix.txt".rsplit(".", 1))[0]  # TODO: should work without parens?
+E = "Hello the fillword the remove".rsplit(" the ")
 )",
     R"(
 S = ["some", "space", "separated"]
 A = ["some-filename", "foo", "bar", "txt"]
+A1 = ["some-filename", "foo", "bar", "txt"]
 B = ["some-filename.foo.bar", "txt"]
 C = ["some-filename"]
 D = "remove-suffix"
+E = ["Hello", "fillword", "remove"]
+)");
+
+  EXPECT_EQ(result.first, result.second);
+}
+
+TEST_F(ElaborationTest, SplitStrings) {
+  auto result = ElabAndPrint(
+    R"(
+S = "some space separated".split()
+A = "some-filename.foo.bar.txt".split(".")
+A1 = "some-filename.foo.bar.txt".split(".", -1)
+B = "some-filename.foo.bar.txt".split(".", 1)
+C = "some-filename".split(".", 1)
+D = ("get-prefix.tar.gz".split("."))[0]  # TODO: should work without parens ?
+E = "Hello the fillword the remove".split(" the ")
+)",
+    R"(
+S = ["some", "space", "separated"]
+A = ["some-filename", "foo", "bar", "txt"]
+A1 = ["some-filename", "foo", "bar", "txt"]
+B = ["some-filename", "foo.bar.txt"]
+C = ["some-filename"]
+D = "get-prefix"
+E = ["Hello", "fillword", "remove"]
 )");
 
   EXPECT_EQ(result.first, result.second);

@@ -413,6 +413,9 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     if (method_name == "join") {
       return HandleStringJoin(orig, str, method->argument());
     }
+    if (method_name == "split") {
+      return HandleStringSplit(orig, str, method->argument());
+    }
     if (method_name == "rsplit") {
       return HandleStringRsplit(orig, str, method->argument());
     }
@@ -527,32 +530,42 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
                                    project_->GetLocation(separator));
   }
 
-  Node *HandleStringRsplit(Node *orig, std::string_view str, List *args) {
-    std::string_view split_string = " ";
-    int64_t max_split = std::numeric_limits<int64_t>::max();
+  struct SplitParams {
+    static std::optional<SplitParams> FromArgs(List *args) {
+      SplitParams result;
+      List::iterator arg_it = args->begin();
+      if (arg_it != args->end()) {
+        Scalar *split_by = (*arg_it)->CastAsScalar();
+        if (!split_by || split_by->type() != Scalar::ScalarType::kString) {
+          return std::nullopt;  // need a constant string here.
+        }
+        result.split_by = split_by->AsString();
+        ++arg_it;
+      }
+      if (arg_it != args->end()) {
+        Scalar *count = (*arg_it)->CastAsScalar();
+        if (!count || count->type() != Scalar::ScalarType::kInt) {
+          return std::nullopt;
+        }
+        result.max_split = count->AsInt();
+      }
+      if (result.split_by.empty()) result.split_by = " ";
+      return result;
+    }
 
-    List::iterator arg_it = args->begin();
-    if (arg_it != args->end()) {
-      Scalar *split_by = (*arg_it)->CastAsScalar();
-      if (!split_by || split_by->type() != Scalar::ScalarType::kString) {
-        return orig;  // need a constant string here.
-      }
-      split_string = split_by->AsString();
-      ++arg_it;
-    }
-    if (arg_it != args->end()) {
-      Scalar *count = (*arg_it)->CastAsScalar();
-      if (!count || count->type() != Scalar::ScalarType::kInt) {
-        return orig;
-      }
-      max_split = count->AsInt();
-    }
-    if (split_string.empty()) split_string = " ";
-    const size_t split_len = split_string.length();
+    std::string_view split_by = " ";
+    int64_t max_split = std::numeric_limits<int64_t>::max();
+  };
+
+  Node *HandleStringRsplit(Node *orig, std::string_view str, List *args) {
+    auto split_args = SplitParams::FromArgs(args);
+    if (!split_args.has_value()) return orig;
+    const std::string_view split_by = split_args->split_by;
+    const size_t split_len = split_by.length();
     int pos = str.size() - 1;
     std::vector<StringScalar *> elements;
-    for (/**/; pos > 0 && max_split > 0; --max_split) {
-      const size_t start_of_split = str.rfind(split_string, pos);
+    for (int64_t count = split_args->max_split; pos > 0 && count; --count) {
+      const size_t start_of_split = str.rfind(split_by, pos);
       if (start_of_split == std::string_view::npos) break;
       const size_t after = start_of_split + split_len;
       const std::string_view part = str.substr(after, pos - after + 1);
@@ -567,6 +580,28 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     List *result = Make<List>(List::Type::kList);
     for (StringScalar *substr : elements | std::views::reverse) {
       result->Append(project_->arena(), substr);
+    }
+    return result;
+  }
+
+  Node *HandleStringSplit(Node *orig, std::string_view str, List *args) {
+    auto split_args = SplitParams::FromArgs(args);
+    if (!split_args.has_value()) return orig;
+    const std::string_view split_by = split_args->split_by;
+    const size_t split_len = split_by.length();
+    size_t pos = 0;
+    List *result = Make<List>(List::Type::kList);
+    for (int64_t count = split_args->max_split; count; --count) {
+      const size_t start_of_split = str.find(split_by, pos);
+      if (start_of_split == std::string_view::npos) break;
+      const std::string_view part = str.substr(pos, start_of_split - pos);
+      // The string_view is from the original file, so it already has location
+      result->Append(project_->arena(), Make<StringScalar>(part, false, false));
+      pos = start_of_split + split_len;
+    }
+    if (pos != std::string::npos) {
+      result->Append(project_->arena(),
+                     Make<StringScalar>(str.substr(pos), false, false));
     }
     return result;
   }
