@@ -456,6 +456,42 @@ E = ["Hello", "fillword", "remove"]
   EXPECT_EQ(result.first, result.second);
 }
 
+TEST_F(ElaborationTest, StringInList) {
+  auto result = ElabAndPrint(
+    R"(
+FOO = "foo" in [ "bar", "foo", "baz" ]
+FOO = "foo" not in [ "bar", "foo", "baz" ]
+FOO = "foo" not in [ "bar", "qux", "baz" ]
+NOT_UNKNOWN = "foo" in [ variable, "foo" ]  # has variable, but contained
+UNKNOWN =     "foo" in [ variable, "bar" ]  # has variable, so unknown
+)",
+    R"(
+FOO = True
+FOO = False
+FOO = True
+NOT_UNKNOWN = True
+UNKNOWN = "foo" in [ variable, "bar" ]  # keep expression as-is
+)");
+
+  EXPECT_EQ(result.first, result.second);
+}
+
+TEST_F(ElaborationTest, StringInString) {
+  auto result = ElabAndPrint(
+    R"(
+FOO = "bar" in "foobarbaz"
+FOO = "bar" in "fooquxbaz"
+FOO = "bar" not in "fooquxbaz"
+)",
+    R"(
+FOO = True
+FOO = False
+FOO = True
+)");
+
+  EXPECT_EQ(result.first, result.second);
+}
+
 TEST_F(ElaborationTest, StringIndexAccess) {
   auto result = ElabAndPrint(
     R"(

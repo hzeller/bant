@@ -234,8 +234,20 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
 
       // Operations that we don't worry about reporting as non-implmeneted.
     case ':':  // map element 'operator'. Not doing anything with it.
-    case kIn:  // Mostly in list-comprehension, but should implement set query.
       return bin_op;
+    case kIn:
+    case kNotIn: {
+      Scalar *scalar = bin_op->left()->CastAsScalar();
+      if (!scalar) return bin_op;  // LHS needs to be a valid scalar.
+      if (List *in_list = bin_op->right()->CastAsList(); in_list) {
+        return InListExpression(bin_op, scalar, in_list);
+      }
+      Scalar *rhs_string = bin_op->right()->CastAsScalar();
+      if (rhs_string && rhs_string->type() == Scalar::ScalarType::kString) {
+        return InStringExpression(bin_op, scalar, rhs_string->AsString());
+      }
+      break;
+    }
 
     // Document all the ones not yet implemented
     case kDivide:
@@ -248,7 +260,6 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     case kGreaterEqual:
     case kGreaterThan:
     case kNotEqual:
-    case kNotIn:
       // binops, known to not be handled (yet)
       break;
 
@@ -396,6 +407,41 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     }
 
     return result;
+  }
+
+  Node *InListExpression(BinOpNode *binop, Scalar *scalar, List *in_list) {
+    bool found_in_list = false;
+    bool any_unknown = false;
+    const std::string_view value = scalar->AsString();
+    for (Node *element : *in_list) {
+      Scalar *s_item = element->CastAsScalar();
+      if (!s_item) {
+        any_unknown = true;
+        continue;
+      }
+      if (s_item->AsString() == value) {
+        found_in_list = true;
+        break;
+      }
+    }
+    if (!found_in_list && any_unknown) return binop;  // can't decide.
+    const bool flip_result = (binop->op() == TokenType::kNotIn);
+    const auto &location = project_->GetLocation(binop->source_range());
+    return MakeBoolWithStringRep(location, found_in_list ^ flip_result);
+  }
+
+  Node *InStringExpression(BinOpNode *binop, Scalar *needle_scalar,
+                           std::string_view haystack) {
+    const std::string_view needle = needle_scalar->AsString();
+    const bool flip_result = (binop->op() == TokenType::kNotIn);
+    return MakeBoolWithStringRep(project_->GetLocation(binop->source_range()),
+                                 haystack.contains(needle) ^ flip_result);
+  }
+
+  IntScalar *MakeBoolWithStringRep(const FileLocation &loc, bool value) {
+    const std::string_view representation =
+      CopyToArenaString(value ? "True" : "False", loc);
+    return Make<IntScalar>(representation, value ? 1 : 0);
   }
 
   IntScalar *MakeIntWithStringRep(const FileLocation &loc, int64_t value) {
