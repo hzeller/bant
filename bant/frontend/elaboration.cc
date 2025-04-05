@@ -104,6 +104,9 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     if (fun_name == "select") {
       return HandleSelect(f);
     }
+    if (fun_name == "len") {
+      return HandleLen(f);
+    }
     return f;
   }
 
@@ -750,6 +753,18 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
       return scalar->AsSlice(project_->arena(), start, end);
     }
     return bin_op;
+  }
+
+  Node *HandleLen(FunCall *fun) {
+    if (fun->argument()->size() != 1) return fun;
+    const auto &location = project_->GetLocation(fun->identifier()->id());
+    if (Scalar *scalar = fun->argument()->at(0)->CastAsScalar(); scalar) {
+      return MakeIntWithStringRep(location, scalar->AsString().length());
+    }
+    if (List *list = fun->argument()->at(0)->CastAsList(); list) {
+      return MakeIntWithStringRep(location, list->size());
+    }
+    return fun;
   }
 
   Node *HandleSelect(FunCall *fun) {

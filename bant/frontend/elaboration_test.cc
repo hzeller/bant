@@ -492,6 +492,24 @@ FOO = True
   EXPECT_EQ(result.first, result.second);
 }
 
+TEST_F(ElaborationTest, LenFunction) {
+  auto result = ElabAndPrint(
+    R"(
+FOO = len("hello")
+BAR = len(variable)
+BAZ = len(["a", "b", "c"])
+EXAMPLE = "somefilename.txt"[:0-len(".txt")]  # TODO not unary: precedence issue
+)",
+    R"(
+FOO = 5
+BAR = len(variable)
+BAZ = 3
+EXAMPLE = "somefilename"
+)");
+
+  EXPECT_EQ(result.first, result.second);
+}
+
 TEST_F(ElaborationTest, Ternary) {
   auto result = ElabAndPrint(
     R"(
@@ -546,6 +564,7 @@ BAR = "hello"[-2:1]
 BAZ = "hello"[-2:-1]
 QUX = "hello"[-40:-2]
 ALL = "hello"[-40:40]
+EXAMPLE = "file.txt"[:-4]
   )",
     R"(
 FOO = "h"
@@ -556,6 +575,7 @@ BAR = ""
 BAZ = "l"
 QUX = "hel"
 ALL = "hello"
+EXAMPLE = "file"
 )");
   EXPECT_EQ(result.first, result.second);
 }
