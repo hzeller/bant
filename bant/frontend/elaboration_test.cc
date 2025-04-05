@@ -492,6 +492,30 @@ FOO = True
   EXPECT_EQ(result.first, result.second);
 }
 
+TEST_F(ElaborationTest, Ternary) {
+  auto result = ElabAndPrint(
+    R"(
+POS = "foo" if True else "bar"
+NEG = "foo" if False else "bar"
+FOO = "foo" if "e" in "yes" else "bar"
+SMALL_TESTS=["f" + "oo", "bar", "baz"]  # make sure it is evaluated
+TAG = ["small"] if "foo" in SMALL_TESTS else ["moderate"]
+TAG = ["small"] if "foo" not in SMALL_TESTS else ["mod" + "erate"]
+UNDEFINED = "foo" if variable else "bar"
+)",
+    R"(
+POS = "foo"
+NEG = "bar"
+FOO = "foo"
+SMALL_TESTS=["foo", "bar", "baz"]
+TAG = ["small"]
+TAG = ["moderate"]
+UNDEFINED = "foo" if variable else "bar"
+)");
+
+  EXPECT_EQ(result.first, result.second);
+}
+
 TEST_F(ElaborationTest, StringIndexAccess) {
   auto result = ElabAndPrint(
     R"(

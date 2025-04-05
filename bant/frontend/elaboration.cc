@@ -283,6 +283,13 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     return bin_op;
   }
 
+  Node *VisitTernary(Ternary *ternary) final {
+    BaseNodeReplacementVisitor::VisitTernary(ternary);
+    Scalar *value = ternary->condition()->CastAsScalar();
+    if (!value) return ternary;
+    return value->AsInt() ? ternary->positive() : ternary->negative();
+  }
+
   Node *VisitUnaryExpr(UnaryExpr *unary) final {
     Scalar *scalar = unary->node()->CastAsScalar();
     if (!scalar) return unary;
