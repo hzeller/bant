@@ -697,11 +697,15 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
       if (method_name == "items") {
         return ExtractMapItems(list, MapExtract::kItems);
       }
+      if (method_name == "get") {
+        return MapGetAccess(orig, list, method->argument());
+      }
     }
     return orig;  // Not handled.
   }
 
-  static Node *MapAccess(Node *orig, List *list, std::string_view key) {
+  static Node *MapAccess(Node *orig, List *list, std::string_view key,
+                         Node *fallback_value = nullptr) {
     for (Node *element : *list) {
       BinOpNode *const kv = element->CastAsBinOp();
       if (!kv || kv->op() != ':') return orig;
@@ -709,7 +713,14 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
       if (!key_scalar) return orig;
       if (key_scalar->AsString() == key) return kv->right();
     }
-    return orig;
+    return fallback_value ? fallback_value : orig;
+  }
+
+  static Node *MapGetAccess(Node *orig, List *map_list, List *args) {
+    if (args->size() != 2) return orig;
+    Scalar *const key = args->at(0)->CastAsScalar();
+    if (!key) return orig;
+    return MapAccess(orig, map_list, key->AsString(), args->at(1));
   }
 
   static std::optional<int> GetOptionalIntScalar(Node *n) {

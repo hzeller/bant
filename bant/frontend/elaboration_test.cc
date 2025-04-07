@@ -652,6 +652,9 @@ KIB = FOO[1024]
 KIB2 = FOO[512 * 2]
 BAZ = FOO['no-such-key']
 QUX = FOO[1]
+GET_FOUND = FOO.get('hello', 'no-used')
+GET_FALLBACK = FOO.get(1, 42)
+GET_FALLBACKLIST = FOO.get(1, ['some', 'list'])
   )",
     R"(
 FOO = { 'hello' : 'hi', 'answer' : '42', 1024 : 'kibi' }
@@ -661,6 +664,9 @@ KIB2 = "kibi"
 # Keys not found: Don't fail but keep expression as-is
 BAZ = { 'hello' : 'hi', 'answer' : '42', 1024 : 'kibi' }['no-such-key']
 QUX = { 'hello' : 'hi', 'answer' : '42', 1024 : 'kibi' }[1]
+GET_FOUND = 'hi'
+GET_FALLBACK = 42
+GET_FALLBACKLIST = ['some', 'list']
 )");
   EXPECT_EQ(result.first, result.second);
 }
