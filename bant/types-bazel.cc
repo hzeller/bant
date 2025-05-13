@@ -40,6 +40,9 @@ std::string BazelPackage::ToString() const {
 std::optional<BazelTarget> BazelPackage::QualifiedTarget(
   std::string_view name) const {
   if (name.empty()) return std::nullopt;
+  if (name.starts_with("//") || name.starts_with("@")) {  // Absolute name
+    return BazelTarget::ParseFrom(name, *this);
+  }
   if (name[0] == ':') name.remove_prefix(1);
   if (name.empty()) return std::nullopt;
   return BazelTarget(*this, name);
