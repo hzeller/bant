@@ -215,6 +215,9 @@ CliStatus RunCommand(Session &session, Command cmd,
       if (!flags.print_ast) {
         session.info() << " toplevel nodes; use -a to not narrow to rules";
       }
+      if (!flags.elaborate) {
+        session.info() << "; use -e to evaluate first";
+      }
       session.info() << ")\n";
     }
     break;
