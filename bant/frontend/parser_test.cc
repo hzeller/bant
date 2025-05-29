@@ -203,11 +203,15 @@ TEST_F(ParserTest, AssignmentToTuple) {
   Node *const expected = List({
     Assign(Tuple({Id("a"), Id("b")}), Tuple({Str("foo"), Str("bar")})),
     Assign(Tuple({Id("x"), Id("y")}), Call("foo", Tuple({}))),
+    Assign("A", Id("B")),
+    Assign(Tuple({Id("c"), Id("d")}), Tuple({Int(1), Int(2)})),
   });
 
   EXPECT_EQ(Print(expected), Print(Parse(R"(
 (a, b) = ("foo", "bar")
 (x, y) = foo()
+A = B    # scalar assignment, the following parenthesis are not a fun call
+(c, d) = (1, 2)
 #a = ((u, v) = foo())   # should this work ? Right now we only do toplevel.
 )")));
 }

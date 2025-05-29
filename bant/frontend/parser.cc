@@ -288,7 +288,8 @@ class Parser::Impl {
       return ParseIntFromToken(scanner_->Next());
     case TokenType::kIdentifier:
       scanner_->Next();
-      if (scanner_->Peek().type == '(') {
+      if (const Token upcoming = scanner_->Peek();
+          upcoming.type == '(' && !upcoming.newline_since_last_token) {
         scanner_->Next();
         return ParseFunCall(t);
       }
