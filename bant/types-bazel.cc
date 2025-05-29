@@ -49,15 +49,41 @@ std::optional<BazelTarget> BazelPackage::QualifiedTarget(
 }
 
 std::string BazelPackage::QualifiedFile(std::string_view relative_file) const {
-  if (relative_file.starts_with(':')) {
-    relative_file.remove_prefix(1);
+  if (relative_file.starts_with("//") || relative_file.starts_with("@")) {
+    auto target = BazelTarget::ParseFrom(relative_file, *this);
+    if (target.has_value()) {
+      return target->package.QualifiedFile(target->target_name);
+    }
+    // else: continue with best efffort. Consider return std::optional instead.
   }
-  if (path.empty()) return std::string(relative_file);
-  return absl::StrCat(path, "/", relative_file);
+
+  std::string_view file_part;
+  const size_t pos = relative_file.find_first_of(':');
+  std::string buffer;
+  if (pos == std::string_view::npos) {
+    file_part = relative_file;
+  } else {
+    const std::string_view path_part = relative_file.substr(0, pos);
+    file_part = relative_file.substr(pos + 1);
+    if (!path_part.empty()) {
+      buffer = absl::StrCat(path_part, "/", file_part);
+      file_part = buffer;
+    }
+  }
+  if (path.empty()) return std::string(file_part);
+  return absl::StrCat(path, "/", file_part);
 }
 
 std::string BazelPackage::FullyQualifiedFile(
   const BazelWorkspace &workspace, std::string_view relative_file) const {
+  if (relative_file.starts_with("//") || relative_file.starts_with("@")) {
+    auto target = BazelTarget::ParseFrom(relative_file, *this);
+    if (target.has_value()) {
+      return target->package.FullyQualifiedFile(workspace, target->target_name);
+    }
+    // else: continue with best efffort. Consider return std::optional instead.
+  }
+
   std::string root_dir;
   if (!project.empty()) {
     auto package_path = workspace.FindPathByProject(project);
@@ -74,7 +100,6 @@ std::string BazelPackage::FullyQualifiedFile(
   auto maybe_colon = str.find_last_of(':');
   str = str.substr(0, maybe_colon);
 
-  using absl::StrSplit;
   if (str.size() < 2) return std::nullopt;
   std::string_view project;
   std::string_view path;
