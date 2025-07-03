@@ -64,12 +64,12 @@ gentbl_cc_library = (
     genrule(
         name = name,
         srcs = [td_file],
-        # tbl_outs is a list of tuples, second value the filename we need.
-        outs = [filename for (_, filename) in tbl_outs],
+        # tbl_outs is a map filename -> flags; only interested in filename
+        outs = tbl_outs.keys(),
     ),
     cc_library(
         name = name,
-        hdrs = [filename for (_, filename) in tbl_outs],
+        hdrs = tbl_outs.keys(),
         bant_skip_dependency_check = True,
     ),
 )
