@@ -172,3 +172,16 @@ xls_ir_verilog = genrule(
         verilog_file,
     ],
 )
+
+xls_cc_embed_data = (
+    genrule(
+        name = name,
+        srcs = [data],
+        outs = [name + "_embedded.h"],
+    ),
+    cc_library(
+        name = name,
+        hdrs = [name + "_embedded.h"],
+        bant_skip_dependency_check = True,
+    ),
+)
