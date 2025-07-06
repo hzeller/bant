@@ -438,6 +438,7 @@ TEST_F(ElaborationTest, SplitStrings) {
 S = "some space separated".split()
 A = "some-filename.foo.bar.txt".split(".")
 A1 = "some-filename.foo.bar.txt".split(".", -1)
+A2 = "some-filename.foo.bar.txt".split(".")[1]
 B = "some-filename.foo.bar.txt".split(".", 1)
 C = "some-filename".split(".", 1)
 D = ("get-prefix.tar.gz".split("."))[0]  # TODO: should work without parens ?
@@ -447,6 +448,8 @@ E = "Hello the fillword the remove".split(" the ")
 S = ["some", "space", "separated"]
 A = ["some-filename", "foo", "bar", "txt"]
 A1 = ["some-filename", "foo", "bar", "txt"]
+#A2 = "foo"                                     # did not evaluate...
+A2 = "some-filename.foo.bar.txt".split(".")[1]  # ... because wrong precedence
 B = ["some-filename", "foo.bar.txt"]
 C = ["some-filename"]
 D = "get-prefix"
