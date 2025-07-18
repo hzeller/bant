@@ -185,3 +185,7 @@ xls_cc_embed_data = (
         bant_skip_dependency_check = True,
     ),
 )
+
+xls_pass = bant_forward_args(
+    cc_library(),
+)
