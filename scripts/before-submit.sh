@@ -10,6 +10,10 @@ BAZEL=${BAZEL:-bazel}
 
 set -e
 
+# Making sure things are still compatible with c++20
+"$BAZEL" test --cxxopt=-std=c++20 --host_cxxopt=-std=c++20 ...
+
+# Regular c++23 compile.
 "$BAZEL" test ...
 
 ./scripts/run-format.sh

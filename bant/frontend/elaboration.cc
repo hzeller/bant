@@ -32,6 +32,7 @@
 #include "absl/container/flat_hash_set.h"
 #include "absl/log/check.h"
 #include "absl/log/log.h"
+#include "absl/strings/match.h"
 #include "absl/strings/str_join.h"
 #include "bant/explore/query-utils.h"
 #include "bant/frontend/ast.h"
@@ -444,8 +445,9 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
                            std::string_view haystack) {
     const std::string_view needle = needle_scalar->AsString();
     const bool flip_result = (binop->op() == TokenType::kNotIn);
-    return MakeBoolWithStringRep(project_->GetLocation(binop->source_range()),
-                                 haystack.contains(needle) ^ flip_result);
+    return MakeBoolWithStringRep(
+      project_->GetLocation(binop->source_range()),
+      absl::StrContains(haystack, needle) ^ flip_result);
   }
 
   IntScalar *MakeBoolWithStringRep(const FileLocation &loc, bool value) {
