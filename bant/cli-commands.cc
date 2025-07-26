@@ -20,6 +20,7 @@
 #include <cstdlib>
 #include <iterator>
 #include <map>
+#include <optional>
 #include <span>
 #include <string>
 #include <string_view>
@@ -32,9 +33,11 @@
 #include "bant/explore/query-utils.h"
 #include "bant/frontend/elaboration.h"
 #include "bant/frontend/parsed-project.h"
+#include "bant/frontend/print-visitor.h"
 #include "bant/session.h"
 #include "bant/types-bazel.h"
 #include "bant/types.h"
+#include "bant/util/file-utils.h"
 #include "bant/util/stat.h"
 #include "bant/util/table-printer.h"
 #include "bant/workspace.h"
@@ -99,6 +102,44 @@ static bool NeedsProjectPopulated(Command cmd,
     return false;  // NOLINT(readability-simplify-boolean-expr)
   }
   return true;
+}
+
+// If this is a debug command, run this here.
+// Right now, this is just a bare printing of a file.
+std::optional<CliStatus> RunDebugCommand(Session &session, Command cmd) {
+  if (session.flags().direct_filename.empty()) {
+    return std::nullopt;  // Currently only -F will trigger debug command.
+  }
+  if (cmd != Command::kParse && cmd != Command::kPrint) {
+    session.error() << "-F <filename> only works for 'parse' or 'print'\n";
+    return CliStatus::kExitFailure;
+  }
+  const FilesystemPath file(session.flags().direct_filename);
+  // Ok, parse single file.
+  Stat open_and_read_stat;
+  std::optional<std::string> content =
+    ReadFileToStringUpdateStat(file, open_and_read_stat);
+  if (!content.has_value()) {
+    session.info() << "Could not read " << file.path() << "\n";
+    return CliStatus::kExitFailure;
+  }
+  ParsedProject project({}, true, true);
+  ParsedBuildFile *parsed = project.AddBuildFileContent(
+    session, {}, file, *content, open_and_read_stat);
+  if (!parsed) {
+    return CliStatus::kExitFailure;
+  }
+  if (session.flags().elaborate) {
+    const ElaborationOptions options{.builtin_macro_expansion =
+                                       session.flags().builtin_macro_expand};
+    Elaborate(session, &project, options, parsed);
+  }
+  if (cmd == Command::kPrint && parsed->ast) {
+    PrintVisitor printer(session.out(), nullptr, session.flags().do_color);
+    printer.WalkNonNull(parsed->ast);
+    session.out() << "\n";
+  }
+  return CliStatus::kExitSuccess;
 }
 
 CliStatus RunCommand(Session &session, Command cmd,
@@ -378,6 +419,10 @@ CliStatus RunCliCommand(Session &session, std::span<std::string_view> args) {
     }
   }
   patterns.Finish();
+
+  if (auto dbg_result = RunDebugCommand(session, cmd); dbg_result.has_value()) {
+    return *dbg_result;
+  }
 
   // Don't look through everything for these.
   if (cmd == Command::kCanonicalizeDeps || cmd == Command::kDWYU ||

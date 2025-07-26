@@ -192,7 +192,7 @@ int main(int argc, char *argv[]) {
     {"json", OutputFormat::kJSON},     {"graphviz", OutputFormat::kGraphviz},
   };
   int opt;
-  while ((opt = getopt(argc, argv, "C:qo:vhaEecbf:r::Vkg:iT:")) != -1) {
+  while ((opt = getopt(argc, argv, "C:qo:vhaEF:ecbf:r::Vkg:iT:")) != -1) {
     switch (opt) {
     case 'C': {
       std::error_code err;
@@ -240,6 +240,7 @@ int main(int argc, char *argv[]) {
       // "print" options
     case 'a': flags.print_ast = true; break;
     case 'E': flags.print_only_errors = true; break;
+    case 'F': flags.direct_filename = optarg; break;
     case 'b': flags.elaborate = flags.builtin_macro_expand = true; break;
     case 'e': flags.elaborate = true; break;
     case 'f': {

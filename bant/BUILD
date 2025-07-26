@@ -46,6 +46,7 @@ cc_binary(
         "//bant/explore:query-utils",
         "//bant/frontend:elaboration",
         "//bant/frontend:parsed-project",
+        "//bant/frontend:parser",
         "//bant/tool:canon-targets",
         "//bant/tool:compilation-db",
         "//bant/tool:dwyu",

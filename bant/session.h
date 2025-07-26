@@ -62,6 +62,7 @@ struct CommandlineFlags {
   bool do_color = false;
   // https://bazel.build/docs/configurable-attributes#custom-flags
   absl::flat_hash_set<std::string> custom_flags;
+  std::string direct_filename;  // internal debugging feature: just parse file
 };
 
 // A session contains some settings such as output/verbose requests
