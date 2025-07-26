@@ -211,4 +211,21 @@ TEST(ScannerTest, RawStringLiteral) {
   }
 }
 
+TEST(ScannerTest, SkipDefStuff) {
+  TEST_SCANNER(s, R"(
+FOO = 1
+def abc():
+  whatever is here
+  and indented is ignored
+BAR = 42
+)");
+  EXPECT_EQ(s.Next(), Token({TokenType::kIdentifier, "FOO"}));
+  EXPECT_EQ(s.Next(), Token({TokenType::kAssign, "="}));
+  EXPECT_EQ(s.Next(), Token({TokenType::kNumberLiteral, "1"}));
+  const Token defblock = s.Next();
+  EXPECT_EQ(defblock.type, TokenType::kDefBlock);
+  EXPECT_EQ(s.Next(), Token({TokenType::kIdentifier, "BAR"}));
+  EXPECT_EQ(s.Next(), Token({TokenType::kAssign, "="}));
+  EXPECT_EQ(s.Next(), Token({TokenType::kNumberLiteral, "42"}));
+}
 }  // namespace bant

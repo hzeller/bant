@@ -110,6 +110,9 @@ class Parser::Impl {
       if (tok.type == kStringLiteral) {
         continue;  // Pythonism: Ignoring toplevel document no-effect statement
       }
+      if (tok.type == kDefBlock) {
+        continue;  // 'def' blocks are left unparsed. Only found in *.bzl files.
+      }
 
       if (tok.type == '[') {
         statement_list->Append(

@@ -58,6 +58,7 @@ std::ostream &operator<<(std::ostream &o, TokenType t) {
   case TokenType::kIdentifier: o << "ident"; break;
   case TokenType::kStringLiteral: o << "string"; break;
   case TokenType::kNumberLiteral: o << "number"; break;
+  case TokenType::kDefBlock: o << "def..."; break;
   case TokenType::kNot: o << "not"; break;
   case TokenType::kFor: o << "for"; break;
   case TokenType::kIn: o << "in"; break;
@@ -124,6 +125,22 @@ bool Scanner::ConsumeOptionalIn() {
   return false;
 }
 
+Token Scanner::ConsumeEverythingIndentedAsDefBlock(ContentPointer start) {
+  for (;;) {
+    while (pos_ < end_ && *pos_ != '\n') {
+      ++pos_;
+    }
+    if (pos_ == end_) {
+      return {TokenType::kEof, {end_, 0}};
+    }
+    // After newline. Let's see if there is an indentation.
+    if (pos_ + 1 < end_ && !absl::ascii_isspace(*(pos_ + 1))) {
+      return {kDefBlock, {start, (size_t)(pos_ - start)}};
+    }
+    ++pos_;
+  }
+}
+
 Token Scanner::HandleIdentifierKeywordRawStringOrInvalid() {
   const ContentPointer start = pos_;
 
@@ -159,6 +176,10 @@ Token Scanner::HandleIdentifierKeywordRawStringOrInvalid() {
   if (text == "or") return {TokenType::kOr, text};
   if (text == "if") return {TokenType::kIf, text};
   if (text == "else") return {TokenType::kElse, text};
+
+  // We don't parse full-on Python def-initions in Starlark yet (or ever).
+  // So pass on as single block token.
+  if (text == "def") return ConsumeEverythingIndentedAsDefBlock(start);
 
   return {TokenType::kIdentifier, text};
 }

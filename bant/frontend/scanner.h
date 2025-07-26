@@ -59,6 +59,7 @@ enum TokenType : int {  // NOLINT(readability-enum-initial-value)
 
   kStringLiteral,
   kNumberLiteral,
+  kDefBlock,  // uninterpreted
 
   kFor,
   kIn,
@@ -116,6 +117,7 @@ class Scanner {
   inline ContentPointer SkipSpace();
 
   bool ConsumeOptionalIn();
+  Token ConsumeEverythingIndentedAsDefBlock(ContentPointer start);
   Token HandleNumber();
   Token HandleString();
   Token HandleIdentifierKeywordRawStringOrInvalid();
