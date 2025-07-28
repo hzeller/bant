@@ -138,6 +138,8 @@ Token Scanner::ConsumeEverythingIndentedAsDefBlock(ContentPointer start) {
       return {kDefBlock, {start, (size_t)(pos_ - start)}};
     }
     ++pos_;
+    source_.mutable_line_index()->PushNewline(pos_);
+    ++newline_count_;
   }
 }
 
