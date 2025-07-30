@@ -74,6 +74,11 @@ gentbl_cc_library = (
     ),
 )
 
+### Boringssl
+bssl_cc_library = bant_forward_args(
+    cc_library(),
+)
+
 ### Found in XLS.
 xls_dslx_ir = genrule(
     name = name,
