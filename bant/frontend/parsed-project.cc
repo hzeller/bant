@@ -18,6 +18,7 @@
 #include "bant/frontend/parsed-project.h"
 
 #include <cstdlib>
+#include <functional>
 #include <iostream>
 #include <memory>
 #include <optional>
@@ -28,6 +29,7 @@
 #include <utility>
 #include <vector>
 
+#include "absl/container/flat_hash_map.h"
 #include "absl/log/check.h"
 #include "absl/status/status.h"
 #include "bant/builtin-macros.h"
@@ -219,6 +221,76 @@ ParsedBuildFile *ParsedProject::AddBuildFileContent(Session &session,
   parse_stat.AddBytesProcessed(processed);
 
   return inserted.first->second.get();
+}
+
+const ParsedProject::VariableBundle &ParsedProject::GetOrAddStarlarkContent(
+  Session &session, const BazelTarget &starlark,
+  const std::function<void(List *ast, VariableBundle *)> &variable_extractor) {
+  if (const auto found = starlark_variables_.find(starlark);
+      found != starlark_variables_.end()) {
+    return *found->second;
+  }
+  auto var_inserted =
+    starlark_variables_.emplace(starlark, new VariableBundle());
+  CHECK(var_inserted.second) << starlark << " inserted twice ?";
+  VariableBundle *const bundle = var_inserted.first->second.get();
+  auto file_name =
+    starlark.package.FullyQualifiedFile(workspace(), starlark.target_name);
+
+  // TODO: these parsing things are very similar to BUILD-file parsing.
+  // Unify.
+  const FilesystemPath starlark_file(file_name);
+  Stat open_and_read_stat;
+  std::optional<std::string> content =
+    ReadFileToStringUpdateStat(starlark_file, open_and_read_stat);
+  if (!content.has_value()) {
+    if (session.flags().verbose) {  // starlark reading is best effort.
+      session.info() << "Could not read " << starlark << " ("
+                     << starlark_file.path() << ")\n";
+    }
+    ++error_count_;
+    return *bundle;
+  }
+
+  Stat &parse_stat = session.GetStatsFor("  - parse & elab", "Starlark files");
+  const ScopedTimer timer(&parse_stat.duration);
+
+  auto inserted = starlark_to_parsed_.emplace(
+    starlark, new ParsedBuildFile(file_name, std::move(*content)));
+  CHECK(inserted.second) << "Same starlark twice? " << starlark;
+
+  ParsedBuildFile &parse_result = *inserted.first->second;
+  Scanner scanner(parse_result.source_);
+  std::stringstream error_collect;
+  Parser parser(&scanner, &arena_, error_collect);
+  parse_result.ast = parser.parse();
+  parse_result.errors = error_collect.str();
+  parse_result.package = starlark.package;
+  RegisterLocationRange(parse_result.source_.content(), &parse_result.source_);
+
+  if (parser.parse_error()) {
+    if (session.flags().verbose) {
+      session.error() << error_collect.str();
+    }
+    ++error_count_;
+  } else {
+    // Only if we got a clean parse, extract variables.
+    variable_extractor(parse_result.ast, bundle);
+  }
+
+  ++parse_stat.count;
+  const size_t processed = parse_result.source_.size();
+  parse_stat.AddBytesProcessed(processed);
+
+  // We're only interested to keep non-private variables that actually resulted
+  // in a constant-evaluated concrete value.
+  absl::erase_if(*bundle, [](const auto &key_v) -> bool {
+    const bool is_concrete_value = key_v.second->CastAsScalar() != nullptr ||
+                                   key_v.second->CastAsList() != nullptr;
+    return key_v.first.starts_with("_") || !is_concrete_value;
+  });
+
+  return *bundle;
 }
 
 void ParsedProject::RegisterLocationRange(std::string_view range,

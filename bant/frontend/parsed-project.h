@@ -19,6 +19,7 @@
 #define BANT_PROJECT_PARDER_
 
 #include <cstddef>
+#include <functional>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -68,8 +69,16 @@ class ParsedBuildFile {
 // A Parsed project contains all the parsed BUILD-files of a project.
 class ParsedProject : public SourceLocator {
  public:
+  // BUILD files
   using Package2Parsed =
     OneToOne<BazelPackage, std::unique_ptr<ParsedBuildFile>>;
+
+  // Starlarkfiles.
+  using Target2Parsed = OneToOne<BazelTarget, std::unique_ptr<ParsedBuildFile>>;
+
+  // Variable to node mapping. Identifier string_view points to the
+  // location it was assigned.
+  using VariableBundle = absl::flat_hash_map<std::string_view, Node *>;
 
   ParsedProject(BazelWorkspace workspace, bool verbose,
                 bool with_builtin_macros = true);
@@ -87,6 +96,13 @@ class ParsedProject : public SourceLocator {
                                        const FilesystemPath &file,
                                        std::string content,
                                        const Stat &read_stat);
+
+  // Given a starlark file, provide storage for variables and store their
+  // content. If starlark file is not available yet, calls "variable_extractor"
+  // to fill.
+  const VariableBundle &GetOrAddStarlarkContent(
+    Session &session, const BazelTarget &starlark,
+    const std::function<void(List *ast, VariableBundle *)> &variable_extractor);
 
   // A map of Package -> ParsedBuildFile
   const Package2Parsed &ParsedFiles() const { return package_to_parsed_; }
@@ -142,7 +158,9 @@ class ParsedProject : public SourceLocator {
   const BazelWorkspace workspace_;
   std::unique_ptr<NamedLineIndexedContent> macro_content_;
   int error_count_ = 0;
-  Package2Parsed package_to_parsed_;
+  Package2Parsed package_to_parsed_;  // BUILD files.
+  Target2Parsed starlark_to_parsed_;  // Starlark files.
+  OneToOne<BazelTarget, std::unique_ptr<VariableBundle>> starlark_variables_;
   absl::flat_hash_map<std::string_view, Node *> macros_;
   DisjointRangeMap<std::string_view, const SourceLocator *> location_maps_;
 };

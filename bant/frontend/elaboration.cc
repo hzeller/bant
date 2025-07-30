@@ -77,16 +77,20 @@ class NestCounter {
   int *const value_;
 };
 
+using VariableBundle = ParsedProject::VariableBundle;
+
 // TODO: number of handled operations and functions gets big. Split up.
 class SimpleElaborator : public BaseNodeReplacementVisitor {
  public:
   SimpleElaborator(Session &session, ParsedProject *project,
                    const BazelPackage &package,
-                   const ElaborationOptions &options)
+                   const ElaborationOptions &options,
+                   VariableBundle *variable_storage)
       : session_(session),
         project_(project),
         options_(options),
-        package_(package) {}
+        package_(package),
+        variables_(*variable_storage) {}
 
   Node *VisitFunCall(FunCall *f) final {
     const NestCounter c(&nest_level_);
@@ -108,6 +112,9 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     if (fun_name == "len") {
       return HandleLen(f);
     }
+    if (options_.expand_load_functions && fun_name == "load") {
+      HandleLoad(f);
+    }
     return f;
   }
 
@@ -120,15 +127,16 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
   Node *VisitAssignment(Assignment *a) final {
     Node *result = BaseNodeReplacementVisitor::VisitAssignment(a);
     if (nest_level_ == 0 && a->maybe_identifier()) {
-      global_variables_[a->maybe_identifier()->id()] = a->value();
+      variables_[a->maybe_identifier()->id()] = a->value();
     }
     return result;
   }
 
   // Variable substituion with value if known.
-  Node *VisitIdentifier(Identifier *i) final {
-    auto found = global_variables_.find(i->id());
-    return found != global_variables_.end() ? found->second : i;
+  Node *VisitIdentifier(Identifier *identifier) final {
+    const std::string_view id = identifier->id();
+    auto found = variables_.find(id);
+    return found == variables_.end() ? identifier : found->second;
   }
 
   // Very narrow of operations actually supported. Only what we typically need.
@@ -670,7 +678,7 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     for (Node *element : *map_list) {
       BinOpNode *const kv = element->CastAsBinOp();
       if (!kv || kv->op() != ':') continue;  // ¯\_(ツ)_/¯
-      Node *n;
+      Node *n = nullptr;
       switch (what) {
       case MapExtract::kKeys: n = kv->left(); break;
       case MapExtract::kValues: n = kv->right(); break;
@@ -682,7 +690,7 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
         break;
       }
       }
-      result->Append(project_->arena(), n);
+      if (n) result->Append(project_->arena(), n);
     }
     return result;
   }
@@ -780,14 +788,45 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     return fun;
   }
 
+  // Load potential starlark files and extract requested variables.
+  void HandleLoad(FunCall *load_fun) {
+    const auto args = query::ExtractStringList(load_fun->argument());
+    if (args.size() < 2) return;
+    auto bazel_ref = BazelTarget::ParseFrom(args[0], package_);
+    if (!bazel_ref.has_value()) return;
+
+    // If not already cached, trigger parsing Starlark file which then
+    // is elaborated.
+    const VariableBundle &bzl_variables = project_->GetOrAddStarlarkContent(
+      session_, *bazel_ref, [&](List *ast, VariableBundle *bundle) {
+        ElaborationOptions starlark_options;
+        starlark_options.expand_load_functions = false;  // Don't chase further
+        starlark_options.builtin_macro_expansion = false;
+        // Elaborate that file and extract variables.
+        SimpleElaborator starlark_elab(session_, project_, bazel_ref->package,
+                                       starlark_options, bundle);
+        starlark_elab.WalkNonNull(ast);
+      });
+
+    // Remaining load()-args are the variables we should use locally.
+    for (size_t i = 1; i < args.size(); ++i) {
+      auto found = bzl_variables.find(args[i]);
+      if (found == bzl_variables.end()) continue;
+      // Alternatively, instead of args[i] could also use found->first here
+      // to point to original location. Might be useful in some cases.
+      variables_[args[i]] = found->second;
+    }
+  }
+
   Node *HandleSelect(FunCall *fun) {
     Node *default_node = fun;  // If we won't find a default, we'll return call
     for (Node *arg : *fun->argument()) {
       List *const select_map = arg->CastAsList();
       if (!select_map || select_map->type() != List::Type::kMap) continue;
       for (Node *item : *select_map) {
+        if (!item) continue;
         BinOpNode *map_item = item->CastAsBinOp();
-        if (!map_item || map_item->op() != ':') continue;
+        if (!map_item || map_item->op() != ':' || !map_item->left()) continue;
         Scalar *key = map_item->left()->CastAsScalar();
         if (!key) continue;
         if (session_.flags().custom_flags.contains(key->AsString())) {
@@ -948,7 +987,7 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
   // Stack is a meh-abstraction here; should be addressed when list
   // comprehension is fixed.
   std::stack<List::Type> current_lh_type_;
-  absl::flat_hash_map<std::string_view, Node *> global_variables_;
+  ParsedProject::VariableBundle &variables_;
 };
 
 }  // namespace
@@ -956,7 +995,9 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
 Node *Elaborate(Session &session, ParsedProject *project,
                 const BazelPackage &package, const ElaborationOptions &options,
                 Node *ast) {
-  SimpleElaborator elaborator(session, project, package, options);
+  VariableBundle variable_storage;
+  SimpleElaborator elaborator(session, project, package, options,
+                              &variable_storage);
   return elaborator.WalkNonNull(ast);
 }
 

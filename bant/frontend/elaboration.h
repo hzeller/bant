@@ -31,6 +31,7 @@ namespace bant {
 
 struct ElaborationOptions {
   bool builtin_macro_expansion = false;
+  bool expand_load_functions = true;
 };
 
 // Elaborate and modify given AST in the context of the parsed project.
