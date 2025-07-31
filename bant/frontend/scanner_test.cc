@@ -215,7 +215,10 @@ TEST(ScannerTest, SkipDefStuff) {
   TEST_SCANNER(s, R"(
 FOO = 1
 def abc():
-  whatever is here
+  whatever is here """
+and a very long string that is part
+of the dedsfasd"""
+  # here is "comment
   and indented is ignored
 
 BAR = 42
@@ -228,7 +231,7 @@ BAR = 42
   const Token bar = s.Next();
   EXPECT_EQ(bar, Token({TokenType::kIdentifier, "BAR"}));
   auto bar_location = s.source().GetLocation(bar.text);
-  EXPECT_EQ(bar_location.line_column_range.start.line, 7 - 1)
+  EXPECT_EQ(bar_location.line_column_range.start.line, 10 - 1)
     << bar_location.line_column_range;
   EXPECT_EQ(s.Next(), Token({TokenType::kAssign, "="}));
   EXPECT_EQ(s.Next(), Token({TokenType::kNumberLiteral, "42"}));

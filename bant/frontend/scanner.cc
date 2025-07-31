@@ -127,11 +127,23 @@ bool Scanner::ConsumeOptionalIn() {
 
 Token Scanner::ConsumeEverythingIndentedAsDefBlock(ContentPointer start) {
   for (;;) {
-    while (pos_ < end_ && *pos_ != '\n') {
+    while (pos_ < end_ &&  //
+           *pos_ != '\n' && *pos_ != '"' && *pos_ != '\'' && *pos_ != '#') {
       ++pos_;
     }
     if (pos_ == end_) {
       return {TokenType::kEof, {end_, 0}};
+    }
+    if (*pos_ == '#') {
+      SkipSpace();
+      continue;
+    }
+    if (*pos_ == '"' || *pos_ == '\'') {
+      Token t = HandleString();
+      if (t.type != TokenType::kStringLiteral) {
+        return t;
+      }
+      continue;
     }
     // After newline. Let's see if there is an indentation.
     if (pos_ + 1 < end_ && !absl::ascii_isspace(*(pos_ + 1))) {
@@ -221,7 +233,7 @@ Token Scanner::HandleString() {
     return {TokenType::kError, {start, (size_t)(pos_ - start)}};
   }
   ++pos_;
-  return {kStringLiteral, {start, (size_t)(pos_ - start)}};
+  return {TokenType::kStringLiteral, {start, (size_t)(pos_ - start)}};
 }
 
 Token Scanner::HandleNumber() {
