@@ -21,11 +21,13 @@
 #include "bant/tool/compilation-db.h"
 
 #include <filesystem>
+#include <optional>
 #include <ostream>
 #include <set>
 #include <sstream>
 #include <string>
 #include <string_view>
+#include <system_error>
 #include <vector>
 
 #include "absl/container/flat_hash_set.h"
@@ -292,6 +294,20 @@ static std::vector<std::string> CollectIncDirs(
   return result;
 }
 
+static std::optional<std::string> MaybeCanonicalize(std::string_view inc) {
+  // Work around clangd bug, that does not follow relative paths
+  // correctly (it just does text-substitution of ../ parts instead of following
+  // possible symbolic links.
+  // So if the include directory looks like that, provide an absoluite canonical
+  // version.
+  if (absl::StrContains(inc, "/..")) {
+    std::error_code ec;
+    auto cpath = std::filesystem::canonical(inc, ec);
+    if (!ec) return cpath.string();
+  }
+  return std::nullopt;
+}
+
 static std::string EncodeFlagsIncludeAsJson(Session &session,
                                             const BazelTargetMatcher &pattern,
                                             ParsedProject *project) {
@@ -306,6 +322,10 @@ static std::string EncodeFlagsIncludeAsJson(Session &session,
 
   for (const std::string &inc : CollectIncDirs(session, pattern, project)) {
     out << kIndent << q{"-iquote"} << ", " << q{inc} << ",\n";
+    // Work around clangd canonicalization bug.
+    if (auto canonical = MaybeCanonicalize(inc); canonical.has_value()) {
+      out << kIndent << q{"-iquote"} << ", " << q{*canonical} << ",\n";
+    }
   }
 
   return out.str();
@@ -388,6 +408,10 @@ static void WriteCompilationFlags(Session &session,
 
   for (const std::string &inc : CollectIncDirs(session, pattern, project)) {
     session.out() << "-I" << inc << "\n";
+    // Work around clangd canonicalization bug.
+    if (auto canonical = MaybeCanonicalize(inc); canonical.has_value()) {
+      session.out() << "-I" << *canonical << "\n";
+    }
   }
 }
 
