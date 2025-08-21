@@ -102,7 +102,7 @@ jobs:
           # This tests the static binary provided in the release, so
           # instead of simply compiling and running locally, we fetch that.
           # TODO: provide this as action where we simply say with version=...
-          VERSION="v0.1.14"
+          VERSION="v0.2.2"
           STATIC_VERSION="bant-${VERSION}-linux-static-x86_64"
           wget "https://github.com/hzeller/bant/releases/download/${VERSION}/${STATIC_VERSION}.tar.gz"
           tar xvzf "${STATIC_VERSION}.tar.gz"
@@ -172,13 +172,6 @@ jobs:
         uses: nanzm/get-time-action@v2.0
         with:
           format: 'YYYY-MM-DD-HH-mm-ss'
-
-      - name: Mount bazel cache
-        uses: actions/cache@v4
-        with:
-          path: "~/.cache/bazel"
-          key: bazelcache_release_${{ steps.cache_timestamp.outputs.time }}
-          restore-keys: bazelcache_release_
 
       - name: Build Source Tar
         run: |
