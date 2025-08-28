@@ -46,6 +46,10 @@
 namespace bant {
 
 namespace {
+
+constexpr std::string_view kExternalPrefix("bazel-out/../../../external");
+constexpr std::string_view kBazelRoot("bazel-out/../../..");
+
 // Make quoted strings a little less painful to print to C++ streams
 struct q {
   std::string_view value;
@@ -54,6 +58,41 @@ static std::ostream &operator<<(std::ostream &out, const q &quoted_str) {
   out << "\"" << quoted_str.value << "\"";
   return out;
 }
+
+// Work around clangd bug, that does not follow relative paths
+// correctly (it just does text-substitution of ../ parts instead of
+// following possible symbolic links). So if the include directory looks like
+// that, provide an absolute canonical version.
+class RelativePathCanonicalizer {
+ public:
+  // The bazel root is often used as prefix, resolve this once.
+  // We then can concatenate paths from there.
+  // If we'd always canonicalize the full path, that might otherwise end up
+  // somewhere deep in the cache directory structure (bazel 8+), which is less
+  // stable (and readable).
+  explicit RelativePathCanonicalizer(std::string_view root_prefix = kBazelRoot)
+      : root_prefix_(root_prefix),
+        root_resolved_(CanonicalizePath(root_prefix)) {}
+
+  std::optional<std::string> MaybeCanonicalize(std::string_view inc) {
+    if (!absl::StrContains(inc, "/..")) return std::nullopt;  // nothing to do.
+    if (root_resolved_ && absl::StartsWith(inc, root_prefix_)) {
+      return absl::StrCat(*root_resolved_, inc.substr(root_prefix_.length()));
+    }
+    return CanonicalizePath(inc);
+  }
+
+ private:
+  static std::optional<std::string> CanonicalizePath(std::string_view path) {
+    std::error_code ec;
+    auto cpath = std::filesystem::canonical(path, ec);
+    if (!ec) return cpath.string();
+    return std::nullopt;
+  }
+
+  const std::string_view root_prefix_;
+  const std::optional<std::string> root_resolved_;
+};
 
 // Common typical options considered for the compiler.
 static constexpr std::string_view kCommonDefaultOptions[] = {
@@ -191,9 +230,9 @@ static std::vector<std::string> CollectIncDirs(
   Session &session, const BazelTargetMatcher &pattern, ParsedProject *project) {
   std::vector<std::string> result;
 
-  result.emplace_back(".");                   // Our sources.
-  result.emplace_back("bazel-bin");           // Generated files.
-  result.emplace_back("bazel-out/../../..");  // Root for all external/
+  result.emplace_back(".");          // Our sources.
+  result.emplace_back("bazel-bin");  // Generated files.
+  result.emplace_back(kBazelRoot);   // Root for all external/
 
   // All the -I (or more precisely: -iquote) directories.
   const BazelWorkspace &workspace = project->workspace();
@@ -214,10 +253,9 @@ static std::vector<std::string> CollectIncDirs(
         result.emplace_back(inc_path);
         // HACK: We also need to output the corresponding build path as that
         // might be a generated include.
-        const std::string_view kReplacePrefix = "bazel-out/../../../external";
-        if (inc_path.starts_with(kReplacePrefix)) {
+        if (inc_path.starts_with(kExternalPrefix)) {
           result.emplace_back(absl::StrCat(
-            "bazel-bin/external", inc_path.substr(kReplacePrefix.length())));
+            "bazel-bin/external", inc_path.substr(kExternalPrefix.length())));
         }
       }
 
@@ -294,20 +332,6 @@ static std::vector<std::string> CollectIncDirs(
   return result;
 }
 
-static std::optional<std::string> MaybeCanonicalize(std::string_view inc) {
-  // Work around clangd bug, that does not follow relative paths
-  // correctly (it just does text-substitution of ../ parts instead of following
-  // possible symbolic links.
-  // So if the include directory looks like that, provide an absoluite canonical
-  // version.
-  if (absl::StrContains(inc, "/..")) {
-    std::error_code ec;
-    auto cpath = std::filesystem::canonical(inc, ec);
-    if (!ec) return cpath.string();
-  }
-  return std::nullopt;
-}
-
 static std::string EncodeFlagsIncludeAsJson(Session &session,
                                             const BazelTargetMatcher &pattern,
                                             ParsedProject *project) {
@@ -320,11 +344,12 @@ static std::string EncodeFlagsIncludeAsJson(Session &session,
     out << kIndent << q{cxxopt} << ",\n";
   }
 
+  RelativePathCanonicalizer resolver;
   for (const std::string &inc : CollectIncDirs(session, pattern, project)) {
     out << kIndent << q{"-iquote"} << ", " << q{inc} << ",\n";
     // Work around clangd canonicalization bug.
-    if (auto canonical = MaybeCanonicalize(inc); canonical.has_value()) {
-      out << kIndent << q{"-iquote"} << ", " << q{*canonical} << ",\n";
+    if (auto cpath = resolver.MaybeCanonicalize(inc); cpath.has_value()) {
+      out << kIndent << q{"-iquote"} << ", " << q{*cpath} << ",\n";
     }
   }
 
@@ -406,11 +431,12 @@ static void WriteCompilationFlags(Session &session,
     session.out() << cxxopt << "\n";
   }
 
+  RelativePathCanonicalizer resolver;
   for (const std::string &inc : CollectIncDirs(session, pattern, project)) {
     session.out() << "-I" << inc << "\n";
     // Work around clangd canonicalization bug.
-    if (auto canonical = MaybeCanonicalize(inc); canonical.has_value()) {
-      session.out() << "-I" << *canonical << "\n";
+    if (auto cpath = resolver.MaybeCanonicalize(inc); cpath.has_value()) {
+      session.out() << "-I" << *cpath << "\n";
     }
   }
 }
