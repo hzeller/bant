@@ -367,6 +367,12 @@ static void WriteCompilationDBEntry(const ParsedProject &project,
   query::AppendStringList(details.srcs_list, sources);
   query::AppendStringList(details.hdrs_list, sources);
 
+  // Let's see if we have specific include copts=[] we need here
+  std::vector<std::string_view> inc_opts;
+  for (const std::string_view flag : query::ExtractStringList(details.copts)) {
+    if (absl::StartsWith(flag, "-I")) inc_opts.push_back(flag);
+  }
+
   for (const auto src : sources) {
     const std::string abs_src =
       package.FullyQualifiedFile(project.workspace(), src);
@@ -378,7 +384,14 @@ static void WriteCompilationDBEntry(const ParsedProject &project,
     for (const std::string_view option : kCommonDefaultOptions) {
       out << "      " << q{option} << ",\n";
     }
-    out << external_inc_json;
+
+    out << external_inc_json;  // All the generic stuff we collected.
+
+    // Locally defined include dirs
+    for (const std::string_view incopt : inc_opts) {
+      out << "      " << q{incopt} << ",\n";
+    }
+
     out << "      " << q{"-c"} << ", " << q{abs_src} << ",\n";
     out << "     ],\n";
     out << "     " << q{"directory"} << ": " << q{cwd} << "\n";
@@ -423,6 +436,25 @@ static void WriteCompilationDB(Session &session,
   out << "]\n";
 }
 
+// Extract all -Ifoobar elements found in all of the copts of cc_binary() and
+// cc_library() for compile_flags.txt, where we just combine everything.
+static std::set<std::string> GetAllIncCOpts(Session &session,
+                                            const BazelTargetMatcher &pattern,
+                                            ParsedProject *project) {
+  std::set<std::string> result;
+  for (const auto &[_, parsed_package] : project->ParsedFiles()) {
+    query::FindTargets(
+      parsed_package->ast, {"cc_library", "cc_binary", "cc_test"},
+      [&](const query::Result &target) {
+        if (!target.copts) return;
+        for (const auto flag : query::ExtractStringList(target.copts)) {
+          if (absl::StartsWith(flag, "-I")) result.emplace(flag);
+        }
+      });
+  }
+  return result;
+}
+
 static void WriteCompilationFlags(Session &session,
                                   const BazelTargetMatcher &pattern,
                                   ParsedProject *project) {
@@ -438,6 +470,10 @@ static void WriteCompilationFlags(Session &session,
     if (auto cpath = resolver.MaybeCanonicalize(inc); cpath.has_value()) {
       session.out() << "-I" << *cpath << "\n";
     }
+  }
+
+  for (const std::string &incopt : GetAllIncCOpts(session, pattern, project)) {
+    session.out() << incopt << "\n";
   }
 }
 
