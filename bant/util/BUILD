@@ -99,6 +99,7 @@ cc_library(
         "filesystem-prewarm-cache.h",
     ],
     deps = [
+        ":filesystem",
         ":glob-match-builder",
         ":stat",
         ":thread-pool",
@@ -140,5 +141,16 @@ cc_test(
         ":glob-match-builder",
         "@googletest//:gtest",
         "@googletest//:gtest_main",
+    ],
+)
+
+cc_library(
+    name = "filesystem",
+    srcs = ["filesystem.cc"],
+    hdrs = ["filesystem.h"],
+    deps = [
+        "@abseil-cpp//absl/cleanup",
+        "@abseil-cpp//absl/container:flat_hash_map",
+        "@abseil-cpp//absl/synchronization",
     ],
 )

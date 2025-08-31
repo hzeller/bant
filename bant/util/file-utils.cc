@@ -23,6 +23,7 @@
 #include <unistd.h>
 
 #include <cstddef>
+#include <cstdint>
 #include <cstring>
 #include <deque>
 #include <functional>
@@ -35,6 +36,7 @@
 #include "absl/cleanup/cleanup.h"
 #include "absl/container/flat_hash_set.h"
 #include "bant/util/filesystem-prewarm-cache.h"
+#include "bant/util/filesystem.h"
 #include "bant/util/glob-match-builder.h"
 #include "bant/util/stat.h"
 
@@ -62,6 +64,22 @@ FilesystemPath::FilesystemPath(std::string_view path_up_to,
     is_dir_ = MemoizedResult::kUnknown;  // Only known after following link.
     break;
   case DT_DIR:
+    is_dir_ = MemoizedResult::kYes;
+    is_symlink_ = MemoizedResult::kNo;  // Since we know it is definitely dir
+    break;
+  default:;
+  }
+}
+
+FilesystemPath::FilesystemPath(std::string_view path_up_to,
+                               const DirectoryEntry &dirent)
+    : FilesystemPath(path_up_to, dirent.name) {
+  switch (dirent.type) {
+  case DirectoryEntry::Type::kSymlink:
+    is_symlink_ = MemoizedResult::kYes;
+    is_dir_ = MemoizedResult::kUnknown;  // Only known after following link.
+    break;
+  case DirectoryEntry::Type::kDirectory:
     is_dir_ = MemoizedResult::kYes;
     is_symlink_ = MemoizedResult::kNo;  // Since we know it is definitely dir
     break;
@@ -108,7 +126,9 @@ bool FilesystemPath::is_symlink() const {
 
 // Test if symbolic link points to a directory and return 'true' if it does.
 // Update "out_inode" with the inode at the destination.
-static bool FollowLinkTestIsDir(const FilesystemPath &path, ino_t *out_inode) {
+// Can't call path.is_directory() as we also want to know the inode.
+static bool FollowLinkTestIsDir(const FilesystemPath &path,
+                                uint64_t *out_inode) {
   struct stat s;
   if (stat(path.c_str(), &s) != 0) return false;
   *out_inode = s.st_ino;
@@ -177,7 +197,7 @@ std::optional<std::string> ReadFileToStringUpdateStat(
 // In consequence, loop-detection is essentially disabled for these filesystems.
 // If this become an issue:
 // TODO: in that case, base loop-detection on realpath() (will be slower).
-static bool LooksLikeValidInode(ino_t inode) {
+static bool LooksLikeValidInode(uint64_t inode) {
   // inode numbers at the edges available numbers look suspicous...
   return inode != 0 && (inode & 0xffff'ffff) != 0xffff'ffff;
 }
@@ -194,31 +214,24 @@ std::vector<FilesystemPath> CollectFilesRecursive(
   std::vector<FilesystemPath> result_paths;
   absl::flat_hash_set<ino_t> seen_inode;  // make sure we don't run in circles.
 
+  Filesystem &fs = Filesystem::instance();
+
   std::deque<std::string> directory_worklist;
   directory_worklist.emplace_back(dir.path());
   while (!directory_worklist.empty()) {
     const std::string current_dir = directory_worklist.front();
     directory_worklist.pop_front();
 
-    DIR *const dir = opendir(current_dir.c_str());
-    if (!dir) continue;
-    const absl::Cleanup dir_closer = [dir]() { closedir(dir); };
-
     FilesystemPrewarmCacheRememberDirWasAccessed(current_dir);
-    while (dirent *const entry = readdir(dir)) {
-      if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
-        continue;
-      }
-
-      FilesystemPath file_or_dir(current_dir, *entry);
-      ino_t inode = entry->d_ino;  // Might need updating below if entry symlink
+    for (const DirectoryEntry &entry : fs.ReadDirectory(current_dir)) {
+      FilesystemPath file_or_dir(current_dir, entry);
+      uint64_t inode = entry.inode;  // Might need updating if entry symlink
 
       // The dirent might already tell us that this is a directory, or, we have
       // to test it ourselves, e.g. if it is a symlink. Minimize stat() calls.
       const bool is_directory =
-        (entry->d_type == DT_DIR ||  // Short-path: already known to be a dir
-         ((entry->d_type == DT_UNKNOWN || entry->d_type == DT_LNK) &&
-          FollowLinkTestIsDir(file_or_dir, &inode)));
+        (entry.type == DirectoryEntry::Type::kDirectory ||  // already known.
+         FollowLinkTestIsDir(file_or_dir, &inode));
 
       if (is_directory) {
         if (LooksLikeValidInode(inode) && !seen_inode.insert(inode).second) {

@@ -204,6 +204,7 @@ cc_test(
         ":parser",
         "//bant:session",
         "//bant/explore:query-utils",
+        "//bant/util:filesystem",
         "@abseil-cpp//absl/log:check",
         "@abseil-cpp//absl/strings:str_format",
         "@googletest//:gtest",

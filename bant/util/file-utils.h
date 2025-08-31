@@ -27,6 +27,7 @@
 #include <string_view>
 #include <vector>
 
+#include "bant/util/filesystem.h"
 #include "bant/util/stat.h"
 
 namespace bant {
@@ -40,6 +41,7 @@ class FilesystemPath {
   explicit FilesystemPath(std::string_view path) : path_(path) {}
   FilesystemPath(std::string_view path_up_to, std::string_view filename);
   FilesystemPath(std::string_view path_up_to, const struct dirent &dirent);
+  FilesystemPath(std::string_view path_up_to, const DirectoryEntry &dirent);
 
   FilesystemPath(FilesystemPath &&) = default;
   FilesystemPath(const FilesystemPath &) = default;

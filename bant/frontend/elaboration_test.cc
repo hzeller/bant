@@ -32,6 +32,7 @@
 #include "bant/frontend/parsed-project.h"
 #include "bant/frontend/parsed-project_testutil.h"
 #include "bant/session.h"
+#include "bant/util/filesystem.h"
 #include "gtest/gtest.h"
 
 namespace bant {
@@ -79,6 +80,11 @@ class ElaborationTest : public testing::Test {
   const ParsedBuildFile *elaborated() { return elaborated_; }
 
   ParsedProject &project() { return pp_.project(); }
+
+  void SetUp() override {
+    // Since we're changing cwd underneath, can't re-use cached results.
+    Filesystem::instance().EvictCache();
+  }
 
  private:
   ParsedProjectTestUtil pp_;
