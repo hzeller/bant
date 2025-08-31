@@ -223,14 +223,14 @@ std::vector<FilesystemPath> CollectFilesRecursive(
     directory_worklist.pop_front();
 
     FilesystemPrewarmCacheRememberDirWasAccessed(current_dir);
-    for (const DirectoryEntry &entry : fs.ReadDirectory(current_dir)) {
-      FilesystemPath file_or_dir(current_dir, entry);
-      uint64_t inode = entry.inode;  // Might need updating if entry symlink
+    for (const DirectoryEntry *entry : fs.ReadDirectory(current_dir)) {
+      FilesystemPath file_or_dir(current_dir, *entry);
+      uint64_t inode = entry->inode;  // Might need updating if entry symlink
 
       // The dirent might already tell us that this is a directory, or, we have
       // to test it ourselves, e.g. if it is a symlink. Minimize stat() calls.
       const bool is_directory =
-        (entry.type == DirectoryEntry::Type::kDirectory ||  // already known.
+        (entry->type == DirectoryEntry::Type::kDirectory ||  // already known.
          FollowLinkTestIsDir(file_or_dir, &inode));
 
       if (is_directory) {

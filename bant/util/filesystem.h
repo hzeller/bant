@@ -25,6 +25,7 @@
 
 #include "absl/container/flat_hash_map.h"
 #include "absl/synchronization/mutex.h"
+#include "bant/util/arena.h"
 
 namespace bant {
 
@@ -39,7 +40,7 @@ struct DirectoryEntry {
 
   uint64_t inode;
   Type type;
-  std::string name;
+  char name[];
 };
 
 // Very rudimentary filesystem. Right now only used as intermediary to
@@ -52,14 +53,21 @@ class Filesystem {
 
   // Equivalent of opendir()/loop readdir() and return all DirectoryEntries.
   // Might return cached results.
-  const std::vector<DirectoryEntry> &ReadDirectory(std::string_view path);
+  std::vector<const DirectoryEntry *> ReadDirectory(std::string_view path);
 
   // Evict cache. Might be needed in unit tests.
   void EvictCache();
 
  private:
+  struct CacheEntry {
+    Arena data{1024};
+    std::vector<const DirectoryEntry *> entries;
+  };
+
+  static void ReadDirectory(std::string_view path, CacheEntry &result);
+
   absl::Mutex mu_;
-  absl::flat_hash_map<std::string, std::vector<DirectoryEntry>> cache_;
+  absl::flat_hash_map<std::string, CacheEntry> cache_;
 };
 }  // namespace bant
 #endif  // BANT_FILESYSTEM_H

@@ -35,8 +35,7 @@ Filesystem &Filesystem::instance() {
   return *instance;
 }
 
-static void ReadDirectoryIntoVector(std::string_view path,
-                                    std::vector<DirectoryEntry> &result) {
+void Filesystem::ReadDirectory(std::string_view path, CacheEntry &result) {
   const std::string dir_as_string(path);
   DIR *const dir = opendir(dir_as_string.c_str());
   if (!dir) return;
@@ -54,14 +53,13 @@ static void ReadDirectoryIntoVector(std::string_view path,
     default: entry_type = DirectoryEntry::Type::kOther; break;
     };
 
-    // TODO: copying it over to a new data structure adds overhad that
-    // actually makes this slighly slower on a fast filesystem, even
-    // if it can cache something. Consider arena and flexible array member.
-    result.emplace_back(DirectoryEntry{
-      .inode = entry->d_ino,
-      .type = entry_type,
-      .name = entry->d_name,
-    });
+    const size_t name_size = strlen(entry->d_name);
+    DirectoryEntry *entry_copy = static_cast<DirectoryEntry *>(
+      result.data.Alloc(sizeof(DirectoryEntry) + name_size + 1));
+    entry_copy->inode = entry->d_ino;
+    entry_copy->type = entry_type;
+    strncpy(entry_copy->name, entry->d_name, name_size + 1);
+    result.entries.push_back(entry_copy);
   };
 }
 
@@ -70,21 +68,21 @@ void Filesystem::EvictCache() {
   cache_.clear();
 }
 
-const std::vector<DirectoryEntry> &Filesystem::ReadDirectory(
+std::vector<const DirectoryEntry *> Filesystem::ReadDirectory(
   std::string_view path) {
   {
     const absl::ReaderMutexLock l(&mu_);
     if (auto found = cache_.find(path); found != cache_.end()) {
-      return found->second;
+      return found->second.entries;
     }
   }
 
   // Don't hold lock while filling.
-  std::vector<DirectoryEntry> result;
-  ReadDirectoryIntoVector(path, result);
+  CacheEntry result;
+  ReadDirectory(path, result);
 
   const absl::WriterMutexLock l(&mu_);
   auto inserted = cache_.emplace(path, std::move(result));
-  return inserted.first->second;
+  return inserted.first->second.entries;
 }
 }  // namespace bant
