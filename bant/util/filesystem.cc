@@ -30,8 +30,9 @@
 
 namespace bant {
 Filesystem &Filesystem::instance() {
-  static Filesystem instance;
-  return instance;
+  // We don't care about any cleanup, so make it intentionally leak.
+  static Filesystem *instance = new Filesystem();
+  return *instance;
 }
 
 static void ReadDirectoryIntoVector(std::string_view path,
@@ -53,6 +54,9 @@ static void ReadDirectoryIntoVector(std::string_view path,
     default: entry_type = DirectoryEntry::Type::kOther; break;
     };
 
+    // TODO: copying it over to a new data structure adds overhad that
+    // actually makes this slighly slower on a fast filesystem, even
+    // if it can cache something. Consider arena and flexible array member.
     result.emplace_back(DirectoryEntry{
       .inode = entry->d_ino,
       .type = entry_type,

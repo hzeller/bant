@@ -17,7 +17,6 @@
 
 #include "bant/util/filesystem-prewarm-cache.h"
 
-#include <dirent.h>
 #include <unistd.h>
 
 #include <cstdint>
@@ -36,6 +35,7 @@
 #include "absl/container/flat_hash_set.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
+#include "bant/util/filesystem.h"
 #include "bant/util/thread-pool.h"
 
 namespace bant {
@@ -71,6 +71,8 @@ class FilesystemPrewarmCache {
 
 void FilesystemPrewarmCache::InitCacheFile(const std::string &cache_file) {
   std::fstream input(cache_file, std::ios::in | std::ios::binary);
+  Filesystem &fs = Filesystem::instance();
+
   if (input.good()) {
     pool_ = std::make_unique<ThreadPool>(kPrewarmParallelism);
     std::string line;
@@ -82,12 +84,8 @@ void FilesystemPrewarmCache::InitCacheFile(const std::string &cache_file) {
           const int discard [[maybe_unused]] = access(line.c_str() + 1, F_OK);
         });
       } else if (type == 'D') {
-        pool_->ExecAsync([line]() {
-          DIR *const dir = opendir(line.c_str() + 1);
-          if (dir) {
-            const auto *discard [[maybe_unused]] = readdir(dir);  // force first
-            closedir(dir);
-          }
+        pool_->ExecAsync([line, &fs]() {
+          fs.ReadDirectory(line.c_str() + 1);
           return true;
         });
       }
