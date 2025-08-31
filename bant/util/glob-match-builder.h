@@ -33,7 +33,7 @@ class GlobMatchBuilder {
 
   // Build and return a predicate checking if a directory should be traversed
   // while building the glob output.
-  std::function<bool(std::string_view)> BuildDirectoryMatchPredicate() const;
+  std::function<bool(std::string_view)> BuildRecurseDirMatchPredicate() const;
 
   // Build and return predicate to check if a file shall be included in glob.
   std::function<bool(std::string_view)> BuildFileMatchPredicate() const;

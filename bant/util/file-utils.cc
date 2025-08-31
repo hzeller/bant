@@ -18,7 +18,6 @@
 
 #include <dirent.h>
 #include <fcntl.h>
-#include <glob.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -36,6 +35,7 @@
 #include "absl/cleanup/cleanup.h"
 #include "absl/container/flat_hash_set.h"
 #include "bant/util/filesystem-prewarm-cache.h"
+#include "bant/util/glob-match-builder.h"
 #include "bant/util/stat.h"
 
 namespace bant {
@@ -116,18 +116,14 @@ static bool FollowLinkTestIsDir(const FilesystemPath &path, ino_t *out_inode) {
 }
 
 std::vector<FilesystemPath> Glob(std::string_view glob_pattern) {
-  const std::string pattern(glob_pattern);
-  glob_t glob_list;
-  if (glob(pattern.c_str(), 0, nullptr, &glob_list) != 0) {
-    return {};
-  }
-  const absl::Cleanup glob_closer = [&glob_list]() { globfree(&glob_list); };
-
-  std::vector<FilesystemPath> result;
-  for (char **path = glob_list.gl_pathv; *path; ++path) {
-    result.emplace_back(*path);
-  }
-  return result;
+  GlobMatchBuilder matcher;
+  matcher.AddIncludePattern(glob_pattern);
+  auto recurse_matcher = matcher.BuildRecurseDirMatchPredicate();
+  auto accept_matcher = matcher.BuildFileMatchPredicate();
+  return CollectFilesRecursive(
+    FilesystemPath(matcher.CommonDirectoryPrefix()),
+    [&](const FilesystemPath &dir) { return recurse_matcher(dir.path()); },
+    [&](const FilesystemPath &file) { return accept_matcher(file.path()); });
 }
 
 std::optional<std::string> ReadFileToString(const FilesystemPath &filename) {
@@ -193,8 +189,8 @@ static bool LooksLikeValidInode(ino_t inode) {
 // less portable, but I run my personal tools on Posix-Systems anyway.
 std::vector<FilesystemPath> CollectFilesRecursive(
   const FilesystemPath &dir,
-  const std::function<bool(const FilesystemPath &)> &want_dir_p,
-  const std::function<bool(const FilesystemPath &)> &want_file_p) {
+  const std::function<bool(const FilesystemPath &)> &enter_dir_p,
+  const std::function<bool(const FilesystemPath &)> &want_file_or_dir_p) {
   std::vector<FilesystemPath> result_paths;
   absl::flat_hash_set<ino_t> seen_inode;  // make sure we don't run in circles.
 
@@ -228,10 +224,12 @@ std::vector<FilesystemPath> CollectFilesRecursive(
         if (LooksLikeValidInode(inode) && !seen_inode.insert(inode).second) {
           continue;  // Avoid getting caught in symbolic-link loops.
         }
-        if (want_dir_p(file_or_dir)) {
+        if (enter_dir_p(file_or_dir)) {
           directory_worklist.emplace_back(file_or_dir.path());
         }
-      } else if (want_file_p(file_or_dir)) {
+      }
+
+      if (want_file_or_dir_p(file_or_dir)) {
         result_paths.emplace_back(std::move(file_or_dir));
       }
     }

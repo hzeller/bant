@@ -74,7 +74,7 @@ class FilesystemPath {
   mutable MemoizedResult is_symlink_ = MemoizedResult::kUnknown;
 };
 
-// Given a shell-globbing pattern, return all the matching files.
+// Given a shell-globbing pattern, return all the matching files and dirs.
 std::vector<FilesystemPath> Glob(std::string_view glob_pattern);
 
 // Given a filename, read the content of the file into a string. If there was
@@ -86,14 +86,15 @@ std::optional<std::string> ReadFileToStringUpdateStat(
   const FilesystemPath &filename, Stat &stat);
 
 // Collect files found recursively (BFS) and return.
-// Uses predicate "want_dir_p" to check if directory should be entered, and
-// "want_file_p" if file should be included; if so, it is added to "paths".
 //
-// Result only contains files, never directories.
+// Uses predicate "enter_dir_p" to check if directory should be entered, and
+// "want_file_or_dir_p" if file or directory should be included in the
+// returned vector. So if only want files, return false if is_directory();
+//
 std::vector<FilesystemPath> CollectFilesRecursive(
   const FilesystemPath &dir,
-  const std::function<bool(const FilesystemPath &)> &want_dir_p,
-  const std::function<bool(const FilesystemPath &)> &want_file_p);
+  const std::function<bool(const FilesystemPath &)> &enter_dir_p,
+  const std::function<bool(const FilesystemPath &)> &want_file_or_dir_p);
 }  // namespace bant
 
 #endif  // BANT_FILE_UTILS_H

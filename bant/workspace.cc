@@ -17,6 +17,7 @@
 
 #include "bant/workspace.h"
 
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <optional>
@@ -86,7 +87,12 @@ bool BestEffortAugmentFromExternalDir(Session &session,
   int found_count = 0;
   const std::string pattern = absl::StrCat(kExternalBaseDir, "/*");
   for (const FilesystemPath &project_dir : Glob(pattern)) {
-    if (!project_dir.is_directory()) continue;
+    if (!project_dir.is_directory()) continue;  // Projects are in directories.
+
+    // Some sub-projects such as toolchains used by projects seem to be
+    // separated by extra tilde. W're only interested in the main projects.
+    if (std::ranges::count(project_dir.filename(), '~') > 1) continue;
+
     const std::string_view project_name = project_dir.filename();
     auto project_or = VersionedProject::ParseFromDir(project_name);
     if (!project_or) continue;

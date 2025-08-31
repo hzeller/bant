@@ -99,6 +99,7 @@ cc_library(
         "filesystem-prewarm-cache.h",
     ],
     deps = [
+        ":glob-match-builder",
         ":stat",
         ":thread-pool",
         "@abseil-cpp//absl/base:core_headers",

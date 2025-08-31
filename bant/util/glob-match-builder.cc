@@ -162,7 +162,7 @@ GlobMatchBuilder::BuildFileMatchPredicate() const {
 }
 
 std::function<bool(std::string_view)>
-GlobMatchBuilder::BuildDirectoryMatchPredicate() const {
+GlobMatchBuilder::BuildRecurseDirMatchPredicate() const {
   auto dir_matcher = MakeDirectoryMatcher(include_pattern_);
   return [=](std::string_view s) { return dir_matcher->Match(s); };
 }

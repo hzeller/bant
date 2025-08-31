@@ -926,7 +926,7 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     for (const std::string_view e : exclude) {
       match_builder.AddExcludePattern(e);
     }
-    auto dir_matcher = match_builder.BuildDirectoryMatchPredicate();
+    auto dir_matcher = match_builder.BuildRecurseDirMatchPredicate();
     auto file_matcher = match_builder.BuildFileMatchPredicate();
 
     // The glob pattern does not know about the full path up to this point,
@@ -943,6 +943,7 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
       },
       [&](const FilesystemPath &file) {
         ++checked_files;
+        if (file.is_directory()) return false;  // only interested in files.
         return file_matcher(std::string_view(file.path()).substr(skip_prefix));
       });
     glob_stats.count += checked_files;

@@ -34,7 +34,7 @@ TEST(GlobMatchBuilderTest, NoDirectorySimpleFileGlob) {
   EXPECT_TRUE(file_is_matching("baaaaar.txt"));
   EXPECT_FALSE(file_is_matching("car.txt"));
 
-  auto dir_is_matching = glob_builder.BuildDirectoryMatchPredicate();
+  auto dir_is_matching = glob_builder.BuildRecurseDirMatchPredicate();
   EXPECT_TRUE(dir_is_matching(""));
   EXPECT_FALSE(dir_is_matching("anythingelse"));
 }
@@ -50,7 +50,7 @@ TEST(GlobMatchBuilderTest, ExactlyOneDir) {
   EXPECT_TRUE(file_is_matching("a/foo.txt"));
   EXPECT_TRUE(file_is_matching("a/bar.txt"));
 
-  auto dir_is_matching = glob_builder.BuildDirectoryMatchPredicate();
+  auto dir_is_matching = glob_builder.BuildRecurseDirMatchPredicate();
   EXPECT_TRUE(dir_is_matching(""));
   EXPECT_TRUE(dir_is_matching("foo"));
   EXPECT_FALSE(dir_is_matching("foo/bar"));
@@ -70,7 +70,7 @@ TEST(GlobMatchBuilderTest, MultiDir) {
   EXPECT_TRUE(file_is_matching("a/b/foo.txt"));
   EXPECT_TRUE(file_is_matching("a/b/c/foo.txt"));
 
-  auto dir_is_matching = glob_builder.BuildDirectoryMatchPredicate();
+  auto dir_is_matching = glob_builder.BuildRecurseDirMatchPredicate();
   EXPECT_TRUE(dir_is_matching(""));
   EXPECT_TRUE(dir_is_matching("foo"));
   EXPECT_TRUE(dir_is_matching("foo/bar"));
@@ -111,7 +111,7 @@ TEST(GlobMatchBuilderTest, MultiDirWithPrefix) {
   EXPECT_TRUE(file_is_matching("f/g/h/bar.txt"));
   EXPECT_FALSE(file_is_matching("f/g/j/bar.txt"));
 
-  auto dir_is_matching = glob_builder.BuildDirectoryMatchPredicate();
+  auto dir_is_matching = glob_builder.BuildRecurseDirMatchPredicate();
   EXPECT_FALSE(dir_is_matching(""));  // We need to have at least one prefix
   EXPECT_TRUE(dir_is_matching("a"));
   EXPECT_TRUE(dir_is_matching("a/b"));
