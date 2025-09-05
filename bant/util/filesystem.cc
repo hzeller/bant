@@ -43,6 +43,14 @@ Filesystem &Filesystem::instance() {
   return *instance;
 }
 
+static DirectoryEntry::Type FileTypeFromDirent(const dirent *entry) {
+  switch (entry->d_type) {
+  case DT_LNK: return DirectoryEntry::Type::kSymlink;
+  case DT_DIR: return DirectoryEntry::Type::kDirectory;
+  default: return DirectoryEntry::Type::kOther;
+  }
+}
+
 void Filesystem::ReadDirectory(std::string_view path, CacheEntry &result) {
   const std::string dir_as_string(path);
   DIR *const dir = opendir(dir_as_string.c_str());
@@ -54,16 +62,9 @@ void Filesystem::ReadDirectory(std::string_view path, CacheEntry &result) {
       continue;
     }
 
-    DirectoryEntry::Type entry_type;
-    switch (entry->d_type) {
-    case DT_LNK: entry_type = DirectoryEntry::Type::kSymlink; break;
-    case DT_DIR: entry_type = DirectoryEntry::Type::kDirectory; break;
-    default: entry_type = DirectoryEntry::Type::kOther; break;
-    };
-
     auto *entry_copy = DirectoryEntry::Alloc(result.data, entry->d_name);
     entry_copy->inode = entry->d_ino;
-    entry_copy->type = entry_type;
+    entry_copy->type = FileTypeFromDirent(entry);
     result.entries.push_back(entry_copy);
   };
 }
