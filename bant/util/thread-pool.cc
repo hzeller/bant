@@ -18,11 +18,15 @@
 #include "bant/util/thread-pool.h"
 
 #include <functional>
-#include <mutex>
 #include <thread>
 
+#include "absl/synchronization/mutex.h"
+
 namespace bant {
-ThreadPool::ThreadPool(int thread_count) {
+ThreadPool::ThreadPool(int thread_count)
+    : more_work_available_(
+        +[](ThreadPool *p) { return !p->work_queue_.empty() || p->exiting_; },
+        this) {
   for (int i = 0; i < thread_count; ++i) {
     threads_.push_back(new std::thread(&ThreadPool::Runner, this));
   }
@@ -40,8 +44,7 @@ void ThreadPool::Runner() {
   std::function<void()> process_work_item;
   for (;;) {
     {
-      std::unique_lock<std::mutex> l(lock_);
-      cv_.wait(l, [this]() { return !work_queue_.empty() || exiting_; });
+      const absl::MutexLock l(&lock_, more_work_available_);
       if (exiting_) return;
       process_work_item = work_queue_.front();
       work_queue_.pop_front();
@@ -56,18 +59,12 @@ void ThreadPool::ExecAsync(const std::function<void()> &fun) {
     return;
   }
 
-  {
-    const std::unique_lock<std::mutex> l(lock_);
-    work_queue_.emplace_back(fun);
-  }
-  cv_.notify_one();
+  const absl::MutexLock l(&lock_);
+  work_queue_.emplace_back(fun);
 }
 
 void ThreadPool::CancelAllWork() {
-  {
-    const std::unique_lock<std::mutex> l(lock_);
-    exiting_ = true;
-  }
-  cv_.notify_all();
+  const absl::MutexLock l(&lock_);
+  exiting_ = true;
 }
 }  // namespace bant

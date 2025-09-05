@@ -75,6 +75,10 @@ cc_library(
     name = "thread-pool",
     srcs = ["thread-pool.cc"],
     hdrs = ["thread-pool.h"],
+    deps = [
+        "@abseil-cpp//absl/base:core_headers",
+        "@abseil-cpp//absl/synchronization",
+    ],
 )
 
 cc_test(
@@ -108,6 +112,7 @@ cc_library(
         "@abseil-cpp//absl/container:flat_hash_set",
         "@abseil-cpp//absl/strings",
         "@abseil-cpp//absl/strings:str_format",
+        "@abseil-cpp//absl/synchronization",
     ],
 )
 

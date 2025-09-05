@@ -18,13 +18,14 @@
 #ifndef BANT_UTIL_THREAD_POOL_H
 #define BANT_UTIL_THREAD_POOL_H
 
-#include <condition_variable>
 #include <deque>
 #include <functional>
 #include <future>
-#include <mutex>
 #include <thread>
 #include <vector>
+
+#include "absl/base/thread_annotations.h"
+#include "absl/synchronization/mutex.h"
 
 namespace bant {
 // Simple thread-pool.
@@ -71,10 +72,10 @@ class ThreadPool {
   void Runner();
 
   std::vector<std::thread *> threads_;
-  std::mutex lock_;
-  std::condition_variable cv_;
-  std::deque<std::function<void()>> work_queue_;
-  bool exiting_ = false;
+  absl::Mutex lock_;
+  std::deque<std::function<void()>> work_queue_ ABSL_GUARDED_BY(lock_);
+  bool exiting_ ABSL_GUARDED_BY(lock_) = false;
+  absl::Condition more_work_available_;
 };
 
 }  // namespace bant
