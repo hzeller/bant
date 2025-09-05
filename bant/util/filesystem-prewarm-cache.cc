@@ -114,7 +114,7 @@ void FilesystemPrewarmCacheInit(int argc, char *argv[]) {
 
   // Make filename unique to match cwd and arguments.
   std::error_code err;
-  auto cwd = std::filesystem::current_path(err);
+  const std::filesystem::path cwd = std::filesystem::current_path(err);
   uint64_t argument_dependent_hash = std::hash<std::string>()(cwd.string());
   for (int i = 1; i < argc; ++i) {
     const std::string_view arg(argv[i]);
@@ -135,7 +135,8 @@ void FilesystemPrewarmCacheInit(int argc, char *argv[]) {
   }
 
   const std::string cache_file = absl::StrFormat(
-    "%s/fs-warm-%08x", cache_dir, argument_dependent_hash & 0xffff'ffff);
+    "%s/fs-warm-%08x-%s", cache_dir, argument_dependent_hash & 0xffff'ffff,
+    cwd.filename().c_str());
   FilesystemPrewarmCache::instance().InitCacheFile(cache_file);
 }
 
