@@ -18,8 +18,6 @@
 #ifndef BANT_FILE_UTILS_H
 #define BANT_FILE_UTILS_H
 
-#include <dirent.h>
-
 #include <cstddef>
 #include <functional>
 #include <optional>
@@ -40,7 +38,6 @@ class FilesystemPath {
   FilesystemPath() = default;
   explicit FilesystemPath(std::string_view path) : path_(path) {}
   FilesystemPath(std::string_view path_up_to, std::string_view filename);
-  FilesystemPath(std::string_view path_up_to, const struct dirent &dirent);
   FilesystemPath(std::string_view path_up_to, const DirectoryEntry &dirent);
 
   FilesystemPath(FilesystemPath &&) = default;
@@ -74,6 +71,12 @@ class FilesystemPath {
   mutable MemoizedResult can_read_ = MemoizedResult::kUnknown;
   mutable MemoizedResult is_dir_ = MemoizedResult::kUnknown;
   mutable MemoizedResult is_symlink_ = MemoizedResult::kUnknown;
+
+  friend struct InternalDirectoryStat;
+  bool update_known_is_directory(bool yes) {
+    is_dir_ = yes ? MemoizedResult::kYes : MemoizedResult::kNo;
+    return yes;
+  }
 };
 
 // Given a shell-globbing pattern, return all the matching files and dirs.

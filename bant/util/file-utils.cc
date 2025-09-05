@@ -16,7 +16,6 @@
 // 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 #include "bant/util/file-utils.h"
 
-#include <dirent.h>
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -56,22 +55,6 @@ FilesystemPath::FilesystemPath(std::string_view path_up_to,
 }
 
 FilesystemPath::FilesystemPath(std::string_view path_up_to,
-                               const struct dirent &dirent)
-    : FilesystemPath(path_up_to, dirent.d_name) {
-  switch (dirent.d_type) {
-  case DT_LNK:
-    is_symlink_ = MemoizedResult::kYes;
-    is_dir_ = MemoizedResult::kUnknown;  // Only known after following link.
-    break;
-  case DT_DIR:
-    is_dir_ = MemoizedResult::kYes;
-    is_symlink_ = MemoizedResult::kNo;  // Since we know it is definitely dir
-    break;
-  default:;
-  }
-}
-
-FilesystemPath::FilesystemPath(std::string_view path_up_to,
                                const DirectoryEntry &dirent)
     : FilesystemPath(path_up_to, dirent.name) {
   switch (dirent.type) {
@@ -83,7 +66,10 @@ FilesystemPath::FilesystemPath(std::string_view path_up_to,
     is_dir_ = MemoizedResult::kYes;
     is_symlink_ = MemoizedResult::kNo;  // Since we know it is definitely dir
     break;
-  default:;
+  default:
+    is_dir_ = MemoizedResult::kNo;
+    is_symlink_ = MemoizedResult::kNo;
+    break;
   }
 }
 
@@ -124,16 +110,19 @@ bool FilesystemPath::is_symlink() const {
   return (is_symlink_ == MemoizedResult::kYes);
 }
 
-// Test if symbolic link points to a directory and return 'true' if it does.
-// Update "out_inode" with the inode at the destination.
-// Can't call path.is_directory() as we also want to know the inode.
-static bool FollowLinkTestIsDir(const FilesystemPath &path,
-                                uint64_t *out_inode) {
-  struct stat s;
-  if (stat(path.c_str(), &s) != 0) return false;
-  *out_inode = s.st_ino;
-  return S_ISDIR(s.st_mode);
-}
+// Just in a struct, so that FilesystemPath can be 'friends' :)
+// The update_known_is_directory() method should not really be visible.
+struct InternalDirectoryStat {
+  // Test if symbolic link points to a directory and return 'true' if it does.
+  // Update "out_inode" with the inode at the destination.
+  // Can't call path.is_directory() as we also want to know the inode.
+  static bool FollowLinkTestIsDir(FilesystemPath &path, uint64_t *out_inode) {
+    struct stat s;
+    if (stat(path.c_str(), &s) != 0) return false;
+    *out_inode = s.st_ino;
+    return path.update_known_is_directory(S_ISDIR(s.st_mode));
+  }
+};
 
 std::vector<FilesystemPath> Glob(std::string_view glob_pattern) {
   GlobMatchBuilder matcher;
@@ -231,7 +220,8 @@ std::vector<FilesystemPath> CollectFilesRecursive(
       // to test it ourselves, e.g. if it is a symlink. Minimize stat() calls.
       const bool is_directory =
         (entry->type == DirectoryEntry::Type::kDirectory ||  // already known.
-         FollowLinkTestIsDir(file_or_dir, &inode));
+         (entry->type == DirectoryEntry::Type::kSymlink &&
+          InternalDirectoryStat::FollowLinkTestIsDir(file_or_dir, &inode)));
 
       if (is_directory) {
         if (LooksLikeValidInode(inode) && !seen_inode.insert(inode).second) {

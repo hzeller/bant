@@ -30,17 +30,21 @@
 namespace bant {
 
 // Platform-independent `struct dirent`-like struct with only the things
-// we're interested in.
+// we're interested in; compactly represented.
 struct DirectoryEntry {
+  // Allocate in Arena (currently only available way to construct). Allocation
+  // size is compact and dependent on name.
+  static DirectoryEntry *Alloc(Arena &where, std::string_view name);
+
   enum class Type : uint8_t {
+    kOther,
     kDirectory,
     kSymlink,
-    kOther,
   };
 
-  uint64_t inode;
-  Type type;
-  char name[];
+  uint64_t inode = 0;
+  Type type = Type::kOther;
+  char name[];  // Allocated as needed.
 };
 
 // Very rudimentary filesystem. Right now only used as intermediary to

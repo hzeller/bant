@@ -117,6 +117,8 @@ cc_test(
     srcs = ["file-utils_test.cc"],
     deps = [
         ":file-utils",
+        ":filesystem",
+        ":memory",
         "@googletest//:gtest",
         "@googletest//:gtest_main",
     ],

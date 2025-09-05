@@ -27,8 +27,16 @@
 
 #include "absl/cleanup/cleanup.h"
 #include "absl/synchronization/mutex.h"
+#include "bant/util/arena.h"
 
 namespace bant {
+DirectoryEntry *DirectoryEntry::Alloc(Arena &where, std::string_view name) {
+  DirectoryEntry *entry = static_cast<DirectoryEntry *>(
+    where.Alloc(sizeof(DirectoryEntry) + name.size() + 1));
+  strncpy(entry->name, name.data(), name.size() + 1);
+  return entry;
+}
+
 Filesystem &Filesystem::instance() {
   // We don't care about any cleanup, so make it intentionally leak.
   static Filesystem *instance = new Filesystem();
@@ -53,12 +61,9 @@ void Filesystem::ReadDirectory(std::string_view path, CacheEntry &result) {
     default: entry_type = DirectoryEntry::Type::kOther; break;
     };
 
-    const size_t name_size = strlen(entry->d_name);
-    DirectoryEntry *entry_copy = static_cast<DirectoryEntry *>(
-      result.data.Alloc(sizeof(DirectoryEntry) + name_size + 1));
+    auto *entry_copy = DirectoryEntry::Alloc(result.data, entry->d_name);
     entry_copy->inode = entry->d_ino;
     entry_copy->type = entry_type;
-    strncpy(entry_copy->name, entry->d_name, name_size + 1);
     result.entries.push_back(entry_copy);
   };
 }
@@ -77,7 +82,9 @@ std::vector<const DirectoryEntry *> Filesystem::ReadDirectory(
     }
   }
 
-  // Don't hold lock while filling.
+  // Don't hold lock while filling. We have a local arena in each CacheEntry
+  // to avoid mutex-locking it but wasting memory blocks.
+  // Might be worthwhile re-evaluating.
   CacheEntry result;
   ReadDirectory(path, result);
 
