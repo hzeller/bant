@@ -20,8 +20,8 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <cstdio>
 #include <deque>
-#include <iostream>
 #include <memory>
 #include <utility>
 
@@ -52,10 +52,14 @@ class Arena {
   }
 
   ~Arena() {
-    if (verbose_) {
-      std::cerr << "Arena: " << total_allocations_ << " allocations "
-                << "in " << blocks_.size() << " blocks; " << total_bytes_ / 1e6
-                << " MB.\n";
+    if (!verbose_ || blocks_.empty()) return;
+
+    fprintf(stderr, "Arena: %6zu allocations in %zu blocks; ",
+            total_allocations_, blocks_.size());
+    if (total_bytes_ > 10L * 1024) {
+      fprintf(stderr, "%6.3f MiB.\n", total_bytes_ / (1024.0 * 1024.0));
+    } else {
+      fprintf(stderr, "%4zu Bytes.\n", total_bytes_);
     }
   }
 
