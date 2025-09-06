@@ -57,7 +57,13 @@ class Filesystem {
 
   // Equivalent of opendir()/loop readdir() and return all DirectoryEntries.
   // Might return cached results.
-  std::vector<const DirectoryEntry *> ReadDirectory(std::string_view path);
+  // The directory entries are sorted by name.
+  const std::vector<const DirectoryEntry *> &ReadDir(std::string_view dirpath);
+
+  // Check if a path exists. This is reading the directory and checks if the
+  // filename is in there. If the directory was read before, chances are,
+  // we don't even have to hit the physical filesystem.
+  bool Exists(std::string_view path);
 
   // Evict cache. Might be needed in unit tests.
   void EvictCache();

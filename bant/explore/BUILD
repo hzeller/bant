@@ -20,6 +20,7 @@ cc_library(
         "//bant/frontend:parsed-project",
         "//bant/frontend:parser",
         "//bant/util:file-utils",
+        "//bant/util:filesystem",
         "//bant/util:stat",
         "//bant/util:table-printer",
         "//bant/util:thread-pool",

@@ -212,7 +212,7 @@ std::vector<FilesystemPath> CollectFilesRecursive(
     directory_worklist.pop_front();
 
     FilesystemPrewarmCacheRememberDirWasAccessed(current_dir);
-    for (const DirectoryEntry *entry : fs.ReadDirectory(current_dir)) {
+    for (const DirectoryEntry *entry : fs.ReadDir(current_dir)) {
       FilesystemPath file_or_dir(current_dir, *entry);
       uint64_t inode = entry->inode;  // Might need updating if entry symlink
 

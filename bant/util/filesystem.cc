@@ -17,8 +17,10 @@
 
 #include "bant/util/filesystem.h"
 
+#include <alloca.h>
 #include <dirent.h>
 
+#include <algorithm>
 #include <cstring>
 #include <string>
 #include <string_view>
@@ -51,6 +53,10 @@ static DirectoryEntry::Type FileTypeFromDirent(const dirent *entry) {
   }
 }
 
+static bool DirEntryLessThan(const DirectoryEntry *a, const DirectoryEntry *b) {
+  return strcmp(a->name, b->name) < 0;
+}
+
 void Filesystem::ReadDirectory(std::string_view path, CacheEntry &result) {
   const std::string dir_as_string(path);
   DIR *const dir = opendir(dir_as_string.c_str());
@@ -66,7 +72,10 @@ void Filesystem::ReadDirectory(std::string_view path, CacheEntry &result) {
     entry_copy->inode = entry->d_ino;
     entry_copy->type = FileTypeFromDirent(entry);
     result.entries.push_back(entry_copy);
-  };
+  }
+
+  // Keep them sorted, so that we can easily find.
+  std::sort(result.entries.begin(), result.entries.end(), DirEntryLessThan);
 }
 
 void Filesystem::EvictCache() {
@@ -74,11 +83,11 @@ void Filesystem::EvictCache() {
   cache_.clear();
 }
 
-std::vector<const DirectoryEntry *> Filesystem::ReadDirectory(
-  std::string_view path) {
+const std::vector<const DirectoryEntry *> &Filesystem::ReadDir(
+  std::string_view dirpath) {
   {
     const absl::ReaderMutexLock l(&mu_);
-    if (auto found = cache_.find(path); found != cache_.end()) {
+    if (auto found = cache_.find(dirpath); found != cache_.end()) {
       return found->second.entries;
     }
   }
@@ -87,10 +96,29 @@ std::vector<const DirectoryEntry *> Filesystem::ReadDirectory(
   // to avoid mutex-locking it but wasting memory blocks.
   // Might be worthwhile re-evaluating.
   CacheEntry result;
-  ReadDirectory(path, result);
+  ReadDirectory(dirpath, result);
 
   const absl::WriterMutexLock l(&mu_);
-  auto inserted = cache_.emplace(path, std::move(result));
+  auto inserted = cache_.emplace(dirpath, std::move(result));
   return inserted.first->second.entries;
 }
+
+bool Filesystem::Exists(std::string_view path) {
+  static const std::string_view kCurrentDir(".");
+  const auto last_slash = path.find_last_of('/');
+  const std::string_view dir = (last_slash == std::string::npos)
+                                 ? kCurrentDir
+                                 : path.substr(0, last_slash);
+  const std::string_view filename =
+    (last_slash == std::string::npos) ? path : path.substr(last_slash + 1);
+
+  DirectoryEntry *compare_entry = static_cast<DirectoryEntry *>(
+    alloca(sizeof(DirectoryEntry) + filename.size() + 1));
+  strncpy(compare_entry->name, filename.data(), filename.size() + 1);
+
+  const auto &dir_content = ReadDir(dir);
+  return std::binary_search(dir_content.begin(), dir_content.end(),
+                            compare_entry, DirEntryLessThan);
+}
+
 }  // namespace bant

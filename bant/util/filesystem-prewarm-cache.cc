@@ -85,7 +85,7 @@ void FilesystemPrewarmCache::InitCacheFile(const std::string &cache_file) {
         });
       } else if (type == 'D') {
         pool_->ExecAsync([line, &fs]() {
-          fs.ReadDirectory(line.c_str() + 1);
+          fs.ReadDir(line.c_str() + 1);
           return true;
         });
       }

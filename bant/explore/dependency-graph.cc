@@ -38,6 +38,7 @@
 #include "bant/types-bazel.h"
 #include "bant/types.h"
 #include "bant/util/file-utils.h"
+#include "bant/util/filesystem.h"
 #include "bant/util/stat.h"
 #include "bant/util/table-printer.h"
 #include "bant/util/thread-pool.h"
@@ -162,9 +163,10 @@ static void AppendPossibleFileDependencies(
     const auto is_relevant_dep = [path_or_label, &workspace, &context_package,
                                   &generated_by_target,
                                   fallback_is_target]() -> MaybeDependency {
+      Filesystem &fs = Filesystem::instance();
       const std::string as_filename =
         context_package.FullyQualifiedFile(workspace, path_or_label);
-      if (FilesystemPath(as_filename).can_read()) {
+      if (fs.Exists(as_filename)) {
         return std::nullopt;  // physical file existing in source tree.
       }
 
@@ -177,7 +179,7 @@ static void AppendPossibleFileDependencies(
 
       const FilesystemPath path_in_src_tree(fqt->package.path,
                                             fqt->target_name);
-      if (path_in_src_tree.can_read()) {
+      if (fs.Exists(path_in_src_tree.path())) {
         return std::nullopt;  // Looks like physical file.
       }
 
