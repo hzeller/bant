@@ -2,7 +2,7 @@
 build --enable_bzlmod
 
 # Building the version number to be baked into the binary.
-build --workspace_status_command="scripts/create-workspace-status.sh"
+build --workspace_status_command="sh scripts/create-workspace-status.sh"
 
 # build support for IWYU goals
 build --features=layering_check

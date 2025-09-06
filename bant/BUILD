@@ -130,7 +130,7 @@ cc_library(
 genrule(
     name = "version-header",
     outs = ["generated-build-version.h"],
-    cmd = "sed -e 's/^BUILD/#define BANT_BUILD/p;d' bazel-out/volatile-status.txt > $@",
+    cmd = "(sed -e 's/^BUILD/#define BANT_BUILD/p;d' bazel-out/volatile-status.txt || echo '// unknown build status') > $@",
     stamp = 1,  # Tell bazel that we really are interested in the status file
     visibility = ["//visibility:private"],
 )
