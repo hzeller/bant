@@ -41,6 +41,14 @@ template <typename T, uint16_t MIN_BLOCK_SIZE = 1, uint16_t MAX_BLOCK_SIZE = 64>
 class ArenaDeque {
  private:
   struct Block {
+    // Address sanitizers attempt to see through array accesses and
+    // complain if we access value outside the original size.
+    // But they can't see through our over-allocation and use as
+    // flexible array member.
+    // So be somewhat senaky here and obfuscate that access.
+    T &at(size_t pos) { return *(&value[0] + pos); }
+    const T &at(size_t pos) const { return *(&value[0] + pos); }
+
     Block *next = nullptr;
     T value[MIN_BLOCK_SIZE];
   };
@@ -61,7 +69,7 @@ class ArenaDeque {
       current_ = current_->next;
       next_block_pos_ = 0;
     }
-    T &location = current_->value[next_block_pos_];
+    T &location = current_->at(next_block_pos_);
     ++next_block_pos_;
     location = value;
     ++size_;
@@ -77,7 +85,7 @@ class ArenaDeque {
       pos -= size_choice.current();
       size_choice.AdvanceNextBounded();
     }
-    return access_block->value[pos];
+    return access_block->at(pos);
   }
 
   size_t size() const { return size_; }
@@ -86,7 +94,7 @@ class ArenaDeque {
    public:
     T &operator*() {
       assert(block_ != nullptr);
-      return block_->value[pos_];
+      return block_->at(pos_);
     }
 
     iterator &operator++() {
