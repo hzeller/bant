@@ -25,7 +25,10 @@
 namespace bant {
 ThreadPool::ThreadPool(int thread_count)
     : more_work_available_(
-        +[](ThreadPool *p) { return !p->work_queue_.empty() || p->exiting_; },
+        +[](ThreadPool *p) {
+          p->lock_.AssertReaderHeld();
+          return !p->work_queue_.empty() || p->exiting_;
+        },
         this) {
   for (int i = 0; i < thread_count; ++i) {
     threads_.push_back(new std::thread(&ThreadPool::Runner, this));
