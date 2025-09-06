@@ -29,12 +29,19 @@ namespace bant {
 // Arena: Provide allocation of memory that can be deallocated at once.
 // Fast, but does not call any destructors so content better be PODs.
 class Arena {
+  static constexpr int kAlignment = 8;
+
  public:
   explicit Arena(int block_size) : block_size_(block_size) {}
   Arena(Arena &&) noexcept = default;
   Arena(const Arena &) = delete;
 
   void *Alloc(size_t size) {
+    // Round up size to next alignment value so that subsequent allocations
+    // are also aligned.
+    // TODO: instead of a fixed alignment, take alignof() of type to allocate
+    // into account.
+    size += kAlignment - (size % kAlignment);
     if (pos_ == nullptr || size > (size_t)(end_ - pos_)) {
       NewBlock(std::max(size, block_size_));  // max: allow oversized allocs
     }
