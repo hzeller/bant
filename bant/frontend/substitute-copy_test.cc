@@ -30,7 +30,7 @@
 
 namespace bant {
 
-class VariableSubstituteCopyTest : public testing::Test {
+class VariableSubstituteCopyTest : public ::testing::Test {
  protected:
   bant::List *Parse(std::string_view text) {
     NamedLineIndexedContent source("<text>", text);

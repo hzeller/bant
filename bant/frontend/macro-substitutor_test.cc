@@ -29,7 +29,7 @@
 
 namespace bant {
 // TODO: the Elaborator test also has something similar. Unify ?
-class MacroSubstituteTest : public testing::Test {
+class MacroSubstituteTest : public ::testing::Test {
  public:
   std::pair<std::string, std::string> MacroSubstituteAndPrint(
     std::string_view to_substitute, std::string_view expected) {

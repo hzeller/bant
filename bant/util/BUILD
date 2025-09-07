@@ -154,6 +154,16 @@ cc_test(
 )
 
 cc_library(
+    name = "file-test-util",
+    testonly = True,
+    hdrs = ["file-test-util.h"],
+    deps = [
+        ":filesystem",
+        "@googletest//:gtest",
+    ],
+)
+
+cc_library(
     name = "filesystem",
     srcs = ["filesystem.cc"],
     hdrs = ["filesystem.h"],
@@ -162,5 +172,16 @@ cc_library(
         "@abseil-cpp//absl/cleanup",
         "@abseil-cpp//absl/container:flat_hash_map",
         "@abseil-cpp//absl/synchronization",
+    ],
+)
+
+cc_test(
+    name = "filesystem_test",
+    srcs = ["filesystem_test.cc"],
+    deps = [
+        ":file-test-util",
+        ":filesystem",
+        "@googletest//:gtest",
+        "@googletest//:gtest_main",
     ],
 )

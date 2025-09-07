@@ -35,7 +35,8 @@ namespace bant {
 DirectoryEntry *DirectoryEntry::Alloc(Arena &where, std::string_view name) {
   DirectoryEntry *entry = static_cast<DirectoryEntry *>(
     where.Alloc(sizeof(DirectoryEntry) + name.size() + 1));
-  strncpy(entry->name, name.data(), name.size() + 1);
+  strncpy(entry->name, name.data(), name.size());
+  entry->name[name.size()] = '\0';
   return entry;
 }
 
@@ -74,7 +75,8 @@ void Filesystem::ReadDirectory(std::string_view path, CacheEntry &result) {
     result.entries.push_back(entry_copy);
   }
 
-  // Keep them sorted, so that we can easily find.
+  // Keep them sorted, so we generate a reproducible output and we can
+  // also find them easily with binary search.
   std::sort(result.entries.begin(), result.entries.end(), DirEntryLessThan);
 }
 
@@ -114,7 +116,8 @@ bool Filesystem::Exists(std::string_view path) {
 
   DirectoryEntry *compare_entry = static_cast<DirectoryEntry *>(
     alloca(sizeof(DirectoryEntry) + filename.size() + 1));
-  strncpy(compare_entry->name, filename.data(), filename.size() + 1);
+  strncpy(compare_entry->name, filename.data(), filename.size());
+  compare_entry->name[filename.size()] = '\0';
 
   const auto &dir_content = ReadDir(dir);
   return std::binary_search(dir_content.begin(), dir_content.end(),

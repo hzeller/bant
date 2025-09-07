@@ -17,27 +17,23 @@
 
 #include "bant/frontend/elaboration.h"
 
-#include <filesystem>
-#include <fstream>
 #include <iostream>
 #include <string>
 #include <string_view>
-#include <system_error>
 #include <utility>
 
-#include "absl/log/check.h"
 #include "absl/strings/str_format.h"
 #include "bant/explore/query-utils.h"
 #include "bant/frontend/ast.h"
 #include "bant/frontend/parsed-project.h"
 #include "bant/frontend/parsed-project_testutil.h"
 #include "bant/session.h"
-#include "bant/util/filesystem.h"
+#include "bant/util/file-test-util.h"
 #include "gtest/gtest.h"
 
 namespace bant {
 
-class ElaborationTest : public testing::Test {
+class ElaborationTest : public ::testing::Test {
  public:
   // Put "to_elaborate" into "package" and elaborate.
   // Also parse "expected" into package //expected and return printout of
@@ -80,11 +76,6 @@ class ElaborationTest : public testing::Test {
   const ParsedBuildFile *elaborated() { return elaborated_; }
 
   ParsedProject &project() { return pp_.project(); }
-
-  void SetUp() override {
-    // Since we're changing cwd underneath, can't re-use cached results.
-    Filesystem::instance().EvictCache();
-  }
 
  private:
   ParsedProjectTestUtil pp_;
@@ -743,42 +734,10 @@ BAZ = {'hello': 'foo', 'another': 'bar'}
   EXPECT_EQ(result.first, result.second);
 }
 
-namespace fs = std::filesystem;
-
-// TODO: lift out if useful in other tests.
-class ChangeToTmpDir {
- public:
-  explicit ChangeToTmpDir(std::string_view base)
-      : dir_before_(fs::current_path(error_receiver_)) {
-    auto dir = fs::path(::testing::TempDir()) / base;
-    CHECK(fs::create_directory(dir, error_receiver_));
-    fs::current_path(dir, error_receiver_);
-  }
-
-  ~ChangeToTmpDir() { fs::current_path(dir_before_, error_receiver_); }
-
-  void touch(std::string_view relative_to, std::string_view file) {
-    fs::path path;
-    if (!relative_to.empty()) {
-      path = fs::path(relative_to) / file;
-    } else {
-      path = file;
-    }
-    if (path.has_parent_path()) {
-      fs::create_directories(path.parent_path(), error_receiver_);
-    }
-    const std::ofstream touch(path);  // destructor will flush file.
-  }
-
- private:
-  std::error_code error_receiver_;
-  fs::path dir_before_;
-};
-
 static std::pair<std::string, std::string> TestGlobFile(
   std::string_view test_name, ElaborationTest *test, std::string_view package,
   std::string_view filename, std::string_view glob_pattern) {
-  ChangeToTmpDir tmpdir(test_name);
+  bant::test::ChangeToTmpDir tmpdir(test_name);
 
   // Creating the file relative to the package path, as we glob relative to it.
   tmpdir.touch(package, filename);

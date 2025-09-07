@@ -32,7 +32,7 @@
 #include "gtest/gtest.h"
 
 namespace bant {
-class ParserTest : public testing::Test {
+class ParserTest : public ::testing::Test {
  protected:
   ParserTest() : arena_(4096) {}
 

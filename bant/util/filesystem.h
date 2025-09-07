@@ -18,6 +18,7 @@
 #ifndef BANT_FILESYSTEM_H
 #define BANT_FILESYSTEM_H
 
+#include <cstddef>
 #include <cstdint>
 #include <string>
 #include <string_view>
@@ -27,6 +28,8 @@
 #include "absl/synchronization/mutex.h"
 #include "bant/util/arena.h"
 
+// TODO: combine this with filesytem-prewarm-cache.
+
 namespace bant {
 
 // Platform-independent `struct dirent`-like struct with only the things
@@ -35,6 +38,7 @@ struct DirectoryEntry {
   // Allocate in Arena (currently only available way to construct). Allocation
   // size is compact and dependent on name.
   static DirectoryEntry *Alloc(Arena &where, std::string_view name);
+  std::string_view name_as_stringview() const { return name; }
 
   enum class Type : uint8_t {
     kOther,
@@ -55,6 +59,9 @@ class Filesystem {
   // Currently only one global filesystem instance.
   static Filesystem &instance();
 
+  Filesystem(const Filesystem &) = delete;
+  Filesystem(Filesystem &&) = delete;
+
   // Equivalent of opendir()/loop readdir() and return all DirectoryEntries.
   // Might return cached results.
   // The directory entries are sorted by name.
@@ -68,7 +75,14 @@ class Filesystem {
   // Evict cache. Might be needed in unit tests.
   void EvictCache();
 
+  size_t cache_size() const {
+    const absl::ReaderMutexLock l(&mu_);
+    return cache_.size();
+  }
+
  private:
+  Filesystem() = default;
+
   struct CacheEntry {
     Arena data{1024};
     std::vector<const DirectoryEntry *> entries;
@@ -76,7 +90,7 @@ class Filesystem {
 
   static void ReadDirectory(std::string_view path, CacheEntry &result);
 
-  absl::Mutex mu_;
+  mutable absl::Mutex mu_;
   absl::flat_hash_map<std::string, CacheEntry> cache_;
 };
 }  // namespace bant
