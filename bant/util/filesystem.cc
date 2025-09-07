@@ -28,6 +28,7 @@
 #include <vector>
 
 #include "absl/cleanup/cleanup.h"
+#include "absl/strings/match.h"
 #include "absl/synchronization/mutex.h"
 #include "bant/util/arena.h"
 
@@ -85,11 +86,19 @@ void Filesystem::EvictCache() {
   cache_.clear();
 }
 
+static std::string_view LightlyCanonicalizeAsCacheKey(std::string_view path) {
+  if (absl::StartsWith(path, "./")) {
+    return path.length() > 2 ? path.substr(2) : path.substr(0, 1);
+  }
+  return path;
+}
+
 const std::vector<const DirectoryEntry *> &Filesystem::ReadDir(
   std::string_view dirpath) {
+  const std::string_view cache_key = LightlyCanonicalizeAsCacheKey(dirpath);
   {
     const absl::ReaderMutexLock l(&mu_);
-    if (auto found = cache_.find(dirpath); found != cache_.end()) {
+    if (auto found = cache_.find(cache_key); found != cache_.end()) {
       return found->second.entries;
     }
   }
@@ -101,7 +110,7 @@ const std::vector<const DirectoryEntry *> &Filesystem::ReadDir(
   ReadDirectory(dirpath, result);
 
   const absl::WriterMutexLock l(&mu_);
-  auto inserted = cache_.emplace(dirpath, std::move(result));
+  auto inserted = cache_.emplace(cache_key, std::move(result));
   return inserted.first->second.entries;
 }
 

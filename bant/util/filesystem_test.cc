@@ -42,6 +42,10 @@ TEST(FilesystemTest, DirectoryListing) {
 
   EXPECT_EQ(fs.cache_size(), 1u);
 
+  // Reading dir "./" should not result in a different cache key than "."
+  fs.ReadDir("./");
+  EXPECT_EQ(fs.cache_size(), 1u);
+
   EXPECT_TRUE(fs.Exists("bar"));
   EXPECT_TRUE(fs.Exists("./bar"));
   EXPECT_TRUE(fs.Exists("baz"));
@@ -56,6 +60,7 @@ TEST(FilesystemTest, DirectoryListing) {
 
   // Requesting the existence of an item in a subdirectory will read and cache
   // that subdirectory.
+  EXPECT_TRUE(fs.Exists("bar/abc"));
   EXPECT_TRUE(fs.Exists("./bar/abc"));
   EXPECT_FALSE(fs.Exists("./bar/xyz"));
   EXPECT_EQ(fs.cache_size(), 2u);

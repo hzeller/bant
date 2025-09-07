@@ -171,6 +171,7 @@ cc_library(
         ":memory",
         "@abseil-cpp//absl/cleanup",
         "@abseil-cpp//absl/container:flat_hash_map",
+        "@abseil-cpp//absl/strings",
         "@abseil-cpp//absl/synchronization",
     ],
 )
