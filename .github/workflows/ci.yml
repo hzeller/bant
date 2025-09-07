@@ -69,8 +69,8 @@ jobs:
 
       - name: Run formatting style check
         run: |
-          clang-format-18 --version
-          CLANG_FORMAT=clang-format-18 scripts/run-format.sh
+          clang-format-17 --version
+          CLANG_FORMAT=clang-format-17 scripts/run-format.sh
           git diff > /tmp/format-diff
           if [ -s "/tmp/format-diff" ]; then
             echo "Difference to optimal formatting"
