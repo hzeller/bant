@@ -83,6 +83,15 @@ std::string_view FilesystemPath::filename() const {
   return filename.substr(filename_offset_);
 }
 
+std::string_view FilesystemPath::parent_path() const {
+  // If we don't know yet where the filename starts, let have it figure it out.
+  if (filename_offset_ == std::string::npos) filename();
+  if (filename_offset_ == 0) return ".";
+  if (filename_offset_ == 1) return "/";
+  const std::string_view parent_path = path_;
+  return parent_path.substr(0, filename_offset_ - 1);
+}
+
 bool FilesystemPath::can_read() const {
   if (can_read_ == MemoizedResult::kUnknown) {
     can_read_ =

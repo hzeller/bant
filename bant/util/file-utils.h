@@ -52,6 +52,9 @@ class FilesystemPath {
   // The element after the last slash.
   std::string_view filename() const;
 
+  // The part before the filename.
+  std::string_view parent_path() const;
+
   // Some predicates we use.
   bool can_read() const;
   bool is_directory() const;

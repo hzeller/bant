@@ -104,8 +104,9 @@ static bool NeedsProjectPopulated(Command cmd,
   return true;
 }
 
+// Not supported commands for debuggingg
 // If this is a debug command, run this here.
-// Right now, this is just a bare printing of a file.
+// Right now, this is just a bare parsing/printing of a file (-F <filename>)
 std::optional<CliStatus> RunDebugCommand(Session &session, Command cmd) {
   if (session.flags().direct_filename.empty()) {
     return std::nullopt;  // Currently only -F will trigger debug command.
@@ -114,6 +115,8 @@ std::optional<CliStatus> RunDebugCommand(Session &session, Command cmd) {
     session.error() << "-F <filename> only works for 'parse' or 'print'\n";
     return CliStatus::kExitFailure;
   }
+
+  // Parse the file. Not part of parsed-project, just plain here.
   const FilesystemPath file(session.flags().direct_filename);
   // Ok, parse single file.
   Stat open_and_read_stat;
@@ -123,12 +126,14 @@ std::optional<CliStatus> RunDebugCommand(Session &session, Command cmd) {
     session.info() << "Could not read " << file.path() << "\n";
     return CliStatus::kExitFailure;
   }
-  ParsedProject project({}, true, true);
+  ParsedProject project({}, /*verbose=*/true, /*with_builtin_macros=*/true);
+  const BazelPackage package("", file.parent_path());
   ParsedBuildFile *parsed = project.AddBuildFileContent(
-    session, {}, file, *content, open_and_read_stat);
+    session, package, file, *content, open_and_read_stat);
   if (!parsed) {
     return CliStatus::kExitFailure;
   }
+
   if (session.flags().elaborate) {
     const ElaborationOptions options{.builtin_macro_expansion =
                                        session.flags().builtin_macro_expand};

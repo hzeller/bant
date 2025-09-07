@@ -42,6 +42,14 @@ TEST(FileUtils, FilesystemPathFromPath) {
   const FilesystemPath from_path("foo/bar/baz");
   EXPECT_EQ(from_path.path(), "foo/bar/baz");
   EXPECT_EQ(from_path.filename(), "baz");
+  EXPECT_EQ(from_path.parent_path(), "foo/bar");
+}
+
+TEST(FileUtils, FilesystemPathParentPath) {
+  EXPECT_EQ(FilesystemPath(".").parent_path(), ".");
+  EXPECT_EQ(FilesystemPath("./").parent_path(), ".");
+  EXPECT_EQ(FilesystemPath("/").parent_path(), "/");
+  EXPECT_EQ(FilesystemPath("/var/log").parent_path(), "/var");
 }
 
 TEST(FileUtils, FilesystemPathCopy) {
