@@ -44,6 +44,12 @@ ThreadPool::ThreadPool(int thread_count)
           p->lock_.AssertReaderHeld();
           return !p->work_queue_.empty() || p->exiting_;
         },
+        this),
+      no_work_available_(
+        +[](ThreadPool *p) {
+          p->lock_.AssertReaderHeld();
+          return p->work_queue_.empty() || p->exiting_;
+        },
         this) {
   for (int i = 0; i < thread_count; ++i) {
     threads_.emplace_back(new ThreadAdapter(this))->Start();
@@ -84,5 +90,9 @@ void ThreadPool::ExecAsync(const std::function<void()> &fun) {
 void ThreadPool::CancelAllWork() {
   const absl::MutexLock l(&lock_);
   exiting_ = true;
+}
+
+void ThreadPool::WaitEmpty() {
+  const absl::MutexLock l(&lock_, no_work_available_);
 }
 }  // namespace bant

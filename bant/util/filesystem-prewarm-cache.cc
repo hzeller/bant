@@ -52,15 +52,16 @@ class FilesystemPrewarmCache {
 
   void InitCacheFile(const std::string &cache_file);
 
-  void FileWasAccessed(std::string_view file) { WritePrefixed('F', file); }
-  void DirWasAccessed(std::string_view dir) { WritePrefixed('D', dir); }
+  bool FileAccessed(std::string_view file) { return WritePrefixed('F', file); }
+  bool DirAccessed(std::string_view dir) { return WritePrefixed('D', dir); }
 
  private:
-  void WritePrefixed(char prefix, std::string_view f) {
-    if (!writer_) return;
+  bool WritePrefixed(char prefix, std::string_view f) {
+    if (!writer_) return false;
     const absl::MutexLock l(&write_lock_);
-    if (!already_seen_.insert(std::string{f}).second) return;
+    if (!already_seen_.insert(std::string{f}).second) return false;
     *writer_ << prefix << f << "\n";
+    return true;
   }
 
   absl::Mutex write_lock_;
@@ -84,15 +85,11 @@ void FilesystemPrewarmCache::InitCacheFile(const std::string &cache_file) {
           const int discard [[maybe_unused]] = access(line.c_str() + 1, F_OK);
         });
       } else if (type == 'D') {
-        pool_->ExecAsync([line, &fs]() {
-          fs.ReadDir(line.c_str() + 1);
-          return true;
-        });
+        pool_->ExecAsync([line, &fs]() { fs.ReadDir(line.c_str() + 1); });
       }
     }
 
-    // Last action: finish threadss
-    pool_->ExecAsync([this]() { pool_->CancelAllWork(); });
+    pool_->WaitEmpty();
   }
   input.close();
 
@@ -140,12 +137,12 @@ void FilesystemPrewarmCacheInit(int argc, char *argv[]) {
   FilesystemPrewarmCache::instance().InitCacheFile(cache_file);
 }
 
-void FilesystemPrewarmCacheRememberFileWasAccessed(std::string_view file) {
-  FilesystemPrewarmCache::instance().FileWasAccessed(file);
+bool FilesystemPrewarmCacheRememberFileWasAccessed(std::string_view file) {
+  return FilesystemPrewarmCache::instance().FileAccessed(file);
 }
 
-void FilesystemPrewarmCacheRememberDirWasAccessed(std::string_view dir) {
-  FilesystemPrewarmCache::instance().DirWasAccessed(dir);
+bool FilesystemPrewarmCacheRememberDirWasAccessed(std::string_view dir) {
+  return FilesystemPrewarmCache::instance().DirAccessed(dir);
 }
 
 }  // namespace bant

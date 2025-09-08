@@ -41,10 +41,10 @@ namespace bant {
 void FilesystemPrewarmCacheInit(int argc, char *argv[]);
 
 // Tell prewarm cache of future invocations that we just accessed a file.
-void FilesystemPrewarmCacheRememberFileWasAccessed(std::string_view file);
+bool FilesystemPrewarmCacheRememberFileWasAccessed(std::string_view file);
 
 // Tell prewarm cache of future invocations that we just accessed a directory.
-void FilesystemPrewarmCacheRememberDirWasAccessed(std::string_view dir);
+bool FilesystemPrewarmCacheRememberDirWasAccessed(std::string_view dir);
 
 }  // namespace bant
 

@@ -97,20 +97,24 @@ cc_test(
 cc_library(
     name = "file-utils",
     srcs = [
+        # TODO: break up (currently cyclicly dependent on each other)
         "file-utils.cc",
         "filesystem-prewarm-cache.cc",
+        "filesystem.cc",
     ],
     hdrs = [
         "file-utils.h",
+        "filesystem.h",
         "filesystem-prewarm-cache.h",
     ],
     deps = [
-        ":filesystem",
         ":glob-match-builder",
+        ":memory",
         ":stat",
         ":thread-pool",
         "@abseil-cpp//absl/base:core_headers",
         "@abseil-cpp//absl/cleanup",
+        "@abseil-cpp//absl/container:flat_hash_map",
         "@abseil-cpp//absl/container:flat_hash_set",
         "@abseil-cpp//absl/strings",
         "@abseil-cpp//absl/strings:str_format",
@@ -124,7 +128,6 @@ cc_test(
     srcs = ["file-utils_test.cc"],
     deps = [
         ":file-utils",
-        ":filesystem",
         ":memory",
         "@googletest//:gtest",
         "@googletest//:gtest_main",
@@ -158,21 +161,8 @@ cc_library(
     testonly = True,
     hdrs = ["file-test-util.h"],
     deps = [
-        ":filesystem",
+        ":file-utils",
         "@googletest//:gtest",
-    ],
-)
-
-cc_library(
-    name = "filesystem",
-    srcs = ["filesystem.cc"],
-    hdrs = ["filesystem.h"],
-    deps = [
-        ":memory",
-        "@abseil-cpp//absl/cleanup",
-        "@abseil-cpp//absl/container:flat_hash_map",
-        "@abseil-cpp//absl/strings",
-        "@abseil-cpp//absl/synchronization",
     ],
 )
 
@@ -181,7 +171,7 @@ cc_test(
     srcs = ["filesystem_test.cc"],
     deps = [
         ":file-test-util",
-        ":filesystem",
+        ":file-utils",
         "@googletest//:gtest",
         "@googletest//:gtest_main",
     ],

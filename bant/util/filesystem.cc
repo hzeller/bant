@@ -31,20 +31,22 @@
 #include "absl/strings/match.h"
 #include "absl/synchronization/mutex.h"
 #include "bant/util/arena.h"
+#include "bant/util/filesystem-prewarm-cache.h"
+
+// TODO: combine this with filesytem-prewarm-cache; they are currently
+// somewhat cyclicly dependent on each other.
 
 namespace bant {
+static bool DirEntryLessThan(const DirectoryEntry *a, const DirectoryEntry *b) {
+  return strcmp(a->name, b->name) < 0;
+}
+
 DirectoryEntry *DirectoryEntry::Alloc(Arena &where, std::string_view name) {
   DirectoryEntry *entry = static_cast<DirectoryEntry *>(
     where.Alloc(sizeof(DirectoryEntry) + name.size() + 1));
   strncpy(entry->name, name.data(), name.size());
   entry->name[name.size()] = '\0';
   return entry;
-}
-
-Filesystem &Filesystem::instance() {
-  // We don't care about any cleanup, so make it intentionally leak.
-  static Filesystem *instance = new Filesystem();
-  return *instance;
 }
 
 static DirectoryEntry::Type FileTypeFromDirent(const dirent *entry) {
@@ -55,8 +57,10 @@ static DirectoryEntry::Type FileTypeFromDirent(const dirent *entry) {
   }
 }
 
-static bool DirEntryLessThan(const DirectoryEntry *a, const DirectoryEntry *b) {
-  return strcmp(a->name, b->name) < 0;
+Filesystem &Filesystem::instance() {
+  // We don't care about any cleanup, so make it leak intentionally.
+  static Filesystem *instance = new Filesystem();
+  return *instance;
 }
 
 void Filesystem::ReadDirectory(std::string_view path, CacheEntry &result) {
@@ -96,6 +100,10 @@ static std::string_view LightlyCanonicalizeAsCacheKey(std::string_view path) {
 const std::vector<const DirectoryEntry *> &Filesystem::ReadDir(
   std::string_view dirpath) {
   const std::string_view cache_key = LightlyCanonicalizeAsCacheKey(dirpath);
+
+  // Note: will only start writing after the initial pre-warm is finished,
+  FilesystemPrewarmCacheRememberDirWasAccessed(cache_key);
+
   {
     const absl::ReaderMutexLock l(&mu_);
     if (auto found = cache_.find(cache_key); found != cache_.end()) {
@@ -103,7 +111,7 @@ const std::vector<const DirectoryEntry *> &Filesystem::ReadDir(
     }
   }
 
-  // Don't hold lock while filling. We have a local arena in each CacheEntry
+  // Don't hold lock while populating. We have a local arena in each CacheEntry
   // to avoid mutex-locking it but wasting memory blocks.
   // Might be worthwhile re-evaluating.
   CacheEntry result;

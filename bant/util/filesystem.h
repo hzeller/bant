@@ -28,8 +28,6 @@
 #include "absl/synchronization/mutex.h"
 #include "bant/util/arena.h"
 
-// TODO: combine this with filesytem-prewarm-cache.
-
 namespace bant {
 
 // Platform-independent `struct dirent`-like struct with only the things

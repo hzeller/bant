@@ -65,17 +65,20 @@ class ThreadPool {
   // Functions without return value.
   void ExecAsync(const std::function<void()> &fun);
 
-  void CancelAllWork();
+  // Block until all work has been processed.
+  void WaitEmpty();
 
  private:
   class ThreadAdapter;
   void Runner();
+  void CancelAllWork();
 
   std::vector<ThreadAdapter *> threads_;
   absl::Mutex lock_;
   std::deque<std::function<void()>> work_queue_ ABSL_GUARDED_BY(lock_);
   bool exiting_ ABSL_GUARDED_BY(lock_) = false;
   absl::Condition more_work_available_;
+  absl::Condition no_work_available_;
 };
 
 }  // namespace bant
