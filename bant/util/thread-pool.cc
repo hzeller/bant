@@ -18,9 +18,24 @@
 #include "bant/util/thread-pool.h"
 
 #include <functional>
-#include <thread>
 
 #include "absl/synchronization/mutex.h"
+
+// The ThreadPool::ThreadAdapter needs to call ThreadPool::Runner in a thread,
+// and have conceptually a Start() and Join() method.
+// Easily adapted to platform-specific executor-like things; default
+// implementation here based on std::thread.
+
+// begin-thread-adapter
+#include <thread>
+class bant::ThreadPool::ThreadAdapter : public std::thread {
+ public:
+  explicit ThreadAdapter(ThreadPool *pool)
+      : std::thread(&ThreadPool::Runner, pool) {}
+  void Start() {}  // std::thread starts immediately.
+  void Join() { join(); }
+};
+// end-thread-adapter
 
 namespace bant {
 ThreadPool::ThreadPool(int thread_count)
@@ -31,14 +46,14 @@ ThreadPool::ThreadPool(int thread_count)
         },
         this) {
   for (int i = 0; i < thread_count; ++i) {
-    threads_.push_back(new std::thread(&ThreadPool::Runner, this));
+    threads_.emplace_back(new ThreadAdapter(this))->Start();
   }
 }
 
 ThreadPool::~ThreadPool() {
   CancelAllWork();
   for (auto *t : threads_) {
-    t->join();
+    t->Join();
     delete t;
   }
 }

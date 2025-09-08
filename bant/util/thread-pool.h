@@ -21,7 +21,6 @@
 #include <deque>
 #include <functional>
 #include <future>
-#include <thread>
 #include <vector>
 
 #include "absl/base/thread_annotations.h"
@@ -69,9 +68,10 @@ class ThreadPool {
   void CancelAllWork();
 
  private:
+  class ThreadAdapter;
   void Runner();
 
-  std::vector<std::thread *> threads_;
+  std::vector<ThreadAdapter *> threads_;
   absl::Mutex lock_;
   std::deque<std::function<void()>> work_queue_ ABSL_GUARDED_BY(lock_);
   bool exiting_ ABSL_GUARDED_BY(lock_) = false;
