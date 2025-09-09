@@ -371,6 +371,8 @@ static void WriteCompilationDBEntry(const ParsedProject &project,
   std::vector<std::string_view> inc_opts;
   for (const std::string_view flag : query::ExtractStringList(details.copts)) {
     if (absl::StartsWith(flag, "-I")) inc_opts.push_back(flag);
+    // Since we're specific to target, emitting -D is relevant and useful.
+    if (absl::StartsWith(flag, "-D")) inc_opts.push_back(flag);
   }
 
   for (const auto src : sources) {
@@ -449,6 +451,7 @@ static std::set<std::string> GetAllIncCOpts(Session &session,
         if (!target.copts) return;
         for (const auto flag : query::ExtractStringList(target.copts)) {
           if (absl::StartsWith(flag, "-I")) result.emplace(flag);
+          // Not collecting -D as it would be used for all targets.
         }
       });
   }
