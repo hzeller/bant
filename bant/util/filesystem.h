@@ -73,6 +73,10 @@ class Filesystem {
   // Evict cache. Might be needed in unit tests.
   void EvictCache();
 
+  // Make ReadDir() always return an empty directory if this path is requested.
+  // (Essentially poison the cache with an empty content).
+  void SetAlwaysReportEmptyDirectory(std::string_view path);
+
   size_t cache_size() const {
     const absl::ReaderMutexLock l(&mu_);
     return cache_.size();

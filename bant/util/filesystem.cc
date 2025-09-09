@@ -92,16 +92,25 @@ void Filesystem::EvictCache() {
 }
 
 static std::string_view LightlyCanonicalizeAsCacheKey(std::string_view path) {
+  while (absl::EndsWith(path, "/")) path.remove_suffix(1);
   if (absl::StartsWith(path, "./")) {
     return path.length() > 2 ? path.substr(2) : path.substr(0, 1);
   }
   return path;
 }
 
+void Filesystem::SetAlwaysReportEmptyDirectory(std::string_view path) {
+  const std::string_view cache_key = LightlyCanonicalizeAsCacheKey(path);
+  CacheEntry empty;  // NOLINT(misc-const-correctness) clang-tidy, you're drunk
+  const absl::WriterMutexLock l(&mu_);
+  auto inserted = cache_.emplace(cache_key, std::move(empty));
+  inserted.first->second.entries.clear();  // Empty, even if it was there before
+}
+
 const std::vector<const DirectoryEntry *> &Filesystem::ReadDir(
   std::string_view dirpath) {
   // Development flag to report cache misses
-  static constexpr bool kDebbugCacheMisses = false;
+  static constexpr bool kDebugCacheMisses = false;
 
   const std::string_view cache_key = LightlyCanonicalizeAsCacheKey(dirpath);
 
@@ -123,7 +132,7 @@ const std::vector<const DirectoryEntry *> &Filesystem::ReadDir(
   ReadDirectory(dirpath, result);
 
   const absl::WriterMutexLock l(&mu_);
-  if (kDebbugCacheMisses && was_new) {
+  if (kDebugCacheMisses && was_new) {
     fprintf(stderr, "Cache miss for '%s' (%d entries)\n",
             std::string{cache_key}.c_str(), (int)result.entries.size());
   }

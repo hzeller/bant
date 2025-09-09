@@ -47,6 +47,7 @@ int getopt(int, char *const *, const char *);  // NOLINT
 // Generated from at compile time from git tag or MODULE.bazel version
 #include "bant/generated-build-version.h"
 #include "bant/util/filesystem-prewarm-cache.h"
+#include "bant/util/filesystem.h"
 
 #define BOLD  "\033[1m"
 #define RED   "\033[1;31m"
@@ -165,6 +166,15 @@ static void ExtractCustomFlags(int *argc, char *argv[],
   *argc = out_arg;
 }
 
+static void PossiblyApplyBazelIgnore(bant::Filesystem &fs) {
+  std::fstream input(".bazelignore", std::ios::in | std::ios::binary);
+  if (!input.good()) return;
+  std::string line;
+  while (std::getline(input, line)) {
+    fs.SetAlwaysReportEmptyDirectory(line);
+  }
+}
+
 int main(int argc, char *argv[]) {
   // non-nullptr streams if chosen by user.
   std::unique_ptr<std::ostream> user_primary_out;
@@ -266,6 +276,8 @@ int main(int argc, char *argv[]) {
   }
 
   bant::FilesystemPrewarmCacheInit(argc, argv);
+  bant::Filesystem &fs = bant::Filesystem::instance();
+  PossiblyApplyBazelIgnore(fs);
 
   bant::Session session(primary_out, info_out, flags);
   std::vector<std::string_view> positional_args;

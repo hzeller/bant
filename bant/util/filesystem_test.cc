@@ -63,6 +63,14 @@ TEST(FilesystemTest, DirectoryListing) {
   EXPECT_TRUE(fs.Exists("bar/abc"));
   EXPECT_TRUE(fs.Exists("./bar/abc"));
   EXPECT_FALSE(fs.Exists("./bar/xyz"));
+
+  EXPECT_EQ(fs.cache_size(), 2u);
+
+  // Requesting already cached directory with slightly different name: same
+  // cache key, so no new entries should make it into the cache.
+  fs.ReadDir("bar");
+  fs.ReadDir("bar/");
+  fs.ReadDir("bar//");
   EXPECT_EQ(fs.cache_size(), 2u);
 }
 }  // namespace bant
