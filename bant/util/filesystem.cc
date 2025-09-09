@@ -92,7 +92,7 @@ void Filesystem::EvictCache() {
 }
 
 static std::string_view LightlyCanonicalizeAsCacheKey(std::string_view path) {
-  while (absl::EndsWith(path, "/")) path.remove_suffix(1);
+  while (path.size() > 1 && absl::EndsWith(path, "/")) path.remove_suffix(1);
   if (absl::StartsWith(path, "./")) {
     return path.length() > 2 ? path.substr(2) : path.substr(0, 1);
   }
