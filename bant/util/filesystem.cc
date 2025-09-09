@@ -21,6 +21,7 @@
 #include <dirent.h>
 
 #include <algorithm>
+#include <cstdio>
 #include <cstring>
 #include <string>
 #include <string_view>
@@ -99,10 +100,14 @@ static std::string_view LightlyCanonicalizeAsCacheKey(std::string_view path) {
 
 const std::vector<const DirectoryEntry *> &Filesystem::ReadDir(
   std::string_view dirpath) {
+  // Development flag to report cache misses
+  static constexpr bool kDebbugCacheMisses = false;
+
   const std::string_view cache_key = LightlyCanonicalizeAsCacheKey(dirpath);
 
   // Note: will only start writing after the initial pre-warm is finished,
-  FilesystemPrewarmCacheRememberDirWasAccessed(cache_key);
+  [[maybe_unused]] const bool was_new =
+    FilesystemPrewarmCacheRememberDirWasAccessed(cache_key);
 
   {
     const absl::ReaderMutexLock l(&mu_);
@@ -118,6 +123,10 @@ const std::vector<const DirectoryEntry *> &Filesystem::ReadDir(
   ReadDirectory(dirpath, result);
 
   const absl::WriterMutexLock l(&mu_);
+  if (kDebbugCacheMisses && was_new) {
+    fprintf(stderr, "Cache miss for '%s' (%d entries)\n",
+            std::string{cache_key}.c_str(), (int)result.entries.size());
+  }
   auto inserted = cache_.emplace(cache_key, std::move(result));
   return inserted.first->second.entries;
 }
