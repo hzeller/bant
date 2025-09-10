@@ -275,11 +275,13 @@ int main(int argc, char *argv[]) {
     flags.grep_regex.append(")");
   }
 
-  bant::FilesystemPrewarmCacheInit(argc, argv);
+  bant::Session session(primary_out, info_out, flags);
+
+  // Prepare filesystem
+  bant::FilesystemPrewarmCacheInit(session, argc, argv);
   bant::Filesystem &fs = bant::Filesystem::instance();
   PossiblyApplyBazelIgnore(fs);
 
-  bant::Session session(primary_out, info_out, flags);
   std::vector<std::string_view> positional_args;
   for (int i = optind; i < argc; ++i) {
     positional_args.emplace_back(argv[i]);

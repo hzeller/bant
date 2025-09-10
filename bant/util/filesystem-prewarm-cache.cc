@@ -35,7 +35,9 @@
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/synchronization/mutex.h"
+#include "bant/session.h"
 #include "bant/util/filesystem.h"
+#include "bant/util/stat.h"
 #include "bant/util/thread-pool.h"
 
 namespace bant {
@@ -50,7 +52,7 @@ class FilesystemPrewarmCache {
     return sInstance;
   }
 
-  void InitCacheFile(const std::string &cache_file);
+  void InitCacheFile(bant::Session &session, const std::string &cache_file);
 
   bool FileAccessed(std::string_view file) { return WritePrefixed('F', file); }
   bool DirAccessed(std::string_view dir) { return WritePrefixed('D', dir); }
@@ -70,21 +72,26 @@ class FilesystemPrewarmCache {
   std::unique_ptr<ThreadPool> pool_;
 };
 
-void FilesystemPrewarmCache::InitCacheFile(const std::string &cache_file) {
+void FilesystemPrewarmCache::InitCacheFile(bant::Session &session,
+                                           const std::string &cache_file) {
   std::fstream input(cache_file, std::ios::in | std::ios::binary);
   Filesystem &fs = Filesystem::instance();
 
   if (input.good()) {
+    auto &stat = session.GetStatsFor("Filesystem pre-warm", "files/dirs");
+    const ScopedTimer timer(&stat.duration);
     pool_ = std::make_unique<ThreadPool>(kPrewarmParallelism);
     std::string line;
     while (std::getline(input, line)) {
       if (line.length() < 2) continue;
       const char type = line[0];
       if (type == 'F') {
+        stat.count++;
         pool_->ExecAsync([line]() {
           const int discard [[maybe_unused]] = access(line.c_str() + 1, F_OK);
         });
       } else if (type == 'D') {
+        stat.count++;
         pool_->ExecAsync([line, &fs]() { fs.ReadDir(line.c_str() + 1); });
       }
     }
@@ -102,7 +109,8 @@ void FilesystemPrewarmCache::InitCacheFile(const std::string &cache_file) {
 
 // -- Public interface
 
-void FilesystemPrewarmCacheInit(int argc, char *argv[]) {
+void FilesystemPrewarmCacheInit(bant::Session &session, int argc,
+                                char *argv[]) {
   // If the user created a ~/.cache/bant directory, use that.
   const char *homedir = getenv("HOME");
   if (!homedir) return;
@@ -134,7 +142,7 @@ void FilesystemPrewarmCacheInit(int argc, char *argv[]) {
   const std::string cache_file = absl::StrFormat(
     "%s/fs-warm-%08x-%s", cache_dir, argument_dependent_hash & 0xffff'ffff,
     cwd.filename().c_str());
-  FilesystemPrewarmCache::instance().InitCacheFile(cache_file);
+  FilesystemPrewarmCache::instance().InitCacheFile(session, cache_file);
 }
 
 bool FilesystemPrewarmCacheRememberFileWasAccessed(std::string_view file) {

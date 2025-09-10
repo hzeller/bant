@@ -20,6 +20,8 @@
 
 #include <string_view>
 
+#include "bant/session.h"
+
 namespace bant {
 // Best-effort helper to prewarm the OS filesystem cache.
 //
@@ -38,7 +40,7 @@ namespace bant {
 // and retrieve files there. If not, caching is disabled.
 // Filenames are based on arguments and the project directory.
 // If init finds an existing file, it attempts to warm the OS filesystem cache.
-void FilesystemPrewarmCacheInit(int argc, char *argv[]);
+void FilesystemPrewarmCacheInit(bant::Session &session, int argc, char *argv[]);
 
 // Tell prewarm cache of future invocations that we just accessed a file.
 bool FilesystemPrewarmCacheRememberFileWasAccessed(std::string_view file);

@@ -112,6 +112,7 @@ cc_library(
         ":memory",
         ":stat",
         ":thread-pool",
+        "//bant:session",
         "@abseil-cpp//absl/base:core_headers",
         "@abseil-cpp//absl/cleanup",
         "@abseil-cpp//absl/container:flat_hash_map",
