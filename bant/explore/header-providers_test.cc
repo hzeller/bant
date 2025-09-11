@@ -103,6 +103,24 @@ cc_library(
                                         Ts("//prefix/dir:baz"))));
 }
 
+// Sources are much simpler. Just matter-of-fact, no include path fiddling.
+TEST(SourceToLibMapping, CCRuleExtraction) {
+  ParsedProjectTestUtil pp;
+  pp.Add("//some/path", R"(
+cc_library(
+  name = "foo",
+  srcs = ["foo.cc", "bar.cc"],
+  hdrs = ["foo.h"]
+)
+)");
+  std::stringstream log_absorb;
+  auto srcs_map = ExtractSourceToLibMapping(pp.project(), log_absorb);
+  EXPECT_THAT(srcs_map,
+              Contains(Pair("some/path/foo.cc", Ts("//some/path:foo"))));
+  EXPECT_THAT(srcs_map,
+              Contains(Pair("some/path/bar.cc", Ts("//some/path:foo"))));
+}
+
 TEST(HeaderToLibMapping, InludePathsAreRelativePathCanonicalized) {
   ParsedProjectTestUtil pp;
   pp.Add("//", R"(

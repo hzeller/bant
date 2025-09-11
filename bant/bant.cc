@@ -128,8 +128,10 @@ Commands (unique prefix sufficient):
                      → 2 column table: (target, dependency*)
     has-dependent  : List cc library targets and the libraries that depend on it
                      → 2 column table: (target, dependent*)
-    lib-headers    : Print headers provided by cc_library()s matching pattern.
+    lib-hdrs       : Print headers provided by cc_library()s matching pattern.
                      → 2 column table: (header-filename, cc-library-target)
+    lib-srcs       : Print sources provided by cc_library()s matching pattern.
+                     → 2 column table: (source-filename, cc-library-target)
     genrule-outputs: Print generated files by genrule()s matching pattern.
                      → 2 column table: (filename, genrule-target)
 

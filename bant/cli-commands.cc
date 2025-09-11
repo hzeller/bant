@@ -68,6 +68,7 @@ enum class Command {
   kListLeafs,
   kListWorkkspace,
   kLibraryHeaders,
+  kLibrarySources,
   kAliasedBy,
   kGenruleOutputs,
   kDWYU,
@@ -210,6 +211,7 @@ CliStatus RunCommand(Session &session, Command cmd,
   case Command::kDWYU:
   case Command::kParse:
   case Command::kLibraryHeaders:
+  case Command::kLibrarySources:
   case Command::kGenruleOutputs:
   case Command::kListTargets:
   case Command::kListLeafs:
@@ -272,6 +274,12 @@ CliStatus RunCommand(Session &session, Command cmd,
     bant::PrintProvidedSources(
       session, "header", print_pattern,
       ExtractHeaderToLibMapping(project, session.info()));
+    break;
+
+  case Command::kLibrarySources:  //
+    bant::PrintProvidedSources(
+      session, "source", print_pattern,
+      ExtractSourceToLibMapping(project, session.info()));
     break;
 
   case Command::kGenruleOutputs:
@@ -377,7 +385,9 @@ CliStatus RunCliCommand(Session &session, std::span<std::string_view> args) {
     {"list-targets", Command::kListTargets},
     {"list-leafs", Command::kListLeafs},
     {"workspace", Command::kListWorkkspace},
-    {"lib-headers", Command::kLibraryHeaders},
+    {"lib-hdrs", Command::kLibraryHeaders},
+    {"lib-headers", Command::kLibraryHeaders},  // deprecated
+    {"lib-srcs", Command::kLibrarySources},
     {"aliased-by", Command::kAliasedBy},
     {"depends-on", Command::kDependsOn},
     {"has-dependents", Command::kHasDependents},

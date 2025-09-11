@@ -112,6 +112,7 @@ static void IterateCCLibraryHeaders(const ParsedBuildFile &build_file,
   // Unfortunately, grpc does not simply have a cc_library(), but its own
   // rule or macro, making it invisible if we just look at cc_library.
   // Hacking it up here to look also for the grpc version.
+  // TODO: this might be doable with macros these days ?
   static const std::initializer_list<std::string_view> kInterestingLibRules{
     "cc_library",
     "grpc_cc_library",
@@ -331,6 +332,35 @@ ProvidedFromTargetSet ExtractHeaderToLibMapping(const ParsedProject &project,
                            info_out, suffix_index, result);
     AppendProtoLibraryHeaders(*build_file, aliased_by_index,  //
                               suffix_index, result);
+  }
+
+  return result;
+}
+
+static void AppendCCLibrarySources(const ParsedBuildFile &build_file,
+                                   std::ostream &info_out,
+                                   ProvidedFromTargetSet &result) {
+  query::FindTargets(
+    build_file.ast, {"cc_library"}, [&](const query::Result &cc_lib) {
+      auto cc_library = build_file.package.QualifiedTarget(cc_lib.name);
+      if (!cc_library.has_value()) return;
+
+      auto srcs = query::ExtractStringList(cc_lib.srcs_list);
+      for (const std::string_view src : srcs) {
+        const std::string src_fqn = build_file.package.QualifiedFile(src);
+        result[src_fqn].emplace(*cc_library);
+      }
+    });
+}
+
+ProvidedFromTargetSet ExtractSourceToLibMapping(const ParsedProject &project,
+                                                std::ostream &info_out) {
+  ProvidedFromTargetSet result;
+
+  for (const auto &[_, build_file] : project.ParsedFiles()) {
+    if (!build_file->ast) continue;
+
+    AppendCCLibrarySources(*build_file, info_out, result);
   }
 
   return result;
