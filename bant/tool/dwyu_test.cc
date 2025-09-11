@@ -57,7 +57,10 @@ static LineColumn PosOfPart(const NamedLineIndexedContent &src,
 // makes bant happy (until we start warning that the same header is included
 // twice).
 TEST(DWYUTest, HeaderFilesAreExtracted) {
-  constexpr std::string_view kTestContent = R"(  // line 0
+  // Note, clang-format is seriously confused about the next lines and
+  // it will also not work with switching it off ?
+  // So we give up and have the order in which clang-format likes it.
+  constexpr std::string_view kTestContent = R"inctest(  // line 0
 /* some ignored text in line 1 */
 #include "CaSe-dash_underscore.h"
 #include <should_not_be_extracted>
@@ -68,22 +71,25 @@ TEST(DWYUTest, HeaderFilesAreExtracted) {
 #include "with/suffix.inc"     // .. common suffices
 R"(
 #include "bant/tool/dwyu.h"   // include embedded in string ignored.
-")
-#  include    "w/space.h"        // even strange spacing should work
-#include /* foo */ "this-is-silly.h"  // Some things are too far :)
+)"
+R"xyz(
+#include "absl/log/check.h"   // include embedded in string ignored.
+)xyz"
 #include "../dotdot.h"         // mmh, who is doing this ?
 #include "more-special-c++.h"  // other characters used.
+#include /* foo */ "this-is-silly.h"  // Some things are too far :)
+#  include    "w/space.h"        // even strange spacing should work
 // #include "not-seen.h"
 // Here is a single quote-char (") which should not mess up the next include
 #include "should-be-seen.h"  // another one (")
 #include "this-as-well.h"
-)";
+)inctest";
   NamedLineIndexedContent scanned_src("<text>", kTestContent);
   const auto includes = ExtractCCIncludes(&scanned_src);
   EXPECT_THAT(includes, ElementsAre("CaSe-dash_underscore.h", "but-this.h",
                                     "with/suffix.hh", "with/suffix.pb.h",
-                                    "with/suffix.inc", "w/space.h",
-                                    "../dotdot.h", "more-special-c++.h",
+                                    "with/suffix.inc", "../dotdot.h",
+                                    "more-special-c++.h", "w/space.h",
                                     "should-be-seen.h", "this-as-well.h"));
   // Let's check some locations.
   EXPECT_EQ(PosOfPart(scanned_src, includes, 0), (LineColumn{2, 10}));
@@ -92,7 +98,7 @@ R"(
   EXPECT_EQ(PosOfPart(scanned_src, includes, 2), (LineColumn{6, 10}));
   EXPECT_EQ(PosOfPart(scanned_src, includes, 3), (LineColumn{7, 10}));
   EXPECT_EQ(PosOfPart(scanned_src, includes, 4), (LineColumn{8, 10}));
-  EXPECT_EQ(PosOfPart(scanned_src, includes, 5), (LineColumn{12, 15}));
+  EXPECT_EQ(PosOfPart(scanned_src, includes, 7), (LineColumn{18, 15}));
 }
 
 namespace {

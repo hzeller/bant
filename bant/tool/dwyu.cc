@@ -630,22 +630,25 @@ void DWYUGenerator::CreateEditsForTarget(const BazelTarget &target,
 // -- Publically visible interface
 
 std::vector<std::string_view> ExtractCCIncludes(NamedLineIndexedContent *src) {
+  //          raw str      |comment|include...
   static const LazyRE2 kIncRe{
-    R"/((?m)("|\/\/.*$|^\s*#\s*include\s+"((\.\./)*[0-9a-zA-Z_/+-]+(\.[a-zA-Z]+)*)"))/"};
+    R"/((?m)(R"[0-9a-zA-Z_]*\(|\/\/.*$|^\s*#\s*include\s+"((\.\./)*[0-9a-zA-Z_/+-]+(\.[a-zA-Z]+)*)"))/"};
 
-  // We don't actually understand strings in c++, so we just pretend by
-  // toggle ignore whenever we see one.
-  bool best_effort_in_nested_quote_toggle = false;
   std::vector<std::string_view> result;
   std::string_view run = src->content();
   std::string_view header_path;
   std::string_view outer;
   while (RE2::FindAndConsume(&run, *kIncRe, &outer, &header_path)) {
-    if (outer == "\"") {
-      best_effort_in_nested_quote_toggle = !best_effort_in_nested_quote_toggle;
+    if (outer.starts_with("R\"")) {
+      // If we start with R"foo( we need to skip forward to )foo"
+      const std::string endmatch =
+        absl::StrCat(")", outer.substr(2, outer.length() - 3), "\"");
+      auto skip = run.find(endmatch);
+      if (skip == std::string::npos) continue;  // eof ? ... skip.
+      run.remove_prefix(endmatch.size() + skip);
     } else if (outer.starts_with("//")) {
       // ignore comment.
-    } else if (!best_effort_in_nested_quote_toggle) {
+    } else if (!header_path.empty()) {
       result.push_back(header_path);
     }
   }
