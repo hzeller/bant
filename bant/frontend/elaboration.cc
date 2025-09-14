@@ -102,6 +102,9 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
         return maybe_macro;
       }
     }
+
+    // Implementing a few common functions. Getting out of hand to do this
+    // inline here. Think of breaking them out.
     const std::string_view fun_name = f->identifier()->id();
     if (fun_name == "glob") {
       return HandleGlob(f);
@@ -111,6 +114,9 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     }
     if (fun_name == "len") {
       return HandleLen(f);
+    }
+    if (fun_name == "range") {
+      return HandleRange(f);
     }
     if (options_.expand_load_functions && fun_name == "load") {
       HandleLoad(f);
@@ -799,6 +805,39 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
       return MakeIntWithStringRep(location, list->size());
     }
     return fun;
+  }
+
+  static std::optional<int64_t> GetIntAt(List *list, size_t pos) {
+    if (pos >= list->size()) return std::nullopt;
+    Scalar *const scalar = list->at(pos)->CastAsScalar();
+    if (!scalar) return std::nullopt;
+    if (scalar->type() != Scalar::ScalarType::kInt) return std::nullopt;
+    return scalar->AsInt();
+  }
+
+  Node *HandleRange(FunCall *fun) {
+    if (fun->argument()->size() < 2) return fun;
+    auto start = GetIntAt(fun->argument(), 0);
+    auto end = GetIntAt(fun->argument(), 1);
+    auto step = GetIntAt(fun->argument(), 2);
+    if (!start || !end) return fun;
+    if (!step.has_value()) {
+      step = 1;
+    }
+
+    List *result = Make<List>(List::Type::kList);
+    if (step.value() == 0) {
+      return result;  // next best thing to an infinite range.
+    }
+    const int64_t range = *end - *start;
+    int64_t elements = range / *step;
+    // We don't co-routine yield that, just creating a concrete list.
+    const auto &location = project_->GetLocation(fun->identifier()->id());
+    if (elements <= 0 || elements > 20'000) return result;  // prevent DoS
+    for (int64_t i = *start; elements > 0; i += *step, elements--) {
+      result->Append(project_->arena(), MakeIntWithStringRep(location, i));
+    }
+    return result;
   }
 
   // Load potential starlark files and extract requested variables.

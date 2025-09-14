@@ -545,6 +545,28 @@ EXAMPLE = "somefilename"
   EXPECT_EQ(result.first, result.second);
 }
 
+TEST_F(ElaborationTest, RangeFunction) {
+  auto result = ElabAndPrint(
+    R"(
+FOO = [x for x in range(1, 1)]
+BAR = [x for x in range(-1, 1)]
+BAZ = [x for x in range(1, -1)]
+QUX = [x for x in range(7, 19, 3)]
+NUL = [x for x in range(7, 19, 0)]
+NEG = [x for x in range(19, 7, -2)]
+)",
+    R"(
+FOO = []
+BAR = [-1, 0]
+BAZ = []
+QUX = [7, 10, 13, 16]
+NUL = []
+NEG = [19, 17, 15, 13, 11, 9]
+)");
+
+  EXPECT_EQ(result.first, result.second);
+}
+
 TEST_F(ElaborationTest, Ternary) {
   auto result = ElabAndPrint(
     R"(
