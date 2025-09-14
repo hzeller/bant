@@ -58,6 +58,7 @@ cc_binary(
         "//bant/util:table-printer",
         "@abseil-cpp//absl/container:flat_hash_set",
         "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/time",
     ],
 )
 

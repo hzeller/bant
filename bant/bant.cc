@@ -41,9 +41,11 @@ int getopt(int, char *const *, const char *);  // NOLINT
 
 #include "absl/container/flat_hash_set.h"
 #include "absl/strings/numbers.h"
+#include "absl/time/time.h"
 #include "bant/cli-commands.h"
 #include "bant/output-format.h"
 #include "bant/session.h"
+#include "bant/util/stat.h"
 
 // Generated from at compile time from git tag or MODULE.bazel version
 #include "bant/generated-build-version.h"
@@ -293,7 +295,7 @@ int main(int argc, char *argv[]) {
   bant::CliStatus result;
 
   {
-    bant::ScopedTimer timer(&runtime);
+    const bant::ScopedTimer timer(&runtime);
     // Prepare filesystem
     bant::FilesystemPrewarmCacheInit(session, argc, argv);
     bant::Filesystem &fs = bant::Filesystem::instance();
