@@ -285,23 +285,30 @@ int main(int argc, char *argv[]) {
     flags.grep_regex.append(")");
   }
 
+  // TODO: the various scoped areas below look like they actually want
+  // to be functions.
+
   bant::Session session(primary_out, info_out, flags);
+  absl::Duration runtime;
+  bant::CliStatus result;
 
-  // Prepare filesystem
-  bant::FilesystemPrewarmCacheInit(session, argc, argv);
-  bant::Filesystem &fs = bant::Filesystem::instance();
-  PossiblyApplyBazelIgnore(fs);
+  {
+    bant::ScopedTimer timer(&runtime);
+    // Prepare filesystem
+    bant::FilesystemPrewarmCacheInit(session, argc, argv);
+    bant::Filesystem &fs = bant::Filesystem::instance();
+    PossiblyApplyBazelIgnore(fs);
 
-  std::vector<std::string_view> positional_args;
-  for (int i = optind; i < argc; ++i) {
-    positional_args.emplace_back(argv[i]);
-  }
+    std::vector<std::string_view> positional_args;
+    for (int i = optind; i < argc; ++i) {
+      positional_args.emplace_back(argv[i]);
+    }
 
-  using bant::CliStatus;
-  const CliStatus result = RunCliCommand(session, positional_args);
-  if (result == CliStatus::kExitCommandlineClarification) {
-    session.error() << "\n\n";  // A bit more space to let message stand out.
-    return usage(argv[0], nullptr, static_cast<int>(result));
+    result = RunCliCommand(session, positional_args);
+    if (result == bant::CliStatus::kExitCommandlineClarification) {
+      session.error() << "\n\n";  // A bit more space to let message stand out.
+      return usage(argv[0], nullptr, static_cast<int>(result));
+    }
   }
 
   if (flags.verbose) {
@@ -310,6 +317,7 @@ int main(int argc, char *argv[]) {
     for (const std::string_view subsystem : session.stat_keys()) {
       std::cerr << subsystem << " " << *session.stat(subsystem) << "\n";
     }
+    std::cerr << "Total walltime " << runtime << "\n";
   }
   return static_cast<int>(result);
 }
