@@ -75,8 +75,8 @@ class TargetFinder : public BaseVoidVisitor {
 
   // Relevant info we're interested in the package.
   void ExtractPackageInfo(Assignment *a) {
-    if (!a->maybe_identifier() || !a->value()) return;
-    const std::string_view lhs = a->maybe_identifier()->id();
+    if (!a->lhs_maybe_identifier() || !a->value()) return;
+    const std::string_view lhs = a->lhs_maybe_identifier()->id();
     if (List *list = a->value()->CastAsList()) {
       if (lhs == "default_visibility") {
         package_default_visibility_ = list;
@@ -86,8 +86,8 @@ class TargetFinder : public BaseVoidVisitor {
 
   // Value extracted for the user query.
   void ExtractQueryInfo(Assignment *a) {
-    if (!a->maybe_identifier() || !a->value()) return;
-    const std::string_view lhs = a->maybe_identifier()->id();
+    if (!a->lhs_maybe_identifier() || !a->value()) return;
+    const std::string_view lhs = a->lhs_maybe_identifier()->id();
     if (Scalar *scalar = a->value()->CastAsScalar()) {
       if (lhs == "name") {
         current_.name = scalar->AsString();
@@ -201,8 +201,8 @@ class KeywordMapExtractor : public BaseVoidVisitor {
   }
 
   void VisitAssignment(Assignment *a) final {
-    if (!a->maybe_identifier() || !a->value()) return;
-    map_to_fill_->emplace(a->maybe_identifier()->id(), a->value());
+    if (!a->lhs_maybe_identifier() || !a->value()) return;
+    map_to_fill_->emplace(a->lhs_maybe_identifier()->id(), a->value());
     // Not recursing deeper; only interested in fun-args assignment list.
   }
 
@@ -226,8 +226,8 @@ class SingleKeywordExtractor : public BaseVoidVisitor {
   }
 
   void VisitAssignment(Assignment *a) final {
-    if (!a->maybe_identifier() || !a->value()) return;
-    if (a->maybe_identifier()->id() == looking_for_keyword_) {
+    if (!a->lhs_maybe_identifier() || !a->value()) return;
+    if (a->lhs_maybe_identifier()->id() == looking_for_keyword_) {
       node_found_ = a->value();
     }
     // Not recursing deeper; only interested in fun-args assignment list.

@@ -128,6 +128,24 @@ cc_library(
   EXPECT_EQ(result.first, result.second);
 }
 
+TEST_F(ElaborationTest, IdentifiersAssignedInTuplesAreUsable) {
+  auto result = ElabAndPrint(
+    R"(
+(a, b) = (42, 123)
+(12, c) = (1, 5)       # Semantic nonsense; should make the best out of it
+(x, y, z) = (a, b, c)  # Testing one more indirection; this time lhs list
+d = x + y + z
+)",
+    R"(
+(a, b) = (42, 123)
+(12, c) = (1, 5)
+(x, y, z) = (42, 123, 5)
+d = 170
+)");
+
+  EXPECT_EQ(result.first, result.second);
+}
+
 TEST_F(ElaborationTest, ConcatLists) {
   auto result = ElabAndPrint(
     R"(

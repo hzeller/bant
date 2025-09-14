@@ -317,10 +317,17 @@ class Ternary : public Node {
 class Assignment : public BinOpNode {
  public:
   // Assignments are typically to some identifier; make this simple to access.
-  Identifier *maybe_identifier() {
+  Identifier *lhs_maybe_identifier() {
     if (!left_) return nullptr;
     return left_->CastAsIdentifier();
   }
+  List *lhs_maybe_tuple() {
+    if (!left_) return nullptr;
+    List *as_list = left_->CastAsList();
+    if (!as_list || as_list->type() != List::Type::kTuple) return nullptr;
+    return as_list;
+  }
+
   Node *value() { return right_; }
 
   void Accept(VoidVisitor *v) final;

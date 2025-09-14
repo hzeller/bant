@@ -126,8 +126,21 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
 
   Node *VisitAssignment(Assignment *a) final {
     Node *result = BaseNodeReplacementVisitor::VisitAssignment(a);
-    if (nest_level_ == 0 && a->maybe_identifier()) {
-      variables_[a->maybe_identifier()->id()] = a->value();
+    if (nest_level_ != 0) return result;  // only toplevel assignments.
+    if (Identifier *identifier = a->lhs_maybe_identifier()) {
+      variables_[identifier->id()] = a->value();
+    } else if (List *tuple_assign = a->lhs_maybe_tuple()) {
+      List *const rhs = a->value()->CastAsList();
+      if (tuple_assign->size() == rhs->size()) {
+        using It = List::iterator;
+        It left = tuple_assign->begin();
+        It right = rhs->begin();
+        for (/**/; left != tuple_assign->end(); ++left, ++right) {
+          if (Identifier *identifier = (*left)->CastAsIdentifier()) {
+            variables_[identifier->id()] = *right;
+          }
+        }
+      }
     }
     return result;
   }
@@ -850,8 +863,8 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
         continue;
       }
       if (Assignment *kwarg = arg->CastAsAssignment()) {
-        if (!kwarg->maybe_identifier()) continue;
-        const std::string_view kw = kwarg->maybe_identifier()->id();
+        if (!kwarg->lhs_maybe_identifier()) continue;
+        const std::string_view kw = kwarg->lhs_maybe_identifier()->id();
         if (kw == "include") {
           include_list = kwarg->value()->CastAsList();
         } else if (kw == "exclude") {

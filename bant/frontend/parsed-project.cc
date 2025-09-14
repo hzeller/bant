@@ -476,7 +476,7 @@ absl::Status ParsedProject::SetBuiltinMacroContent(std::string_view content) {
   for (Node *n : *builtin_list) {
     Assignment *const macro_assignment = n->CastAsAssignment();
     CHECK(macro_assignment) << "Expected assignment, got " << n;
-    Identifier *const name = macro_assignment->maybe_identifier();
+    Identifier *const name = macro_assignment->lhs_maybe_identifier();
     CHECK(name) << "Not an identifier on lhs of " << macro_assignment;
     CHECK(macros_.emplace(name->id(), macro_assignment->value()).second)
       << "Multiple macros of name " << name->id();
