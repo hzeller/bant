@@ -158,6 +158,18 @@ class Parser::Impl {
           node_arena_,
           ParseIdAssignRhs(Make<Identifier>(tok.text), after_id.text));
         break;
+      case TokenType::kComma: {  // toplevel unpack assignment
+        List *started_list = Make<List>(List::Type::kTuple);
+        started_list->Append(node_arena_, Make<Identifier>(tok.text));
+        // List ends with assignment.
+        Token assign;
+        List *const lhs = ParseList(
+          started_list, [&]() { return ParseOptionalIdentifier(); },
+          TokenType::kAssign, &assign);
+        statement_list->Append(node_arena_,
+                               ParseNodeAssignRhs(lhs, tok.text, assign.text));
+        break;
+      }
       case TokenType::kOpenParen:
         statement_list->Append(node_arena_, ParseFunCall(tok));
         break;
@@ -204,10 +216,10 @@ class Parser::Impl {
   }
 
   // Parse expressions produced by element_parse up to and including end_tok
-  // is reached.
+  // is reached. If save_last_tok is non-null, last token will be stored there
   using ListElementParse = std::function<Node *()>;
   List *ParseList(List *result, const ListElementParse &element_parse,
-                  TokenType end_tok) {
+                  TokenType end_tok, Token *save_last_tok = nullptr) {
     LOG_ENTER();
     // Opening list-token (e.g. '[', '(', '{') already consumed.
     Token upcoming = scanner_->Peek();
@@ -223,7 +235,8 @@ class Parser::Impl {
         return result;
       }
     }
-    scanner_->Next();  // consume end_tok
+    const Token closing_list = scanner_->Next();  // consume end_tok
+    if (save_last_tok) *save_last_tok = closing_list;
     return result;
   }
 

@@ -128,7 +128,7 @@ cc_library(
   EXPECT_EQ(result.first, result.second);
 }
 
-TEST_F(ElaborationTest, IdentifiersAssignedInTuplesAreUsable) {
+TEST_F(ElaborationTest, UnpackIntoTuple) {
   auto result = ElabAndPrint(
     R"(
 (a, b) = (42, 123)
@@ -141,6 +141,23 @@ d = x + y + z
 (12, c) = (1, 5)
 (x, y, z) = (42, 123, 5)
 d = 170
+)");
+
+  EXPECT_EQ(result.first, result.second);
+}
+
+TEST_F(ElaborationTest, UnpackIntoToplevelListIsTreatedAsAssignmentToTuple) {
+  // Essentially the same as tuple
+  auto result = ElabAndPrint(
+    R"(
+a, b = (42, 123)
+x, y = (a, b)
+d = x + y
+)",
+    R"(
+(a, b) = (42, 123)
+(x, y) = (42, 123)
+d = 165
 )");
 
   EXPECT_EQ(result.first, result.second);
