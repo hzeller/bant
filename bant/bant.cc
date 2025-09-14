@@ -40,6 +40,7 @@ int getopt(int, char *const *, const char *);  // NOLINT
 #include <vector>
 
 #include "absl/container/flat_hash_set.h"
+#include "absl/strings/numbers.h"
 #include "bant/cli-commands.h"
 #include "bant/output-format.h"
 #include "bant/session.h"
@@ -237,9 +238,12 @@ int main(int argc, char *argv[]) {
       break;
 
     case 'r':
-      flags.recurse_dependency_depth = optarg  //
-                                         ? atoi(optarg)
-                                         : std::numeric_limits<int>::max();
+      flags.recurse_dependency_depth = std::numeric_limits<int>::max();
+      if (optarg &&
+          !absl::SimpleAtoi(optarg, &flags.recurse_dependency_depth)) {
+        return usage(argv[0], "-r requires either none or a numeric parameter",
+                     EXIT_FAILURE);
+      }
       break;
 
     case 'k': flags.ignore_keep_comment = true; break;
@@ -262,7 +266,11 @@ int main(int argc, char *argv[]) {
       }
       flags.output_format = found->second;
     } break;
-    case 'T': flags.io_threads = atoi(optarg); break;
+    case 'T':
+      if (!absl::SimpleAtoi(optarg, &flags.io_threads)) {
+        return usage(argv[0], "-T needs a numeric parameter", EXIT_FAILURE);
+      }
+      break;
     case 'v': flags.verbose++; break;  // More -v, more detail.
     case 'V': return print_version();
     default: return usage(argv[0], nullptr, EXIT_SUCCESS);
