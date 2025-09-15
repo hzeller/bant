@@ -552,8 +552,10 @@ FOO = [x for x in range(1, 1)]
 BAR = [x for x in range(-1, 1)]
 BAZ = [x for x in range(1, -1)]
 QUX = [x for x in range(7, 19, 3)]
-NUL = [x for x in range(7, 19, 0)]
+NUL = [x for x in range(7, 19, 0)]  # should just fail gracefully w/ empty list
 NEG = [x for x in range(19, 7, -2)]
+PLUS = [x for x in range(50, 200 + 1, 50)]
+MINUS = [x for x in range(200, 50 - 1, -50)]
 )",
     R"(
 FOO = []
@@ -562,6 +564,8 @@ BAZ = []
 QUX = [7, 10, 13, 16]
 NUL = []
 NEG = [19, 17, 15, 13, 11, 9]
+PLUS = [50, 100, 150, 200]
+MINUS = [200, 150, 100, 50]
 )");
 
   EXPECT_EQ(result.first, result.second);

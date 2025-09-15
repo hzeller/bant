@@ -829,8 +829,10 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     if (step.value() == 0) {
       return result;  // next best thing to an infinite range.
     }
+    // Note, the following makes sure to work with negative and abs(step) > 1
     const int64_t range = *end - *start;
-    int64_t elements = range / *step;
+    const int64_t step_fillup_add = *step + (*step < 0 ? 1 : -1);
+    int64_t elements = (range + step_fillup_add) / *step;
     // We don't co-routine yield that, just creating a concrete list.
     const auto &location = project_->GetLocation(fun->identifier()->id());
     if (elements <= 0 || elements > 20'000) return result;  // prevent DoS
