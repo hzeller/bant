@@ -137,7 +137,7 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
       variables_[identifier->id()] = a->value();
     } else if (List *tuple_assign = a->lhs_maybe_tuple()) {
       List *const rhs = a->value()->CastAsList();
-      if (tuple_assign->size() == rhs->size()) {
+      if (rhs && tuple_assign->size() == rhs->size()) {
         using It = List::iterator;
         It left = tuple_assign->begin();
         It right = rhs->begin();
