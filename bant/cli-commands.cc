@@ -193,8 +193,9 @@ CliStatus RunCommand(Session &session, Command cmd,
     flags.recurse_dependency_depth = kReasonableDefaultDependencyDepth;
   }
 
-  if (cmd == Command::kDWYU ||  //
-      cmd == Command::kCompilationDB || cmd == Command::kCompileFlags) {
+  // For most operations and least surprises, we want to elaborate.
+  // Only for print and parse we give finer control
+  if (cmd != Command::kParse && cmd != Command::kPrint) {
     flags.elaborate = true;
     flags.builtin_macro_expand = true;
   }
