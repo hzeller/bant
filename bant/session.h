@@ -55,6 +55,7 @@ struct CommandlineFlags {
   bool elaborate = false;
   bool builtin_macro_expand = false;
   bool ignore_keep_comment = false;
+  bool only_physical_files = false;  // for target-{srcs,hdrs,data}
   int recurse_dependency_depth = 0;
   OutputFormat output_format = OutputFormat::kNative;
   int io_threads = 0;  // <= 0: synchronous operation.

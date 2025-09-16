@@ -131,13 +131,16 @@ Commands (unique prefix sufficient):
                      → 2 column table: (target, dependency*)
     has-dependent  : List cc library targets and the libraries that depend on it
                      → 2 column table: (target, dependent*)
-    lib-hdrs       : Print headers provided by cc_library()s matching pattern.
-                     → 2 column table: (header-filename, cc-library-target)
-    lib-srcs       : Print sources provided by cc_library()s matching pattern.
-                     → 2 column table: (source-filename, cc-library-target)
-    lib-headers     : like lib-hdrs, but expands all reachable paths due to
-                      includes = [] expansion; so same header can show up
-                      multiple times.
+    target-hdrs    : Print hdrs mentioned in targets (-P: only physical files)
+                     → 2 column table: (header-filename, target)
+    target-srcs    : Print srcs mentioned in targets (-P: only physical files)
+                     → 2 column table: (srcs-filename, target)
+    target-data    : Print data mentioned in targets (-P: only physical files)
+                     → 2 column table: (data-filename, target)
+    lib-headers    : Like target-hdrs, but all reachable paths expanded with all
+                     combinations of includes = [], include_prefix, etc.
+                     So same header can show up multiple times with different
+                     paths. This is the relevant list used by dwyu.
                      → 2 column table: (header-filename, cc-library-target)
     genrule-outputs: Print generated files by genrule()s matching pattern.
                      → 2 column table: (filename, genrule-target)
@@ -211,7 +214,7 @@ int main(int argc, char *argv[]) {
     {"json", OutputFormat::kJSON},     {"graphviz", OutputFormat::kGraphviz},
   };
   int opt;
-  while ((opt = getopt(argc, argv, "C:qo:vhaEF:ecbf:r::Vkg:iT:")) != -1) {
+  while ((opt = getopt(argc, argv, "C:qo:vhaEF:ecbf:r::Vkg:iT:P")) != -1) {
     switch (opt) {
     case 'C': {
       std::error_code err;
@@ -277,6 +280,7 @@ int main(int argc, char *argv[]) {
         return usage(argv[0], "-T needs a numeric parameter", EXIT_FAILURE);
       }
       break;
+    case 'P': flags.only_physical_files = true; break;
     case 'v': flags.verbose++; break;  // More -v, more detail.
     case 'V': return print_version();
     default: return usage(argv[0], nullptr, EXIT_SUCCESS);

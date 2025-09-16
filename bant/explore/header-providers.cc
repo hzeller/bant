@@ -32,10 +32,12 @@
 #include "absl/strings/str_cat.h"
 #include "bant/explore/aliased-by.h"
 #include "bant/explore/query-utils.h"
+#include "bant/frontend/ast.h"
 #include "bant/frontend/parsed-project.h"
 #include "bant/session.h"
 #include "bant/types-bazel.h"
 #include "bant/types.h"
+#include "bant/util/filesystem.h"
 #include "bant/util/table-printer.h"
 
 // The header providers maps header filenames to all the libraries that
@@ -336,27 +338,33 @@ ProvidedFromTargetSet ExtractExpandedHeaderToLibMapping(
   return result;
 }
 
-ProvidedFromTargetSet ExtractComponentToLibMapping(const ParsedProject &project,
-                                                   ExtractComponent which,
-                                                   std::ostream &info_out) {
+ProvidedFromTargetSet ExtractComponentToTargetMapping(
+  const ParsedProject &project, ExtractComponent which,
+  bool only_physical_files, std::ostream &info_out) {
+  auto &fs = Filesystem::instance();
   ProvidedFromTargetSet result;
 
   for (const auto &[_, build_file] : project.ParsedFiles()) {
     if (!build_file->ast) continue;
 
-    query::FindTargets(
-      build_file->ast, {"cc_library"}, [&](const query::Result &cc_lib) {
-        auto cc_library = build_file->package.QualifiedTarget(cc_lib.name);
-        if (!cc_library.has_value()) return;
+    query::FindTargets(build_file->ast, {}, [&](const query::Result &cc_lib) {
+      auto cc_library = build_file->package.QualifiedTarget(cc_lib.name);
+      if (!cc_library.has_value()) return;
 
-        auto srcs = query::ExtractStringList((which == ExtractComponent::kSrcs)
-                                               ? cc_lib.srcs_list
-                                               : cc_lib.hdrs_list);
-        for (const std::string_view src : srcs) {
-          const std::string src_fqn = build_file->package.QualifiedFile(src);
+      List *search_list = nullptr;
+      switch (which) {
+      case ExtractComponent::kHdrs: search_list = cc_lib.hdrs_list; break;
+      case ExtractComponent::kSrcs: search_list = cc_lib.srcs_list; break;
+      case ExtractComponent::kData: search_list = cc_lib.data_list; break;
+      }
+      auto srcs = query::ExtractStringList(search_list);
+      for (const std::string_view src : srcs) {
+        const std::string src_fqn = build_file->package.QualifiedFile(src);
+        if (!only_physical_files || fs.Exists(src_fqn)) {
           result[src_fqn].emplace(*cc_library);
         }
-      });
+      }
+    });
   }
 
   return result;

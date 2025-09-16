@@ -67,6 +67,8 @@ cc_library(
         "//bant:types",
         "//bant:types-bazel",
         "//bant/frontend:parsed-project",
+        "//bant/frontend:parser",
+        "//bant/util:file-utils",
         "//bant/util:table-printer",
         "@abseil-cpp//absl/container:btree",
         "@abseil-cpp//absl/strings",

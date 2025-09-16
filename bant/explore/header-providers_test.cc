@@ -110,20 +110,25 @@ TEST(SourceToLibMapping, CCRuleExtraction) {
 cc_library(
   name = "foo",
   srcs = ["foo.cc", "bar.cc"],
-  hdrs = ["baz.h"]
+  hdrs = ["baz.h"],
+  data = ["data.txt"],
 )
 )");
   std::stringstream log_absorb;
-  auto srcs_map = ExtractComponentToLibMapping(
-    pp.project(), ExtractComponent::kSrcs, log_absorb);
+  auto srcs_map = ExtractComponentToTargetMapping(
+    pp.project(), ExtractComponent::kSrcs, false, log_absorb);
   EXPECT_THAT(srcs_map,
               Contains(Pair("some/path/foo.cc", Ts("//some/path:foo"))));
   EXPECT_THAT(srcs_map,
               Contains(Pair("some/path/bar.cc", Ts("//some/path:foo"))));
-  auto hdrs_map = ExtractComponentToLibMapping(
-    pp.project(), ExtractComponent::kHdrs, log_absorb);
+  auto hdrs_map = ExtractComponentToTargetMapping(
+    pp.project(), ExtractComponent::kHdrs, false, log_absorb);
   EXPECT_THAT(hdrs_map,
               Contains(Pair("some/path/baz.h", Ts("//some/path:foo"))));
+  auto data_map = ExtractComponentToTargetMapping(
+    pp.project(), ExtractComponent::kData, false, log_absorb);
+  EXPECT_THAT(data_map,
+              Contains(Pair("some/path/data.txt", Ts("//some/path:foo"))));
 }
 
 TEST(HeaderToLibMapping, InludePathsAreRelativePathCanonicalized) {

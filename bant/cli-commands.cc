@@ -67,8 +67,9 @@ enum class Command {
   kListTargets,
   kListLeafs,
   kListWorkkspace,
-  kLibraryHdrs,
-  kLibrarySrcs,
+  kTargetHdrs,
+  kTargetSrcs,
+  kTargetData,
   kExpandedLibraryHeaders,
   kAliasedBy,
   kGenruleOutputs,
@@ -212,9 +213,10 @@ CliStatus RunCommand(Session &session, Command cmd,
   switch (cmd) {
   case Command::kDWYU:
   case Command::kParse:
-  case Command::kLibraryHdrs:
+  case Command::kTargetHdrs:
+  case Command::kTargetData:
   case Command::kExpandedLibraryHeaders:
-  case Command::kLibrarySrcs:
+  case Command::kTargetSrcs:
   case Command::kGenruleOutputs:
   case Command::kListTargets:
   case Command::kListLeafs:
@@ -279,18 +281,29 @@ CliStatus RunCommand(Session &session, Command cmd,
       ExtractExpandedHeaderToLibMapping(project, session.info()));
     break;
 
-  case Command::kLibrarySrcs:  //
+    // TODO: these target srcs/hdrs/data should include target type.
+  case Command::kTargetSrcs:  //
     bant::PrintProvidedSources(
-      session, "source", print_pattern,
-      ExtractComponentToLibMapping(project, ExtractComponent::kSrcs,
-                                   session.info()));
+      session, "srcs", print_pattern,
+      ExtractComponentToTargetMapping(project, ExtractComponent::kSrcs,
+                                      session.flags().only_physical_files,
+                                      session.info()));
     break;
 
-  case Command::kLibraryHdrs:  //
+  case Command::kTargetHdrs:  //
     bant::PrintProvidedSources(
-      session, "header", print_pattern,
-      ExtractComponentToLibMapping(project, ExtractComponent::kHdrs,
-                                   session.info()));
+      session, "hdrs", print_pattern,
+      ExtractComponentToTargetMapping(project, ExtractComponent::kHdrs,
+                                      session.flags().only_physical_files,
+                                      session.info()));
+    break;
+
+  case Command::kTargetData:  //
+    bant::PrintProvidedSources(
+      session, "data", print_pattern,
+      ExtractComponentToTargetMapping(project, ExtractComponent::kData,
+                                      session.flags().only_physical_files,
+                                      session.info()));
     break;
 
   case Command::kGenruleOutputs:
@@ -396,8 +409,9 @@ CliStatus RunCliCommand(Session &session, std::span<std::string_view> args) {
     {"list-targets", Command::kListTargets},
     {"list-leafs", Command::kListLeafs},
     {"workspace", Command::kListWorkkspace},
-    {"lib-hdrs", Command::kLibraryHdrs},
-    {"lib-srcs", Command::kLibrarySrcs},
+    {"target-hdrs", Command::kTargetHdrs},
+    {"target-data", Command::kTargetData},
+    {"target-srcs", Command::kTargetSrcs},
     {"lib-headers", Command::kExpandedLibraryHeaders},
     {"aliased-by", Command::kAliasedBy},
     {"depends-on", Command::kDependsOn},
