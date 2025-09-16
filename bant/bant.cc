@@ -135,6 +135,10 @@ Commands (unique prefix sufficient):
                      → 2 column table: (header-filename, cc-library-target)
     lib-srcs       : Print sources provided by cc_library()s matching pattern.
                      → 2 column table: (source-filename, cc-library-target)
+    lib-headers     : like lib-hdrs, but expands all reachable paths due to
+                      includes = [] expansion; so same header can show up
+                      multiple times.
+                     → 2 column table: (header-filename, cc-library-target)
     genrule-outputs: Print generated files by genrule()s matching pattern.
                      → 2 column table: (filename, genrule-target)
 

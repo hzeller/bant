@@ -316,9 +316,8 @@ static void AppendProtoLibraryHeaders(
 }
 }  // namespace
 
-ProvidedFromTargetSet ExtractHeaderToLibMapping(const ParsedProject &project,
-                                                std::ostream &info_out,
-                                                bool suffix_index) {
+ProvidedFromTargetSet ExtractExpandedHeaderToLibMapping(
+  const ParsedProject &project, std::ostream &info_out, bool suffix_index) {
   ProvidedFromTargetSet result;
 
   const auto aliased_by_index = ExtractAliasedBy(project);
@@ -337,30 +336,27 @@ ProvidedFromTargetSet ExtractHeaderToLibMapping(const ParsedProject &project,
   return result;
 }
 
-static void AppendCCLibrarySources(const ParsedBuildFile &build_file,
-                                   std::ostream &info_out,
-                                   ProvidedFromTargetSet &result) {
-  query::FindTargets(
-    build_file.ast, {"cc_library"}, [&](const query::Result &cc_lib) {
-      auto cc_library = build_file.package.QualifiedTarget(cc_lib.name);
-      if (!cc_library.has_value()) return;
-
-      auto srcs = query::ExtractStringList(cc_lib.srcs_list);
-      for (const std::string_view src : srcs) {
-        const std::string src_fqn = build_file.package.QualifiedFile(src);
-        result[src_fqn].emplace(*cc_library);
-      }
-    });
-}
-
-ProvidedFromTargetSet ExtractSourceToLibMapping(const ParsedProject &project,
-                                                std::ostream &info_out) {
+ProvidedFromTargetSet ExtractComponentToLibMapping(const ParsedProject &project,
+                                                   ExtractComponent which,
+                                                   std::ostream &info_out) {
   ProvidedFromTargetSet result;
 
   for (const auto &[_, build_file] : project.ParsedFiles()) {
     if (!build_file->ast) continue;
 
-    AppendCCLibrarySources(*build_file, info_out, result);
+    query::FindTargets(
+      build_file->ast, {"cc_library"}, [&](const query::Result &cc_lib) {
+        auto cc_library = build_file->package.QualifiedTarget(cc_lib.name);
+        if (!cc_library.has_value()) return;
+
+        auto srcs = query::ExtractStringList((which == ExtractComponent::kSrcs)
+                                               ? cc_lib.srcs_list
+                                               : cc_lib.hdrs_list);
+        for (const std::string_view src : srcs) {
+          const std::string src_fqn = build_file->package.QualifiedFile(src);
+          result[src_fqn].emplace(*cc_library);
+        }
+      });
   }
 
   return result;

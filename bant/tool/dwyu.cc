@@ -671,8 +671,9 @@ DWYUGenerator::DWYUGenerator(Session &session, const ParsedProject &project,
   Stat &stats = session_.GetStatsFor("DWYU preparation", "indexed targets");
   const ScopedTimer timer(&stats.duration);
 
-  headers_from_libs_ = ExtractHeaderToLibMapping(project, session.info(),
-                                                 /*suffix_index=*/true);
+  headers_from_libs_ =
+    ExtractExpandedHeaderToLibMapping(project, session.info(),
+                                      /*suffix_index=*/true);
   files_from_genrules_ = ExtractGeneratedFromGenrule(project, session.info());
   InitKnownLibraries();
   stats.count = known_libs_.size();

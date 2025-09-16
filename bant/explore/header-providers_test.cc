@@ -85,7 +85,7 @@ cc_library(
 )
 )");
   std::stringstream log_absorb;
-  auto header_map = ExtractHeaderToLibMapping(pp.project(), log_absorb);
+  auto header_map = ExtractExpandedHeaderToLibMapping(pp.project(), log_absorb);
   EXPECT_THAT(header_map,
               Contains(Pair("some/path/foo.h", Ts("//some/path:foo"))));
 
@@ -110,15 +110,20 @@ TEST(SourceToLibMapping, CCRuleExtraction) {
 cc_library(
   name = "foo",
   srcs = ["foo.cc", "bar.cc"],
-  hdrs = ["foo.h"]
+  hdrs = ["baz.h"]
 )
 )");
   std::stringstream log_absorb;
-  auto srcs_map = ExtractSourceToLibMapping(pp.project(), log_absorb);
+  auto srcs_map = ExtractComponentToLibMapping(
+    pp.project(), ExtractComponent::kSrcs, log_absorb);
   EXPECT_THAT(srcs_map,
               Contains(Pair("some/path/foo.cc", Ts("//some/path:foo"))));
   EXPECT_THAT(srcs_map,
               Contains(Pair("some/path/bar.cc", Ts("//some/path:foo"))));
+  auto hdrs_map = ExtractComponentToLibMapping(
+    pp.project(), ExtractComponent::kHdrs, log_absorb);
+  EXPECT_THAT(hdrs_map,
+              Contains(Pair("some/path/baz.h", Ts("//some/path:foo"))));
 }
 
 TEST(HeaderToLibMapping, InludePathsAreRelativePathCanonicalized) {
@@ -140,7 +145,7 @@ cc_library(
 )");
 
   std::stringstream log_absorb;
-  auto header_map = ExtractHeaderToLibMapping(pp.project(), log_absorb);
+  auto header_map = ExtractExpandedHeaderToLibMapping(pp.project(), log_absorb);
   EXPECT_THAT(header_map, Contains(Pair("foo.h", Ts("//:foo"))));
   EXPECT_THAT(header_map, Contains(Pair("bar.h", Ts("//:bar"))));
 }
@@ -161,7 +166,7 @@ cc_library(
 )
 )");
   std::stringstream log_absorb;
-  auto header_map = ExtractHeaderToLibMapping(pp.project(), log_absorb);
+  auto header_map = ExtractExpandedHeaderToLibMapping(pp.project(), log_absorb);
   const ProvidedFromTargetSet::mapped_type expected_set{T("//some/path:foo"),
                                                         T("//some/path:bar")};
   EXPECT_THAT(header_map, Contains(Pair("some/path/foo.h", expected_set)));
@@ -188,7 +193,7 @@ cc_grpc_library(              # GRPC form of a proto library.
 )
 )");
   std::stringstream log_absorb;
-  auto header_map = ExtractHeaderToLibMapping(pp.project(), log_absorb);
+  auto header_map = ExtractExpandedHeaderToLibMapping(pp.project(), log_absorb);
   EXPECT_THAT(header_map, Contains(Pair("ptest/data.pb.h", Ts("//ptest:foo"))));
   EXPECT_THAT(header_map,
               Contains(Pair("ptest/general.pb.h", Ts("//ptest:foo"))));

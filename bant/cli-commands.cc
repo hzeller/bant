@@ -67,8 +67,9 @@ enum class Command {
   kListTargets,
   kListLeafs,
   kListWorkkspace,
-  kLibraryHeaders,
-  kLibrarySources,
+  kLibraryHdrs,
+  kLibrarySrcs,
+  kExpandedLibraryHeaders,
   kAliasedBy,
   kGenruleOutputs,
   kDWYU,
@@ -210,8 +211,9 @@ CliStatus RunCommand(Session &session, Command cmd,
   switch (cmd) {
   case Command::kDWYU:
   case Command::kParse:
-  case Command::kLibraryHeaders:
-  case Command::kLibrarySources:
+  case Command::kLibraryHdrs:
+  case Command::kExpandedLibraryHeaders:
+  case Command::kLibrarySrcs:
   case Command::kGenruleOutputs:
   case Command::kListTargets:
   case Command::kListLeafs:
@@ -270,16 +272,24 @@ CliStatus RunCommand(Session &session, Command cmd,
     }
     break;
   }
-  case Command::kLibraryHeaders:  //
+  case Command::kExpandedLibraryHeaders:  //
     bant::PrintProvidedSources(
       session, "header", print_pattern,
-      ExtractHeaderToLibMapping(project, session.info()));
+      ExtractExpandedHeaderToLibMapping(project, session.info()));
     break;
 
-  case Command::kLibrarySources:  //
+  case Command::kLibrarySrcs:  //
     bant::PrintProvidedSources(
       session, "source", print_pattern,
-      ExtractSourceToLibMapping(project, session.info()));
+      ExtractComponentToLibMapping(project, ExtractComponent::kSrcs,
+                                   session.info()));
+    break;
+
+  case Command::kLibraryHdrs:  //
+    bant::PrintProvidedSources(
+      session, "header", print_pattern,
+      ExtractComponentToLibMapping(project, ExtractComponent::kHdrs,
+                                   session.info()));
     break;
 
   case Command::kGenruleOutputs:
@@ -385,9 +395,9 @@ CliStatus RunCliCommand(Session &session, std::span<std::string_view> args) {
     {"list-targets", Command::kListTargets},
     {"list-leafs", Command::kListLeafs},
     {"workspace", Command::kListWorkkspace},
-    {"lib-hdrs", Command::kLibraryHeaders},
-    {"lib-headers", Command::kLibraryHeaders},  // deprecated
-    {"lib-srcs", Command::kLibrarySources},
+    {"lib-hdrs", Command::kLibraryHdrs},
+    {"lib-srcs", Command::kLibrarySrcs},
+    {"lib-headers", Command::kExpandedLibraryHeaders},
     {"aliased-by", Command::kAliasedBy},
     {"depends-on", Command::kDependsOn},
     {"has-dependents", Command::kHasDependents},
