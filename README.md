@@ -370,7 +370,7 @@ overhead.
 ### Synopsis
 
 ```
-bant v0.2.0+ <http://bant.build/>
+bant v0.2.xx <http://bant.build/>
 Copyright (c) 2024-2025 Henner Zeller. This program is free software; GPL 3.0.
 Usage: bant [options] <command> [bazel-target-pattern...]
 Options
@@ -423,7 +423,16 @@ Commands (unique prefix sufficient):
                      → 2 column table: (target, dependency*)
     has-dependent  : List cc library targets and the libraries that depend on it
                      → 2 column table: (target, dependent*)
-    lib-headers    : Print headers provided by cc_library()s matching pattern.
+    target-hdrs    : Print hdrs mentioned in targets (-P: only physical files)
+                     → 2 column table: (header-filename, target)
+    target-srcs    : Print srcs mentioned in targets (-P: only physical files)
+                     → 2 column table: (srcs-filename, target)
+    target-data    : Print data mentioned in targets (-P: only physical files)
+                     → 2 column table: (data-filename, target)
+    lib-headers    : Like target-hdrs, but all reachable paths expanded with all
+                     combinations of includes = [], include_prefix, etc.
+                     So same header can show up multiple times with different
+                     paths. This is the relevant list used by dwyu.
                      → 2 column table: (header-filename, cc-library-target)
     genrule-outputs: Print generated files by genrule()s matching pattern.
                      → 2 column table: (filename, genrule-target)
