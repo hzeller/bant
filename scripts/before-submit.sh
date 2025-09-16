@@ -7,6 +7,7 @@ BAZEL=${BAZEL:-bazel}
 # last time to fix our own files.
 "$BAZEL" build -c opt bant:bant > /dev/null 2>&1
 . <(bazel-bin/bant/bant dwyu ...)
+. <(bazel-bin/bant/bant canonicalize ...)
 
 set -e
 

@@ -126,7 +126,7 @@ cc_library(
         "//bant/util:stat",
         "@abseil-cpp//absl/container:flat_hash_map",
         "@abseil-cpp//absl/log:check",
-        "@abseil-cpp//absl/status:status",
+        "@abseil-cpp//absl/status",
         "@re2",
     ],
 )
