@@ -130,7 +130,7 @@ class DWYUTestFixture {
   explicit DWYUTestFixture(const ParsedProject &project, int verbose_level = 1)
       : session_{&log_messages_, &log_messages_,
                  CommandlineFlags{.verbose = verbose_level}},
-        dwyu_(session_, project, edit_expector_.checker()){};
+        dwyu_(session_, project, edit_expector_.checker()) {}
 
   ~DWYUTestFixture() {
     // Make sure that if there is a log output that the test will look for it.
