@@ -55,7 +55,7 @@ jobs:
           # TODO: package ?
 
   CodeFormatting:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -64,13 +64,17 @@ jobs:
 
       - name: Install Dependencies
         run: |
+          wget https://apt.llvm.org/llvm.sh
+          chmod +x ./llvm.sh
+          sudo ./llvm.sh 19
+          sudo apt install -y clang-format-19
           go install github.com/bazelbuild/buildtools/buildifier@latest
           echo "PATH=$PATH:$(go env GOPATH)/bin/" >> $GITHUB_ENV
 
       - name: Run formatting style check
         run: |
-          clang-format-17 --version
-          CLANG_FORMAT=clang-format-17 scripts/run-format.sh
+          clang-format-19 --version
+          CLANG_FORMAT=clang-format-19 scripts/run-format.sh
           git diff > /tmp/format-diff
           if [ -s "/tmp/format-diff" ]; then
             echo "Difference to optimal formatting"
@@ -82,6 +86,8 @@ jobs:
             echo "  git commit -a --amend"
             echo "  git push -f"
             exit 1
+          else
+            echo "No changes. Good."
           fi
 
   RunBantOnBant:
@@ -102,7 +108,7 @@ jobs:
           # This tests the static binary provided in the release, so
           # instead of simply compiling and running locally, we fetch that.
           # TODO: provide this as action where we simply say with version=...
-          VERSION="v0.2.2"
+          VERSION="v0.2.3"
           STATIC_VERSION="bant-${VERSION}-linux-static-x86_64"
           wget "https://github.com/hzeller/bant/releases/download/${VERSION}/${STATIC_VERSION}.tar.gz"
           tar xvzf "${STATIC_VERSION}.tar.gz"
