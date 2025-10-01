@@ -140,6 +140,11 @@ static std::optional<int> LoadWorkspaceFromFile(Session &session,
       search_dirs.push_back(absl::StrCat(result.name, "~override"));
       search_dirs.push_back(absl::StrCat(result.name, "+"));  // bazel8-ism
 
+      // bazel 7 and 8 unpacking from http_archive() in MODULE.bazel
+      // TODO: observed in the field, but are there better ways to represent ?
+      search_dirs.push_back(absl::StrCat("_main~_repo_rules~", result.name));
+      search_dirs.push_back(absl::StrCat("+_repo_rules+", result.name));
+
       FilesystemPath path;
       bool project_dir_found = false;
       for (const std::string_view dir : search_dirs) {
