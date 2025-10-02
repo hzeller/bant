@@ -59,6 +59,7 @@ cc_binary(
         "@abseil-cpp//absl/container:flat_hash_set",
         "@abseil-cpp//absl/strings",
         "@abseil-cpp//absl/time",
+        "@re2",
     ],
 )
 
@@ -122,6 +123,7 @@ cc_library(
         ":types",
         "//bant/util:stat",
         "@abseil-cpp//absl/container:flat_hash_set",
+        "@re2",
     ],
 )
 

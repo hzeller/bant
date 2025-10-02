@@ -46,6 +46,7 @@ int getopt(int, char *const *, const char *);  // NOLINT
 #include "bant/output-format.h"
 #include "bant/session.h"
 #include "bant/util/stat.h"
+#include "re2/re2.h"
 
 // Generated from at compile time from git tag or MODULE.bazel version
 #include "bant/generated-build-version.h"
@@ -187,6 +188,26 @@ static void PossiblyApplyBazelIgnore(bant::Filesystem &fs) {
   }
 }
 
+static RE2 *BuildRegex(std::string_view regex_str, bool case_insensitive) {
+  std::string complete_re(regex_str);
+  if (!complete_re.empty()) {
+    if (case_insensitive) {
+      complete_re.insert(0, "(?i)");
+    }
+    complete_re.insert(0, "(");
+    complete_re.append(")");
+  }
+
+  RE2::Options options;
+  options.set_log_errors(false);  // We print them ourselves
+  auto regex = std::make_unique<RE2>(complete_re, options);
+  if (!regex->ok()) {
+    std::cerr << RED << "Grep pattern: " << regex->error() << RESET << "\n";
+    return nullptr;
+  }
+  return regex.release();
+}
+
 int main(int argc, char *argv[]) {
   // non-nullptr streams if chosen by user.
   std::unique_ptr<std::ostream> user_primary_out;
@@ -199,6 +220,7 @@ int main(int argc, char *argv[]) {
   bant::CommandlineFlags flags;
   flags.do_color = isatty(STDOUT_FILENO);
 
+  std::vector<std::string> grep_expressions;
   bool regex_case_insesitive = false;
 
   // Since we're using basic getopt() currently, we've to fish out all the
@@ -257,7 +279,7 @@ int main(int argc, char *argv[]) {
 
     case 'k': flags.ignore_keep_comment = true; break;
 
-    case 'g': flags.grep_regex = optarg; break;
+    case 'g': grep_expressions.emplace_back(optarg); break;
 
     case 'i':
       regex_case_insesitive = true;
@@ -287,12 +309,11 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  if (!flags.grep_regex.empty()) {
-    if (regex_case_insesitive) {
-      flags.grep_regex.insert(0, "(?i)");
+  for (const std::string_view regex : grep_expressions) {
+    if (!flags.grep_expressions.emplace_back(
+          BuildRegex(regex, regex_case_insesitive))) {
+      return EXIT_FAILURE;
     }
-    flags.grep_regex.insert(0, "(");
-    flags.grep_regex.append(")");
   }
 
   // TODO: the various scoped areas below look like they actually want

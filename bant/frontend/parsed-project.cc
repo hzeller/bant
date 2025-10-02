@@ -374,17 +374,10 @@ std::pair<size_t, size_t> PrintProject(Session &session,
   size_t total = 0;
   const CommandlineFlags &flags = session.flags();
 
-  std::unique_ptr<RE2> regex;
-  if (!flags.grep_regex.empty()) {
-    RE2::Options options;
-    options.set_log_errors(false);  // We print them ourselves
-    regex = std::make_unique<RE2>(flags.grep_regex, options);
-    if (!regex->ok()) {
-      // This really needs the session passed in so that we can reach the
-      // correct error stream.
-      std::cerr << "Grep pattern: " << regex->error() << "\n";
-      return {count, total};
-    }
+  // TODO: we should match all expressions.
+  RE2 *regex = nullptr;
+  if (!flags.grep_expressions.empty()) {
+    regex = flags.grep_expressions.front().get();
   }
 
   for (const auto &[package, file_content] : project.ParsedFiles()) {
@@ -408,7 +401,7 @@ std::pair<size_t, size_t> PrintProject(Session &session,
           if (flags.do_color) tmp_out << "\033[0m";
         }
         tmp_out << "\n";
-        PrintVisitor printer(tmp_out, regex.get(), flags.do_color);
+        PrintVisitor printer(tmp_out, regex, flags.do_color);
         printer.WalkNonNull(item);
         tmp_out << "\n";
         if (!regex || printer.any_highlight()) {  // w/o regex: always print.
@@ -442,7 +435,7 @@ std::pair<size_t, size_t> PrintProject(Session &session,
         MaybePrintVisibility(result.visibility, tmp_out);
         if (flags.do_color) tmp_out << "\033[0m";
         tmp_out << "\n";
-        PrintVisitor printer(tmp_out, regex.get(), flags.do_color);
+        PrintVisitor printer(tmp_out, regex, flags.do_color);
         printer.WalkNonNull(result.node);
         tmp_out << "\n";
         if (!regex || printer.any_highlight()) {  // w/o regex: always print.
