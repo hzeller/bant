@@ -39,6 +39,7 @@ static void PrintExternalRepos(
   Session &session,
   const OneToOne<VersionedProject, FilesystemPath> &external_repos) {
   auto highlighter = CreateGrepHighlighterFromFlags(session);
+  if (!highlighter) return;
   auto printer =
     TablePrinter::Create(session.out(), session.flags().output_format,
                          *highlighter, {"project", "version", "directory"});

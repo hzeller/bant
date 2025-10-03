@@ -375,6 +375,9 @@ std::pair<size_t, size_t> PrintProject(Session &session,
   const CommandlineFlags &flags = session.flags();
 
   auto highlighter = CreateGrepHighlighterFromFlags(session);
+  if (!highlighter) {
+    return {count, total};
+  }
   for (const auto &[package, file_content] : project.ParsedFiles()) {
     if (flags.print_only_errors && file_content->errors.empty()) {
       continue;

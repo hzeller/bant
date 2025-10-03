@@ -472,6 +472,7 @@ void PrintProvidedSources(Session &session, const std::string &table_header,
                           const BazelTargetMatcher &pattern,
                           const ProvidedFromTarget &provided_from_lib) {
   auto highlighter = CreateGrepHighlighterFromFlags(session);
+  if (!highlighter) return;
   auto printer =
     TablePrinter::Create(session.out(), session.flags().output_format,
                          *highlighter, {table_header, "providing-rule"});
@@ -486,6 +487,7 @@ void PrintProvidedSources(Session &session, const std::string &table_header,
                           const BazelTargetMatcher &pattern,
                           const ProvidedFromTargetSet &provided_from_lib) {
   auto highlighter = CreateGrepHighlighterFromFlags(session);
+  if (!highlighter) return;
   auto printer =
     TablePrinter::Create(session.out(), session.flags().output_format,
                          *highlighter, {table_header, "providing-rule"});

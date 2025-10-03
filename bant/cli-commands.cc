@@ -86,6 +86,7 @@ void PrintOneToN(bant::Session &session, const BazelTargetMatcher &pattern,
                  const OneToN<BazelTarget, BazelTarget> &table,
                  const std::string &header1, const std::string &header2) {
   auto highlighter = CreateGrepHighlighterFromFlags(session);
+  if (!highlighter) return;
   auto printer =
     TablePrinter::Create(session.out(), session.flags().output_format,
                          *highlighter, {header1, header2});
@@ -333,6 +334,7 @@ CliStatus RunCommand(Session &session, Command cmd,
 
   case Command::kListPackages: {
     auto highlighter = CreateGrepHighlighterFromFlags(session);
+    if (!highlighter) return CliStatus::kExitFailure;
     auto printer =
       TablePrinter::Create(session.out(), session.flags().output_format,
                            *highlighter, {"bazel-file", "package"});
@@ -345,6 +347,7 @@ CliStatus RunCommand(Session &session, Command cmd,
   case Command::kListLeafs:
   case Command::kListTargets: {
     auto highlighter = CreateGrepHighlighterFromFlags(session);
+    if (!highlighter) return CliStatus::kExitFailure;
     auto printer =
       TablePrinter::Create(session.out(), session.flags().output_format,
                            *highlighter, {"file-location", "rule", "target"});

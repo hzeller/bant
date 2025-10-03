@@ -79,7 +79,9 @@ class GrepHighlighter {
   std::vector<std::unique_ptr<RE2>> matchers_;
 };
 
-// Convenience factory
+// Convenience factory: create a GrepHighlighter from the flags in the
+// session. Returns a fully constructed GrepHighlighter or nullptr if there
+// was an issue with the regular expressions.
 std::unique_ptr<GrepHighlighter> CreateGrepHighlighterFromFlags(
   Session &session);
 }  // namespace bant

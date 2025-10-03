@@ -172,8 +172,11 @@ std::unique_ptr<GrepHighlighter> CreateGrepHighlighterFromFlags(
   const auto &flags = session.flags();
   auto result =
     std::make_unique<GrepHighlighter>(flags.do_color, !flags.grep_or_semantics);
-  result->AddExpressions(flags.grep_expressions, flags.regex_case_insesitive,
-                         session.error());
+  if (!result->AddExpressions(flags.grep_expressions,
+                              flags.regex_case_insesitive,
+                              session.error())) {
+    result.reset();
+  }
   return result;
 }
 }  // namespace bant
