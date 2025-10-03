@@ -371,7 +371,7 @@ DependencyGraph BuildDependencyGraph(Session &session,
                 "Dependency graph: Did not find these packages\n",
                 error_packages);
     }
-    const GrepHighlighter highlighter(false);
+    const GrepHighlighter highlighter(false, false);
     if (!error_target_example.empty()) {
       session.info() << "Dependency graph: Did not find these targets\n";
       auto printer =

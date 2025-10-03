@@ -23,56 +23,56 @@
 
 namespace bant {
 TEST(GrepHighlighterTest, SimpleMatch) {
-  GrepHighlighter highligher(false);
+  GrepHighlighter highligher(false, true);
   std::stringstream sink;
   EXPECT_TRUE(highligher.AddExpressions({"ello"}, false, sink));
 
-  EXPECT_TRUE(highligher.EmitMatch("hello world", true, sink));
-  EXPECT_FALSE(highligher.EmitMatch("nothing here", true, sink));
+  EXPECT_TRUE(highligher.EmitMatch("hello world", sink));
+  EXPECT_FALSE(highligher.EmitMatch("nothing here", sink));
   EXPECT_EQ(sink.str(), "hello world");
 }
 
 TEST(GrepHighlighterTest, HighlightMatch) {
-  GrepHighlighter highligher(true);
+  GrepHighlighter highligher(true, true);
   std::stringstream sink;
   EXPECT_TRUE(highligher.AddExpressions({"ello", "rld"}, false, sink));
   highligher.SetHighlightStart({"_RED_", "_GREEN_", "_BLUE_"});
   highligher.SetHighlightEnd("_END_");
 
-  EXPECT_TRUE(highligher.EmitMatch("hello world", true, sink));
+  EXPECT_TRUE(highligher.EmitMatch("hello world", sink));
   EXPECT_EQ(sink.str(), "h_RED_ello_END_ wo_GREEN_rld_END_");
 }
 
 TEST(GrepHighlighterTest, HighlightOverlapMatch) {
-  GrepHighlighter highligher(true);
+  GrepHighlighter highligher(true, true);
   std::stringstream sink;
   EXPECT_TRUE(highligher.AddExpressions({"ello", "lo wo"}, false, sink));
   highligher.SetHighlightStart({"_RED_", "_GREEN_", "_BLUE_"});
   highligher.SetHighlightEnd("_END_");
 
-  EXPECT_TRUE(highligher.EmitMatch("hello world", true, sink));
+  EXPECT_TRUE(highligher.EmitMatch("hello world", sink));
   EXPECT_EQ(sink.str(), "h_RED_el_GREEN_lo wo_END_rld");
 }
 
 TEST(GrepHighlighterTest, HighlightButtingUpMatch) {
-  GrepHighlighter highligher(true);
+  GrepHighlighter highligher(true, true);
   std::stringstream sink;
   EXPECT_TRUE(highligher.AddExpressions({"hello", "world"}, false, sink));
   highligher.SetHighlightStart({"_RED_", "_GREEN_", "_BLUE_"});
   highligher.SetHighlightEnd("_END_");
 
-  EXPECT_TRUE(highligher.EmitMatch("helloworld", true, sink));
+  EXPECT_TRUE(highligher.EmitMatch("helloworld", sink));
   EXPECT_EQ(sink.str(), "_RED_hello_END__GREEN_world_END_");
 }
 
 TEST(GrepHighlighterTest, AlwaysResetFirstButtingUpMatch) {
-  GrepHighlighter highligher(true);
+  GrepHighlighter highligher(true, true);
   std::stringstream sink;
   EXPECT_TRUE(highligher.AddExpressions({"world", "hello"}, false, sink));
   highligher.SetHighlightStart({"_RED_", "_GREEN_", "_BLUE_"});
   highligher.SetHighlightEnd("_END_");
 
-  EXPECT_TRUE(highligher.EmitMatch("helloworld", true, sink));
+  EXPECT_TRUE(highligher.EmitMatch("helloworld", sink));
   EXPECT_EQ(sink.str(), "_GREEN_hello_END__RED_world_END_");
 }
 }  // namespace bant

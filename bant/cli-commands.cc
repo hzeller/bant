@@ -85,13 +85,10 @@ enum class Command {
 void PrintOneToN(bant::Session &session, const BazelTargetMatcher &pattern,
                  const OneToN<BazelTarget, BazelTarget> &table,
                  const std::string &header1, const std::string &header2) {
-  GrepHighlighter highlighter(session.flags().do_color);
-  highlighter.AddExpressions(session.flags().grep_expressions,
-                             session.flags().regex_case_insesitive,
-                             session.error());
+  auto highlighter = CreateGrepHighlighterFromFlags(session);
   auto printer =
     TablePrinter::Create(session.out(), session.flags().output_format,
-                         highlighter, {header1, header2});
+                         *highlighter, {header1, header2});
   std::vector<std::string> repeat_print;
   for (const auto &d : table) {
     if (!pattern.Match(d.first)) continue;
@@ -335,14 +332,10 @@ CliStatus RunCommand(Session &session, Command cmd,
     break;
 
   case Command::kListPackages: {
-    GrepHighlighter highlighter(session.flags().do_color);
-    highlighter.AddExpressions(session.flags().grep_expressions,
-                               session.flags().regex_case_insesitive,
-                               session.error());
-
+    auto highlighter = CreateGrepHighlighterFromFlags(session);
     auto printer =
       TablePrinter::Create(session.out(), session.flags().output_format,
-                           highlighter, {"bazel-file", "package"});
+                           *highlighter, {"bazel-file", "package"});
     for (const auto &[package, parsed] : project.ParsedFiles()) {
       printer->AddRow({std::string(parsed->name()), package.ToString()});
     }
@@ -351,14 +344,10 @@ CliStatus RunCommand(Session &session, Command cmd,
 
   case Command::kListLeafs:
   case Command::kListTargets: {
-    GrepHighlighter highlighter(session.flags().do_color);
-    highlighter.AddExpressions(session.flags().grep_expressions,
-                               session.flags().regex_case_insesitive,
-                               session.error());
-
+    auto highlighter = CreateGrepHighlighterFromFlags(session);
     auto printer =
       TablePrinter::Create(session.out(), session.flags().output_format,
-                           highlighter, {"file-location", "rule", "target"});
+                           *highlighter, {"file-location", "rule", "target"});
     for (const auto &[package, parsed] : project.ParsedFiles()) {
       FindTargets(parsed->ast, {}, [&](const Result &target) {
         auto target_name =

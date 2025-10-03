@@ -374,14 +374,7 @@ std::pair<size_t, size_t> PrintProject(Session &session,
   size_t total = 0;
   const CommandlineFlags &flags = session.flags();
 
-  constexpr bool kMatchAll = true;  // TODO: implement or.
-
-  GrepHighlighter highlighter(flags.do_color);
-  if (!highlighter.AddExpressions(
-        flags.grep_expressions, flags.regex_case_insesitive, session.error())) {
-    return {count, total};
-  }
-
+  auto highlighter = CreateGrepHighlighterFromFlags(session);
   for (const auto &[package, file_content] : project.ParsedFiles()) {
     if (flags.print_only_errors && file_content->errors.empty()) {
       continue;
@@ -408,8 +401,8 @@ std::pair<size_t, size_t> PrintProject(Session &session,
         PrintVisitor printer(ast_out, flags.do_color);
         printer.WalkNonNull(item);
 
-        if (highlighter.EmitMatch(ast_out.str(), kMatchAll, session.out(),
-                                  headline_out.str(), "\n")) {
+        if (highlighter->EmitMatch(ast_out.str(), session.out(),
+                                   headline_out.str(), "\n")) {
           ++count;
         }
       }
@@ -444,8 +437,8 @@ std::pair<size_t, size_t> PrintProject(Session &session,
         PrintVisitor printer(ast_out, flags.do_color);
         printer.WalkNonNull(result.node);
 
-        if (highlighter.EmitMatch(ast_out.str(), kMatchAll, session.out(),
-                                  headline_out.str(), "\n")) {
+        if (highlighter->EmitMatch(ast_out.str(), session.out(),
+                                   headline_out.str(), "\n")) {
           ++count;
         }
       });

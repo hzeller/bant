@@ -471,13 +471,10 @@ std::optional<FindResult> FindBySuffix(const ProvidedFromTargetSet &index,
 void PrintProvidedSources(Session &session, const std::string &table_header,
                           const BazelTargetMatcher &pattern,
                           const ProvidedFromTarget &provided_from_lib) {
-  GrepHighlighter highlighter(session.flags().do_color);
-  highlighter.AddExpressions(session.flags().grep_expressions,
-                             session.flags().regex_case_insesitive,
-                             session.error());
+  auto highlighter = CreateGrepHighlighterFromFlags(session);
   auto printer =
     TablePrinter::Create(session.out(), session.flags().output_format,
-                         highlighter, {table_header, "providing-rule"});
+                         *highlighter, {table_header, "providing-rule"});
   for (const auto &[provided, lib] : provided_from_lib) {
     if (!pattern.Match(lib)) continue;
     printer->AddRow({provided, lib.ToString()});
@@ -488,14 +485,10 @@ void PrintProvidedSources(Session &session, const std::string &table_header,
 void PrintProvidedSources(Session &session, const std::string &table_header,
                           const BazelTargetMatcher &pattern,
                           const ProvidedFromTargetSet &provided_from_lib) {
-  GrepHighlighter highlighter(session.flags().do_color);
-  highlighter.AddExpressions(session.flags().grep_expressions,
-                             session.flags().regex_case_insesitive,
-                             session.error());
-
+  auto highlighter = CreateGrepHighlighterFromFlags(session);
   auto printer =
     TablePrinter::Create(session.out(), session.flags().output_format,
-                         highlighter, {table_header, "providing-rule"});
+                         *highlighter, {table_header, "providing-rule"});
   for (const auto &[provided, libs] : provided_from_lib) {
     std::vector<std::string> list;
     for (const BazelTarget &target : libs) {

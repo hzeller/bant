@@ -46,7 +46,7 @@ TEST(TablePrinter, PlainTable) {
      "\"somewhatlongtext\",\"xyz\"\n"},
   };
 
-  const GrepHighlighter highlighter(false);
+  const GrepHighlighter highlighter(false, true);
   for (const auto &[fmt, expected] : kTests) {
     std::stringstream out;
     auto printer = TablePrinter::Create(out, fmt, highlighter, {"foo", "bar"});
@@ -90,7 +90,7 @@ TEST(TablePrinter, TableWithRepeatedLastCol) {
      "\"threeval\",\"xyz\"\n"},
   };
 
-  const GrepHighlighter highlighter(false);
+  const GrepHighlighter highlighter(false, true);
   for (const auto &[fmt, expected] : kTests) {
     std::stringstream out;
     auto printer = TablePrinter::Create(out, fmt, highlighter, {"foo", "bar"});

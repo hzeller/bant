@@ -28,11 +28,12 @@
 #include <vector>
 
 #include "absl/log/check.h"
+#include "bant/session.h"
 #include "re2/re2.h"
 
 namespace bant {
-GrepHighlighter::GrepHighlighter(bool do_highlight)
-    : do_highlight_(do_highlight) {
+GrepHighlighter::GrepHighlighter(bool do_highlight, bool and_semantics)
+    : do_highlight_(do_highlight), and_semantics_(and_semantics) {
   const std::initializer_list<std::string_view> colors = {
     "\033[7m",   // Invers
     "\033[41m",  // red background
@@ -92,8 +93,8 @@ bool GrepHighlighter::AddExpressions(const std::vector<std::string> &regex_list,
   return all_good;
 }
 
-bool GrepHighlighter::EmitMatch(std::string_view content, bool want_all,
-                                std::ostream &out, std::string_view prefix,
+bool GrepHighlighter::EmitMatch(std::string_view content, std::ostream &out,
+                                std::string_view prefix,
                                 std::string_view suffix) const {
   if (matchers_.empty()) {  // Short path
     out << prefix << content << suffix;
@@ -103,7 +104,7 @@ bool GrepHighlighter::EmitMatch(std::string_view content, bool want_all,
   // Preprocess; we first need to determine all the matches so that we can
   // properly highlight overlapping sections. Store them in matching order
 
-  // Remember which regexps matched (to know if "want_all" qualified).
+  // Remember which regexps matched (for and semnatics)
   std::set<int> matched_regex_index;
 
   // Matching start point to start of match for a particular color and
@@ -126,7 +127,9 @@ bool GrepHighlighter::EmitMatch(std::string_view content, bool want_all,
 
   // Requested match conditions met ?
   if (matched_regex_index.empty()) return false;
-  if (want_all && matched_regex_index.size() != matchers_.size()) return false;
+  if (and_semantics_ && matched_regex_index.size() != matchers_.size()) {
+    return false;
+  }
 
   if (!do_highlight_) {
     out << prefix << content << suffix;
@@ -164,4 +167,13 @@ bool GrepHighlighter::EmitMatch(std::string_view content, bool want_all,
   return true;
 }
 
+std::unique_ptr<GrepHighlighter> CreateGrepHighlighterFromFlags(
+  Session &session) {
+  const auto &flags = session.flags();
+  auto result =
+    std::make_unique<GrepHighlighter>(flags.do_color, !flags.grep_or_semantics);
+  result->AddExpressions(flags.grep_expressions, flags.regex_case_insesitive,
+                         session.error());
+  return result;
+}
 }  // namespace bant

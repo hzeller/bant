@@ -38,14 +38,10 @@ namespace bant {
 static void PrintExternalRepos(
   Session &session,
   const OneToOne<VersionedProject, FilesystemPath> &external_repos) {
-  GrepHighlighter highlighter(session.flags().do_color);
-  highlighter.AddExpressions(session.flags().grep_expressions,
-                             session.flags().regex_case_insesitive,
-                             session.error());
-
+  auto highlighter = CreateGrepHighlighterFromFlags(session);
   auto printer =
     TablePrinter::Create(session.out(), session.flags().output_format,
-                         highlighter, {"project", "version", "directory"});
+                         *highlighter, {"project", "version", "directory"});
   for (const auto &[project, file] : external_repos) {
     printer->AddRow({project.project,
                      project.version.empty() ? "-" : project.version,

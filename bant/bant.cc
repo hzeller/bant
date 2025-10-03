@@ -88,6 +88,11 @@ static int usage(const char *prog, const char *message, int exit_code) {
     -f <format>    : Output format, support depends on command. One of
                    : native (default), s-expr, plist, json, csv
                      Unique prefix ok, so -fs , -fp, -fj or -fc is sufficient.
+    -g <regex>     : 'grep' filter output with regular expression. Can be
+                     provided multiple times to narrow match ('and' semantics).
+                     Outputs are highlit with different colors (also see '-O')
+    -O             : 'or' smentics for for `-g`. Instead of requiring all
+                     regexs to match for a record, require one of them.
     -r             : Follow dependencies recursively starting from pattern.
                      Without numeric parameter, follows dependencies to the end.
                      An optional parameter allows to limit the nesting depth,
@@ -212,7 +217,7 @@ int main(int argc, char *argv[]) {
     {"json", OutputFormat::kJSON},     {"graphviz", OutputFormat::kGraphviz},
   };
   int opt;
-  while ((opt = getopt(argc, argv, "C:qo:vhaEF:ecbf:r::Vkg:iT:P")) != -1) {
+  while ((opt = getopt(argc, argv, "C:qo:vhaEF:ecbf:r::Vkg:iT:PO")) != -1) {
     switch (opt) {
     case 'C': {
       std::error_code err;
@@ -256,10 +261,11 @@ int main(int argc, char *argv[]) {
     case 'k': flags.ignore_keep_comment = true; break;
 
     case 'g': flags.grep_expressions.emplace_back(optarg); break;
-
+    case 'O': flags.grep_or_semantics = true; break;
     case 'i':
       flags.regex_case_insesitive = true;
       break;
+
       // "print" options
     case 'a': flags.print_ast = true; break;
     case 'E': flags.print_only_errors = true; break;

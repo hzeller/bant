@@ -76,7 +76,7 @@ class AlignedTextColumnPrinter : public TablePrinter {
         row_out << absl::StrFormat("%*s", -widths_[i] - 1, row[i]);
       }
       row_out << "\n";
-      highligther_.EmitMatch(row_out.str(), true, out_);
+      highligther_.EmitMatch(row_out.str(), out_);
     }
   }
 

@@ -61,6 +61,7 @@ struct CommandlineFlags {
   int io_threads = 0;  // <= 0: synchronous operation.
   std::vector<std::string> grep_expressions;
   bool regex_case_insesitive = false;
+  bool grep_or_semantics = false;
   bool do_color = false;
   // https://bazel.build/docs/configurable-attributes#custom-flags
   absl::flat_hash_set<std::string> custom_flags;

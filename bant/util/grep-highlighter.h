@@ -24,6 +24,7 @@
 #include <string_view>
 #include <vector>
 
+#include "bant/session.h"
 #include "re2/re2.h"
 
 namespace bant {
@@ -34,7 +35,10 @@ namespace bant {
 // If "regexp" list is empty, just prints output plain.
 class GrepHighlighter {
  public:
-  explicit GrepHighlighter(bool do_highlight);
+  // "do_highlight" : emit matches with color highlights.
+  // "and_semantics": require all distinct expressions match the content
+  //                  to emit ('AND' semantics). Set to false for 'OR'.
+  GrepHighlighter(bool do_highlight, bool and_semantics);
 
   // Set regular expressions. If there are issues, emit error to given stream
   // and return false; Should be called once.
@@ -55,9 +59,6 @@ class GrepHighlighter {
   // and only if there are matches (if regexp list was empty, then by definition
   // this is a match).
   //
-  // If "want_all" is true, only emits if all distinct regular expressions
-  // match ('AND') otherwise any match ('OR') is sufficient.
-  //
   // If "do_highlight" was selected in the constructor, emits terminal escape
   // sequences around the matches to color the output.
   //
@@ -66,16 +67,21 @@ class GrepHighlighter {
   //
   // Iff content is written also emit prefix and suffix (but prefix and suffix
   // are not subject to match checking).
-  bool EmitMatch(std::string_view content, bool want_all, std::ostream &out,
+  bool EmitMatch(std::string_view content, std::ostream &out,
                  std::string_view prefix = "",
                  std::string_view suffix = "") const;
 
  private:
   const bool do_highlight_;
+  const bool and_semantics_;
   std::vector<std::string> color_highlight_;
   std::string end_highlight_;
   std::vector<std::unique_ptr<RE2>> matchers_;
 };
+
+// Convenience factory
+std::unique_ptr<GrepHighlighter> CreateGrepHighlighterFromFlags(
+  Session &session);
 }  // namespace bant
 
 #endif  // BANT_GREP_HIGHLIGHTER_H
