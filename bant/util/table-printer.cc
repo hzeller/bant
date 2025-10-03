@@ -22,6 +22,7 @@
 #include <iterator>
 #include <memory>
 #include <ostream>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -29,6 +30,7 @@
 #include "absl/strings/escaping.h"
 #include "absl/strings/str_format.h"
 #include "bant/output-format.h"
+#include "bant/util/grep-highlighter.h"
 
 namespace bant {
 namespace {
@@ -37,8 +39,12 @@ namespace {
 class AlignedTextColumnPrinter : public TablePrinter {
  public:
   AlignedTextColumnPrinter(std::ostream &out,
+                           const GrepHighlighter &highligther,
                            const std::vector<std::string> &headers)
-      : out_(out), headers_(headers), widths_(headers.size()) {}
+      : out_(out),
+        highligther_(highligther),
+        headers_(headers),
+        widths_(headers.size()) {}
 
   void AddRow(const std::vector<std::string> &row) final {
     CHECK_EQ(row.size(), widths_.size());
@@ -65,21 +71,25 @@ class AlignedTextColumnPrinter : public TablePrinter {
 
   void Finish() final {
     for (const auto &row : buffer_) {
+      std::stringstream row_out;
       for (size_t i = 0; i < widths_.size(); ++i) {
-        out_ << absl::StrFormat("%*s", -widths_[i] - 1, row[i]);
+        row_out << absl::StrFormat("%*s", -widths_[i] - 1, row[i]);
       }
-      out_ << "\n";
+      row_out << "\n";
+      highligther_.EmitMatch(row_out.str(), true, out_);
     }
   }
 
  private:
   std::ostream &out_;
+  const GrepHighlighter &highligther_;
   const std::vector<std::string> headers_;
   // Buffer to keep while determining the print width;
   std::vector<int> widths_;
   std::vector<std::vector<std::string>> buffer_;
 };
 
+// TODO: also implement greph highlighter for these other table printers.
 class SExprTablePrinter : public TablePrinter {
  public:
   SExprTablePrinter(std::ostream &out, const std::vector<std::string> &headers,
@@ -225,7 +235,7 @@ class CSVTablePrinter : public TablePrinter {
 }  // namespace
 
 std::unique_ptr<TablePrinter> TablePrinter::Create(
-  std::ostream &out, OutputFormat format,
+  std::ostream &out, OutputFormat format, const GrepHighlighter &highlighter,
   const std::vector<std::string> &headers) {
   switch (format) {
   case OutputFormat::kSExpr:
@@ -236,7 +246,9 @@ std::unique_ptr<TablePrinter> TablePrinter::Create(
     return std::make_unique<JSonTablePrinter>(out, headers);
   case OutputFormat::kCSV:
     return std::make_unique<CSVTablePrinter>(out, headers);
-  default: return std::make_unique<AlignedTextColumnPrinter>(out, headers);
+  default:
+    return std::make_unique<AlignedTextColumnPrinter>(out, highlighter,
+                                                      headers);
   }
 }
 }  // namespace bant

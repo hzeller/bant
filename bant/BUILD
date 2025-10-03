@@ -54,6 +54,7 @@ cc_binary(
         "//bant/tool:edit-callback",
         "//bant/tool:workspace",
         "//bant/util:file-utils",
+        "//bant/util:grep-highlighter",
         "//bant/util:stat",
         "//bant/util:table-printer",
         "@abseil-cpp//absl/container:flat_hash_set",

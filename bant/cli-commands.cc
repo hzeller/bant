@@ -38,6 +38,7 @@
 #include "bant/types-bazel.h"
 #include "bant/types.h"
 #include "bant/util/file-utils.h"
+#include "bant/util/grep-highlighter.h"
 #include "bant/util/stat.h"
 #include "bant/util/table-printer.h"
 #include "bant/workspace.h"
@@ -84,8 +85,13 @@ enum class Command {
 void PrintOneToN(bant::Session &session, const BazelTargetMatcher &pattern,
                  const OneToN<BazelTarget, BazelTarget> &table,
                  const std::string &header1, const std::string &header2) {
-  auto printer = TablePrinter::Create(
-    session.out(), session.flags().output_format, {header1, header2});
+  GrepHighlighter highlighter(session.flags().do_color);
+  highlighter.AddExpressions(session.flags().grep_expressions,
+                             session.flags().regex_case_insesitive,
+                             session.error());
+  auto printer =
+    TablePrinter::Create(session.out(), session.flags().output_format,
+                         highlighter, {header1, header2});
   std::vector<std::string> repeat_print;
   for (const auto &d : table) {
     if (!pattern.Match(d.first)) continue;
@@ -329,8 +335,14 @@ CliStatus RunCommand(Session &session, Command cmd,
     break;
 
   case Command::kListPackages: {
-    auto printer = TablePrinter::Create(
-      session.out(), session.flags().output_format, {"bazel-file", "package"});
+    GrepHighlighter highlighter(session.flags().do_color);
+    highlighter.AddExpressions(session.flags().grep_expressions,
+                               session.flags().regex_case_insesitive,
+                               session.error());
+
+    auto printer =
+      TablePrinter::Create(session.out(), session.flags().output_format,
+                           highlighter, {"bazel-file", "package"});
     for (const auto &[package, parsed] : project.ParsedFiles()) {
       printer->AddRow({std::string(parsed->name()), package.ToString()});
     }
@@ -339,9 +351,14 @@ CliStatus RunCommand(Session &session, Command cmd,
 
   case Command::kListLeafs:
   case Command::kListTargets: {
+    GrepHighlighter highlighter(session.flags().do_color);
+    highlighter.AddExpressions(session.flags().grep_expressions,
+                               session.flags().regex_case_insesitive,
+                               session.error());
+
     auto printer =
       TablePrinter::Create(session.out(), session.flags().output_format,
-                           {"file-location", "rule", "target"});
+                           highlighter, {"file-location", "rule", "target"});
     for (const auto &[package, parsed] : project.ParsedFiles()) {
       FindTargets(parsed->ast, {}, [&](const Result &target) {
         auto target_name =

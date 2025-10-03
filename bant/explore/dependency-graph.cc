@@ -39,6 +39,7 @@
 #include "bant/types.h"
 #include "bant/util/file-utils.h"
 #include "bant/util/filesystem.h"
+#include "bant/util/grep-highlighter.h"
 #include "bant/util/stat.h"
 #include "bant/util/table-printer.h"
 #include "bant/util/thread-pool.h"
@@ -370,10 +371,12 @@ DependencyGraph BuildDependencyGraph(Session &session,
                 "Dependency graph: Did not find these packages\n",
                 error_packages);
     }
+    const GrepHighlighter highlighter(false);
     if (!error_target_example.empty()) {
       session.info() << "Dependency graph: Did not find these targets\n";
-      auto printer = TablePrinter::Create(session.info(), OutputFormat::kNative,
-                                          {"Dependency", "needed-by"});
+      auto printer =
+        TablePrinter::Create(session.info(), OutputFormat::kNative, highlighter,
+                             {"Dependency", "needed-by"});
       // Ascii table does not have header, so add our own here.
       printer->AddRow({"[--- Dependency ---]", "[--- Example Needed By ---]"});
       for (const auto &[dep, example] : error_target_example) {

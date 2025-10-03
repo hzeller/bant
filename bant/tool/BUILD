@@ -134,6 +134,7 @@ cc_library(
         "//bant/explore:query-utils",
         "//bant/frontend:parsed-project",
         "//bant/util:file-utils",
+        "//bant/util:grep-highlighter",
         "//bant/util:table-printer",
     ],
 )

@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "bant/output-format.h"
+#include "bant/util/grep-highlighter.h"
 
 namespace bant {
 class TablePrinter {
@@ -31,7 +32,7 @@ class TablePrinter {
   // Table with the folllowing header names. Number of headers determines
   // number of columns.
   static std::unique_ptr<TablePrinter> Create(
-    std::ostream &out, OutputFormat format,
+    std::ostream &out, OutputFormat format, const GrepHighlighter &highlighter,
     const std::vector<std::string> &headers);
   virtual ~TablePrinter() = default;
 

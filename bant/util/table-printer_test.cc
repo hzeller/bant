@@ -22,6 +22,7 @@
 #include <string_view>
 
 #include "bant/output-format.h"
+#include "bant/util/grep-highlighter.h"
 #include "gtest/gtest.h"
 
 namespace bant {
@@ -45,9 +46,10 @@ TEST(TablePrinter, PlainTable) {
      "\"somewhatlongtext\",\"xyz\"\n"},
   };
 
+  const GrepHighlighter highlighter(false);
   for (const auto &[fmt, expected] : kTests) {
     std::stringstream out;
-    auto printer = TablePrinter::Create(out, fmt, {"foo", "bar"});
+    auto printer = TablePrinter::Create(out, fmt, highlighter, {"foo", "bar"});
     printer->AddRow({"short", "somevalue"});
     printer->AddRow({"somewhatlongtext", "xyz"});
     printer->Finish();
@@ -88,9 +90,10 @@ TEST(TablePrinter, TableWithRepeatedLastCol) {
      "\"threeval\",\"xyz\"\n"},
   };
 
+  const GrepHighlighter highlighter(false);
   for (const auto &[fmt, expected] : kTests) {
     std::stringstream out;
-    auto printer = TablePrinter::Create(out, fmt, {"foo", "bar"});
+    auto printer = TablePrinter::Create(out, fmt, highlighter, {"foo", "bar"});
     printer->AddRowWithRepeatedLastColumn({"noval"}, {});
     printer->AddRowWithRepeatedLastColumn({"oneval"}, {"somevalue"});
     printer->AddRowWithRepeatedLastColumn({"threeval"}, {"abc", "def", "xyz"});

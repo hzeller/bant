@@ -133,6 +133,9 @@ bool GrepHighlighter::EmitMatch(std::string_view content, bool want_all,
     return true;
   }
 
+  // TODO: when we have nested elements inside a colored region, we should
+  // reset, add colored insert and re-establish that outer color.
+
   out << prefix;
   int highlight_depth = 0;  // Only when zero, emit the end match.
   const char *last_end = content.data();

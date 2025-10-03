@@ -39,6 +39,7 @@ cc_library(
     srcs = ["table-printer.cc"],
     hdrs = ["table-printer.h"],
     deps = [
+        ":grep-highlighter",
         "//bant:session",
         "@abseil-cpp//absl/log:check",
         "@abseil-cpp//absl/strings",
@@ -66,6 +67,7 @@ cc_test(
     name = "table-printer_test",
     srcs = ["table-printer_test.cc"],
     deps = [
+        ":grep-highlighter",
         ":table-printer",
         "//bant:session",
         "@googletest//:gtest",
