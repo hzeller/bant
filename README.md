@@ -380,6 +380,11 @@ Options
     -f <format>    : Output format, support depends on command. One of
                    : native (default), s-expr, plist, json, csv
                      Unique prefix ok, so -fs , -fp, -fj or -fc is sufficient.
+    -g <regex>     : 'grep' filter output with regular expression. Can be
+                     provided multiple times to narrow match ('and' semantics).
+                     Outputs are highlit with different colors (also see '-O')
+    -O             : 'or' smentics for for `-g`. Instead of requiring all
+                     regexs to match for a record, require one of them.
     -r             : Follow dependencies recursively starting from pattern.
                      Without numeric parameter, follows dependencies to the end.
                      An optional parameter allows to limit the nesting depth,
@@ -423,16 +428,14 @@ Commands (unique prefix sufficient):
                      → 2 column table: (target, dependency*)
     has-dependent  : List cc library targets and the libraries that depend on it
                      → 2 column table: (target, dependent*)
-    target-hdrs    : Print hdrs mentioned in targets (-P: only physical files)
-                     → 2 column table: (header-filename, target)
-    target-srcs    : Print srcs mentioned in targets (-P: only physical files)
-                     → 2 column table: (srcs-filename, target)
-    target-data    : Print data mentioned in targets (-P: only physical files)
-                     → 2 column table: (data-filename, target)
+    target-hdrs,    : Print either hdrs, srcs or data mentioned in targets.
+    target-srcs,     -P: only if these are physical files
+    target-data      → 2 column table: (header-filename, target)
     lib-headers    : Like target-hdrs, but all reachable paths expanded with all
                      combinations of includes = [], include_prefix, etc.
                      So same header can show up multiple times with different
                      paths. This is the relevant list used by dwyu.
+                     Use -r to recurse into dependencies beyond match pattern.
                      → 2 column table: (header-filename, cc-library-target)
     genrule-outputs: Print generated files by genrule()s matching pattern.
                      → 2 column table: (filename, genrule-target)
