@@ -76,7 +76,6 @@ cc_library(
         "@abseil-cpp//absl/base:core_headers",
         "@abseil-cpp//absl/log:check",
         "@abseil-cpp//absl/strings",
-        "@re2",
     ],
 )
 
@@ -122,12 +121,12 @@ cc_library(
         "//bant/explore:query-utils",
         "//bant/util:disjoint-range-map",
         "//bant/util:file-utils",
+        "//bant/util:grep-highlighter",
         "//bant/util:memory",
         "//bant/util:stat",
         "@abseil-cpp//absl/container:flat_hash_map",
         "@abseil-cpp//absl/log:check",
         "@abseil-cpp//absl/status",
-        "@re2",
     ],
 )
 

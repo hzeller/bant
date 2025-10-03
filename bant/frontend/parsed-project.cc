@@ -43,9 +43,9 @@
 #include "bant/session.h"
 #include "bant/types-bazel.h"
 #include "bant/util/file-utils.h"
+#include "bant/util/grep-highlighter.h"
 #include "bant/util/stat.h"
 #include "bant/workspace.h"
-#include "re2/re2.h"
 
 namespace bant {
 namespace {
@@ -374,10 +374,12 @@ std::pair<size_t, size_t> PrintProject(Session &session,
   size_t total = 0;
   const CommandlineFlags &flags = session.flags();
 
-  // TODO: we should match all expressions.
-  RE2 *regex = nullptr;
-  if (!flags.grep_expressions.empty()) {
-    regex = flags.grep_expressions.front().get();
+  constexpr bool kMatchAll = true;  // TODO: implement or.
+
+  GrepHighlighter highlighter(flags.do_color);
+  if (!highlighter.AddExpressions(
+        flags.grep_expressions, flags.regex_case_insesitive, session.error())) {
+    return {count, total};
   }
 
   for (const auto &[package, file_content] : project.ParsedFiles()) {
@@ -393,19 +395,21 @@ std::pair<size_t, size_t> PrintProject(Session &session,
     // Detailed print of package if requested...
     if (flags.print_ast) {
       for (Node *item : *file_content->ast) {
-        std::stringstream tmp_out;
+        std::stringstream headline_out;
         auto position_or = FindFirstLocatableString(item);
         if (position_or.has_value()) {
-          if (flags.do_color) tmp_out << "\033[2;37m";
-          tmp_out << "# " << project.Loc(*position_or);
-          if (flags.do_color) tmp_out << "\033[0m";
+          if (flags.do_color) headline_out << "\033[2;37m";
+          headline_out << "# " << project.Loc(*position_or);
+          if (flags.do_color) headline_out << "\033[0m";
         }
-        tmp_out << "\n";
-        PrintVisitor printer(tmp_out, regex, flags.do_color);
+        headline_out << "\n";
+
+        std::stringstream ast_out;
+        PrintVisitor printer(ast_out, flags.do_color);
         printer.WalkNonNull(item);
-        tmp_out << "\n";
-        if (!regex || printer.any_highlight()) {  // w/o regex: always print.
-          session.out() << tmp_out.str();
+
+        if (highlighter.EmitMatch(ast_out.str(), kMatchAll, session.out(),
+                                  headline_out.str(), "\n")) {
           ++count;
         }
       }
@@ -426,20 +430,22 @@ std::pair<size_t, size_t> PrintProject(Session &session,
 
         // TODO: instead of just marking the range of the function name,
         // show the range the whole function covers until closed parenthesis.
-        std::stringstream tmp_out;
-        if (flags.do_color) tmp_out << "\033[2;37m";
-        tmp_out << "# " << project.Loc(result.node->identifier()->id());
+        std::stringstream headline_out;
+        if (flags.do_color) headline_out << "\033[2;37m";
+        headline_out << "# " << project.Loc(result.node->identifier()->id());
         if (maybe_target.has_value()) {  // only has value if target with name.
-          tmp_out << " " << *maybe_target;
+          headline_out << " " << *maybe_target;
         }
-        MaybePrintVisibility(result.visibility, tmp_out);
-        if (flags.do_color) tmp_out << "\033[0m";
-        tmp_out << "\n";
-        PrintVisitor printer(tmp_out, regex, flags.do_color);
+        MaybePrintVisibility(result.visibility, headline_out);
+        if (flags.do_color) headline_out << "\033[0m";
+        headline_out << "\n";
+
+        std::stringstream ast_out;
+        PrintVisitor printer(ast_out, flags.do_color);
         printer.WalkNonNull(result.node);
-        tmp_out << "\n";
-        if (!regex || printer.any_highlight()) {  // w/o regex: always print.
-          session.out() << tmp_out.str();
+
+        if (highlighter.EmitMatch(ast_out.str(), kMatchAll, session.out(),
+                                  headline_out.str(), "\n")) {
           ++count;
         }
       });

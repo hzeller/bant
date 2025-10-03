@@ -143,7 +143,7 @@ std::optional<CliStatus> RunDebugCommand(Session &session, Command cmd) {
     Elaborate(session, &project, options, parsed);
   }
   if (cmd == Command::kPrint && parsed->ast) {
-    PrintVisitor printer(session.out(), nullptr, session.flags().do_color);
+    PrintVisitor printer(session.out(), session.flags().do_color);
     printer.WalkNonNull(parsed->ast);
     session.out() << "\n";
   }

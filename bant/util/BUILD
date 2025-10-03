@@ -177,3 +177,23 @@ cc_test(
         "@googletest//:gtest_main",
     ],
 )
+
+cc_library(
+    name = "grep-highlighter",
+    srcs = ["grep-highlighter.cc"],
+    hdrs = ["grep-highlighter.h"],
+    deps = [
+        "@abseil-cpp//absl/log:check",
+        "@re2",
+    ],
+)
+
+cc_test(
+    name = "grep-highlighter_test",
+    srcs = ["grep-highlighter_test.cc"],
+    deps = [
+        ":grep-highlighter",
+        "@googletest//:gtest",
+        "@googletest//:gtest_main",
+    ],
+)

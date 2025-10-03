@@ -19,18 +19,15 @@
 #define BANT_PRINT_VISITOR_H
 
 #include <ostream>
-#include <string_view>
 
 #include "bant/frontend/ast.h"
-#include "re2/re2.h"
 
 namespace bant {
 class PrintVisitor : public BaseVoidVisitor {
  public:
-  explicit PrintVisitor(std::ostream &out,
-                        const RE2 *optional_highlight = nullptr,
-                        bool do_color = false)
-      : out_(out), highlight_re_(optional_highlight), do_color_(do_color) {}
+  explicit PrintVisitor(std::ostream &out, bool do_color = false)
+      : out_(out), do_color_(do_color) {}
+
   void VisitAssignment(Assignment *a) final;
   void VisitFunCall(FunCall *f) final;
   void VisitList(List *l) final;
@@ -43,14 +40,8 @@ class PrintVisitor : public BaseVoidVisitor {
   void VisitScalar(Scalar *s) final;
   void VisitIdentifier(Identifier *i) final;
 
-  // Report if any regex-highlight has been emitted during print.
-  bool any_highlight() const { return any_highlight_; }
-
  private:
-  void PrintMaybeHighlight(std::string_view print_str);
-
   std::ostream &out_;
-  const RE2 *const highlight_re_;
   const bool do_color_;
 
   int indent_ = 0;

@@ -29,7 +29,6 @@
 #include "bant/output-format.h"
 #include "bant/types.h"
 #include "bant/util/stat.h"
-#include "re2/re2.h"
 
 namespace bant {
 // Tuple of all output streams to talk to the user.
@@ -60,7 +59,8 @@ struct CommandlineFlags {
   int recurse_dependency_depth = 0;
   OutputFormat output_format = OutputFormat::kNative;
   int io_threads = 0;  // <= 0: synchronous operation.
-  std::vector<std::shared_ptr<RE2>> grep_expressions;
+  std::vector<std::string> grep_expressions;
+  bool regex_case_insesitive = false;
   bool do_color = false;
   // https://bazel.build/docs/configurable-attributes#custom-flags
   absl::flat_hash_set<std::string> custom_flags;

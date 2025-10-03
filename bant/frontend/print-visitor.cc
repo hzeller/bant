@@ -24,47 +24,24 @@
 
 #include "bant/frontend/ast.h"
 #include "bant/frontend/scanner.h"
-#include "re2/re2.h"
 
 // TODO: put this in some other place.
 struct Colors {
   std::string_view bold;
   std::string_view assignment_lhs;
   std::string_view reset;
-
-  std::string_view highlight;
-  std::string_view reset_hightlight;
 };
 
 static constexpr Colors kColor = {
   .bold = "\033[1m",
   .assignment_lhs = "\033[35m",
   .reset = "\033[0m",
-
-  .highlight = "\033[7m",
-  .reset_hightlight = "\033[27m",
 };
 
 namespace bant {
-void PrintVisitor::PrintMaybeHighlight(std::string_view print_str) {
-  const char *last_end = print_str.data();
-  std::string_view highlight;
-  if (highlight_re_) {
-    while (RE2::FindAndConsume(&print_str, *highlight_re_, &highlight)) {
-      out_ << std::string_view(last_end, highlight.data() - last_end);
-      if (do_color_) out_ << kColor.highlight;
-      out_ << highlight;
-      if (do_color_) out_ << kColor.reset_hightlight;
-      any_highlight_ = true;
-      last_end = print_str.data();
-    }
-  }
-  out_ << std::string_view(last_end, print_str.end() - last_end);
-}
-
 void PrintVisitor::VisitFunCall(FunCall *f) {
   if (do_color_) out_ << kColor.bold;
-  PrintMaybeHighlight(f->identifier()->id());
+  out_ << f->identifier()->id();
   if (do_color_) out_ << kColor.reset;
   BaseVoidVisitor::VisitFunCall(f);
 }
@@ -172,15 +149,13 @@ void PrintVisitor::VisitScalar(Scalar *s) {
     if (str->is_triple_quoted()) out_ << quote_char << quote_char;
 
     out_ << quote_char;
-    PrintMaybeHighlight(str->AsString());
+    out_ << str->AsString();
     out_ << quote_char;
     if (str->is_triple_quoted()) out_ << quote_char << quote_char;
   }
 }
 
-void PrintVisitor::VisitIdentifier(Identifier *i) {
-  PrintMaybeHighlight(i->id());
-}
+void PrintVisitor::VisitIdentifier(Identifier *i) { out_ << i->id(); }
 
 std::ostream &operator<<(std::ostream &o, Node *n) {
   if (!PrintVisitor(o).WalkNonNull(n)) {
