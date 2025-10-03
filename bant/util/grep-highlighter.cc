@@ -173,8 +173,7 @@ std::unique_ptr<GrepHighlighter> CreateGrepHighlighterFromFlags(
   auto result =
     std::make_unique<GrepHighlighter>(flags.do_color, !flags.grep_or_semantics);
   if (!result->AddExpressions(flags.grep_expressions,
-                              flags.regex_case_insesitive,
-                              session.error())) {
+                              flags.regex_case_insesitive, session.error())) {
     result.reset();
   }
   return result;
