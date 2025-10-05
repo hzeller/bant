@@ -11,6 +11,7 @@ cc_library(
     hdrs = ["edit-callback.h"],
     deps = [
         "//bant:types-bazel",
+        "//bant/util:grep-highlighter",
     ],
 )
 

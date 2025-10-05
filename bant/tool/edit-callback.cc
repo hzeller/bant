@@ -18,26 +18,30 @@
 #include "bant/tool/edit-callback.h"
 
 #include <ostream>
+#include <sstream>
 #include <string_view>
 
 #include "bant/types-bazel.h"
+#include "bant/util/grep-highlighter.h"
 
 namespace bant {
-EditCallback CreateBuildozerDepsEditCallback(std::ostream &out) {
-  return [&out](EditRequest edit, const BazelTarget &target,
-                std::string_view before, std::string_view after) {
+EditCallback CreateBuildozerDepsEditCallback(std::ostream &out,
+                                             const GrepHighlighter &grepper) {
+  return [&out, &grepper](EditRequest edit, const BazelTarget &target,
+                          std::string_view before, std::string_view after) {
+    std::stringstream tmp_out;
     switch (edit) {
     case EditRequest::kRemove:
-      out << "buildozer 'remove deps " << before << "' " << target << "\n";
+      tmp_out << "'remove deps " << before << "' " << target;
       break;
     case EditRequest::kAdd:
-      out << "buildozer 'add deps " << after << "' " << target << "\n";
+      tmp_out << "'add deps " << after << "' " << target;
       break;
     case EditRequest::kRename:
-      out << "buildozer 'replace deps " << before << " " << after << "' "
-          << target << "\n";
+      tmp_out << "'replace deps " << before << " " << after << "' " << target;
       break;
     }
+    grepper.EmitMatch(tmp_out.str(), out, "buildozer ", "\n");
   };
 }
 

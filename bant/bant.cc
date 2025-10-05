@@ -88,11 +88,12 @@ static int usage(const char *prog, const char *message, int exit_code) {
     -f <format>    : Output format, support depends on command. One of
                    : native (default), s-expr, plist, json, csv
                      Unique prefix ok, so -fs , -fp, -fj or -fc is sufficient.
-    -g <regex>     : 'grep' filter output with regular expression. Can be
+    -g <regex>     : 'grep'-filter output with regular expression. Can be
                      provided multiple times to narrow match ('and' semantics).
-                     Outputs are highlit with different colors (also see '-O')
-    -O             : 'or' smentics for for `-g`. Instead of requiring all
-                     regexs to match for a record, require one of them.
+                     Matches are highlit with different colors (also see '-O').
+    -i             : (with `-g`): Treat regex case insensitively.
+    -O             : (with `-g`): 'or' match smentics. Instead of requiring all
+                     regexs to match for a record, require at least one of them.
     -r             : Follow dependencies recursively starting from pattern.
                      Without numeric parameter, follows dependencies to the end.
                      An optional parameter allows to limit the nesting depth,
@@ -110,9 +111,7 @@ Commands (unique prefix sufficient):
                       -a : print all toplevel items in packages, not just rules.
                       -e : elaborate; light eval: expand variables, concat etc.
                       -b : elaborate including expansion of built-in macros.
-                      -g <regex> : 'grep' - only print targets where any string
-                                    matches regex.
-                      -i If '-g' is given: case insensitive
+                      -g, -i, -O work here and print the whole item on match.
     parse          : Parse all BUILD files from pattern. Follow deps with -r
                      Emit parse errors. Silent otherwise: No news are good news.
                       -v : some stats.

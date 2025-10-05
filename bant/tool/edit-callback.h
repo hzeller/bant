@@ -23,6 +23,7 @@
 #include <string_view>
 
 #include "bant/types-bazel.h"
+#include "bant/util/grep-highlighter.h"
 
 namespace bant {
 
@@ -47,8 +48,11 @@ using EditCallback =
   std::function<void(EditRequest op, const BazelTarget &target,
                      std::string_view before, std::string_view after)>;
 
-// Create an EditCallback function that writes "buildozer" dep-edits to "out".
-EditCallback CreateBuildozerDepsEditCallback(std::ostream &out);
+// Create an EditCallback function that writes "buildozer" dep-edits to "out"
+// The GrepHighlighter needs to be alive for the duration of the use of
+// the callback.
+EditCallback CreateBuildozerDepsEditCallback(std::ostream &out,
+                                             const GrepHighlighter &grepper);
 
 }  // namespace bant
 #endif  // BANT_TOOL_EDIT_CALLBACK_

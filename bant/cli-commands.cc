@@ -279,6 +279,7 @@ CliStatus RunCommand(Session &session, Command cmd,
     }
     break;
   }
+
   case Command::kExpandedLibraryHeaders:  //
     bant::PrintProvidedSources(
       session, "header", print_pattern,
@@ -316,21 +317,27 @@ CliStatus RunCommand(Session &session, Command cmd,
       ExtractGeneratedFromGenrule(project, session.info()));
     break;
 
-  case Command::kDWYU:
+  case Command::kDWYU: {
+    auto highlighter = CreateGrepHighlighterFromFlags(session);
+    if (!highlighter) return CliStatus::kExitFailure;
     if (bant::CreateDependencyEdits(
           session, project, patterns,
-          CreateBuildozerDepsEditCallback(session.out())) > 0) {
+          CreateBuildozerDepsEditCallback(session.out(), *highlighter)) > 0) {
       return CliStatus::kExitCleanupFindings;
     }
     break;
+  }
 
-  case Command::kCanonicalizeDeps:
+  case Command::kCanonicalizeDeps: {
+    auto highlighter = CreateGrepHighlighterFromFlags(session);
+    if (!highlighter) return CliStatus::kExitFailure;
     if (CreateCanonicalizeEdits(
           session, project, patterns,
-          CreateBuildozerDepsEditCallback(session.out())) > 0) {
+          CreateBuildozerDepsEditCallback(session.out(), *highlighter)) > 0) {
       return CliStatus::kExitCleanupFindings;
     }
     break;
+  }
 
   case Command::kListPackages: {
     auto highlighter = CreateGrepHighlighterFromFlags(session);
@@ -342,7 +349,8 @@ CliStatus RunCommand(Session &session, Command cmd,
       printer->AddRow({std::string(parsed->name()), package.ToString()});
     }
     printer->Finish();
-  } break;
+    break;
+  }
 
   case Command::kListLeafs:
   case Command::kListTargets: {
@@ -369,7 +377,8 @@ CliStatus RunCommand(Session &session, Command cmd,
       });
     }
     printer->Finish();
-  } break;
+    break;
+  }
 
   case Command::kListWorkkspace:
     PrintMatchingWorkspaceExternalRepos(session, project, patterns);
