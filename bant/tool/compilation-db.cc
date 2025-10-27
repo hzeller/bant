@@ -256,6 +256,9 @@ static std::vector<std::string> CollectIncDirs(
         if (inc_path.starts_with(kExternalPrefix)) {
           result.emplace_back(absl::StrCat(
             "bazel-bin/external", inc_path.substr(kExternalPrefix.length())));
+        } else {
+          // Not external: then our own possible build path.
+          result.emplace_back(absl::StrCat("bazel-bin/", inc_path));
         }
       }
 
