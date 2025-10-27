@@ -135,7 +135,7 @@ Commands (unique prefix sufficient):
                      → 2 column table: (target, dependency*)
     has-dependent  : List cc library targets and the libraries that depend on it
                      → 2 column table: (target, dependent*)
-    target-hdrs,    : Print either hdrs, srcs or data mentioned in targets.
+    target-hdrs,   : Print either hdrs, srcs or data mentioned in targets.
     target-srcs,     -P: only if these are physical files
     target-data      → 2 column table: (header-filename, target)
     lib-headers    : Like target-hdrs, but all reachable paths expanded with all

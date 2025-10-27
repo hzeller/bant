@@ -465,7 +465,7 @@ Commands (unique prefix sufficient):
  bant workspace @googletest//...  # List workspace deps needed by given project
  bant list-packages -r  # List all the build files, follow dependencies
  bant list-targets ...  # List all targets in the root project
- bant list-targets ... | grep cc_binary   # find all binaries build by project
+ bant list-targets ... -g cc_binary   # find all binaries build by project
  bant lib-headers       # For each header found in project, print exporting lib
  bant dwyu ...         # Look which headers are used and suggest add/remove deps
  bant print bant/tool:*_test  # Print all targets ending with _test
