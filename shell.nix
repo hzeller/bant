@@ -10,12 +10,12 @@ bant_used_stdenv.mkDerivation {
       bazel_7
       jdk11
 
-      clang-tools_19    # for clang-tidy, clang-format
+      llvmPackages_20.clang-tools
       bazel-buildtools  # buildifier, buildozer
     ];
   shellHook = ''
       # clang tidy: use latest.
-      export CLANG_TIDY=${pkgs.clang-tools_19}/bin/clang-tidy
-      export CLANG_FORMAT=${pkgs.clang-tools_19}/bin/clang-format
+      export CLANG_TIDY=${pkgs.llvmPackages_20.clang-tools}/bin/clang-tidy
+      export CLANG_FORMAT=${pkgs.llvmPackages_20.clang-tools}/bin/clang-format
   '';
 }

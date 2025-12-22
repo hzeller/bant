@@ -70,7 +70,7 @@ StringScalar *StringScalar::FromLiteral(Arena *arena,
     is_raw = true;
     literal.remove_prefix(1);
   }
-  if (literal.length() >= 6 && literal.substr(0, 3) == R"(""")") {
+  if (literal.length() >= 6 && literal.starts_with(R"(""")")) {
     is_triple_quoted = true;
     literal = literal.substr(3);
     literal.remove_suffix(3);
@@ -95,7 +95,7 @@ static std::pair<int, int> EffectiveSliceRange(std::optional<int> start,
   from = std::max(from, 0);          // Don't overshoot
   if (to < 0) to = size + to;
   to = std::max(to, 0);
-  if (to > (int)size) to = size;
+  if (std::cmp_greater(to, size)) to = size;
   return {from, to};
 }
 

@@ -258,6 +258,8 @@ static std::vector<std::string> CollectIncDirs(
             "bazel-bin/external", inc_path.substr(kExternalPrefix.length())));
         } else {
           // Not external: then our own possible build path.
+          // TODO: only emit if we know there is a genrule outputting something
+          // here.
           result.emplace_back(absl::StrCat("bazel-bin/", inc_path));
         }
       }

@@ -42,7 +42,7 @@ class Arena {
     // TODO: instead of a fixed alignment, take alignof() of type to allocate
     // into account.
     size += kAlignment - (size % kAlignment);
-    if (pos_ == nullptr || size > (size_t)(end_ - pos_)) {
+    if (pos_ == nullptr || std::cmp_greater(size, (end_ - pos_))) {
       NewBlock(std::max(size, block_size_));  // max: allow oversized allocs
     }
     total_allocations_++;

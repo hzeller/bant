@@ -26,6 +26,7 @@
 #include <stack>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include "absl/container/flat_hash_map.h"
@@ -532,7 +533,7 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
       assembled.append(fmt.substr(last_pos, new_pos - last_pos));
       last_pos = new_pos + match.size();
       if (num.has_value()) {
-        if (*num >= 0 && *num < (int)posargs.size()) {
+        if (*num >= 0 && std::cmp_less(*num, posargs.size())) {
           assembled.append(posargs[*num]);
         }
       } else if (str.has_value()) {
