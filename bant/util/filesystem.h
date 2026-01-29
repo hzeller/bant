@@ -78,7 +78,7 @@ class Filesystem {
   void SetAlwaysReportEmptyDirectory(std::string_view path);
 
   size_t cache_size() const {
-    const absl::ReaderMutexLock l(&mu_);
+    const absl::ReaderMutexLock l(mu_);
     return cache_.size();
   }
 

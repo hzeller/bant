@@ -87,7 +87,7 @@ void Filesystem::ReadDirectory(std::string_view path, CacheEntry &result) {
 }
 
 void Filesystem::EvictCache() {
-  const absl::WriterMutexLock l(&mu_);
+  const absl::WriterMutexLock l(mu_);
   cache_.clear();
 }
 
@@ -102,7 +102,7 @@ static std::string_view LightlyCanonicalizeAsCacheKey(std::string_view path) {
 void Filesystem::SetAlwaysReportEmptyDirectory(std::string_view path) {
   const std::string_view cache_key = LightlyCanonicalizeAsCacheKey(path);
   CacheEntry empty;  // NOLINT(misc-const-correctness) clang-tidy, you're drunk
-  const absl::WriterMutexLock l(&mu_);
+  const absl::WriterMutexLock l(mu_);
   auto inserted = cache_.emplace(cache_key, std::move(empty));
   inserted.first->second.entries.clear();  // Empty, even if it was there before
 }
@@ -119,7 +119,7 @@ const std::vector<const DirectoryEntry *> &Filesystem::ReadDir(
     FilesystemPrewarmCacheRememberDirWasAccessed(cache_key);
 
   {
-    const absl::ReaderMutexLock l(&mu_);
+    const absl::ReaderMutexLock l(mu_);
     if (auto found = cache_.find(cache_key); found != cache_.end()) {
       return found->second.entries;
     }
@@ -131,7 +131,7 @@ const std::vector<const DirectoryEntry *> &Filesystem::ReadDir(
   CacheEntry result;
   ReadDirectory(dirpath, result);
 
-  const absl::WriterMutexLock l(&mu_);
+  const absl::WriterMutexLock l(mu_);
   if (kDebugCacheMisses && was_new) {
     fprintf(stderr, "Cache miss for '%s' (%d entries)\n",
             std::string{cache_key}.c_str(), (int)result.entries.size());

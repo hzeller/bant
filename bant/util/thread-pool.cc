@@ -68,7 +68,7 @@ void ThreadPool::Runner() {
   std::function<void()> process_work_item;
   for (;;) {
     {
-      const absl::MutexLock l(&lock_, more_work_available_);
+      const absl::MutexLock l(lock_, more_work_available_);
       if (exiting_) return;
       process_work_item = work_queue_.front();
       work_queue_.pop_front();
@@ -83,16 +83,16 @@ void ThreadPool::ExecAsync(const std::function<void()> &fun) {
     return;
   }
 
-  const absl::MutexLock l(&lock_);
+  const absl::MutexLock l(lock_);
   work_queue_.emplace_back(fun);
 }
 
 void ThreadPool::CancelAllWork() {
-  const absl::MutexLock l(&lock_);
+  const absl::MutexLock l(lock_);
   exiting_ = true;
 }
 
 void ThreadPool::WaitEmpty() {
-  const absl::MutexLock l(&lock_, no_work_available_);
+  const absl::MutexLock l(lock_, no_work_available_);
 }
 }  // namespace bant

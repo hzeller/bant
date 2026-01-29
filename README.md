@@ -496,7 +496,7 @@ sudo install -D --strip bazel-bin/bant/bant /usr/local/bin/bant
 
 ### Environment
 
-Compiled using `bazel` >= 6 (also 7 and 8, but compatible with bazel 6 until
+Compiled using `bazel` >= 7 (also 8 and 9, but compatible with bazel 7 until
 its EOL).
 Relevant dependencies are already in the `shell.nix` so you can set up
 your environment [with that automatically][nix-devel-env].

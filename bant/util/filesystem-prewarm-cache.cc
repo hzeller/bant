@@ -60,7 +60,7 @@ class FilesystemPrewarmCache {
  private:
   bool WritePrefixed(char prefix, std::string_view f) {
     if (!writer_) return false;
-    const absl::MutexLock l(&write_lock_);
+    const absl::MutexLock l(write_lock_);
     if (!already_seen_.insert(std::string{f}).second) return false;
     *writer_ << prefix << f << "\n";
     return true;
