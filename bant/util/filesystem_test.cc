@@ -33,12 +33,12 @@ TEST(FilesystemTest, DirectoryListing) {
   EXPECT_EQ(entries.size(), 4u);
 
   // We expect these to be sorted alphabetically.
-  EXPECT_EQ(entries[0]->name_as_stringview(), "bar");
-  EXPECT_EQ(entries[0]->type, DirectoryEntry::Type::kDirectory);
+  EXPECT_EQ(entries[0].name_as_stringview(), "bar");
+  EXPECT_EQ(entries[0].type, DirectoryEntry::Type::kDirectory);
 
-  EXPECT_EQ(entries[1]->name_as_stringview(), "baz");
-  EXPECT_EQ(entries[2]->name_as_stringview(), "foo");
-  EXPECT_EQ(entries[3]->name_as_stringview(), "zulu");
+  EXPECT_EQ(entries[1].name_as_stringview(), "baz");
+  EXPECT_EQ(entries[2].name_as_stringview(), "foo");
+  EXPECT_EQ(entries[3].name_as_stringview(), "zulu");
 
   EXPECT_EQ(fs.cache_size(), 1u);
 

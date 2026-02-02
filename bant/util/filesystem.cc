@@ -17,7 +17,6 @@
 
 #include "bant/util/filesystem.h"
 
-#include <alloca.h>
 #include <dirent.h>
 
 #include <algorithm>
@@ -31,25 +30,12 @@
 #include "absl/cleanup/cleanup.h"
 #include "absl/strings/match.h"
 #include "absl/synchronization/mutex.h"
-#include "bant/util/arena.h"
 #include "bant/util/filesystem-prewarm-cache.h"
 
 // TODO: combine this with filesytem-prewarm-cache; they are currently
 // somewhat cyclicly dependent on each other.
 
 namespace bant {
-static bool DirEntryLessThan(const DirectoryEntry *a, const DirectoryEntry *b) {
-  return strcmp(a->name, b->name) < 0;
-}
-
-DirectoryEntry *DirectoryEntry::Alloc(Arena &where, std::string_view name) {
-  DirectoryEntry *entry = static_cast<DirectoryEntry *>(
-    where.Alloc(sizeof(DirectoryEntry) + name.size() + 1));
-  strncpy(entry->name, name.data(), name.size());
-  entry->name[name.size()] = '\0';
-  return entry;
-}
-
 static DirectoryEntry::Type FileTypeFromDirent(const dirent *entry) {
   switch (entry->d_type) {
   case DT_LNK: return DirectoryEntry::Type::kSymlink;
@@ -75,15 +61,16 @@ void Filesystem::ReadDirectory(std::string_view path, CacheEntry &result) {
       continue;
     }
 
-    auto *entry_copy = DirectoryEntry::Alloc(result.data, entry->d_name);
-    entry_copy->inode = entry->d_ino;
-    entry_copy->type = FileTypeFromDirent(entry);
-    result.entries.push_back(entry_copy);
+    result.emplace_back(DirectoryEntry{
+      .inode = entry->d_ino,
+      .type = FileTypeFromDirent(entry),
+      .name = entry->d_name,
+    });
   }
 
   // Keep them sorted, so we generate a reproducible output and we can
   // also find them easily with binary search.
-  std::sort(result.entries.begin(), result.entries.end(), DirEntryLessThan);
+  std::sort(result.begin(), result.end());
 }
 
 void Filesystem::EvictCache() {
@@ -104,10 +91,10 @@ void Filesystem::SetAlwaysReportEmptyDirectory(std::string_view path) {
   CacheEntry empty;  // NOLINT(misc-const-correctness) clang-tidy, you're drunk
   const absl::WriterMutexLock l(mu_);
   auto inserted = cache_.emplace(cache_key, std::move(empty));
-  inserted.first->second.entries.clear();  // Empty, even if it was there before
+  inserted.first->second.clear();  // Empty, even if it was there before
 }
 
-const std::vector<const DirectoryEntry *> &Filesystem::ReadDir(
+const std::vector<DirectoryEntry> &Filesystem::ReadDir(
   std::string_view dirpath) {
   // Development flag to report cache misses
   static constexpr bool kDebugCacheMisses = false;
@@ -121,7 +108,7 @@ const std::vector<const DirectoryEntry *> &Filesystem::ReadDir(
   {
     const absl::ReaderMutexLock l(mu_);
     if (auto found = cache_.find(cache_key); found != cache_.end()) {
-      return found->second.entries;
+      return found->second;
     }
   }
 
@@ -134,10 +121,10 @@ const std::vector<const DirectoryEntry *> &Filesystem::ReadDir(
   const absl::WriterMutexLock l(mu_);
   if (kDebugCacheMisses && was_new) {
     fprintf(stderr, "Cache miss for '%s' (%d entries)\n",
-            std::string{cache_key}.c_str(), (int)result.entries.size());
+            std::string{cache_key}.c_str(), (int)result.size());
   }
   auto inserted = cache_.emplace(cache_key, std::move(result));
-  return inserted.first->second.entries;
+  return inserted.first->second;
 }
 
 bool Filesystem::Exists(std::string_view path) {
@@ -149,14 +136,12 @@ bool Filesystem::Exists(std::string_view path) {
   const std::string_view filename =
     (last_slash == std::string::npos) ? path : path.substr(last_slash + 1);
 
-  DirectoryEntry *compare_entry = static_cast<DirectoryEntry *>(
-    alloca(sizeof(DirectoryEntry) + filename.size() + 1));
-  strncpy(compare_entry->name, filename.data(), filename.size());
-  compare_entry->name[filename.size()] = '\0';
+  DirectoryEntry compare_entry;
+  compare_entry.name = filename;
 
   const auto &dir_content = ReadDir(dir);
   return std::binary_search(dir_content.begin(), dir_content.end(),
-                            compare_entry, DirEntryLessThan);
+                            compare_entry);
 }
 
 }  // namespace bant

@@ -26,18 +26,16 @@
 
 #include "absl/container/flat_hash_map.h"
 #include "absl/synchronization/mutex.h"
-#include "bant/util/arena.h"
 
 namespace bant {
 
 // Platform-independent `struct dirent`-like struct with only the things
-// we're interested in; compactly represented.
+// we're interested in.
 struct DirectoryEntry {
-  // Allocate in Arena (currently only available way to construct). Allocation
-  // size is compact and dependent on name.
-  static DirectoryEntry *Alloc(Arena &where, std::string_view name);
   std::string_view name_as_stringview() const { return name; }
-
+  bool operator<(const DirectoryEntry &other) const {
+    return name < other.name;
+  }
   enum class Type : uint8_t {
     kOther,
     kDirectory,
@@ -46,7 +44,7 @@ struct DirectoryEntry {
 
   uint64_t inode = 0;
   Type type = Type::kOther;
-  char name[];  // Allocated as needed.
+  std::string name;
 };
 
 // Very rudimentary filesystem. Right now only used as intermediary to
@@ -63,7 +61,7 @@ class Filesystem {
   // Equivalent of opendir()/loop readdir() and return all DirectoryEntries.
   // Might return cached results.
   // The directory entries are sorted by name.
-  const std::vector<const DirectoryEntry *> &ReadDir(std::string_view dirpath);
+  const std::vector<DirectoryEntry> &ReadDir(std::string_view dirpath);
 
   // Check if a path exists. This is reading the directory and checks if the
   // filename is in there. If the directory was read before, chances are,
@@ -85,10 +83,7 @@ class Filesystem {
  private:
   Filesystem() = default;
 
-  struct CacheEntry {
-    Arena data{1024};
-    std::vector<const DirectoryEntry *> entries;
-  };
+  using CacheEntry = std::vector<DirectoryEntry>;
 
   static void ReadDirectory(std::string_view path, CacheEntry &result);
 

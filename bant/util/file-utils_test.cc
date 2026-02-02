@@ -17,16 +17,16 @@
 
 #include "bant/util/file-utils.h"
 
-#include "bant/util/arena.h"
 #include "bant/util/filesystem.h"
 #include "gtest/gtest.h"
 
 namespace bant {
 TEST(FileUtils, FilesystemPathFromDirent) {
-  Arena arena{1024};
-  DirectoryEntry *entry = DirectoryEntry::Alloc(arena, "baz");
-  entry->type = DirectoryEntry::Type::kDirectory;
-  const FilesystemPath from_dirent("foo/bar///", *entry);
+  const DirectoryEntry entry = {
+    .type = DirectoryEntry::Type::kDirectory,
+    .name = "baz",
+  };
+  const FilesystemPath from_dirent("foo/bar///", entry);
 
   EXPECT_EQ(from_dirent.path(), "foo/bar/baz");  // multi-slash removed
   EXPECT_EQ(from_dirent.filename(), "baz");

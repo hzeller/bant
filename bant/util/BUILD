@@ -111,7 +111,6 @@ cc_library(
     ],
     deps = [
         ":glob-match-builder",
-        ":memory",
         ":stat",
         ":thread-pool",
         "//bant:session",
@@ -131,7 +130,6 @@ cc_test(
     srcs = ["file-utils_test.cc"],
     deps = [
         ":file-utils",
-        ":memory",
         "@googletest//:gtest",
         "@googletest//:gtest_main",
     ],
