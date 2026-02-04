@@ -56,7 +56,6 @@ class FilesystemPath {
   std::string_view parent_path() const;
 
   // Some predicates we use.
-  bool can_read() const;
   bool is_directory() const;
   bool is_symlink() const;
 
@@ -71,7 +70,6 @@ class FilesystemPath {
   mutable size_t filename_offset_ = std::string::npos;
 
   // Memoized results are updated in const methods and ok to have them mutable.
-  mutable MemoizedResult can_read_ = MemoizedResult::kUnknown;
   mutable MemoizedResult is_dir_ = MemoizedResult::kUnknown;
   mutable MemoizedResult is_symlink_ = MemoizedResult::kUnknown;
 

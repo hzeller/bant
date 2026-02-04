@@ -92,14 +92,6 @@ std::string_view FilesystemPath::parent_path() const {
   return parent_path.substr(0, filename_offset_ - 1);
 }
 
-bool FilesystemPath::can_read() const {
-  if (can_read_ == MemoizedResult::kUnknown) {
-    can_read_ =
-      (access(c_str(), R_OK) == 0) ? MemoizedResult::kYes : MemoizedResult::kNo;
-  }
-  return (can_read_ == MemoizedResult::kYes);
-}
-
 bool FilesystemPath::is_directory() const {
   if (is_dir_ == MemoizedResult::kUnknown) {
     struct stat s;
