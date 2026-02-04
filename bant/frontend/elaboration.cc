@@ -17,6 +17,7 @@
 
 #include "bant/frontend/elaboration.h"
 
+#include <compare>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -280,9 +281,18 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
       return HandleArrayOrSliceAccess(bin_op);
     }
 
+    case kLessThan:
+    case kLessEqual:
+    case kEqualityComparison:
+    case kGreaterEqual:
+    case kGreaterThan:
+    case kNotEqual:
+      return HandleComparison(bin_op);
+
       // Operations that we don't worry about reporting as non-implmeneted.
     case ':':  // map element 'operator'. Not doing anything with it.
       return bin_op;
+
     case kIn:
     case kNotIn: {
       Scalar *scalar = bin_op->left()->CastAsScalar();
@@ -302,12 +312,6 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     case kFloorDivide:
     case kAnd:
     case kOr:
-    case kLessThan:
-    case kLessEqual:
-    case kEqualityComparison:
-    case kGreaterEqual:
-    case kGreaterThan:
-    case kNotEqual:
       // binops, known to not be handled (yet)
       break;
 
@@ -329,6 +333,29 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     }
     // Return unimplemented nodes as-is.
     return bin_op;
+  }
+
+  Node *HandleComparison(BinOpNode *bin_op) {
+    Scalar *lhs = bin_op->left()->CastAsScalar();
+    Scalar *rhs = bin_op->right()->CastAsScalar();
+    if (!lhs || !rhs || lhs->type() != rhs->type()) {
+      return bin_op;
+    }
+    auto cmp = (lhs->type() == Scalar::ScalarType::kInt)
+                 ? lhs->AsInt() <=> rhs->AsInt()
+                 : lhs->AsString() <=> rhs->AsString();
+    bool result;
+    switch (bin_op->op()) {
+    case kLessThan: result = std::is_lt(cmp); break;
+    case kLessEqual: result = std::is_lteq(cmp); break;
+    case kEqualityComparison: result = std::is_eq(cmp); break;
+    case kGreaterEqual: result = std::is_gteq(cmp); break;
+    case kGreaterThan: result = std::is_gt(cmp); break;
+    case kNotEqual: result = std::is_neq(cmp); break;
+    default: result = false; break;
+    }
+    return MakeBoolWithStringRep(project_->GetLocation(bin_op->source_range()),
+                                 result);
   }
 
   Node *VisitTernary(Ternary *ternary) final {

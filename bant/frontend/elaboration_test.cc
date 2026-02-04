@@ -314,6 +314,30 @@ SFT = 64
   EXPECT_EQ(result.first, result.second);
 }
 
+TEST_F(ElaborationTest, Comparisons) {
+  auto result = ElabAndPrint(
+    R"(
+EXPECT_FALSE = "foo" == "bar"
+EXPECT_TRUE = "foo" > "bar"
+EXPECT_TRUE = "foo" == "foo"
+EXPECT_TRUE = "foo" >= "foo"
+EXPECT_TRUE = 5 < 7
+EXPECT_FALSE = 5 == 7
+EXPECT_FALSE = 5 >= 7
+)",
+    R"(
+EXPECT_FALSE = False
+EXPECT_TRUE = True
+EXPECT_TRUE = True
+EXPECT_TRUE = True
+EXPECT_TRUE = True
+EXPECT_FALSE = False
+EXPECT_FALSE = False
+)");
+
+  EXPECT_EQ(result.first, result.second);
+}
+
 TEST_F(ElaborationTest, ConcatStrings) {
   auto result = ElabAndPrint(
     R"(
@@ -579,6 +603,8 @@ TEST_F(ElaborationTest, Ternary) {
   auto result = ElabAndPrint(
     R"(
 POS = "foo" if True else "bar"
+POS1 = "foo" if 5 < 7 else "bar"
+POS2 = "foo" if 5 > 7 else "bar"
 NEG = "foo" if False else "bar"
 FOO = "foo" if "e" in "yes" else "bar"
 SMALL_TESTS=["f" + "oo", "bar", "baz"]  # make sure it is evaluated
@@ -588,6 +614,8 @@ UNDEFINED = "foo" if variable else "bar"
 )",
     R"(
 POS = "foo"
+POS1 = "foo"
+POS2 = "bar"
 NEG = "bar"
 FOO = "foo"
 SMALL_TESTS=["foo", "bar", "baz"]
