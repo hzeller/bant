@@ -295,6 +295,8 @@ QIX = 9 * 9 + 1  # simple precedence
 QUX = 1 + 9 * 9  # .. test
 FIX = 9 * (9 + 1)
 FUX = (1 + 9) * 9
+SFT = 1 << 10
+SFT = 512 >> 3
 )",
     R"(
 FOO = 13
@@ -305,6 +307,8 @@ QIX = 82
 QUX = 82
 FIX = 90
 FUX = 90
+SFT = 1024
+SFT = 64
 )");
 
   EXPECT_EQ(result.first, result.second);

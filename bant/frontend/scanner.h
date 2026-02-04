@@ -57,6 +57,9 @@ enum TokenType : int {  // NOLINT(readability-enum-initial-value)
 
   kIdentifier = 512,
 
+  kShiftLeft = '<' + 512,   // <<  more things that start with >
+  kShiftRight = '>' + 512,  // >>
+
   kStringLiteral,
   kNumberLiteral,
   kDefBlock,  // uninterpreted
@@ -121,7 +124,7 @@ class Scanner {
   Token HandleNumber();
   Token HandleString();
   Token HandleIdentifierKeywordRawStringOrInvalid();
-  Token HandleAssignOrRelational();
+  Token HandleAssignOrRelationalOrShift();
   Token HandleNotOrNotEquals();
   Token HandleDivideOrFloorDivide();
 

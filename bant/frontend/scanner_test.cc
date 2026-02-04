@@ -101,6 +101,8 @@ TEST(ScannerTest, SimpleTokens) {
     {"!=", TokenType::kNotEqual},
     {"<=", TokenType::kLessEqual},
     {">=", TokenType::kGreaterEqual},
+    {">>", TokenType::kShiftRight},
+    {"<<", TokenType::kShiftLeft},
     {">", TokenType::kGreaterThan},
     {"<", TokenType::kLessThan},
     // Identifiers or keywords

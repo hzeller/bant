@@ -55,6 +55,8 @@ std::ostream &operator<<(std::ostream &o, TokenType t) {
   case TokenType::kNotEqual: o << "!="; break;
   case TokenType::kLessEqual: o << "<="; break;
   case TokenType::kGreaterEqual: o << ">="; break;
+  case TokenType::kShiftRight: o << ">>"; break;
+  case TokenType::kShiftLeft: o << "<<"; break;
   case TokenType::kIdentifier: o << "ident"; break;
   case TokenType::kStringLiteral: o << "string"; break;
   case TokenType::kNumberLiteral: o << "number"; break;
@@ -269,11 +271,29 @@ Token Scanner::HandleNumber() {
   return {TokenType::kNumberLiteral, {start, (size_t)(pos_ - start)}};
 }
 
-Token Scanner::HandleAssignOrRelational() {
+Token Scanner::HandleAssignOrRelationalOrShift() {
   const ContentPointer start = pos_;
   int type = (unsigned char)(*pos_++);
-  if (pos_ < end_ && *pos_ == '=') {
-    type += 256, ++pos_;
+  if (pos_ < end_) {
+    switch (*pos_) {
+    case '=':
+      type += 256;
+      ++pos_;
+      break;
+    case '<':
+      if (type == kLessThan) {
+        type = kShiftLeft;
+        ++pos_;
+      }
+      break;
+    case '>':
+      if (type == kGreaterThan) {
+        type = kShiftRight;
+        ++pos_;
+      }
+      break;
+    default:;
+    }
   }
   return {static_cast<TokenType>(type), {start, (size_t)(pos_ - start)}};
 }
@@ -332,7 +352,7 @@ Token Scanner::Next() {
 
   case '<':
   case '>':
-  case '=': result = HandleAssignOrRelational(); break;
+  case '=': result = HandleAssignOrRelationalOrShift(); break;
 
   case '0':
   case '1':

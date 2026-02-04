@@ -84,6 +84,7 @@ class Parser::Impl {
     {kDot},  // scoped invocation
     {kMultiply, kDivide, kFloorDivide, kPercent},
     {kPlus, kMinus},
+    {kShiftLeft, kShiftRight},
     // TOOD: shift, and bitwise and/xor. Note: the following are smushed
     // together as evaluation of them is not implemented;
     {kPipeOrBitwiseOr, kAnd, kOr},

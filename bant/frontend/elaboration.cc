@@ -227,6 +227,22 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
       }
       break;
     }
+    case TokenType::kShiftLeft:
+    case TokenType::kShiftRight: {
+      {
+        Scalar *lhs = bin_op->left()->CastAsScalar();
+        Scalar *rhs = bin_op->right()->CastAsScalar();
+        if (lhs && rhs && lhs->type() == rhs->type() &&
+            lhs->type() == Scalar::ScalarType::kInt) {
+          const auto &location = project_->GetLocation(bin_op->source_range());
+          if (bin_op->op() == TokenType::kShiftLeft) {
+            return MakeIntWithStringRep(location, lhs->AsInt() << rhs->AsInt());
+          }
+          return MakeIntWithStringRep(location, lhs->AsInt() >> rhs->AsInt());
+        }
+      }
+      break;
+    }
     case '.': {
       {
         Scalar *lhs = bin_op->left()->CastAsScalar();
