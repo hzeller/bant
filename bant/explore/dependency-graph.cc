@@ -66,9 +66,10 @@ std::optional<FilesystemPath> PathForPackage(const BazelWorkspace &workspace,
     if (!start_path.empty()) start_path.append("/");
     start_path.append(package.path);
   }
+  Filesystem &fs = Filesystem::instance();
   for (const std::string_view build_file : {"BUILD", "BUILD.bazel"}) {
     FilesystemPath test_path(start_path, build_file);
-    if (test_path.can_read()) return test_path;
+    if (fs.Exists(test_path.path())) return test_path;
   }
   return std::nullopt;
 }

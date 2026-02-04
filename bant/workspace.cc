@@ -149,7 +149,7 @@ static std::optional<int> LoadWorkspaceFromFile(Session &session,
       bool project_dir_found = false;
       for (const std::string_view dir : search_dirs) {
         path = FilesystemPath(kExternalBaseDir, dir);
-        if (!path.is_directory() || !path.can_read()) continue;
+        if (!path.is_directory()) continue;
         project_dir_found = true;
         break;
       }
@@ -160,7 +160,7 @@ static std::optional<int> LoadWorkspaceFromFile(Session &session,
           Glob(absl::StrCat(kExternalBaseDir, "/", result.name, "~*"));
         if (!maybe_match.empty()) {
           path = maybe_match.front();
-          project_dir_found = path.is_directory() && path.can_read();
+          project_dir_found = path.is_directory();
         }
       }
 
