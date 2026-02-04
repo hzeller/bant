@@ -324,6 +324,8 @@ EXPECT_TRUE = "foo" >= "foo"
 EXPECT_TRUE = 5 < 7
 EXPECT_FALSE = 5 == 7
 EXPECT_FALSE = 5 >= 7
+EXPECT_TRUE = 5 < 7 or "foo" == "bar"
+EXPECT_FALSE = 5 < 7 and "foo" == "bar"
 )",
     R"(
 EXPECT_FALSE = False
@@ -332,6 +334,8 @@ EXPECT_TRUE = True
 EXPECT_TRUE = True
 EXPECT_TRUE = True
 EXPECT_FALSE = False
+EXPECT_FALSE = False
+EXPECT_TRUE = True
 EXPECT_FALSE = False
 )");
 
@@ -605,6 +609,7 @@ TEST_F(ElaborationTest, Ternary) {
 POS = "foo" if True else "bar"
 POS1 = "foo" if 5 < 7 else "bar"
 POS2 = "foo" if 5 > 7 else "bar"
+POS3 = "foo" if 5 > 7 or "x" == "x" else "bar"
 NEG = "foo" if False else "bar"
 FOO = "foo" if "e" in "yes" else "bar"
 SMALL_TESTS=["f" + "oo", "bar", "baz"]  # make sure it is evaluated
@@ -616,6 +621,7 @@ UNDEFINED = "foo" if variable else "bar"
 POS = "foo"
 POS1 = "foo"
 POS2 = "bar"
+POS3 = "foo"
 NEG = "bar"
 FOO = "foo"
 SMALL_TESTS=["foo", "bar", "baz"]

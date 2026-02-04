@@ -286,8 +286,21 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     case kEqualityComparison:
     case kGreaterEqual:
     case kGreaterThan:
-    case kNotEqual:
-      return HandleComparison(bin_op);
+    case kNotEqual: return HandleComparison(bin_op);
+
+    case kAnd:
+    case kOr: {
+      Scalar *lhs = bin_op->left()->CastAsScalar();
+      Scalar *rhs = bin_op->right()->CastAsScalar();
+      if (lhs && rhs && lhs->type() == rhs->type() &&
+          lhs->type() == Scalar::ScalarType::kInt) {
+        const bool result = bin_op->op() == TokenType::kAnd
+                              ? lhs->AsInt() && rhs->AsInt()
+                              : lhs->AsInt() || rhs->AsInt();
+        const auto &location = project_->GetLocation(bin_op->source_range());
+        return MakeBoolWithStringRep(location, result);
+      }
+    } break;
 
       // Operations that we don't worry about reporting as non-implmeneted.
     case ':':  // map element 'operator'. Not doing anything with it.
@@ -310,8 +323,6 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     // Document all the ones not yet implemented
     case kDivide:
     case kFloorDivide:
-    case kAnd:
-    case kOr:
       // binops, known to not be handled (yet)
       break;
 

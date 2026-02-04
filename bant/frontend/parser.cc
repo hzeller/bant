@@ -85,11 +85,11 @@ class Parser::Impl {
     {kMultiply, kDivide, kFloorDivide, kPercent},
     {kPlus, kMinus},
     {kShiftLeft, kShiftRight},
-    // TOOD: shift, and bitwise and/xor. Note: the following are smushed
-    // together as evaluation of them is not implemented;
-    {kPipeOrBitwiseOr, kAnd, kOr},
+    {kPipeOrBitwiseOr},
     {kLessThan, kLessEqual, kEqualityComparison, kGreaterEqual, kGreaterThan,
      kNotEqual, kIn, kNotIn},
+    {kAnd},
+    {kOr},
     // kAssign but not handled here.
   };
 
