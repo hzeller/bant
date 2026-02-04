@@ -32,7 +32,6 @@ namespace bant {
 // Platform-independent `struct dirent`-like struct with only the things
 // we're interested in.
 struct DirectoryEntry {
-  std::string_view name_as_stringview() const { return name; }
   bool operator<(const DirectoryEntry &other) const {
     return name < other.name;
   }

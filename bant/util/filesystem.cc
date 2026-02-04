@@ -88,10 +88,8 @@ static std::string_view LightlyCanonicalizeAsCacheKey(std::string_view path) {
 
 void Filesystem::SetAlwaysReportEmptyDirectory(std::string_view path) {
   const std::string_view cache_key = LightlyCanonicalizeAsCacheKey(path);
-  CacheEntry empty;  // NOLINT(misc-const-correctness) clang-tidy, you're drunk
   const absl::WriterMutexLock l(mu_);
-  auto inserted = cache_.emplace(cache_key, std::move(empty));
-  inserted.first->second.clear();  // Empty, even if it was there before
+  cache_[cache_key].clear();
 }
 
 const std::vector<DirectoryEntry> &Filesystem::ReadDir(
@@ -112,9 +110,7 @@ const std::vector<DirectoryEntry> &Filesystem::ReadDir(
     }
   }
 
-  // Don't hold lock while populating. We have a local arena in each CacheEntry
-  // to avoid mutex-locking it but wasting memory blocks.
-  // Might be worthwhile re-evaluating.
+  // Don't hold lock while populating.
   CacheEntry result;
   ReadDirectory(dirpath, result);
 

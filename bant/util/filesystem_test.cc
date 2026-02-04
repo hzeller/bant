@@ -33,12 +33,12 @@ TEST(FilesystemTest, DirectoryListing) {
   EXPECT_EQ(entries.size(), 4u);
 
   // We expect these to be sorted alphabetically.
-  EXPECT_EQ(entries[0].name_as_stringview(), "bar");
+  EXPECT_EQ(entries[0].name, "bar");
   EXPECT_EQ(entries[0].type, DirectoryEntry::Type::kDirectory);
 
-  EXPECT_EQ(entries[1].name_as_stringview(), "baz");
-  EXPECT_EQ(entries[2].name_as_stringview(), "foo");
-  EXPECT_EQ(entries[3].name_as_stringview(), "zulu");
+  EXPECT_EQ(entries[1].name, "baz");
+  EXPECT_EQ(entries[2].name, "foo");
+  EXPECT_EQ(entries[3].name, "zulu");
 
   EXPECT_EQ(fs.cache_size(), 1u);
 
@@ -71,6 +71,16 @@ TEST(FilesystemTest, DirectoryListing) {
   fs.ReadDir("bar");
   fs.ReadDir("bar/");
   fs.ReadDir("bar//");
+  EXPECT_EQ(fs.cache_size(), 2u);  // No new entries observed
+
+  // Let's ignore that directory (e.g. used for .bazelignore dirs).
+  EXPECT_FALSE(fs.ReadDir("bar").empty());
+  fs.SetAlwaysReportEmptyDirectory("bar");
+  EXPECT_TRUE(fs.ReadDir("bar").empty());
+
+  // Testing cache evicting success (used in unit tests for clean slates)
   EXPECT_EQ(fs.cache_size(), 2u);
+  fs.EvictCache();
+  EXPECT_EQ(fs.cache_size(), 0u);
 }
 }  // namespace bant
