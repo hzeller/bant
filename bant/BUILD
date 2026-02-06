@@ -1,6 +1,5 @@
 load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
 load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library", "cc_test")
-load("//bant:module-version.bzl", "get_version_define_from_module")
 
 package(
     default_applicable_licenses = ["//:license"],
@@ -24,7 +23,7 @@ cc_binary(
         "cli-commands.cc",
         "cli-commands.h",
     ],
-    copts = get_version_define_from_module(),
+    copts = ['-DBANT_MODULE_VERSION=\\"{0}\\"'.format(module_version())],
     features = select({
         "//bant:static_linked_executables": [
             "fully_static_link",
