@@ -146,6 +146,24 @@ d = 170
   EXPECT_EQ(result.first, result.second);
 }
 
+TEST_F(ElaborationTest, UnpackIntoToplevelArray) {
+  auto result = ElabAndPrint(
+    R"(
+[a, b, c] = [7, 8, 9]
+d = a + b + c
+[x, y, z] = "foo.bar.baz".split(".")
+e = x + z + y
+)",
+    R"(
+[a, b, c] = [7, 8, 9]
+d = 24
+[x, y, z] = ["foo", "bar", "baz"]
+e = "foobazbar"
+)");
+
+  EXPECT_EQ(result.first, result.second);
+}
+
 TEST_F(ElaborationTest, UnpackIntoToplevelListIsTreatedAsAssignmentToTuple) {
   // Essentially the same as tuple
   auto result = ElabAndPrint(

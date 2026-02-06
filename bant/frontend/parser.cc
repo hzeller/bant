@@ -115,11 +115,24 @@ class Parser::Impl {
         continue;  // 'def' blocks are left unparsed. Only found in *.bzl files.
       }
 
+      // TODO: this and the tuple version below are very similar.
       if (tok.type == '[') {
-        statement_list->Append(
-          node_arena_, ParseListOrListComprehension(List::Type::kList, [&]() {
-            return ParseExpression();
-          }));
+        Node *lhs = ParseListOrListComprehension(
+          List::Type::kList, [&]() { return ParseExpression(); });
+        if (lhs == nullptr) {
+          ErrAt(tok) << "Unfinished list\n";
+          return statement_list;
+        }
+        const Token after_tuple = scanner_->Peek();
+        if (after_tuple.type == TokenType::kAssign) {
+          const Token assign = scanner_->Next();
+          statement_list->Append(
+            node_arena_, ParseNodeAssignRhs(lhs, tok.text, assign.text));
+        } else {
+          // Looks like a toplevel List, typically some list comprehension
+          // of build rules.
+          statement_list->Append(node_arena_, lhs);
+        }
         continue;
       }
 
@@ -128,7 +141,7 @@ class Parser::Impl {
           Make<List>(List::Type::kTuple),
           [&]() { return ExpressionOrAssignment(); }, TokenType::kCloseParen);
         if (lhs == nullptr) {
-          ErrAt(tok) << "expected a tuple.n";
+          ErrAt(tok) << "expected a tuple\n";
           return statement_list;
         }
         const Token after_tuple = scanner_->Peek();

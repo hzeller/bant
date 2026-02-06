@@ -321,11 +321,9 @@ class Assignment : public BinOpNode {
     if (!left_) return nullptr;
     return left_->CastAsIdentifier();
   }
-  List *lhs_maybe_tuple() {
+  List *lhs_maybe_tuple_or_list() {
     if (!left_) return nullptr;
-    List *as_list = left_->CastAsList();
-    if (!as_list || as_list->type() != List::Type::kTuple) return nullptr;
-    return as_list;
+    return left_->CastAsList();
   }
 
   Node *value() { return right_; }

@@ -137,7 +137,7 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     if (nest_level_ != 0) return result;  // only toplevel assignments.
     if (Identifier *identifier = a->lhs_maybe_identifier()) {
       variables_[identifier->id()] = a->value();
-    } else if (List *tuple_assign = a->lhs_maybe_tuple()) {
+    } else if (List *tuple_assign = a->lhs_maybe_tuple_or_list()) {
       List *const rhs = a->value()->CastAsList();
       if (rhs && tuple_assign->size() == rhs->size()) {
         using It = List::iterator;
