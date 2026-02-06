@@ -498,7 +498,7 @@ A = "some-filename.foo.bar.txt".rsplit(".")
 A1 = "some-filename.foo.bar.txt".rsplit(".", -1)  # equivalent to split all
 B = "some-filename.foo.bar.txt".rsplit(".", 1)
 C = "some-filename".rsplit(".", 1)
-D = ("remove-suffix.txt".rsplit(".", 1))[0]  # TODO: should work without parens?
+D = ("remove-suffix.txt".rsplit(".", 1))[0]  # precedence: should not need ()
 E = "Hello the fillword the remove".rsplit(" the ")
 )",
     R"(
@@ -523,8 +523,9 @@ A1 = "some-filename.foo.bar.txt".split(".", -1)
 A2 = "some-filename.foo.bar.txt".split(".")[1]
 B = "some-filename.foo.bar.txt".split(".", 1)
 C = "some-filename".split(".", 1)
-D = ("get-prefix.tar.gz".split("."))[0]  # TODO: should work without parens ?
+D = ("get-prefix.tar.gz".split("."))[0]  # TODO: precedence: should not need ()
 E = "Hello the fillword the remove".split(" the ")
+F = ("1.2.3.bcr.1".split(".bcr.", 1))[0] # TODO: precedence: should not need ()
 )",
     R"(
 S = ["some", "space", "separated"]
@@ -536,6 +537,7 @@ B = ["some-filename", "foo.bar.txt"]
 C = ["some-filename"]
 D = "get-prefix"
 E = ["Hello", "fillword", "remove"]
+F = "1.2.3"
 )");
 
   EXPECT_EQ(result.first, result.second);

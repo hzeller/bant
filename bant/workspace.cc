@@ -123,6 +123,18 @@ static std::optional<int> LoadWorkspaceFromFile(Session &session,
   Node *ast = parser.parse();
   if (!ast) return std::nullopt;
 
+  // In a MODULE.bazel, there is a module toplevel with a version.
+  // TODO: We should actually collect that per project
+  query::FindTargets(ast, {"module"}, [&](const query::Result &result) {
+    if (!result.name.empty()) {
+      workspace->module_name = result.name;
+    }
+    auto version = query::FindKWArgAsStringView(result.node, "version");
+    if (version.has_value()) {
+      workspace->module_version = *version;
+    }
+  });
+
   int count_added = 0;
   query::FindTargets(
     ast, {"http_archive", "bazel_dep"}, [&](const query::Result &result) {

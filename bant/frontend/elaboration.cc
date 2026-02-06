@@ -120,6 +120,14 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     if (fun_name == "range") {
       return HandleRange(f);
     }
+    if (fun_name == "module_version") {
+      auto loc = project_->GetLocation(fun_name);
+      return MakeNewStringScalarFrom(project_->workspace().module_version, loc);
+    }
+    if (fun_name == "module_name") {
+      auto loc = project_->GetLocation(fun_name);
+      return MakeNewStringScalarFrom(project_->workspace().module_name, loc);
+    }
     if (options_.expand_load_functions && fun_name == "load") {
       HandleLoad(f);
     }

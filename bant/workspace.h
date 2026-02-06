@@ -60,6 +60,11 @@ struct BazelWorkspace {
 
   // Project to directory.
   Map project_location;
+
+  // TODO: this might not be correct location. We should have that per project.
+  // Also todo: these should be std::string_view and point to the original file
+  std::string module_version;
+  std::string module_name;
 };
 
 // Scan current directory for workspace files and create an index of all
