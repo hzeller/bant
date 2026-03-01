@@ -184,8 +184,10 @@ TEST(ScannerTest, StringLiteral) {
 
   {  // long string literals
     TEST_SCANNER(s, R"("""hello "" world""")");
-    EXPECT_EQ(s.Next(),
+    auto tok = s.Next();
+    EXPECT_EQ(tok,
               Token({TokenType::kStringLiteral, R"("""hello "" world""")"}));
+
     EXPECT_EQ(s.Next(), Token({TokenType::kEof, ""}));
   }
   {
@@ -194,7 +196,7 @@ TEST(ScannerTest, StringLiteral) {
     EXPECT_EQ(s.Next(), Token({TokenType::kEof, ""}));
   }
   {
-    TEST_SCANNER(s, R"(""""")");
+    TEST_SCANNER(s, R"(""""")");  // only 5 "
     EXPECT_EQ(s.Next(), Token({TokenType::kError, R"(""""")"}));
     EXPECT_EQ(s.Next(), Token({TokenType::kEof, ""}));
   }

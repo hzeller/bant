@@ -779,9 +779,9 @@ GET_FALLBACKLIST = FOO.get(1, ['some', 'list'])
   )",
     R"(
 FOO = { 'hello' : 'hi', 'answer' : '42', 1024 : 'kibi' }
-BAR = "hi"
-KIB = "kibi"
-KIB2 = "kibi"
+BAR = 'hi'
+KIB = 'kibi'
+KIB2 = 'kibi'
 # Keys not found: Don't fail but keep expression as-is
 BAZ = { 'hello' : 'hi', 'answer' : '42', 1024 : 'kibi' }['no-such-key']
 QUX = { 'hello' : 'hi', 'answer' : '42', 1024 : 'kibi' }[1]
@@ -849,7 +849,7 @@ FOO = {'keep': 5, 'original': 6, 'key': 7, 'order': 8, 'additional': 9}
 BAR = { not_a_constexpr : 'foo'} | {'another' : 'bar'}
 
 const_evaluated = "hello"
-BAZ = {'hello': 'foo', 'another': 'bar'}
+BAZ = {"hello": 'foo', 'another': 'bar'}
 )");
 
   EXPECT_EQ(result.first, result.second);

@@ -142,12 +142,9 @@ void PrintVisitor::VisitScalar(Scalar *s) {
   } else {
     const StringScalar *str = static_cast<StringScalar *>(s);
     if (str->is_raw()) out_ << "r";
-    // Minimal-effort quote char choosing. TODO: look if escaped
-    const bool has_any_double_quote =
-      str->AsString().find_first_of('"') != std::string_view::npos;
-    const char quote_char = has_any_double_quote ? '\'' : '"';
-    if (str->is_triple_quoted()) out_ << quote_char << quote_char;
+    const char quote_char = str->quote_char();
 
+    if (str->is_triple_quoted()) out_ << quote_char << quote_char;
     out_ << quote_char;
     out_ << str->AsString();
     out_ << quote_char;

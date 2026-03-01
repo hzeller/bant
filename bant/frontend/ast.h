@@ -118,13 +118,21 @@ class StringScalar : public Scalar {
   bool is_raw() const { return is_raw_; }
   bool is_triple_quoted() const { return is_triple_quoted_; }
 
+  // quote character; either  ' or "
+  char quote_char() const { return quote_char_; }
+
   ScalarType type() const final { return ScalarType::kString; }
 
  private:
   friend class Arena;
-  StringScalar(std::string_view value, bool is_triple_quoted, bool is_raw)
-      : Scalar(value), is_triple_quoted_(is_triple_quoted), is_raw_(is_raw) {}
+  StringScalar(std::string_view value, bool is_triple_quoted, bool is_raw,
+               char quote_char = '"')
+      : Scalar(value),
+        quote_char_(quote_char),
+        is_triple_quoted_(is_triple_quoted),
+        is_raw_(is_raw) {}
 
+  const char quote_char_;
   const bool is_triple_quoted_;
   const bool is_raw_;
 };

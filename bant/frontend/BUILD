@@ -99,6 +99,7 @@ cc_test(
         ":named-content",
         ":parser",
         "//bant/util:memory",
+        "@abseil-cpp//absl/log:check",
         "@abseil-cpp//absl/log:die_if_null",
         "@googletest//:gtest",
         "@googletest//:gtest_main",

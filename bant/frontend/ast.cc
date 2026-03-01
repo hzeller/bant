@@ -70,7 +70,9 @@ StringScalar *StringScalar::FromLiteral(Arena *arena,
     is_raw = true;
     literal.remove_prefix(1);
   }
-  if (literal.length() >= 6 && literal.starts_with(R"(""")")) {
+  const char quote_char = literal[0];
+  if (literal.length() >= 6 &&
+      (literal.starts_with(R"(""")") || literal.starts_with(R"(''')"))) {
     is_triple_quoted = true;
     literal = literal.substr(3);
     literal.remove_suffix(3);
@@ -83,7 +85,8 @@ StringScalar *StringScalar::FromLiteral(Arena *arena,
   // using it might need to unescape it.
   // Within the Scalar, we keep the original string_view so that it is possible
   // to report location using the LineColumnMap.
-  return arena->New<StringScalar>(literal, is_triple_quoted, is_raw);
+  return arena->New<StringScalar>(literal, is_triple_quoted, is_raw,
+                                  quote_char);
 }
 
 static std::pair<int, int> EffectiveSliceRange(std::optional<int> start,
@@ -124,6 +127,7 @@ Scalar *Scalar::AsSlice(Arena *arena, std::optional<int> start,
   const std::string_view slice =
     (len >= 0) ? as_string.substr(from, len) : as_string.substr(from, 0);
   if (slice == as_string) return this;
+  // FIXME: escaped characters might shift the position.
   return arena->New<StringScalar>(slice, false, false);
 }
 
@@ -136,6 +140,7 @@ Scalar *Scalar::AtIndex(Arena *arena, int index) {
                                    ? as_string.substr(index, 1)
                                    : as_string.substr(0, 0);
   if (slice == as_string) return this;
+  // FIXME: what happens to escaped characters ?
   return arena->New<StringScalar>(slice, false, false);
 }
 }  // namespace bant

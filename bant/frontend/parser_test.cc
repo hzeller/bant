@@ -24,6 +24,7 @@
 #include <string_view>
 #include <utility>
 
+#include "absl/log/check.h"
 #include "absl/log/die_if_null.h"
 #include "bant/frontend/ast.h"
 #include "bant/frontend/named-content.h"
@@ -47,8 +48,9 @@ class ParserTest : public ::testing::Test {
   }
 
   // Some helpers to build ASTs to compare
-  StringScalar *Str(std::string_view s, bool triple = false, bool raw = false) {
-    return arena_.New<StringScalar>(s, triple, raw);
+  StringScalar *Str(std::string_view s, bool triple = false, bool raw = false,
+                    char quote_char = '"') {
+    return arena_.New<StringScalar>(s, triple, raw, quote_char);
   }
   IntScalar *Int(int num) { return arena_.New<IntScalar>("", num); }
   IntScalar *Number(std::string_view fancy_literal) {
@@ -155,8 +157,11 @@ TEST_F(ParserTest, ParseEmpty) {
   EXPECT_TRUE(Parse("# just a comment without newline")->empty());
 }
 
+// Since we can't parse meaningful standalone scalars, we put them in an
+// assignment and then look at the RHS if they are as expected.
+//
 // Extract the scalar on the rhs of the assignment found in list [a = 123]
-static Scalar *ExtractScalar(bant::List *list) {
+static Scalar *ExtractScalarRhs(bant::List *list) {
   Node *first_element = ABSL_DIE_IF_NULL(*list->begin());
   BinOpNode *assign = ABSL_DIE_IF_NULL(first_element->CastAsBinOp());
   Node *rhs = ABSL_DIE_IF_NULL(assign->right());
@@ -164,10 +169,28 @@ static Scalar *ExtractScalar(bant::List *list) {
 }
 
 TEST_F(ParserTest, IntConversion) {
-  EXPECT_EQ(ExtractScalar(Parse("a=0o123"))->AsInt(), 0123);
-  EXPECT_EQ(ExtractScalar(Parse("a=0xabc"))->AsInt(), 0xabc);
-  EXPECT_EQ(ExtractScalar(Parse("a=True"))->AsInt(), 1);
-  EXPECT_EQ(ExtractScalar(Parse("a=False"))->AsInt(), 0);
+  EXPECT_EQ(ExtractScalarRhs(Parse("a=0o123"))->AsInt(), 0123);
+  EXPECT_EQ(ExtractScalarRhs(Parse("a=0xabc"))->AsInt(), 0xabc);
+  EXPECT_EQ(ExtractScalarRhs(Parse("a=True"))->AsInt(), 1);
+  EXPECT_EQ(ExtractScalarRhs(Parse("a=False"))->AsInt(), 0);
+}
+
+static StringScalar *ExtractStringScalarRhs(bant::List *list) {
+  Scalar *s = ExtractScalarRhs(list);
+  CHECK_EQ(s->type(), Scalar::ScalarType::kString);
+  return static_cast<StringScalar *>(s);
+}
+
+TEST_F(ParserTest, StringExtract) {
+  StringScalar *s = ExtractStringScalarRhs(Parse(R"(a="""foo""")"));
+  ASSERT_EQ(s->type(), Scalar::ScalarType::kString);
+  EXPECT_TRUE(s->is_triple_quoted());
+  EXPECT_EQ(s->quote_char(), '"');
+
+  s = ExtractStringScalarRhs(Parse(R"(a='''foo''')"));
+  ASSERT_EQ(s->type(), Scalar::ScalarType::kString);
+  EXPECT_TRUE(s->is_triple_quoted());
+  EXPECT_EQ(s->quote_char(), '\'');
 }
 
 TEST_F(ParserTest, Assignments) {
@@ -176,14 +199,14 @@ TEST_F(ParserTest, Assignments) {
     Assign("backslash", Str("\\\\", false, false)),
     Assign("bar", Str("raw_string", false, true)),
     Assign("baz", Str("triple quoted", true, false)),
-    Assign("quux", Str("raw triple quoted", true, true)),
+    Assign("quux", Str("raw triple quoted", true, true, '\'')),
   });
   EXPECT_EQ(Print(expected), Print(Parse(R"(
 foo = "regular_string"
 backslash = "\\"
 bar = r"raw_string"
 baz = """triple quoted"""
-quux = R"""raw triple quoted"""
+quux = R'''raw triple quoted'''
 )")));
 }
 
