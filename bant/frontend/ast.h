@@ -447,7 +447,7 @@ class BaseNodeReplacementVisitor : public NodeVisitor {
   }
 
   Node *VisitFunCall(FunCall *f) override {
-    ReplaceWalk(&f->left_);
+    // Not replacing left side, which is the identifier.
     ReplaceWalk(&f->right_);
     return f;
   }

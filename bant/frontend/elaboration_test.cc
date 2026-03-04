@@ -110,6 +110,22 @@ cc_library(
   EXPECT_EQ(result.first, result.second);
 }
 
+TEST_F(ElaborationTest, DoNotReplaceFunctionName) {
+  // Don't accidentally replace the LHS of a function that is expected
+  // to always stay an identifier.
+  auto result = ElabAndPrint(
+    R"(
+foo = something()
+foo("hello")
+)",
+    R"(
+foo = something()
+foo("hello")   # _not_ something()("hello")
+)");
+
+  EXPECT_EQ(result.first, result.second);
+}
+
 TEST_F(ElaborationTest, OnlyIdentifiersOnRhsAreExpanded) {
   auto result = ElabAndPrint(
     R"(
