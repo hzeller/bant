@@ -36,8 +36,8 @@
 #include "bant/explore/query-utils.h"
 #include "bant/frontend/ast.h"
 #include "bant/frontend/named-content.h"
+#include "bant/frontend/node-printer.h"
 #include "bant/frontend/parser.h"
-#include "bant/frontend/print-visitor.h"
 #include "bant/frontend/scanner.h"
 #include "bant/frontend/source-locator.h"
 #include "bant/session.h"
@@ -332,41 +332,6 @@ static void MaybePrintVisibility(List *visibility, std::ostream &out) {
   out << ")";
 }
 
-// -- TODO: maybe printing should move to a different file.
-
-// If we have an arbitrary node, find the fist string to latch on to report
-// a file position.
-static std::optional<std::string_view> FindFirstLocatableString(Node *ast) {
-  class FindFirstString : public BaseVoidVisitor {
-   public:
-    void VisitFunCall(FunCall *f) override {
-      WalkNonNull(f->identifier());
-      WalkNonNull(f->right());
-    }
-    void VisitBinOpNode(BinOpNode *b) final {
-      if (result_.has_value()) return;  // Done already, can stop walking.
-      BaseVoidVisitor::VisitBinOpNode(b);
-    }
-
-    void VisitScalar(Scalar *s) final {
-      if (result_.has_value()) return;
-      if (!s->AsString().empty()) result_ = s->AsString();
-    }
-    void VisitIdentifier(Identifier *id) final {
-      if (result_.has_value()) return;
-      if (id) result_ = id->id();
-    }
-    std::optional<std::string_view> found() { return result_; }
-
-   private:
-    std::optional<std::string_view> result_;
-  };
-
-  FindFirstString finder;
-  ast->Accept(&finder);
-  return finder.found();
-}
-
 std::pair<size_t, size_t> PrintProject(Session &session,
                                        const BazelTargetMatcher &pattern,
                                        const ParsedProject &project) {
@@ -376,7 +341,7 @@ std::pair<size_t, size_t> PrintProject(Session &session,
 
   auto highlighter = CreateGrepHighlighterFromFlags(session);
   if (!highlighter) {
-    return {count, total};
+    return {count, total};  // Issue building the highligher.
   }
   for (const auto &[package, file_content] : project.ParsedFiles()) {
     if (flags.print_only_errors && file_content->errors.empty()) {
@@ -388,31 +353,22 @@ std::pair<size_t, size_t> PrintProject(Session &session,
 
     total += file_content->ast->size();
 
-    // Detailed print of package if requested...
+    // Detailed print of package if requested with -a (all)
     if (flags.print_ast) {
       for (Node *item : *file_content->ast) {
-        std::stringstream headline_out;
+        std::stringstream headline;
         auto position_or = FindFirstLocatableString(item);
         if (position_or.has_value()) {
-          if (flags.do_color) headline_out << "\033[2;37m";
-          headline_out << "# " << project.Loc(*position_or);
-          if (flags.do_color) headline_out << "\033[0m";
+          headline << project.Loc(*position_or);
         }
-        headline_out << "\n";
-
-        std::stringstream ast_out;
-        PrintVisitor printer(ast_out, flags.do_color);
-        printer.WalkNonNull(item);
-
-        if (highlighter->EmitMatch(ast_out.str(), session.out(),
-                                   headline_out.str(), "\n")) {
+        if (PrintNode(session, *highlighter, headline.str(), item)) {
           ++count;
         }
       }
       continue;
     }
 
-    // Just print matching rules.
+    // ... otherwise just print matching rules.
     query::FindTargetsAllowEmptyName(
       file_content->ast, {}, [&](const query::Result &result) {
         std::optional<BazelTarget> maybe_target;
@@ -426,22 +382,14 @@ std::pair<size_t, size_t> PrintProject(Session &session,
 
         // TODO: instead of just marking the range of the function name,
         // show the range the whole function covers until closed parenthesis.
-        std::stringstream headline_out;
-        if (flags.do_color) headline_out << "\033[2;37m";
-        headline_out << "# " << project.Loc(result.node->identifier()->id());
+        std::stringstream headline;
+        headline << project.Loc(result.node->identifier()->id());
         if (maybe_target.has_value()) {  // only has value if target with name.
-          headline_out << " " << *maybe_target;
+          headline << " " << *maybe_target;
         }
-        MaybePrintVisibility(result.visibility, headline_out);
-        if (flags.do_color) headline_out << "\033[0m";
-        headline_out << "\n";
+        MaybePrintVisibility(result.visibility, headline);
 
-        std::stringstream ast_out;
-        PrintVisitor printer(ast_out, flags.do_color);
-        printer.WalkNonNull(result.node);
-
-        if (highlighter->EmitMatch(ast_out.str(), session.out(),
-                                   headline_out.str(), "\n")) {
+        if (PrintNode(session, *highlighter, headline.str(), result.node)) {
           ++count;
         }
       });

@@ -79,6 +79,17 @@ cc_library(
     ],
 )
 
+cc_library(
+    name = "node-printer",
+    srcs = ["node-printer.cc"],
+    hdrs = ["node-printer.h"],
+    deps = [
+        ":parser",
+        "//bant:session",
+        "//bant/util:grep-highlighter",
+    ],
+)
+
 cc_test(
     name = "scanner_test",
     size = "small",
@@ -112,6 +123,7 @@ cc_library(
     hdrs = ["parsed-project.h"],
     deps = [
         ":named-content",
+        ":node-printer",
         ":parser",
         ":source-locator",
         "//bant:builtin-macros",
