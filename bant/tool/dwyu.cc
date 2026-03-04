@@ -713,6 +713,12 @@ size_t CreateDependencyEdits(Session &session, const ParsedProject &project,
   DWYUGenerator gen(session, project, edit_counting_forwarder);
   const size_t target_count = gen.CreateEditsForPattern(pattern);
   session.info() << "Checked DWYU on " << target_count << " targets.";
+  if (target_count == 0 && pattern.HasFilter()) {
+    session.info()
+      << "\nNote: No cc_library/cc_binary/cc_test targets matched the"
+         " pattern. Target might not exist or uses an unknown custom rule."
+         "\nConsider adding a macro to your project's .bant file.";
+  }
   if (edits_emitted) {
     session.info() << " Emitted " << edits_emitted << " edits.";
   }
