@@ -470,9 +470,16 @@ absl::Status ParsedProject::AddMacroContent(std::string_view source_name,
   }
   for (Node *n : *macro_list) {
     Assignment *const macro_assignment = n->CastAsAssignment();
-    CHECK(macro_assignment) << "Expected assignment, got " << n;
+    if (!macro_assignment) {
+      return absl::InvalidArgumentError(
+        absl::StrCat(source_name, ": Expected assignment, got ", ToString(n)));
+    }
     Identifier *const name = macro_assignment->lhs_maybe_identifier();
-    CHECK(name) << "Not an identifier on lhs of " << macro_assignment;
+    if (!name) {
+      return absl::InvalidArgumentError(
+        absl::StrCat(source_name, ": Expected identifier on lhs of ",
+                     ToString(macro_assignment)));
+    }
     macros_.insert_or_assign(name->id(), macro_assignment->value());
   }
   RegisterLocationRange(named_content->content(), named_content.get());
