@@ -45,7 +45,6 @@ class PrintVisitor : public BaseVoidVisitor {
   const bool do_color_;
 
   int indent_ = 0;
-  bool any_highlight_ = false;
 };
 }  // namespace bant
 
