@@ -176,13 +176,14 @@ another_rule(
 }
 
 TEST_F(MacroSubstituteTest, ProjectLocalMacroForwardArgs) {
-  // Simulate a project-local macro like xla_test = bant_forward_args(cc_test())
+  // Simulate a project-local macro like my_cc_test =
+  // bant_forward_args(cc_test())
   SetMacroContent(R"(
-xla_test = bant_forward_args(cc_test())
+my_cc_test = bant_forward_args(cc_test())
 )");
 
   const auto result = MacroSubstituteAndPrint(R"input(
-xla_test(
+my_cc_test(
    name = "my_test",
    deps = ["//some:lib"],
 )

@@ -457,15 +457,15 @@ Node *ParsedProject::FindMacro(std::string_view name) const {
 }
 
 absl::Status ParsedProject::AddMacroContent(std::string_view source_name,
-                                              std::string_view content,
-                                              std::ostream &errors) {
+                                            std::string_view content,
+                                            std::ostream &errors) {
   auto named_content =
     std::make_unique<NamedLineIndexedContent>(source_name, content);
   Scanner scanner(*named_content);
   Parser parser(&scanner, &arena_, errors);
   List *const macro_list = parser.parse();
   if (parser.parse_error()) {
-    return absl::InternalError(
+    return absl::InvalidArgumentError(
       absl::StrCat("Parse error in macro file ", source_name));
   }
   for (Node *n : *macro_list) {
@@ -492,7 +492,7 @@ absl::Status ParsedProject::LoadMacrosFromFile(
       absl::StrCat("Macro file not found: ", macro_file.path()));
   }
   auto owned = std::make_unique<std::string>(std::move(*content));
-  std::string_view view = *owned;
+  const std::string_view view = *owned;
   macro_owned_content_.push_back(std::move(owned));
   std::stringstream error_collect;
   absl::Status status = AddMacroContent(macro_file.path(), view, error_collect);

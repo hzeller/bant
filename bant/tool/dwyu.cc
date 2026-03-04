@@ -717,7 +717,7 @@ size_t CreateDependencyEdits(Session &session, const ParsedProject &project,
     session.info()
       << "\nNote: No cc_library/cc_binary/cc_test targets matched the"
          " pattern. Target might not exist or uses an unknown custom rule."
-         "\nConsider adding a macro to your project's .bant file.";
+         "\nConsider adding a macro to your project's .bant-macros file.";
   }
   if (edits_emitted) {
     session.info() << " Emitted " << edits_emitted << " edits.";

@@ -127,7 +127,7 @@ class ParsedProject : public SourceLocator {
   void RegisterLocationRange(std::string_view range,
                              const SourceLocator *source_locator);
 
-  // Load project-local macro definitions from a .bant file.
+  // Load project-local macro definitions from a .bant-macros file.
   // Returns NotFoundError if the file doesn't exist (caller can ignore).
   absl::Status LoadMacrosFromFile(Session &session,
                                   const FilesystemPath &macro_file);
@@ -163,8 +163,7 @@ class ParsedProject : public SourceLocator {
   // Core macro-parsing logic: parse assignments from content and add to
   // macros_ map. On name collision, later definitions win.
   absl::Status AddMacroContent(std::string_view source_name,
-                                std::string_view content,
-                                std::ostream &errors);
+                               std::string_view content, std::ostream &errors);
 
   Arena arena_{1 << 20};
   const BazelWorkspace workspace_;

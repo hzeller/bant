@@ -184,7 +184,7 @@ CliStatus RunCommand(Session &session, Command cmd,
 
   bant::ParsedProject project(workspace, flags.verbose);
   {
-    const FilesystemPath macro_file(".bant");
+    const FilesystemPath macro_file(".bant-macros");
     if (auto status = project.LoadMacrosFromFile(session, macro_file);
         !status.ok() && !absl::IsNotFound(status)) {
       session.info() << "Warning: " << status.message() << "\n";
