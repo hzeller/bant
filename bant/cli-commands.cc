@@ -32,8 +32,8 @@
 #include "bant/explore/header-providers.h"
 #include "bant/explore/query-utils.h"
 #include "bant/frontend/elaboration.h"
+#include "bant/frontend/node-printer.h"
 #include "bant/frontend/parsed-project.h"
-#include "bant/frontend/print-visitor.h"
 #include "bant/session.h"
 #include "bant/types-bazel.h"
 #include "bant/types.h"
@@ -147,9 +147,11 @@ std::optional<CliStatus> RunDebugCommand(Session &session, Command cmd) {
     Elaborate(session, &project, options, parsed);
   }
   if (cmd == Command::kPrint && parsed->ast) {
-    PrintVisitor printer(session.out(), session.flags().do_color);
-    printer.WalkNonNull(parsed->ast);
-    session.out() << "\n";
+    auto highlighter = CreateGrepHighlighterFromFlags(session);
+    if (!highlighter) return CliStatus::kExitFailure;
+    for (auto *node : *parsed->ast) {
+      bant::PrintNode(session, *highlighter, "", node);
+    }
   }
   return CliStatus::kExitSuccess;
 }
