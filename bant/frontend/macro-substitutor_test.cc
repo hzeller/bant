@@ -175,4 +175,89 @@ another_rule(
   EXPECT_EQ(result.first, result.second);
 }
 
+TEST_F(MacroSubstituteTest, ProjectLocalMacroForwardArgs) {
+  // Simulate a project-local macro like my_cc_test =
+  // bant_forward_args(cc_test())
+  SetMacroContent(R"(
+my_cc_test = bant_forward_args(cc_test())
+)");
+
+  const auto result = MacroSubstituteAndPrint(R"input(
+my_cc_test(
+   name = "my_test",
+   deps = ["//some:lib"],
+)
+)input",
+                                              R"expanded(
+cc_test(
+    name = "my_test",
+    deps = ["//some:lib"],
+)
+)expanded");
+
+  EXPECT_EQ(result.first, result.second);
+}
+
+TEST_F(MacroSubstituteTest, MultipleSetMacroContentCallsAreAdditive) {
+  // First call: define one macro
+  SetMacroContent(R"(
+first_rule = bant_forward_args(cc_library())
+)");
+
+  // Second call: define another macro (should not crash, should be additive)
+  SetMacroContent(R"(
+second_rule = bant_forward_args(cc_test())
+)");
+
+  // Both macros should work
+  const auto result1 = MacroSubstituteAndPrint(R"input(
+first_rule(
+   name = "lib1",
+)
+)input",
+                                               R"expanded(
+cc_library(
+    name = "lib1",
+)
+)expanded");
+  EXPECT_EQ(result1.first, result1.second);
+
+  const auto result2 = MacroSubstituteAndPrint(R"input(
+second_rule(
+   name = "test1",
+)
+)input",
+                                               R"expanded(
+cc_test(
+    name = "test1",
+)
+)expanded");
+  EXPECT_EQ(result2.first, result2.second);
+}
+
+TEST_F(MacroSubstituteTest, ProjectLocalMacroOverridesBuiltin) {
+  // First call: define a macro
+  SetMacroContent(R"(
+my_rule = bant_forward_args(cc_library())
+)");
+
+  // Second call: override same macro name
+  SetMacroContent(R"(
+my_rule = bant_forward_args(cc_test())
+)");
+
+  // Should use the latest definition (cc_test, not cc_library)
+  const auto result = MacroSubstituteAndPrint(R"input(
+my_rule(
+   name = "foo",
+)
+)input",
+                                              R"expanded(
+cc_test(
+    name = "foo",
+)
+)expanded");
+  EXPECT_EQ(result.first, result.second);
+}
+
 }  // namespace bant

@@ -21,9 +21,11 @@
 #include <cstddef>
 #include <functional>
 #include <memory>
+#include <ostream>
 #include <string>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
@@ -125,6 +127,11 @@ class ParsedProject : public SourceLocator {
   void RegisterLocationRange(std::string_view range,
                              const SourceLocator *source_locator);
 
+  // Load project-local macro definitions from a .bant-macros file.
+  // Returns NotFoundError if the file doesn't exist (caller can ignore).
+  absl::Status LoadMacrosFromFile(Session &session,
+                                  const FilesystemPath &macro_file);
+
   // Find content of a macro with given name or nullptr if no such macro
   // exists. The returned node and any of its nodes must not be altered.
   // (So VariableSubstituteCopy(), careful if it ends up in Elaboration with
@@ -148,15 +155,20 @@ class ParsedProject : public SourceLocator {
                                 const FilesystemPath &build_file,
                                 const BazelPackage &package);
 
-  // Set content of bant file defining the maccros to be found in FindMacro().
-  // Typically, this will only happen once with the built-in macros, but
-  // can be called in tests to set a specific test content.
+  // Set content of bant file defining the macros to be found in FindMacro().
+  // Can be called multiple times (e.g. built-in + project-local).
   // Passed string view must outlive ParsedProject lifetime.
   absl::Status SetBuiltinMacroContent(std::string_view content);
 
+  // Core macro-parsing logic: parse assignments from content and add to
+  // macros_ map. On name collision, later definitions win.
+  absl::Status AddMacroContent(std::string_view source_name,
+                               std::string_view content, std::ostream &errors);
+
   Arena arena_{1 << 20};
   const BazelWorkspace workspace_;
-  std::unique_ptr<NamedLineIndexedContent> macro_content_;
+  std::vector<std::unique_ptr<NamedLineIndexedContent>> macro_contents_;
+  std::vector<std::unique_ptr<std::string>> macro_owned_content_;
   int error_count_ = 0;
   Package2Parsed package_to_parsed_;  // BUILD files.
   Target2Parsed starlark_to_parsed_;  // Starlark files.

@@ -178,6 +178,30 @@ If you suspect an operation is not evaluated, invoke bant with extra verbose
 `-vv` - it will show what operations it glossed over (If observed in the field:
 good candidate to implement next).
 
+#### Macros
+
+Bant ships with a set of [built-in macros][builtin-macros] that map common
+custom rules (e.g. `cc_proto_library`) to standard Bazel rules so that `dwyu`
+and other commands can analyze them.
+
+If your project uses custom rules that bant doesn't know about (e.g.
+`my_cc_test` wrapping `cc_test`), you can define project-local macros in a
+`.bant-macros` file at the project root. The syntax is the same as the
+built-in macros file:
+
+```
+# .bant-macros
+my_cc_test = bant_forward_args(cc_test())
+my_cc_library = bant_forward_args(cc_library())
+```
+
+`bant_forward_args(target_rule())` expands calls to the custom rule by
+forwarding all arguments to the specified standard rule.
+
+Project-local macros are loaded in addition to the built-in macros. If a
+project-local macro has the same name as a built-in, the project-local
+definition takes precedence.
+
 #### Grep
 As targets to print, the usual bazel patterns apply, such as exact label names,
 `...`, or `:all`; also, some `*`-globbing label names is supported in the

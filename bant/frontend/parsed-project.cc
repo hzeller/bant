@@ -32,6 +32,7 @@
 #include "absl/container/flat_hash_map.h"
 #include "absl/log/check.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
 #include "bant/builtin-macros.h"
 #include "bant/explore/query-utils.h"
 #include "bant/frontend/ast.h"
@@ -403,28 +404,56 @@ Node *ParsedProject::FindMacro(std::string_view name) const {
   return nullptr;
 }
 
-absl::Status ParsedProject::SetBuiltinMacroContent(std::string_view content) {
-  if (macro_content_) {
-    // In tests, call ParsedProject without builtin-macros
-    return absl::InternalError("Attempt to register multiple built-ins");
-  }
-  macro_content_ =
-    std::make_unique<NamedLineIndexedContent>("(bant-builtin)", content);
-  Scanner scanner(*macro_content_);  // directly parsing compiled-in string-view
-  Parser parser(&scanner, &arena_, std::cerr);
-  List *const builtin_list = parser.parse();
+absl::Status ParsedProject::AddMacroContent(std::string_view source_name,
+                                            std::string_view content,
+                                            std::ostream &errors) {
+  auto named_content =
+    std::make_unique<NamedLineIndexedContent>(source_name, content);
+  Scanner scanner(*named_content);
+  Parser parser(&scanner, &arena_, errors);
+  List *const macro_list = parser.parse();
   if (parser.parse_error()) {
-    return absl::InternalError("Issue in bant/builtin-macros.bnt");
+    return absl::InvalidArgumentError(
+      absl::StrCat("Parse error in macro file ", source_name));
   }
-  for (Node *n : *builtin_list) {
+  for (Node *n : *macro_list) {
     Assignment *const macro_assignment = n->CastAsAssignment();
-    CHECK(macro_assignment) << "Expected assignment, got " << n;
+    if (!macro_assignment) {
+      return absl::InvalidArgumentError(
+        absl::StrCat(source_name, ": Expected assignment, got ", ToString(n)));
+    }
     Identifier *const name = macro_assignment->lhs_maybe_identifier();
-    CHECK(name) << "Not an identifier on lhs of " << macro_assignment;
-    CHECK(macros_.emplace(name->id(), macro_assignment->value()).second)
-      << "Multiple macros of name " << name->id();
+    if (!name) {
+      return absl::InvalidArgumentError(
+        absl::StrCat(source_name, ": Expected identifier on lhs of ",
+                     ToString(macro_assignment)));
+    }
+    macros_.insert_or_assign(name->id(), macro_assignment->value());
   }
-  RegisterLocationRange(macro_content_->content(), macro_content_.get());
+  RegisterLocationRange(named_content->content(), named_content.get());
+  macro_contents_.push_back(std::move(named_content));
   return absl::OkStatus();
+}
+
+absl::Status ParsedProject::SetBuiltinMacroContent(std::string_view content) {
+  return AddMacroContent("(bant-builtin)", content, std::cerr);
+}
+
+absl::Status ParsedProject::LoadMacrosFromFile(
+  Session &session, const FilesystemPath &macro_file) {
+  std::optional<std::string> content = ReadFileToString(macro_file);
+  if (!content.has_value()) {
+    return absl::NotFoundError(
+      absl::StrCat("Macro file not found: ", macro_file.path()));
+  }
+  auto owned = std::make_unique<std::string>(std::move(*content));
+  const std::string_view view = *owned;
+  macro_owned_content_.push_back(std::move(owned));
+  std::stringstream error_collect;
+  absl::Status status = AddMacroContent(macro_file.path(), view, error_collect);
+  if (!status.ok()) {
+    session.info() << error_collect.str();
+  }
+  return status;
 }
 }  // namespace bant
