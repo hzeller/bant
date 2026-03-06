@@ -474,6 +474,37 @@ TEST_F(ParserTest, ParseListComprehension) {
 )")));
 }
 
+// Subscript [] binds at the same precedence as dot, left-to-right.
+// This ensures "str".method()[0] parses as (("str".method())[0]) not
+// ("str".(method()[0])).
+TEST_F(ParserTest, SubscriptAfterMethodCall) {
+  Node *const expected = List({
+    // "str".split(".")[0] → SUBSCRIPT(DOT("str", split(".")), 0)
+    Assign("a", Op('[', Op('.', Str("str"), Call("split", Tuple({Str(".")}))),
+                   Int(0))),
+    // x.y[0] → SUBSCRIPT(DOT(x, y), 0)
+    Assign("b", Op('[', Op('.', Id("x"), Id("y")), Int(0))),
+    // x[0].y → DOT(SUBSCRIPT(x, 0), y)
+    Assign("c", Op('.', Op('[', Id("x"), Int(0)), Id("y"))),
+    // x.y[0].z → DOT(SUBSCRIPT(DOT(x, y), 0), z)
+    Assign("d", Op('.', Op('[', Op('.', Id("x"), Id("y")), Int(0)), Id("z"))),
+    // a.b()[1][2] → SUBSCRIPT(SUBSCRIPT(DOT(a, b()), 1), 2)
+    Assign("e", Op('[', Op('[', Op('.', Id("a"), Call("b", Tuple({}))), Int(1)),
+                   Int(2))),
+    // [1, 2, 3][0] → SUBSCRIPT([1,2,3], 0)
+    Assign("f", Op('[', List({Int(1), Int(2), Int(3)}), Int(0))),
+  });
+
+  EXPECT_EQ(Print(expected), Print(Parse(R"(
+a = "str".split(".")[0]
+b = x.y[0]
+c = x[0].y
+d = x.y[0].z
+e = a.b()[1][2]
+f = [1, 2, 3][0]
+)")));
+}
+
 // Make sure we don't accidentally see an opening bracket on the next line
 // as array access in the previous one.
 TEST_F(ParserTest, ListComprehensionAfterExpressionIsNotAnArrayAccess) {
