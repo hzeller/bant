@@ -159,10 +159,10 @@ xls_ir_cc_library = (
 xls_dslx_verilog = genrule(
     name = name,
     outs = [
-        (verilog_file.rsplit(".", 1))[0] + ".block.ir",
-        (verilog_file.rsplit(".", 1))[0] + ".codegen_options.textproto",
-        (verilog_file.rsplit(".", 1))[0] + ".schedule_options.textproto",
-        (verilog_file.rsplit(".", 1))[0] + ".sig.textproto",
+        verilog_file.rsplit(".", 1)[0] + ".block.ir",
+        verilog_file.rsplit(".", 1)[0] + ".codegen_options.textproto",
+        verilog_file.rsplit(".", 1)[0] + ".schedule_options.textproto",
+        verilog_file.rsplit(".", 1)[0] + ".sig.textproto",
         verilog_file,
     ],
 )
@@ -170,10 +170,10 @@ xls_dslx_verilog = genrule(
 xls_ir_verilog = genrule(
     name = name,
     outs = [
-        (verilog_file.rsplit(".", 1))[0] + ".block.ir",
-        (verilog_file.rsplit(".", 1))[0] + ".codegen_options.textproto",
-        (verilog_file.rsplit(".", 1))[0] + ".schedule_options.textproto",
-        (verilog_file.rsplit(".", 1))[0] + ".sig.textproto",
+        verilog_file.rsplit(".", 1)[0] + ".block.ir",
+        verilog_file.rsplit(".", 1)[0] + ".codegen_options.textproto",
+        verilog_file.rsplit(".", 1)[0] + ".schedule_options.textproto",
+        verilog_file.rsplit(".", 1)[0] + ".sig.textproto",
         verilog_file,
     ],
 )

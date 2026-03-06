@@ -385,6 +385,7 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
   }
 
   Node *VisitUnaryExpr(UnaryExpr *unary) final {
+    BaseNodeReplacementVisitor::VisitUnaryExpr(unary);
     Scalar *scalar = unary->node()->CastAsScalar();
     if (!scalar) return unary;
     if (scalar->type() != Scalar::ScalarType::kInt) return unary;

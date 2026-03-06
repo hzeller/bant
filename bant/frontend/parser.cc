@@ -363,20 +363,12 @@ class Parser::Impl {
     default: n = ParseValueOrIdentifier(can_be_optional);
     }
 
-    // Check for array access. Strong binding
-    Token upcoming = scanner_->Peek();
+    // Check for ternary if-else.
+    const Token upcoming = scanner_->Peek();
     if (upcoming.type == TokenType::kIf) {
       return ParseIfElse(n);  // TODO: figure out what precendence level this is
     }
 
-    for (/**/; upcoming.type == '['; upcoming = scanner_->Peek()) {
-      if (upcoming.newline_since_last_token) {  // new toplevel construct
-        return n;
-      }
-      const Token op = scanner_->Next();  // '[' operation.
-      n = Make<BinOpNode>(n, ParseArrayOrSliceAccess(), op.type, op.text);
-      // Suffix expression, maybe there is more.
-    }
     return n;
   }
 
@@ -389,10 +381,20 @@ class Parser::Impl {
     if (n == nullptr) return n;
     for (;;) {
       const Token upcoming = scanner_->Peek();
-      if (!IsTokenIn(upcoming.type, kPrecedenceList[prec])) break;
-      const Token op = scanner_->Next();
-      Node *const right = ParseWithPrecedence(prec - 1);
-      n = Make<BinOpNode>(n, right, op.type, op.text);
+      if (IsTokenIn(upcoming.type, kPrecedenceList[prec])) {
+        const Token op = scanner_->Next();
+        Node *const right = ParseWithPrecedence(prec - 1);
+        n = Make<BinOpNode>(n, right, op.type, op.text);
+        continue;
+      }
+      // Array/slice subscript [] binds at the same level as dot (.).
+      if (prec == 1 && upcoming.type == '[' &&
+          !upcoming.newline_since_last_token) {
+        const Token op = scanner_->Next();
+        n = Make<BinOpNode>(n, ParseArrayOrSliceAccess(), op.type, op.text);
+        continue;
+      }
+      break;
     }
     return n;
   }

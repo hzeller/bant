@@ -514,7 +514,7 @@ A = "some-filename.foo.bar.txt".rsplit(".")
 A1 = "some-filename.foo.bar.txt".rsplit(".", -1)  # equivalent to split all
 B = "some-filename.foo.bar.txt".rsplit(".", 1)
 C = "some-filename".rsplit(".", 1)
-D = ("remove-suffix.txt".rsplit(".", 1))[0]  # precedence: should not need ()
+D = "remove-suffix.txt".rsplit(".", 1)[0]
 E = "Hello the fillword the remove".rsplit(" the ")
 )",
     R"(
@@ -539,16 +539,15 @@ A1 = "some-filename.foo.bar.txt".split(".", -1)
 A2 = "some-filename.foo.bar.txt".split(".")[1]
 B = "some-filename.foo.bar.txt".split(".", 1)
 C = "some-filename".split(".", 1)
-D = ("get-prefix.tar.gz".split("."))[0]  # TODO: precedence: should not need ()
+D = "get-prefix.tar.gz".split(".")[0]
 E = "Hello the fillword the remove".split(" the ")
-F = ("1.2.3.bcr.1".split(".bcr.", 1))[0] # TODO: precedence: should not need ()
+F = "1.2.3.bcr.1".split(".bcr.", 1)[0]
 )",
     R"(
 S = ["some", "space", "separated"]
 A = ["some-filename", "foo", "bar", "txt"]
 A1 = ["some-filename", "foo", "bar", "txt"]
-#A2 = "foo"                                     # did not evaluate...
-A2 = "some-filename.foo.bar.txt".split(".")[1]  # ... because wrong precedence
+A2 = "foo"
 B = ["some-filename", "foo.bar.txt"]
 C = ["some-filename"]
 D = "get-prefix"
@@ -601,7 +600,7 @@ TEST_F(ElaborationTest, LenFunction) {
 FOO = len("hello")
 BAR = len(variable)
 BAZ = len(["a", "b", "c"])
-EXAMPLE = "somefilename.txt"[:0-len(".txt")]  # TODO not unary: precedence issue
+EXAMPLE = "somefilename.txt"[:-len(".txt")]
 )",
     R"(
 FOO = 5
@@ -921,6 +920,54 @@ TEST_F(ElaborationTest, GlobDirKnownPrefixInSubpackage) {
   auto result =
     TestGlobFile("GlobDirKnownPrefixInSubpackage", this, "some/pkg",  //
                  "abc/foo.xyz", "abc/*.xyz");
+  EXPECT_EQ(result.first, result.second);
+}
+
+TEST_F(ElaborationTest, ArithPrecedence) {
+  auto result = ElabAndPrint(
+    R"(
+QIX = 9 * 9 + 1  # multiply before add
+QUX = 1 + 9 * 9  # multiply before add
+FIX = 9 * (9 + 1)
+FUX = (1 + 9) * 9
+)",
+    R"(
+QIX = 82
+QUX = 82
+FIX = 90
+FUX = 90
+)");
+
+  EXPECT_EQ(result.first, result.second);
+}
+
+TEST_F(ElaborationTest, MethodCallSubscriptPrecedence) {
+  auto result = ElabAndPrint(
+    R"(
+A = "some-filename.foo.bar.txt".split(".")[1]
+B = "get-prefix.tar.gz".split(".")[0]
+C = "1.2.3.bcr.1".split(".bcr.", 1)[0]
+D = "remove-suffix.txt".rsplit(".", 1)[0]
+)",
+    R"(
+A = "foo"
+B = "get-prefix"
+C = "1.2.3"
+D = "remove-suffix"
+)");
+
+  EXPECT_EQ(result.first, result.second);
+}
+
+TEST_F(ElaborationTest, SliceExprPrecedence) {
+  auto result = ElabAndPrint(
+    R"(
+EXAMPLE = "somefilename.txt"[:-len(".txt")]
+)",
+    R"(
+EXAMPLE = "somefilename"
+)");
+
   EXPECT_EQ(result.first, result.second);
 }
 
