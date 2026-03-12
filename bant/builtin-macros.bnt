@@ -45,6 +45,12 @@ expand_template = genrule(
     outs = [out],
 )
 
+copy_file = genrule(
+    name = name,
+    srcs = [src],
+    outs = [out],
+)
+
 ### Found in bazel_rules_hdl, verible.
 genlex = genrule(
     name = name,
