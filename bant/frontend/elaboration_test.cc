@@ -558,6 +558,20 @@ F = "1.2.3"
   EXPECT_EQ(result.first, result.second);
 }
 
+TEST_F(ElaborationTest, ReplaceString) {
+  auto result = ElabAndPrint(
+    R"(
+A = "foo/bar/baz".replace('/', '_')
+B = "foobarfoobaz".replace('foo', 'FOO')
+)",
+    R"(
+A = "foo_bar_baz"
+B = "FOObarFOObaz"
+)");
+
+  EXPECT_EQ(result.first, result.second);
+}
+
 TEST_F(ElaborationTest, StringInList) {
   auto result = ElabAndPrint(
     R"(

@@ -568,6 +568,9 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     if (method_name == "rsplit") {
       return HandleStringRsplit(orig, str, method->argument());
     }
+    if (method_name == "replace") {
+      return HandleStringReplace(orig, str, method->argument());
+    }
 
     return orig;  // Not handled.
   }
@@ -705,6 +708,20 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     std::string_view split_by = " ";
     int64_t max_split = std::numeric_limits<int64_t>::max();
   };
+
+  Node *HandleStringReplace(Node *orig, std::string_view str, List *args) {
+    auto replace_args = ExtractScalarPosArgs(args);
+    if (!replace_args.has_value() || replace_args->size() != 2) return orig;
+    const std::string_view from = replace_args->at(0);
+    const std::string_view to = replace_args->at(1);
+    std::string subject(str);
+    size_t start_pos = 0;
+    while ((start_pos = subject.find(from, start_pos)) != std::string::npos) {
+      subject.replace(start_pos, from.length(), to);
+      start_pos += to.length();
+    }
+    return MakeNewStringScalarFrom(subject, project_->GetLocation(str));
+  }
 
   Node *HandleStringRsplit(Node *orig, std::string_view str, List *args) {
     auto split_args = SplitParams::FromArgs(args);
