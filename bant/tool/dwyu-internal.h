@@ -28,10 +28,12 @@
 #include "absl/container/btree_set.h"
 #include "bant/explore/header-providers.h"
 #include "bant/explore/query-utils.h"
+#include "bant/frontend/named-content.h"
 #include "bant/frontend/parsed-project.h"
 #include "bant/session.h"
 #include "bant/tool/edit-callback.h"
 #include "bant/types-bazel.h"
+#include "bant/util/stat.h"
 
 namespace bant {
 // The DWYUGenerator is the underlying implementation, for which
@@ -86,14 +88,46 @@ class DWYUGenerator {
     const std::vector<std::string_view> &sources,
     bool *all_headers_accounted_for);
 
+  // Similar to DependenciesNeededBySources but for proto_library targets.
+  // Reads .proto source files and extracts import statements to determine
+  // which proto_library deps are actually needed.
+  std::vector<absl::btree_set<BazelTarget>> DependenciesNeededByProtoSources(
+    const BazelTarget &target, const ParsedBuildFile &build_file,
+    const std::vector<std::string_view> &sources,
+    bool *all_imports_accounted_for);
+
   void CreateEditsForTarget(const BazelTarget &target,
                             const query::Result &details,
                             const ParsedBuildFile &build_file);
+
+  // Read a source file and update stats. Returns nullopt on failure after
+  // logging the issue and setting *all_accounted = false.
+  std::optional<SourceFile> ReadSourceForDWYU(std::string_view src_name,
+                                              const BazelTarget &target,
+                                              const ParsedBuildFile &build_file,
+                                              Stat &read_stats,
+                                              bool *all_accounted);
+
+  // Log "unknown provider" warning for an unresolved include/import.
+  void LogUnknownProvider(const NamedLineIndexedContent &source,
+                          std::string_view ref_file,
+                          std::string_view ref_keyword);
+
+  // Filter alternatives to only visible targets and append to result.
+  void AddVisibleAlternatives(
+    const BazelTarget &target, const absl::btree_set<BazelTarget> &alternatives,
+    std::vector<absl::btree_set<BazelTarget>> &result);
+
+  // Like AddVisibleAlternatives but also considers stratum for cc targets.
+  void AddVisibleAlternativesWithStratum(
+    const BazelTarget &target, const absl::btree_set<BazelTarget> &alternatives,
+    std::vector<absl::btree_set<BazelTarget>> &result);
 
   Session &session_;
   const ParsedProject &project_;
   const EditCallback emit_deps_edit_;
   ProvidedFromTargetSet headers_from_libs_;
+  ProvidedFromTargetSet protos_from_libs_;
   ProvidedFromTarget files_from_genrules_;
   absl::btree_map<BazelTarget, query::Result> known_libs_;
 };

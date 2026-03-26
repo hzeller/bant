@@ -339,6 +339,39 @@ ProvidedFromTargetSet ExtractExpandedHeaderToLibMapping(
   return result;
 }
 
+ProvidedFromTargetSet ExtractProtoToProtoLibMapping(
+  const ParsedProject &project, std::ostream &info_out, bool suffix_index) {
+  ProvidedFromTargetSet result;
+
+  const auto aliased_by_index = ExtractAliasedBy(project);
+
+  for (const auto &[_, build_file] : project.ParsedFiles()) {
+    if (!build_file->ast) continue;
+
+    query::FindTargets(
+      build_file->ast, {"proto_library"}, [&](const query::Result &proto_lib) {
+        auto target = build_file->package.QualifiedTarget(proto_lib.name);
+        if (!target.has_value()) return;
+
+        const auto proto_srcs = query::ExtractStringList(proto_lib.srcs_list);
+        for (std::string_view proto : proto_srcs) {
+          if (!proto.ends_with(".proto")) continue;
+          if (proto.starts_with(':')) proto.remove_prefix(1);
+
+          const std::string proto_fqn =
+            build_file->package.QualifiedFile(proto);
+          const std::string_view maybe_stripped =
+            StripIfNeeded(proto_fqn, proto_lib.strip_import_prefix);
+          const std::string key = KeyTransform(maybe_stripped, suffix_index);
+          InsertLibAndAliasesToTargetSet(key, *target, aliased_by_index,
+                                         result);
+        }
+      });
+  }
+
+  return result;
+}
+
 ProvidedFromTargetSet ExtractComponentToTargetMapping(
   const ParsedProject &project, ExtractComponent which,
   bool only_physical_files, std::ostream &info_out) {

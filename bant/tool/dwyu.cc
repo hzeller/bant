@@ -179,6 +179,7 @@ void DWYUGenerator::InitKnownLibraries() {
     query::FindTargets(parsed_package->ast,
                        {"cc_library", "alias",  // The common ones
                         "cc_proto_library", "grpc_cc_library",  // specialized
+                        "proto_library",                        // proto DWYU
                         "cc_test"},  // also indexing test for testonly check.
                        [&](const query::Result &target) {
                          auto self =
@@ -306,7 +307,83 @@ int DWYUGenerator::GetStratum(const BazelTarget &target) const {
   return entry->first.stratum;
 }
 
-// TODO: needs to be shorter and broken up into various functions.
+std::optional<DWYUGenerator::SourceFile> DWYUGenerator::ReadSourceForDWYU(
+  std::string_view src_name, const BazelTarget &target,
+  const ParsedBuildFile &build_file, Stat &read_stats, bool *all_accounted) {
+  const std::string source_file =
+    build_file.package.FullyQualifiedFile(project_.workspace(), src_name);
+  std::optional<SourceFile> source_content;
+  {
+    const ScopedTimer timer(&read_stats.duration);
+    source_content = TryOpenFile(source_file);
+  }
+  if (!source_content.has_value()) {
+    std::ostream &info_out = session_.info();
+    project_.Loc(info_out, src_name)
+      << " Can not read source '" << source_file << "' for target " << target;
+    const auto from_genrule = files_from_genrules_.find(source_file);
+    if (from_genrule != files_from_genrules_.end()) {
+      info_out << "; Run genrule `bazel build " << from_genrule->second
+               << "` first.\n";
+    } else {
+      info_out << " -- Missing ?\n";
+    }
+    *all_accounted = false;
+  }
+  return source_content;
+}
+
+void DWYUGenerator::LogUnknownProvider(const NamedLineIndexedContent &source,
+                                       std::string_view ref_file,
+                                       std::string_view ref_keyword) {
+  if (!session_.flags().verbose) return;
+  std::ostream &info_out = session_.info();
+  source.Loc(info_out, ref_file)
+    << " " << ref_keyword << " \"" << ref_file << "\"\n";
+  source.Loc(info_out, ref_file)
+    << Red(session_) << "    ?      ^ unknown provider "
+    << "-- Missing or from non-standard bazel-rule ?" << Norm(session_) << "\n";
+}
+
+void DWYUGenerator::AddVisibleAlternatives(
+  const BazelTarget &target, const absl::btree_set<BazelTarget> &alternatives,
+  std::vector<absl::btree_set<BazelTarget>> &result) {
+  absl::btree_set<BazelTarget> visible;
+  for (const BazelTarget &t : alternatives) {
+    if (CanSee(target, t, nullptr)) {
+      visible.emplace(t);
+    }
+  }
+  if (!visible.empty()) {
+    result.push_back(std::move(visible));
+  }
+}
+
+void DWYUGenerator::AddVisibleAlternativesWithStratum(
+  const BazelTarget &target, const absl::btree_set<BazelTarget> &alternatives,
+  std::vector<absl::btree_set<BazelTarget>> &result) {
+  Range stratum_range;
+  std::vector<BazelTarget> temp_result;
+  for (const BazelTarget &t : alternatives) {
+    if (CanSee(target, t, nullptr)) {
+      const int stratum = GetStratum(t);
+      stratum_range.Update(stratum);
+      if (stratum <= stratum_range.min_value) {
+        temp_result.emplace_back(t);
+      }
+    }
+  }
+  if (temp_result.empty()) return;
+  auto &result_set = result.emplace_back();
+  for (const BazelTarget &t : temp_result) {
+    if (stratum_range.min_value != stratum_range.max_value &&
+        GetStratum(t) != stratum_range.min_value) {
+      continue;
+    }
+    result_set.emplace(t);
+  }
+}
+
 std::vector<absl::btree_set<BazelTarget>>
 DWYUGenerator::DependenciesNeededBySources(
   const BazelTarget &target, const ParsedBuildFile &build_file,
@@ -317,10 +394,6 @@ DWYUGenerator::DependenciesNeededBySources(
 
   std::ostream &info_out = session_.info();
   size_t total_size = 0;
-
-  // Already provided targets we don't need to emit anymore.
-  std::set<BazelTarget> already_provided;
-  already_provided.insert(target);
 
   // Log providers if super verbose -vvv
   auto maybe_log = [&](const NamedLineIndexedContent &source,
@@ -352,58 +425,14 @@ DWYUGenerator::DependenciesNeededBySources(
     source_logged_already = true;
   };
 
-  // Add alternatives to the result we return, but filtering to only
-  // include visible targets.
   std::vector<absl::btree_set<BazelTarget>> result;
-  auto add_to_result = [&](const absl::btree_set<BazelTarget> &alternatives) {
-    Range stratum_range;
-    // Add all visible targets. If there alternatives with different stratum
-    // values, only keep the ones with the lowest value.
-    std::vector<BazelTarget> temp_result;
-    for (const BazelTarget &t : alternatives) {
-      if (CanSee(target, t, nullptr)) {
-        const int stratum = GetStratum(t);
-        stratum_range.Update(stratum);
-        if (stratum <= stratum_range.min_value) {
-          temp_result.emplace_back(t);
-        }
-      }
-    }
-
-    if (temp_result.empty()) return;
-    auto &result_set = result.emplace_back();
-    for (const BazelTarget &t : temp_result) {
-      if (stratum_range.min_value != stratum_range.max_value &&
-          GetStratum(t) != stratum_range.min_value) {
-        // TODO: maybe even make this a removal candidate ?
-        continue;
-      }
-      result_set.emplace(t);
-    }
-  };
 
   for (const std::string_view src_name : sources) {
     source_logged_already = false;
-    const std::string source_file =
-      build_file.package.FullyQualifiedFile(project_.workspace(), src_name);
-    std::optional<DWYUGenerator::SourceFile> source_content;
-    {
-      const ScopedTimer timer(&source_read_stats.duration);
-      source_content = TryOpenFile(source_file);
-    }
-    if (!source_content.has_value()) {
-      project_.Loc(info_out, src_name)
-        << " Can not read source '" << source_file << "' for target " << target;
-      const auto from_genrule = files_from_genrules_.find(source_file);
-      if (from_genrule != files_from_genrules_.end()) {
-        info_out << "; Run genrule `bazel build " << from_genrule->second
-                 << "` first.\n";
-      } else {
-        info_out << " -- Missing ?\n";
-      }
-      *all_headers_accounted_for = false;
-      continue;
-    }
+    auto source_content =
+      ReadSourceForDWYU(src_name, target, build_file, source_read_stats,
+                        all_headers_accounted_for);
+    if (!source_content.has_value()) continue;
 
     if (session_.flags().verbose > 1) {
       maybe_log_sourcereference(src_name, source_content->path, target);
@@ -450,7 +479,8 @@ DWYUGenerator::DependenciesNeededBySources(
             << " same-suffix path '" << found_result.match << "'\n";
         }
         maybe_log(source, inc_file, *found_result.target_set);
-        add_to_result(*found_result.target_set);
+        AddVisibleAlternativesWithStratum(target, *found_result.target_set,
+                                          result);
         continue;
       }
 
@@ -465,7 +495,7 @@ DWYUGenerator::DependenciesNeededBySources(
             << "Consider FQN relative to project root.\n";
         }
         maybe_log(source, inc_file, *found->target_set);
-        add_to_result(*found->target_set);
+        AddVisibleAlternativesWithStratum(target, *found->target_set, result);
         continue;
       }
 
@@ -496,12 +526,87 @@ DWYUGenerator::DependenciesNeededBySources(
         // Until all common reasons why we don't find a provider is resolved,
         // report.
         maybe_log_sourcereference(src_name, source_content->path, target);
-        source.Loc(info_out, inc_file) << " #include \"" << inc_file << "\"\n";
-        source.Loc(info_out, inc_file)
-          << Red(session_) << "    ?      ^ unknown provider "
-          << "-- Missing or from non-standard bazel-rule ?" << Norm(session_)
-          << "\n";
       }
+      LogUnknownProvider(source, inc_file, "#include");
+    }
+  }
+
+  source_read_stats.AddBytesProcessed(total_size);
+  source_grep_stats.AddBytesProcessed(total_size);
+  return result;
+}
+
+std::vector<absl::btree_set<BazelTarget>>
+DWYUGenerator::DependenciesNeededByProtoSources(
+  const BazelTarget &target, const ParsedBuildFile &build_file,
+  const std::vector<std::string_view> &sources,
+  bool *all_imports_accounted_for) {
+  Stat &source_read_stats =
+    session_.GetStatsFor("read(proto source)", "sources");
+  Stat &source_grep_stats =
+    session_.GetStatsFor("Grep'ed for import", "sources");
+
+  std::ostream &info_out = session_.info();
+  size_t total_size = 0;
+
+  // We log the source on -vv, but sometimes also in less verbose
+  // situations. Only once per source.
+  bool source_logged_already = false;
+  auto maybe_log_sourcereference = [&](std::string_view src_name,
+                                       const std::string &path,
+                                       const BazelTarget &target) {
+    if (source_logged_already) return;
+    project_.Loc(info_out, src_name)
+      << " `" << path << "` import dependency check (" << target << ")\n";
+    source_logged_already = true;
+  };
+
+  std::vector<absl::btree_set<BazelTarget>> result;
+
+  for (const std::string_view src_name : sources) {
+    source_logged_already = false;
+    auto source_content =
+      ReadSourceForDWYU(src_name, target, build_file, source_read_stats,
+                        all_imports_accounted_for);
+    if (!source_content.has_value()) continue;
+
+    if (session_.flags().verbose > 1) {
+      maybe_log_sourcereference(src_name, source_content->path, target);
+    }
+    ++source_read_stats.count;
+    ++source_grep_stats.count;
+    total_size += source_content->content.size();
+    NamedLineIndexedContent source(source_content->path,
+                                   source_content->content);
+    std::vector<std::string_view> imports;
+    {
+      const ScopedTimer timer(&source_grep_stats.duration);
+      imports = ExtractProtoImports(&source);
+    }
+
+    for (const std::string_view imp_file : imports) {
+      if (IsHeaderInList(imp_file, sources, target.package.path)) {
+        continue;
+      }
+
+      if (const auto &found = FindBySuffix(protos_from_libs_, imp_file);
+          found.has_value()) {
+        if (session_.flags().verbose >= 3) {
+          source.Loc(info_out, imp_file) << " import \"" << imp_file << "\"\n";
+          for (const BazelTarget &p : *found->target_set) {
+            source.Loc(info_out, imp_file) << "    | " << p << "\n";
+          }
+        }
+        AddVisibleAlternatives(target, *found->target_set, result);
+        continue;
+      }
+
+      *all_imports_accounted_for = false;
+
+      if (session_.flags().verbose) {
+        maybe_log_sourcereference(src_name, source_content->path, target);
+      }
+      LogUnknownProvider(source, imp_file, "import");
     }
   }
 
@@ -515,18 +620,25 @@ void DWYUGenerator::CreateEditsForTarget(const BazelTarget &target,
                                          const ParsedBuildFile &build_file) {
   if (details.bant_skip_dependency_check) return;
 
-  // Looking at the include files the sources reference, map these back
+  // Looking at the include/import files the sources reference, map these back
   // to the dependencies that provide them: these are the deps we
   // needed.
   bool all_header_deps_known = true;
 
+  const bool is_proto_library = (details.rule == "proto_library");
+
   // Collect sources and headers provided by this library.
   auto sources = query::ExtractStringList(details.srcs_list);
-  query::AppendStringList(details.hdrs_list, sources);
+  if (!is_proto_library) {
+    query::AppendStringList(details.hdrs_list, sources);
+  }
 
-  // Grep for all includes they use to determine which deps we need
-  auto deps_needed = DependenciesNeededBySources(target, build_file, sources,
-                                                 &all_header_deps_known);
+  // Grep for all includes/imports they use to determine which deps we need
+  auto deps_needed = is_proto_library
+                       ? DependenciesNeededByProtoSources(
+                           target, build_file, sources, &all_header_deps_known)
+                       : DependenciesNeededBySources(
+                           target, build_file, sources, &all_header_deps_known);
   deps_needed = MinimizeDependencySet(deps_needed);
   OneToOne<BazelTarget, BazelTarget> checked_off_by;
   auto IsNeededInSourcesAndCheckOff = [&](const BazelTarget &target) -> bool {
@@ -663,6 +775,32 @@ std::vector<std::string_view> ExtractCCIncludes(NamedLineIndexedContent *src) {
   return result;
 }
 
+std::vector<std::string_view> ExtractProtoImports(
+  NamedLineIndexedContent *src) {
+  //          comment  | import statement
+  static const LazyRE2 kImportRe{
+    R"/((?m)(\/\/.*$|^\s*import\s+"([0-9a-zA-Z_/\-\.]+\.proto)"))/"};
+
+  std::vector<std::string_view> result;
+  std::string_view run = src->content();
+  std::string_view import_path;
+  std::string_view outer;
+  while (RE2::FindAndConsume(&run, *kImportRe, &outer, &import_path)) {
+    if (outer.starts_with("//")) {
+      // ignore comment.
+    } else if (!import_path.empty()) {
+      result.push_back(import_path);
+    }
+  }
+
+  if (!result.empty()) {
+    const std::string_view range(src->content().begin(),
+                                 result.back().end() - src->content().begin());
+    src->mutable_line_index()->InitializeFromStringView(range);
+  }
+  return result;
+}
+
 DWYUGenerator::DWYUGenerator(Session &session, const ParsedProject &project,
                              EditCallback emit_deps_edit)
     : session_(session),
@@ -674,6 +812,8 @@ DWYUGenerator::DWYUGenerator(Session &session, const ParsedProject &project,
   headers_from_libs_ =
     ExtractExpandedHeaderToLibMapping(project, session.info(),
                                       /*suffix_index=*/true);
+  protos_from_libs_ = ExtractProtoToProtoLibMapping(project, session.info(),
+                                                    /*suffix_index=*/true);
   files_from_genrules_ = ExtractGeneratedFromGenrule(project, session.info());
   InitKnownLibraries();
   stats.count = known_libs_.size();
@@ -687,7 +827,8 @@ size_t DWYUGenerator::CreateEditsForPattern(const BazelTargetMatcher &pattern) {
       continue;
     }
     query::FindTargets(
-      parsed_package->ast, {"cc_library", "cc_binary", "cc_test"},
+      parsed_package->ast,
+      {"cc_library", "cc_binary", "cc_test", "proto_library"},
       [&](const query::Result &details) {
         auto target = current_package.QualifiedTarget(details.name);
         if (!target.has_value() || !pattern.Match(*target)) {
@@ -715,8 +856,9 @@ size_t CreateDependencyEdits(Session &session, const ParsedProject &project,
   session.info() << "Checked DWYU on " << target_count << " targets.";
   if (target_count == 0 && pattern.HasFilter()) {
     session.info()
-      << "\nNote: No cc_library/cc_binary/cc_test targets matched the"
-         " pattern. Target might not exist or uses an unknown custom rule."
+      << "\nNote: No cc_library/cc_binary/cc_test/proto_library targets"
+         " matched the pattern. Target might not exist or uses an unknown"
+         " custom rule."
          "\nConsider adding a macro to your project's .bant-macros file.";
   }
   if (edits_emitted) {
