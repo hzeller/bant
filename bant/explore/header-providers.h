@@ -50,6 +50,14 @@ ProvidedFromTargetSet ExtractExpandedHeaderToLibMapping(
   const ParsedProject &project, std::ostream &info_out,
   bool suffix_index = false);
 
+// Create a mapping of .proto source files to their providing proto_library()
+// targets. Used for proto-level DWYU checking (import statements in .proto
+// files vs deps of proto_library rules).
+// If "suffix_index" is set, output is compatible with FindBySuffix().
+ProvidedFromTargetSet ExtractProtoToProtoLibMapping(
+  const ParsedProject &project, std::ostream &info_out,
+  bool suffix_index = false);
+
 // Unlike the Expanded*, this is much simpler, as we don't deal with multiple
 // search paths. Just extract the mentioned component. If "only_physical_files"
 // is on, only emit them if these are files in the filesystem (unlike

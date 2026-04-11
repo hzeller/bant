@@ -915,6 +915,83 @@ cc_binary(
   }
 }
 
+TEST(DWYUTest, ProtoImportsAreExtracted) {
+  constexpr std::string_view kTestProto = R"pb(
+    syntax = "proto3"
+    ;
+
+package foo;
+
+// import "not/extracted.proto";
+import "path/to/dependency.proto";
+import "other/dep.proto";
+
+message Bar {
+  string name = 1;
+}
+)pb";
+  NamedLineIndexedContent scanned_src("<proto>", kTestProto);
+  const auto imports = ExtractProtoImports(&scanned_src);
+  EXPECT_THAT(imports,
+              ElementsAre("path/to/dependency.proto", "other/dep.proto"));
+}
+
+TEST(DWYUTest, Remove_SuperfluousProtoLibraryDependency) {
+  ParsedProjectTestUtil pp;
+  pp.Add("//some/path", R"(
+proto_library(
+  name = "foo_proto",
+  srcs = ["foo.proto"],
+)
+
+proto_library(
+  name = "bar_proto",
+  srcs = ["bar.proto"],
+)
+
+proto_library(
+  name = "baz_proto",
+  srcs = ["baz.proto"],
+  deps = [
+    ":foo_proto",
+    ":bar_proto",
+  ],
+)
+)");
+
+  DWYUTestFixture tester(pp.project());
+  tester.ExpectRemove(":bar_proto");  // not imported
+  tester.AddSource("some/path/baz.proto", R"(
+syntax = "proto3";
+import "some/path/foo.proto";
+)");
+  tester.RunForTarget("//some/path:baz_proto");
+}
+
+TEST(DWYUTest, Add_MissingProtoLibraryDependency) {
+  ParsedProjectTestUtil pp;
+  pp.Add("//some/path", R"(
+proto_library(
+  name = "foo_proto",
+  srcs = ["foo.proto"],
+)
+
+proto_library(
+  name = "baz_proto",
+  srcs = ["baz.proto"],
+  # Missing dep on :foo_proto
+)
+)");
+
+  DWYUTestFixture tester(pp.project());
+  tester.ExpectAdd(":foo_proto");
+  tester.AddSource("some/path/baz.proto", R"(
+syntax = "proto3";
+import "some/path/foo.proto";
+)");
+  tester.RunForTarget("//some/path:baz_proto");
+}
+
 // TODO: stratum test.
 //
 }  // namespace bant

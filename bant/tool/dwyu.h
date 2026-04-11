@@ -35,6 +35,11 @@ namespace bant {
 // Initialize the line index in src to be able to refer back to origainal.
 std::vector<std::string_view> ExtractCCIncludes(NamedLineIndexedContent *src);
 
+// Scan a .proto file and extract import paths from "import" statements.
+// Returns the import paths (e.g. "foo/bar.proto") from lines like:
+//   import "foo/bar.proto";
+std::vector<std::string_view> ExtractProtoImports(NamedLineIndexedContent *src);
+
 // Look through the sources mentioned in the file, check what they include
 // and determine what dependencies need to be added/removed.
 // Input should be an elaborated project for best availability of inspected

@@ -143,10 +143,21 @@ static std::optional<int> LoadWorkspaceFromFile(Session &session,
       // Check for both if we have a version.
       std::vector<std::string> search_dirs;
       auto version = query::FindKWArgAsStringView(result.node, "version");
+      auto repo_name = query::FindKWArgAsStringView(result.node, "repo_name");
       if (version.has_value()) {
         search_dirs.push_back(absl::StrCat(result.name, "~", *version));
       }
       search_dirs.emplace_back(result.name);
+
+      // When repo_name is set in bazel_dep(), bazel may use it as the
+      // external directory name instead of the module name.
+      if (repo_name.has_value() && *repo_name != result.name) {
+        if (version.has_value()) {
+          search_dirs.push_back(absl::StrCat(*repo_name, "~", *version));
+        }
+        search_dirs.emplace_back(*repo_name);
+        search_dirs.push_back(absl::StrCat(*repo_name, "+"));
+      }
 
       // Also a plausible location when archive_override() is used:
       search_dirs.push_back(absl::StrCat(result.name, "+"));  // bazel8-ism
@@ -182,7 +193,6 @@ static std::optional<int> LoadWorkspaceFromFile(Session &session,
         return;
       }
 
-      auto repo_name = query::FindKWArgAsStringView(result.node, "repo_name");
       VersionedProject project;
       project.project = repo_name.has_value() ? *repo_name : result.name;
       if (version.has_value()) {
