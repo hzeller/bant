@@ -73,6 +73,11 @@ class DWYUGenerator {
   bool CanSee(const BazelTarget &target, const BazelTarget &dep,
               std::string *msg) const;
 
+  // Returns the deprecation message if the target is deprecated, otherwise
+  // std::nullopt.
+  std::optional<std::string_view> DeprecationReason(
+    const BazelTarget &target) const;
+
   // Workspace stratum of a bazel target. Relevant to weed out imposters.
   int GetStratum(const BazelTarget &target) const;
 

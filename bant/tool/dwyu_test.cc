@@ -992,6 +992,166 @@ import "some/path/foo.proto";
   tester.RunForTarget("//some/path:baz_proto");
 }
 
-// TODO: stratum test.
-//
+TEST(DWYUTest, Add_PrefersLocalStratumOverExternal) {
+  ParsedProjectTestUtil pp;
+  pp.Add("//some/path", R"(
+cc_library(
+  name = "foo",
+  srcs = ["foo.cc"],
+  hdrs = ["foo.h"],
+)
+)");
+
+  pp.Add("@other_workspace//some/path", R"(
+cc_library(
+  name = "foo",
+  srcs = ["foo.cc"],
+  hdrs = ["foo.h"],
+)
+)");
+
+  pp.Add("//user", R"(
+cc_binary(
+  name = "bar",
+  srcs = ["bar.cc"],
+)
+)");
+
+  DWYUTestFixture tester(pp.project());
+  // Even though both provide 'some/path/foo.h', we expect the local one to be
+  // preferred.
+  tester.ExpectAdd("//some/path:foo");
+  tester.AddSource("user/bar.cc", R"(
+#include "some/path/foo.h"
+)");
+  tester.RunForTarget("//user:bar");
+}
+
+TEST(DWYUTest, Add_TestonlyDependencyAllowedForTestTargets) {
+  ParsedProjectTestUtil pp;
+  pp.Add("//lib/path", R"(
+cc_library(
+  name = "foo",
+  srcs = ["foo.cc"],
+  hdrs = ["foo.h"],
+  testonly = True,
+)
+)");
+
+  pp.Add("//some/path", R"(
+cc_test(
+  name = "my_test",
+  srcs = ["my_test.cc"],
+)
+
+cc_library(
+  name = "my_test_lib",
+  srcs = ["my_test_lib.cc"],
+  testonly = True,
+)
+)");
+
+  {
+    DWYUTestFixture tester(pp.project());
+    tester.ExpectAdd("//lib/path:foo");
+    tester.AddSource("some/path/my_test.cc", R"(#include "lib/path/foo.h")");
+    tester.RunForTarget("//some/path:my_test");
+  }
+  {
+    DWYUTestFixture tester(pp.project());
+    tester.ExpectAdd("//lib/path:foo");
+    tester.AddSource("some/path/my_test_lib.cc",
+                     R"(#include "lib/path/foo.h")");
+    tester.RunForTarget("//some/path:my_test_lib");
+  }
+}
+
+TEST(DWYUTest, Add_SkipsDependencyCheckIfBantSkipIsSet) {
+  ParsedProjectTestUtil pp;
+  pp.Add("//lib/path", R"(
+cc_library(
+  name = "foo",
+  srcs = ["foo.cc"],
+  hdrs = ["foo.h"],
+)
+)");
+
+  pp.Add("//some/path", R"(
+cc_library(
+  name = "bar",
+  srcs = ["bar.cc"],
+  bant_skip_dependency_check = True,
+)
+)");
+
+  DWYUTestFixture tester(pp.project());
+  tester.AddSource("some/path/bar.cc", R"(
+#include "lib/path/foo.h"
+)");
+  tester.RunForTarget("//some/path:bar");
+}
+
+TEST(DWYUTest, Add_ExclusivelyDeprecatedDependency) {
+  ParsedProjectTestUtil pp;
+  pp.Add("//lib/path", R"(
+cc_library(
+  name = "foo",
+  srcs = ["foo.cc"],
+  hdrs = ["foo.h"],
+  deprecation = "Do not use foo.",
+)
+)");
+
+  pp.Add("//some/path", R"(
+cc_library(
+  name = "bar",
+  srcs = ["bar.cc"],
+)
+)");
+
+  DWYUTestFixture tester(pp.project(), /*verbose_level=*/3);
+  tester.ExpectAdd("//lib/path:foo");
+  tester.AddSource("some/path/bar.cc", R"(
+#include "lib/path/foo.h"
+)");
+  tester.RunForTarget("//some/path:bar");
+  const std::string log = tester.LogContent();
+  EXPECT_THAT(log, HasSubstr("Only suitable dependency //lib/path:foo"));
+  EXPECT_THAT(log, HasSubstr("is deprecated: Do not use foo."));
+}
+
+TEST(DWYUTest, ReplaceDeprecatedDependencyWithNonDeprecatedAlternative) {
+  ParsedProjectTestUtil pp;
+  pp.Add("//lib/path", R"(
+cc_library(
+  name = "deprecated_foo",
+  srcs = ["foo.cc"],
+  hdrs = ["foo.h"],
+  deprecation = "Use new_foo instead",
+)
+
+cc_library(
+  name = "new_foo",
+  srcs = ["foo.cc"],
+  hdrs = ["foo.h"],
+)
+)");
+
+  pp.Add("//some/path", R"(
+cc_library(
+  name = "bar",
+  srcs = ["bar.cc"],
+  deps = ["//lib/path:deprecated_foo"],
+)
+)");
+
+  DWYUTestFixture tester(pp.project());
+  tester.ExpectRemove("//lib/path:deprecated_foo");
+  tester.ExpectAdd("//lib/path:new_foo");
+  tester.AddSource("some/path/bar.cc", R"(
+#include "lib/path/foo.h"
+)");
+  tester.RunForTarget("//some/path:bar");
+}
+
 }  // namespace bant

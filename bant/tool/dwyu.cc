@@ -227,15 +227,19 @@ bool DWYUGenerator::IsTestonlyCompatible(const BazelTarget &target,
 }
 
 // Visiblity check.
+std::optional<std::string_view> DWYUGenerator::DeprecationReason(
+  const BazelTarget &target) const {
+  const auto found = known_libs_.find(target);
+  if (found != known_libs_.end() && !found->second.deprecation.empty()) {
+    return found->second.deprecation;
+  }
+  return std::nullopt;
+}
+
 bool DWYUGenerator::CanSee(const BazelTarget &target, const BazelTarget &dep,
                            std::string *msg) const {
   const auto found = known_libs_.find(dep);
   if (found == known_libs_.end()) return true;  // Unknown ? Be Bold.
-  if (!found->second.deprecation.empty()) {
-    // Consider a library with a deprecation as not visible.
-    if (msg) *msg = absl::StrCat("deprecated: ", found->second.deprecation);
-    return false;
-  }
 
   if (target.package == dep.package) {
     // We can implicitly see all the targets in the same package.
@@ -349,13 +353,21 @@ void DWYUGenerator::AddVisibleAlternatives(
   const BazelTarget &target, const absl::btree_set<BazelTarget> &alternatives,
   std::vector<absl::btree_set<BazelTarget>> &result) {
   absl::btree_set<BazelTarget> visible;
+  absl::btree_set<BazelTarget> visible_deprecated;
   for (const BazelTarget &t : alternatives) {
     if (CanSee(target, t, nullptr)) {
-      visible.emplace(t);
+      if (DeprecationReason(t).has_value()) {
+        visible_deprecated.emplace(t);
+      } else {
+        visible.emplace(t);
+      }
     }
   }
   if (!visible.empty()) {
     result.push_back(std::move(visible));
+  } else if (!visible_deprecated.empty()) {
+    // If we _only_ have deprecated alternatives, consider them visible.
+    result.push_back(std::move(visible_deprecated));
   }
 }
 
@@ -364,8 +376,16 @@ void DWYUGenerator::AddVisibleAlternativesWithStratum(
   std::vector<absl::btree_set<BazelTarget>> &result) {
   Range stratum_range;
   std::vector<BazelTarget> temp_result;
+  bool found_non_deprecated = false;
   for (const BazelTarget &t : alternatives) {
     if (CanSee(target, t, nullptr)) {
+      const bool is_deprecated = DeprecationReason(t).has_value();
+      if (is_deprecated && found_non_deprecated) continue;
+      if (!is_deprecated && !found_non_deprecated) {
+        temp_result.clear();
+        stratum_range = Range{};
+        found_non_deprecated = true;
+      }
       const int stratum = GetStratum(t);
       stratum_range.Update(stratum);
       if (stratum <= stratum_range.min_value) {
@@ -406,6 +426,9 @@ DWYUGenerator::DependenciesNeededBySources(
       std::string why;
       if (!CanSee(target, possible_provider, &why)) {
         msg << Red(session_) << " (" << why << ")" << Norm(session_);
+      } else if (auto reason = DeprecationReason(possible_provider)) {
+        msg << Red(session_) << " (deprecated: " << *reason << ")"
+            << Norm(session_);
       }
       source.Loc(info_out, inc_file)
         << "    | " << possible_provider << msg.str() << "\n";
@@ -731,6 +754,13 @@ void DWYUGenerator::CreateEditsForTarget(const BazelTarget &target,
         IsTestonlyCompatible(target, need_add)) {
       emit_deps_edit_(EditRequest::kAdd, target, "",
                       need_add.ToStringRelativeTo(target.package));
+      if (session_.flags().verbose) {
+        if (auto reason = DeprecationReason(need_add)) {
+          project_.Loc(session_.info(), details.name)
+            << "Only suitable dependency " << need_add
+            << " is deprecated: " << *reason << "\n";
+        }
+      }
     } else if (session_.flags().verbose > 1) {
       project_.Loc(session_.info(), details.name)
         << ": Would add " << need_add << ", but not visible. " << visibility_msg
