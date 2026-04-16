@@ -757,7 +757,7 @@ void DWYUGenerator::CreateEditsForTarget(const BazelTarget &target,
       if (session_.flags().verbose) {
         if (auto reason = DeprecationReason(need_add)) {
           project_.Loc(session_.info(), details.name)
-            << "Only suitable dependency " << need_add
+            << " Only suitable dependency " << need_add
             << " is deprecated: " << *reason << "\n";
         }
       }
