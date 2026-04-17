@@ -84,7 +84,7 @@ bool GrepHighlighter::AddExpressions(const std::vector<std::string> &regex_list,
                                      std::ostream &error_out) {
   bool all_good = true;
   for (const std::string_view regex : regex_list) {
-    if (RE2 *expr = BuildRegex(regex, case_insensitive, error_out)) {
+    if (RE2 *const expr = BuildRegex(regex, case_insensitive, error_out)) {
       matchers_.emplace_back(expr);
     } else {
       all_good = false;

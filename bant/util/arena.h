@@ -47,7 +47,7 @@ class Arena {
     }
     total_allocations_++;
     total_bytes_ += size;
-    char *start = pos_;
+    void *const start = pos_;
     pos_ += size;
     return start;
   }

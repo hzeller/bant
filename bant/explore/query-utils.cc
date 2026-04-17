@@ -88,7 +88,7 @@ class TargetFinder : public BaseVoidVisitor {
   void ExtractQueryInfo(Assignment *a) {
     if (!a->lhs_maybe_identifier() || !a->value()) return;
     const std::string_view lhs = a->lhs_maybe_identifier()->id();
-    if (Scalar *scalar = a->value()->CastAsScalar()) {
+    if (const Scalar *const scalar = a->value()->CastAsScalar()) {
       if (lhs == "name") {
         current_.name = scalar->AsString();
       } else if (lhs == "alwayslink") {
@@ -258,7 +258,7 @@ std::optional<std::string_view> FindKWArgAsStringView(
   FunCall *fun, std::string_view keyword) {
   Node *node = FindKWArg(fun, keyword);
   if (!node) return std::nullopt;
-  Scalar *scalar = node->CastAsScalar();
+  const Scalar *const scalar = node->CastAsScalar();
   if (!scalar || scalar->type() != Scalar::ScalarType::kString) {
     return std::nullopt;
   }
@@ -269,7 +269,7 @@ void AppendStringList(List *list, std::vector<std::string_view> &append_to) {
   if (list == nullptr) return;
   for (Node *n : *list) {
     if (!n) continue;  // Parse error of sorts.
-    Scalar *scalar = n->CastAsScalar();
+    const Scalar *const scalar = n->CastAsScalar();
     if (!scalar) continue;
     if (const std::string_view str = scalar->AsString(); !str.empty()) {
       append_to.push_back(str);

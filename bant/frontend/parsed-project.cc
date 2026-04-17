@@ -194,7 +194,7 @@ ParsedBuildFile *ParsedProject::AddBuildFileContent(Session &session,
     package, new ParsedBuildFile(file.path(), std::move(content)));
 
   if (!inserted.second) {
-    ParsedBuildFile *existing = inserted.first->second.get();
+    ParsedBuildFile *const existing = inserted.first->second.get();
     // Should typically not happen, but maybe both BUILD and BUILD.bazel are
     // there ? Report for the user to figure out.
     session.info() << file.path() << ": Package " << package
@@ -326,7 +326,7 @@ static void MaybePrintVisibility(List *visibility, std::ostream &out) {
   if (!visibility) return;
   out << " (visibility:";
   for (Node *v : *visibility) {
-    Scalar *s = v->CastAsScalar();
+    const Scalar *const s = v->CastAsScalar();
     if (!s) continue;
     out << " " << s->AsString();
   }
@@ -422,7 +422,7 @@ absl::Status ParsedProject::AddMacroContent(std::string_view source_name,
       return absl::InvalidArgumentError(
         absl::StrCat(source_name, ": Expected assignment, got ", ToString(n)));
     }
-    Identifier *const name = macro_assignment->lhs_maybe_identifier();
+    const Identifier *const name = macro_assignment->lhs_maybe_identifier();
     if (!name) {
       return absl::InvalidArgumentError(
         absl::StrCat(source_name, ": Expected identifier on lhs of ",

@@ -107,7 +107,7 @@ Node *MacroSubstitute(Session &session, ParsedProject *project, Node *ast) {
     session.GetStatsFor("  - substituting", "macros");
   const ScopedTimer timer(&substitute_stats.duration);
   MacroSubstitutor substitutor(project);
-  Node *result = ast->Accept(&substitutor);
+  Node *const result = ast->Accept(&substitutor);
   substitute_stats.count += substitutor.substitution_count();
   return result;
 }

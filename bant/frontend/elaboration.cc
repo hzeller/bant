@@ -63,7 +63,7 @@ std::optional<std::vector<std::string_view>> ExtractScalarPosArgs(List *list) {
     if (BinOpNode *binop = n->CastAsBinOp(); binop && binop->op() == '=') {
       n = binop->right();
     }
-    Scalar *scalar = n->CastAsScalar();
+    const Scalar *const scalar = n->CastAsScalar();
     if (!scalar) return std::nullopt;
     result.emplace_back(scalar->AsString());
   }
@@ -141,9 +141,9 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
   }
 
   Node *VisitAssignment(Assignment *a) final {
-    Node *result = BaseNodeReplacementVisitor::VisitAssignment(a);
+    Node *const result = BaseNodeReplacementVisitor::VisitAssignment(a);
     if (nest_level_ != 0) return result;  // only toplevel assignments.
-    if (Identifier *identifier = a->lhs_maybe_identifier()) {
+    if (const Identifier *const identifier = a->lhs_maybe_identifier()) {
       variables_[identifier->id()] = a->value();
     } else if (List *tuple_assign = a->lhs_maybe_tuple_or_list()) {
       List *const rhs = a->value()->CastAsList();
@@ -152,8 +152,8 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
         It left = tuple_assign->begin();
         It right = rhs->begin();
         for (/**/; left != tuple_assign->end(); ++left, ++right) {
-          if (Identifier *identifier = (*left)->CastAsIdentifier()) {
-            variables_[identifier->id()] = *right;
+          if (const Identifier *const left_id = (*left)->CastAsIdentifier()) {
+            variables_[left_id->id()] = *right;
           }
         }
       }
@@ -212,8 +212,8 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     }
     case '-': {
       {
-        Scalar *lhs = bin_op->left()->CastAsScalar();
-        Scalar *rhs = bin_op->right()->CastAsScalar();
+        const Scalar *const lhs = bin_op->left()->CastAsScalar();
+        const Scalar *const rhs = bin_op->right()->CastAsScalar();
         if (lhs && rhs && lhs->type() == rhs->type()) {
           const auto &location = project_->GetLocation(bin_op->source_range());
           if (lhs->type() == Scalar::ScalarType::kInt) {
@@ -225,8 +225,8 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     }
     case '*': {
       {
-        Scalar *lhs = bin_op->left()->CastAsScalar();
-        Scalar *rhs = bin_op->right()->CastAsScalar();
+        const Scalar *const lhs = bin_op->left()->CastAsScalar();
+        const Scalar *const rhs = bin_op->right()->CastAsScalar();
         if (lhs && rhs && lhs->type() == rhs->type()) {
           const auto &location = project_->GetLocation(bin_op->source_range());
           if (lhs->type() == Scalar::ScalarType::kInt) {
@@ -239,8 +239,8 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     case TokenType::kShiftLeft:
     case TokenType::kShiftRight: {
       {
-        Scalar *lhs = bin_op->left()->CastAsScalar();
-        Scalar *rhs = bin_op->right()->CastAsScalar();
+        const Scalar *const lhs = bin_op->left()->CastAsScalar();
+        const Scalar *const rhs = bin_op->right()->CastAsScalar();
         if (lhs && rhs && lhs->type() == rhs->type() &&
             lhs->type() == Scalar::ScalarType::kInt) {
           const auto &location = project_->GetLocation(bin_op->source_range());
@@ -254,7 +254,7 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     }
     case '.': {
       {
-        Scalar *lhs = bin_op->left()->CastAsScalar();
+        const Scalar *const lhs = bin_op->left()->CastAsScalar();
         FunCall *method_call = bin_op->right()->CastAsFunCall();
         if (lhs && method_call && lhs->type() == Scalar::ScalarType::kString) {
           return StringMethodCall(bin_op, lhs->AsString(), method_call);
@@ -270,7 +270,7 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
       break;
     }
     case '%': {
-      Scalar *lhs = bin_op->left()->CastAsScalar();
+      const Scalar *const lhs = bin_op->left()->CastAsScalar();
       if (lhs && lhs->type() == Scalar::ScalarType::kString) {
         return HandlePercentFormat(bin_op, lhs->AsString(), bin_op->right());
       }
@@ -298,8 +298,8 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
 
     case kAnd:
     case kOr: {
-      Scalar *lhs = bin_op->left()->CastAsScalar();
-      Scalar *rhs = bin_op->right()->CastAsScalar();
+      const Scalar *const lhs = bin_op->left()->CastAsScalar();
+      const Scalar *const rhs = bin_op->right()->CastAsScalar();
       if (lhs && rhs && lhs->type() == rhs->type() &&
           lhs->type() == Scalar::ScalarType::kInt) {
         const bool result = bin_op->op() == TokenType::kAnd
@@ -321,7 +321,7 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
       if (List *in_list = bin_op->right()->CastAsList(); in_list) {
         return InListExpression(bin_op, scalar, in_list);
       }
-      Scalar *rhs_string = bin_op->right()->CastAsScalar();
+      const Scalar *const rhs_string = bin_op->right()->CastAsScalar();
       if (rhs_string && rhs_string->type() == Scalar::ScalarType::kString) {
         return InStringExpression(bin_op, scalar, rhs_string->AsString());
       }
@@ -355,8 +355,8 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
   }
 
   Node *HandleComparison(BinOpNode *bin_op) {
-    Scalar *lhs = bin_op->left()->CastAsScalar();
-    Scalar *rhs = bin_op->right()->CastAsScalar();
+    const Scalar *const lhs = bin_op->left()->CastAsScalar();
+    const Scalar *const rhs = bin_op->right()->CastAsScalar();
     if (!lhs || !rhs || lhs->type() != rhs->type()) {
       return bin_op;
     }
@@ -379,14 +379,14 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
 
   Node *VisitTernary(Ternary *ternary) final {
     BaseNodeReplacementVisitor::VisitTernary(ternary);
-    Scalar *value = ternary->condition()->CastAsScalar();
+    const Scalar *const value = ternary->condition()->CastAsScalar();
     if (!value) return ternary;
     return value->AsInt() ? ternary->positive() : ternary->negative();
   }
 
   Node *VisitUnaryExpr(UnaryExpr *unary) final {
     BaseNodeReplacementVisitor::VisitUnaryExpr(unary);
-    Scalar *scalar = unary->node()->CastAsScalar();
+    Scalar *const scalar = unary->node()->CastAsScalar();
     if (!scalar) return unary;
     if (scalar->type() != Scalar::ScalarType::kInt) return unary;
     switch (unary->op()) {
@@ -431,13 +431,13 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
       if (List *values = element->CastAsList(); values) {
         List::iterator value_it = values->begin();
         while (name_it != var_tuple->end() && value_it != values->end()) {
-          Identifier *id = (*name_it)->CastAsIdentifier();
+          const Identifier *const id = (*name_it)->CastAsIdentifier();
           varmap[id->id()] = *value_it;
           ++name_it;
           ++value_it;
         }
       } else {  // Single value case for (a) in [1, 2, 3]
-        Identifier *id = (*name_it)->CastAsIdentifier();
+        const Identifier *const id = (*name_it)->CastAsIdentifier();
         varmap[id->id()] = element;
       }
 
@@ -489,7 +489,7 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
       for (Node *element : *list) {
         BinOpNode *kv = element->CastAsBinOp();
         if (!kv || kv->op() != ':') return fallback;
-        Scalar *key = kv->left()->CastAsScalar();
+        const Scalar *const key = kv->left()->CastAsScalar();
         if (!key) return fallback;
         collect[key->AsString()] = element;
       }
@@ -516,7 +516,7 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     bool any_unknown = false;
     const std::string_view value = scalar->AsString();
     for (Node *element : *in_list) {
-      Scalar *s_item = element->CastAsScalar();
+      const Scalar *const s_item = element->CastAsScalar();
       if (!s_item) {
         any_unknown = true;
         continue;
@@ -604,7 +604,7 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
         }
       } else if (str.has_value()) {
         if (const auto found = kwargs.find(*str); found != kwargs.end()) {
-          if (Scalar *scalar = found->second->CastAsScalar(); scalar) {
+          if (const Scalar *scalar = found->second->CastAsScalar(); scalar) {
             assembled.append(scalar->AsString());
           } else {
             return orig;  // parameter that can not be converted to scalar.
@@ -641,7 +641,7 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     while (value_it != args->end() &&
            (fmt_pos = fmt.find("%s", last_fmt_pos)) != std::string::npos) {
       assembled.append(fmt.substr(last_fmt_pos, fmt_pos - last_fmt_pos));
-      Scalar *value = (*value_it)->CastAsScalar();
+      const Scalar *const value = (*value_it)->CastAsScalar();
       if (!value) return orig;  // Can only format if all args known.
       assembled.append(value->AsString());
       last_fmt_pos = fmt_pos + 2;
@@ -674,7 +674,7 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     std::vector<std::string_view> view_list;
     view_list.reserve(list_param->size());
     for (Node *element : *list_param) {
-      Scalar *scalar = element->CastAsScalar();
+      const Scalar *const scalar = element->CastAsScalar();
       if (!scalar) return orig;  // Can only join if all values known constants.
       view_list.push_back(scalar->AsString());
     }
@@ -687,7 +687,7 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
       SplitParams result;
       List::iterator arg_it = args->begin();
       if (arg_it != args->end()) {
-        Scalar *split_by = (*arg_it)->CastAsScalar();
+        const Scalar *const split_by = (*arg_it)->CastAsScalar();
         if (!split_by || split_by->type() != Scalar::ScalarType::kString) {
           return std::nullopt;  // need a constant string here.
         }
@@ -695,7 +695,7 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
         ++arg_it;
       }
       if (arg_it != args->end()) {
-        Scalar *count = (*arg_it)->CastAsScalar();
+        const Scalar *const count = (*arg_it)->CastAsScalar();
         if (!count || count->type() != Scalar::ScalarType::kInt) {
           return std::nullopt;
         }
@@ -819,7 +819,7 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     for (Node *element : *list) {
       BinOpNode *const kv = element->CastAsBinOp();
       if (!kv || kv->op() != ':') return orig;
-      Scalar *const key_scalar = kv->left()->CastAsScalar();
+      const Scalar *const key_scalar = kv->left()->CastAsScalar();
       if (!key_scalar) return orig;
       if (key_scalar->AsString() == key) return kv->right();
     }
@@ -828,14 +828,14 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
 
   static Node *MapGetAccess(Node *orig, List *map_list, List *args) {
     if (args->size() != 2) return orig;
-    Scalar *const key = args->at(0)->CastAsScalar();
+    const Scalar *const key = args->at(0)->CastAsScalar();
     if (!key) return orig;
     return MapAccess(orig, map_list, key->AsString(), args->at(1));
   }
 
   static std::optional<int> GetOptionalIntScalar(Node *n) {
     if (!n) return std::nullopt;
-    Scalar *scalar = n->CastAsScalar();
+    const Scalar *const scalar = n->CastAsScalar();
     if (!scalar) return std::nullopt;
     if (scalar->type() != Scalar::ScalarType::kInt) return std::nullopt;
     return scalar->AsInt();
@@ -844,7 +844,7 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
   Node *HandleArrayOrSliceAccess(BinOpNode *bin_op) {
     List *const list = bin_op->left()->CastAsList();
     if (list) {
-      Scalar *const index = bin_op->right()->CastAsScalar();
+      const Scalar *const index = bin_op->right()->CastAsScalar();
       if (!index) {
         BinOpNode *const slice_access = bin_op->right()->CastAsBinOp();
         if (!slice_access || slice_access->op() != ':') return bin_op;
@@ -862,7 +862,7 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     // Still here ? Maybe this is a string.
     Scalar *const scalar = bin_op->left()->CastAsScalar();
     if (scalar && scalar->type() == Scalar::ScalarType::kString) {
-      Scalar *const index = bin_op->right()->CastAsScalar();
+      const Scalar *const index = bin_op->right()->CastAsScalar();
       if (index) {
         if (index->type() != Scalar::ScalarType::kInt) return bin_op;
         return scalar->AtIndex(project_->arena(), index->AsInt());
@@ -879,10 +879,10 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
   Node *HandleLen(FunCall *fun) {
     if (fun->argument()->size() != 1) return fun;
     const auto &location = project_->GetLocation(fun->identifier()->id());
-    if (Scalar *scalar = fun->argument()->at(0)->CastAsScalar(); scalar) {
-      return MakeIntWithStringRep(location, scalar->AsString().length());
+    if (const Scalar *const s = fun->argument()->at(0)->CastAsScalar(); s) {
+      return MakeIntWithStringRep(location, s->AsString().length());
     }
-    if (List *list = fun->argument()->at(0)->CastAsList(); list) {
+    if (const List *const list = fun->argument()->at(0)->CastAsList(); list) {
       return MakeIntWithStringRep(location, list->size());
     }
     return fun;
@@ -890,7 +890,7 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
 
   static std::optional<int64_t> GetIntAt(List *list, size_t pos) {
     if (pos >= list->size()) return std::nullopt;
-    Scalar *const scalar = list->at(pos)->CastAsScalar();
+    const Scalar *const scalar = list->at(pos)->CastAsScalar();
     if (!scalar) return std::nullopt;
     if (scalar->type() != Scalar::ScalarType::kInt) return std::nullopt;
     return scalar->AsInt();
@@ -962,7 +962,7 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
         if (!item) continue;
         BinOpNode *map_item = item->CastAsBinOp();
         if (!map_item || map_item->op() != ':' || !map_item->left()) continue;
-        Scalar *key = map_item->left()->CastAsScalar();
+        const Scalar *const key = map_item->left()->CastAsScalar();
         if (!key) continue;
         if (session_.flags().custom_flags.contains(key->AsString())) {
           return map_item->right();
@@ -1147,7 +1147,7 @@ void Elaborate(Session &session, ParsedProject *project,
   const ScopedTimer timer(&elab_stats.duration);
   ++elab_stats.count;
 
-  Node *const result =
+  const Node *const result =
     Elaborate(session, project, build_file->package, options, build_file->ast);
   CHECK_EQ(result, build_file->ast) << "Toplevel should never be replaced.";
 }

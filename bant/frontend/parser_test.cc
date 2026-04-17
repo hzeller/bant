@@ -183,7 +183,7 @@ static StringScalar *ExtractStringScalarRhs(bant::List *list) {
 }
 
 TEST_F(ParserTest, StringExtract) {
-  StringScalar *s = ExtractStringScalarRhs(Parse(R"(a="""foo""")"));
+  const StringScalar *s = ExtractStringScalarRhs(Parse(R"(a="""foo""")"));
   ASSERT_EQ(s->type(), Scalar::ScalarType::kString);
   EXPECT_TRUE(s->is_triple_quoted());
   EXPECT_EQ(s->quote_char(), '"');

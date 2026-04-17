@@ -36,7 +36,7 @@ class VariableSubstituteCopyTest : public ::testing::Test {
     NamedLineIndexedContent source("<text>", text);
     Scanner scanner(source);
     Parser parser(&scanner, &arena_, std::cerr);
-    bant::List *result = parser.parse();
+    bant::List *const result = parser.parse();
     EXPECT_FALSE(parser.parse_error()) << text;
     return result;
   }
@@ -60,7 +60,8 @@ foo(
 
   {
     const query::KwMap no_vars;
-    Node *no_substitue = VariableSubstituteCopy(original, arena(), no_vars);
+    const Node *const no_substitue =
+      VariableSubstituteCopy(original, arena(), no_vars);
     EXPECT_EQ(original, no_substitue);  // No variables, no new nodes.
   }
 

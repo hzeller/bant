@@ -52,8 +52,8 @@ class VariableSubstituteCopyVisitor : public NodeVisitor {
     std::vector<Node *> new_elements;
     new_elements.reserve(l->size());
     bool all_same = true;
-    for (Node *element : *l) {
-      Node *element_prime = WalkNonNull(element);
+    for (Node *const element : *l) {
+      Node *const element_prime = WalkNonNull(element);
       all_same &= (element == element_prime);
       new_elements.push_back(element_prime);
     }
@@ -66,14 +66,14 @@ class VariableSubstituteCopyVisitor : public NodeVisitor {
   }
 
   Node *VisitUnaryExpr(UnaryExpr *e) override {
-    Node *node_prime = WalkNonNull(e->node());
+    Node *const node_prime = WalkNonNull(e->node());
     if (node_prime == e->node()) return e;
     return Make<UnaryExpr>(e->op(), node_prime);
   }
 
   Node *VisitBinOpNode(BinOpNode *b) override {
-    Node *left_prime = WalkNonNull(b->left());
-    Node *right_prime = WalkNonNull(b->right());
+    Node *const left_prime = WalkNonNull(b->left());
+    Node *const right_prime = WalkNonNull(b->right());
     if (left_prime == b->left() && right_prime == b->right()) {
       return b;  // no change.
     }
@@ -88,9 +88,9 @@ class VariableSubstituteCopyVisitor : public NodeVisitor {
   }
 
   Node *VisitTernary(Ternary *t) override {
-    Node *condition_prime = WalkNonNull(t->condition());
-    Node *positive_prime = WalkNonNull(t->positive());
-    Node *negative_prime = WalkNonNull(t->negative());
+    Node *const condition_prime = WalkNonNull(t->condition());
+    Node *const positive_prime = WalkNonNull(t->positive());
+    Node *const negative_prime = WalkNonNull(t->negative());
     if (condition_prime == t->condition() && positive_prime == t->positive() &&
         negative_prime == t->negative()) {
       return t;

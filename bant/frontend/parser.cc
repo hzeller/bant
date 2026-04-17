@@ -205,7 +205,7 @@ class Parser::Impl {
                                  std::string_view to) {
     LOG_ENTER();
     // '=' already consumed
-    Node *rhs = ParseExpression();
+    Node *const rhs = ParseExpression();
     // TODO: ideally, we have a range up to the end of the rhs, but we would
     // get the whitespace until the next token if we just looked at
     // scanner_->Peek().text.begin(). So for now, just cover range up to =.
@@ -257,7 +257,7 @@ class Parser::Impl {
   FunCall *ParseFunCall(Token identifier) {
     LOG_ENTER();
     // opening '(' already consumed.
-    List *args = ParseList(
+    List *const args = ParseList(
       Make<List>(List::Type::kTuple),
       [&]() { return ExpressionOrAssignment(); }, TokenType::kCloseParen);
     return Make<FunCall>(Make<Identifier>(identifier.text), args);
@@ -268,7 +268,7 @@ class Parser::Impl {
     // 'if' seen, but not consumed yet.
     Token tok = scanner_->Next();
     assert(tok.type == TokenType::kIf);  // expected this at this point.
-    Node *condition = ParseExpression();
+    Node *const condition = ParseExpression();
     Node *else_branch = nullptr;
     tok = scanner_->Peek();
     if (tok.type == TokenType::kElse) {
@@ -283,7 +283,7 @@ class Parser::Impl {
     // '[' seen, but not consumed yet.
     // array_access = expression ']'
     //              | expression ':' expression ']'
-    Node *n = ParseExpression(/*can_be_optional=*/true);
+    Node *const n = ParseExpression(/*can_be_optional=*/true);
     const Token separator_or_end = scanner_->Next();
     switch (separator_or_end.type) {
     case ']': {
@@ -291,7 +291,7 @@ class Parser::Impl {
       return n;
     }
     case ':': {
-      Node *rhs = ParseExpression(/*can_be_optional=*/true);
+      Node *const rhs = ParseExpression(/*can_be_optional=*/true);
       const Token end = scanner_->Next();
       if (end.type != ']') {
         ErrAt(end) << "Expected closing ']' of array access\n";
@@ -448,7 +448,7 @@ class Parser::Impl {
 
   IntScalar *ParseIntFromToken(Token t) {
     LOG_ENTER();
-    IntScalar *scalar = IntScalar::FromLiteral(node_arena_, t.text);
+    IntScalar *const scalar = IntScalar::FromLiteral(node_arena_, t.text);
     if (!scalar) {
       ErrAt(t) << "Error parsing int literal\n";
     }
@@ -457,7 +457,7 @@ class Parser::Impl {
 
   BinOpNode *ParseMapTuple() {
     LOG_ENTER();
-    Node *lhs = ParseExpression();
+    Node *const lhs = ParseExpression();
 
     const Token separator = scanner_->Next();
     if (separator.type != ':') {
@@ -554,7 +554,7 @@ class Parser::Impl {
           [&]() { return ParseOptionalIdentifier(); }, TokenType::kIn);
       }
 
-      Node *values_to_iterate_over = ParseExpression();
+      Node *const values_to_iterate_over = ParseExpression();
       const Token after_pos = scanner_->Peek();
       const std::string_view text_range{start_of_for.text.end(),
                                         after_pos.text.begin()};
