@@ -24,7 +24,7 @@
 #include "gtest/gtest.h"
 
 namespace bant {
-
+namespace {
 // Convenience methods to parse packages and patterns where we know the parse
 // should be successful.
 
@@ -381,4 +381,5 @@ TEST(TypesBazel, CheckVisibilityTargetMatch) {
   EXPECT_TRUE(VisibilityOrDie("__subpackages__", p)
                 .Match(TargetOrDie("//foo/bar/baz/and/deep/belo:hello")));
 }
+}  // namespace
 }  // namespace bant

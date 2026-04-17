@@ -24,6 +24,7 @@
 #include "gtest/gtest.h"
 
 namespace bant {
+namespace {
 TEST(DisjointRangeMap, RangeLookups) {
   DisjointRangeMap<std::string_view, size_t> subrange_map;
   constexpr std::array<std::string_view, 3> values{
@@ -79,5 +80,5 @@ TEST(DisjointRangeMap, RangeLookups) {
 
   EXPECT_FALSE(subrange_map.FindBySubrange("different string").has_value());
 }
-
+}  // namespace
 }  // namespace bant

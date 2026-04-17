@@ -21,6 +21,7 @@
 #include "gtest/gtest.h"
 
 namespace bant {
+namespace {
 TEST(FilesystemTest, DirectoryListing) {
   test::ChangeToTmpDir dir("DirectoryListing");
   dir.touch(".", "baz");
@@ -83,4 +84,5 @@ TEST(FilesystemTest, DirectoryListing) {
   fs.EvictCache();
   EXPECT_EQ(fs.cache_size(), 0u);
 }
+}  // namespace
 }  // namespace bant

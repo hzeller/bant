@@ -20,6 +20,7 @@
 #include "gtest/gtest.h"
 
 namespace bant {
+namespace {
 TEST(GlobMatchBuilderTest, NoDirectorySimpleFileGlob) {
   GlobMatchBuilder glob_builder;
   glob_builder.AddIncludePattern("foo.txt");
@@ -230,5 +231,5 @@ TEST(GlobMatchBuilderTest, CommonIncludePrefix) {
     EXPECT_EQ(glob_builder.CommonDirectoryPrefix(), "a");
   }
 }
-
+}  // namespace
 }  // namespace bant

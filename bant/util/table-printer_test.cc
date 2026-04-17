@@ -26,6 +26,7 @@
 #include "gtest/gtest.h"
 
 namespace bant {
+namespace {
 TEST(TablePrinter, PlainTable) {
   const std::map<OutputFormat, std::string_view> kTests{
     {OutputFormat::kNative,
@@ -101,5 +102,5 @@ TEST(TablePrinter, TableWithRepeatedLastCol) {
     EXPECT_EQ(expected, out.str()) << (int)fmt;
   }
 }
-
+}  // namespace
 }  // namespace bant

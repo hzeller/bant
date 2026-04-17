@@ -32,7 +32,7 @@
 #include "gtest/gtest.h"
 
 namespace bant {
-
+namespace {
 class ElaborationTest : public ::testing::Test {
  public:
   // Put "to_elaborate" into "package" and elaborate.
@@ -984,5 +984,5 @@ EXAMPLE = "somefilename"
 
   EXPECT_EQ(result.first, result.second);
 }
-
+}  // namespace
 }  // namespace bant

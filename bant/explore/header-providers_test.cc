@@ -32,7 +32,7 @@ using ::testing::ElementsAre;
 using ::testing::Pair;
 
 namespace bant {
-
+namespace {
 // Convenience function to create a BazelTarget for testing.
 static BazelTarget T(std::string_view s) {
   auto target_or = BazelTarget::ParseFrom(s, BazelPackage());
@@ -303,4 +303,5 @@ TEST(HeaderProviders, FindBySuffixTest) {
 // Needs test:
 // strip_import_prefix
 // aliases for proto libraries.
+}  // namespace
 }  // namespace bant

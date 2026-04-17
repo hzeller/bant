@@ -28,6 +28,7 @@
 #include "gtest/gtest.h"
 
 namespace bant {
+namespace {
 // TODO: the Elaborator test also has something similar. Unify ?
 class MacroSubstituteTest : public ::testing::Test {
  public:
@@ -259,5 +260,5 @@ cc_test(
 )expanded");
   EXPECT_EQ(result.first, result.second);
 }
-
+}  // namespace
 }  // namespace bant

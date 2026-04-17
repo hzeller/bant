@@ -42,7 +42,7 @@ using ::testing::ElementsAre;
 using ::testing::HasSubstr;
 
 namespace bant {
-
+namespace {
 static LineColumn PosOfPart(const NamedLineIndexedContent &src,
                             const std::vector<std::string_view> &parts,
                             size_t i) {
@@ -1153,5 +1153,5 @@ cc_library(
 )");
   tester.RunForTarget("//some/path:bar");
 }
-
+}  // namespace
 }  // namespace bant

@@ -21,6 +21,7 @@
 #include "gtest/gtest.h"
 
 namespace bant {
+namespace {
 TEST(FileUtils, FilesystemPathFromDirent) {
   const DirectoryEntry entry = {
     .type = DirectoryEntry::Type::kDirectory,
@@ -64,5 +65,5 @@ TEST(FileUtils, FilesystemPathCopy) {
   EXPECT_NE(&from_path.path(), &other.path());
   EXPECT_EQ(other.filename(), "baz");
 }
-
+}  // namespace
 }  // namespace bant

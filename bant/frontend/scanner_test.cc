@@ -34,6 +34,7 @@ static inline bool operator==(const Token &a, const Token &b) {
                                              content);                    \
   Scanner name(content_##__LINE__)
 
+namespace {
 TEST(ScannerTest, EmptyStringEOF) {
   TEST_SCANNER(s, "");
   EXPECT_EQ(s.Next().type, TokenType::kEof);
@@ -240,4 +241,5 @@ BAR = 42
   EXPECT_EQ(s.Next(), Token({TokenType::kAssign, "="}));
   EXPECT_EQ(s.Next(), Token({TokenType::kNumberLiteral, "42"}));
 }
+}  // namespace
 }  // namespace bant

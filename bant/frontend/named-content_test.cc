@@ -22,6 +22,7 @@
 #include "gtest/gtest.h"
 
 namespace bant {
+namespace {
 TEST(NamedContent, Surrounding) {
   {
     constexpr std::string_view content = "foo";
@@ -42,4 +43,5 @@ TEST(NamedContent, Surrounding) {
     EXPECT_EQ(full_line, content.substr(4, 3));
   }
 }
+}  // namespace
 }  // namespace bant

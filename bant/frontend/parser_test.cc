@@ -33,6 +33,7 @@
 #include "gtest/gtest.h"
 
 namespace bant {
+namespace {
 class ParserTest : public ::testing::Test {
  protected:
   ParserTest() : arena_(4096) {}
@@ -548,5 +549,5 @@ FOO = (
 )
 )tuple");
 }
-
+}  // namespace
 }  // namespace bant

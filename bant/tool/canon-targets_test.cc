@@ -27,7 +27,7 @@
 #include "gtest/gtest.h"
 
 namespace bant {
-
+namespace {
 TEST(CanoniazlieTest, CanonicalizeDependencies) {
   ParsedProjectTestUtil pp;
   pp.Add("//some/path", R"(
@@ -55,5 +55,5 @@ cc_library(
   CreateCanonicalizeEdits(session, pp.project(), BazelPattern(),
                           edit_expector.checker());
 }
-
+}  // namespace
 }  // namespace bant

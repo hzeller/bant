@@ -26,6 +26,7 @@
 using testing::ElementsAre;
 
 namespace bant::query {
+namespace {
 TEST(QueryUtils, BasicQuery) {
   ParsedProjectTestUtil pp;
   const ParsedBuildFile *build_file = pp.Add("//", R"(
@@ -128,5 +129,5 @@ foo(
     EXPECT_EQ(kwargs.size(), 4u);
   });
 }
-
+}  // namespace
 }  // namespace bant::query

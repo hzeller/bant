@@ -29,7 +29,7 @@
 #include "gtest/gtest.h"
 
 namespace bant {
-
+namespace {
 class VariableSubstituteCopyTest : public ::testing::Test {
  protected:
   bant::List *Parse(std::string_view text) {
@@ -84,4 +84,5 @@ foo(
   // And we also expect that the original AST has not been messed with.
   EXPECT_EQ(ToString(original), ToString(Parse(kOriginal)));
 }
+}  // namespace
 }  // namespace bant

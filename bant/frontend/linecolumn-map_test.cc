@@ -26,7 +26,7 @@
 #include "gtest/gtest.h"
 
 namespace bant {
-
+namespace {
 struct LineColumnTestData {
   LineColumn line_col;
   const char *expected;
@@ -88,4 +88,5 @@ line 3
   EXPECT_EQ(line_col_map.GetRange(FindReturnSubstr("line 4", kText)),
             LineColumnRange({.start = {3, 2}, .end = {3, 8}}));
 }
+}  // namespace
 }  // namespace bant

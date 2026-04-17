@@ -22,6 +22,7 @@
 #include "gtest/gtest.h"
 
 namespace bant {
+namespace {
 TEST(GrepHighlighterTest, SimpleMatch) {
   GrepHighlighter highligher(false, true);
   std::stringstream sink;
@@ -75,4 +76,5 @@ TEST(GrepHighlighterTest, AlwaysResetFirstButtingUpMatch) {
   EXPECT_TRUE(highligher.EmitMatch("helloworld", sink));
   EXPECT_EQ(sink.str(), "_GREEN_hello_END__RED_world_END_");
 }
+}  // namespace
 }  // namespace bant
