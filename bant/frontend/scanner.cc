@@ -48,7 +48,7 @@ std::ostream &operator<<(std::ostream &o, TokenType t) {
   case '*':
   case '/':
   case '.':
-  case '%': o << (char)t; break;
+  case '%': o << static_cast<char>(t); break;
 
   case TokenType::kFloorDivide: o << "//"; break;
   case TokenType::kEqualityComparison: o << "=="; break;
@@ -149,7 +149,7 @@ Token Scanner::ConsumeEverythingIndentedAsDefBlock(ContentPointer start) {
     }
     // After newline. Let's see if there is an indentation.
     if (pos_ + 1 < end_ && !absl::ascii_isspace(*(pos_ + 1))) {
-      return {kDefBlock, {start, (size_t)(pos_ - start)}};
+      return {kDefBlock, {start, static_cast<size_t>(pos_ - start)}};
     }
     ++pos_;
     source_.mutable_line_index()->PushNewline(pos_);
@@ -176,12 +176,12 @@ Token Scanner::HandleIdentifierKeywordRawStringOrInvalid() {
   while (pos_ < end_ && IsIdentifierChar(*pos_)) {
     ++pos_;
   }
-  std::string_view text{start, (size_t)(pos_ - start)};
+  std::string_view text{start, static_cast<size_t>(pos_ - start)};
 
   // Keywords, anything else will be an identifier.
   if (text == "not") {
     if (ConsumeOptionalIn()) {
-      text = std::string_view(start, (size_t)(pos_ - start));
+      text = std::string_view(start, static_cast<size_t>(pos_ - start));
       return {TokenType::kNotIn, text};
     }
     return {TokenType::kNot, text};
@@ -232,10 +232,11 @@ Token Scanner::HandleString() {
     ++pos_;
   }
   if (pos_ >= end_) {
-    return {TokenType::kError, {start, (size_t)(pos_ - start)}};
+    return {TokenType::kError, {start, static_cast<size_t>(pos_ - start)}};
   }
   ++pos_;
-  return {TokenType::kStringLiteral, {start, (size_t)(pos_ - start)}};
+  return {TokenType::kStringLiteral,
+          {start, static_cast<size_t>(pos_ - start)}};
 }
 
 Token Scanner::HandleNumber() {
@@ -262,18 +263,19 @@ Token Scanner::HandleNumber() {
   while (pos_ < end_ && (is_relevant_digit(*pos_) || *pos_ == '.')) {
     if (*pos_ == '.') {
       if (dot_seen) {
-        return {TokenType::kError, {start, (size_t)(pos_ - start)}};
+        return {TokenType::kError, {start, static_cast<size_t>(pos_ - start)}};
       }
       dot_seen = true;
     }
     ++pos_;
   }
-  return {TokenType::kNumberLiteral, {start, (size_t)(pos_ - start)}};
+  return {TokenType::kNumberLiteral,
+          {start, static_cast<size_t>(pos_ - start)}};
 }
 
 Token Scanner::HandleAssignOrRelationalOrShift() {
   const ContentPointer start = pos_;
-  int type = (unsigned char)(*pos_++);
+  int type = static_cast<unsigned char>(*pos_++);
   if (pos_ < end_) {
     switch (*pos_) {
     case '=':
@@ -295,25 +297,28 @@ Token Scanner::HandleAssignOrRelationalOrShift() {
     default:;
     }
   }
-  return {static_cast<TokenType>(type), {start, (size_t)(pos_ - start)}};
+  return {static_cast<TokenType>(type),
+          {start, static_cast<size_t>(pos_ - start)}};
 }
 
 Token Scanner::HandleNotOrNotEquals() {
   const ContentPointer start = pos_;
-  int type = (unsigned char)(*pos_++);
+  int type = static_cast<unsigned char>(*pos_++);
   if (pos_ < end_ && *pos_ == '=') {
     type += 256, ++pos_;
   }
-  return {static_cast<TokenType>(type), {start, (size_t)(pos_ - start)}};
+  return {static_cast<TokenType>(type),
+          {start, static_cast<size_t>(pos_ - start)}};
 }
 
 Token Scanner::HandleDivideOrFloorDivide() {
   const ContentPointer start = pos_;
-  int type = (unsigned char)(*pos_++);
+  int type = static_cast<unsigned char>(*pos_++);
   if (pos_ < end_ && *pos_ == '/') {
     type += 256, ++pos_;
   }
-  return {static_cast<TokenType>(type), {start, (size_t)(pos_ - start)}};
+  return {static_cast<TokenType>(type),
+          {start, static_cast<size_t>(pos_ - start)}};
 }
 
 Token Scanner::Next() {
@@ -342,7 +347,7 @@ Token Scanner::Next() {
   case '.':
   case '%':
   case '|':
-    result = {/*.type =*/(TokenType)*pos_, /*.text =*/{pos_, 1}};
+    result = {/*.type =*/static_cast<TokenType>(*pos_), /*.text =*/{pos_, 1}};
     ++pos_;
     break;
 

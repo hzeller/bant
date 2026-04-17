@@ -50,7 +50,7 @@ class AlignedTextColumnPrinter : public TablePrinter {
     CHECK_EQ(row.size(), widths_.size());
     // We exclude the last column width, as we don't want that to to be padded
     for (size_t i = 0; i < widths_.size() - 1; ++i) {
-      widths_[i] = std::max(widths_[i], (int)row[i].length());
+      widths_[i] = std::max(widths_[i], static_cast<int>(row[i].length()));
     }
     buffer_.push_back(row);
   }

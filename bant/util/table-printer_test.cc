@@ -54,7 +54,7 @@ TEST(TablePrinter, PlainTable) {
     printer->AddRow({"short", "somevalue"});
     printer->AddRow({"somewhatlongtext", "xyz"});
     printer->Finish();
-    EXPECT_EQ(expected, out.str()) << (int)fmt;
+    EXPECT_EQ(expected, out.str()) << static_cast<int>(fmt);
   }
 }
 
@@ -99,7 +99,7 @@ TEST(TablePrinter, TableWithRepeatedLastCol) {
     printer->AddRowWithRepeatedLastColumn({"oneval"}, {"somevalue"});
     printer->AddRowWithRepeatedLastColumn({"threeval"}, {"abc", "def", "xyz"});
     printer->Finish();
-    EXPECT_EQ(expected, out.str()) << (int)fmt;
+    EXPECT_EQ(expected, out.str()) << static_cast<int>(fmt);
   }
 }
 }  // namespace

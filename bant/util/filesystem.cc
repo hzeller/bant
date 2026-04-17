@@ -117,7 +117,7 @@ const std::vector<DirectoryEntry> &Filesystem::ReadDir(
   const absl::WriterMutexLock l(mu_);
   if (kDebugCacheMisses && was_new) {
     fprintf(stderr, "Cache miss for '%s' (%d entries)\n",
-            std::string{cache_key}.c_str(), (int)result.size());
+            std::string{cache_key}.c_str(), static_cast<int>(result.size()));
   }
   auto inserted = cache_.emplace(cache_key, std::move(result));
   return inserted.first->second;

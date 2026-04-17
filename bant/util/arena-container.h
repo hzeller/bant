@@ -63,8 +63,8 @@ class ArenaDeque {
     if (next_block_pos_ >= block_size_.current()) {
       const size_t new_N = block_size_.AdvanceNextBounded();
       // Allocate enough so that we can write beyond the 'nominal' end of value
-      current_->next = (Block *)arena->Alloc(
-        sizeof(Block) + sizeof(T) * (new_N - MIN_BLOCK_SIZE));
+      current_->next = static_cast<Block *>(
+        arena->Alloc(sizeof(Block) + sizeof(T) * (new_N - MIN_BLOCK_SIZE)));
       current_->next->next = nullptr;
       current_ = current_->next;
       next_block_pos_ = 0;
