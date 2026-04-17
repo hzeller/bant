@@ -25,12 +25,15 @@
 #include "bant/frontend/ast.h"
 #include "bant/frontend/scanner.h"
 
-// TODO: put this in some other place.
+// TODO: put this in some other place. There is also color handling in dwyu
+// and others places.
+namespace {
 struct Colors {
   std::string_view bold;
   std::string_view assignment_lhs;
   std::string_view reset;
 };
+}  // namespace
 
 static constexpr Colors kColor = {
   .bold = "\033[1m",

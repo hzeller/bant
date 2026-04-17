@@ -63,6 +63,7 @@ static constexpr std::string_view kSourceLocations[] = {
 
 namespace bant {
 
+namespace {
 // TODO: refine, and put somewhere else.
 class Colored {
  public:
@@ -92,6 +93,7 @@ class Norm : public Colored {
  public:
   explicit Norm(const Session &s) : Colored(s, "\033[0m") {}
 };
+}  // namespace
 
 // Given a header file, check if it is in the list. Take possible prefix
 // into account.
