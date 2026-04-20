@@ -194,6 +194,7 @@ class BinNode : public Node {
  public:
   Node *left() { return left_; }
   Node *right() { return right_; }
+  void set_left(Node *n) { left_ = n; }
 
  protected:
   friend class BaseNodeReplacementVisitor;

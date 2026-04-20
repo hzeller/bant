@@ -270,6 +270,25 @@ D = [
   EXPECT_EQ(result.first, result.second);
 }
 
+TEST_F(ElaborationTest, ListComprehensionIf) {
+  auto result = ElabAndPrint(
+    R"lc-in(
+A = [ x for x in [1, 2, 3, 4] if x > 2 ]
+B = [ y for y in [1, 2, 3, 4, 5] if y > 1 if y < 5 ]
+C = [ x + y for x in [10, 20] if x > 10 for y in [1, 2] if y > 1 ]
+D = [ x for x in ["foo", "bar", ""] if x ]
+)lc-in",
+    R"lc-result(
+A = [ 3, 4 ]
+B = [ 2, 3, 4 ]
+C = [
+     [22],
+]
+D = [ "foo", "bar" ]
+)lc-result");
+  EXPECT_EQ(result.first, result.second);
+}
+
 TEST_F(ElaborationTest, SelectChoosesConditionDefault) {
   auto result = ElabAndPrint(
     R"(

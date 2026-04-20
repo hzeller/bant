@@ -181,6 +181,9 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     case TokenType::kFor: {
       return ProcessFor(b);
     }
+    case TokenType::kIf: {
+      return ProcessIf(b);
+    }
     case '+': {
       {
         List *left = bin_op->left()->CastAsList();
@@ -407,6 +410,24 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
   }
 
  private:
+  static Node *ProcessIf(BinOpNode *if_node) {
+    const Scalar *const cond_scalar = if_node->right()->CastAsScalar();
+    const List *const cond_list = if_node->right()->CastAsList();
+    if (!cond_scalar && !cond_list) return if_node;
+
+    bool is_true = false;
+    if (cond_scalar) {
+      if (cond_scalar->type() == Scalar::ScalarType::kInt) {
+        is_true = cond_scalar->AsInt() != 0;
+      } else if (cond_scalar->type() == Scalar::ScalarType::kString) {
+        is_true = !cond_scalar->AsString().empty();
+      }
+    } else if (cond_list) {
+      is_true = !cond_list->empty();
+    }
+    return is_true ? if_node->left() : nullptr;
+  }
+
   Node *ProcessFor(BinOpNode *for_node) {
     Node *const subject = for_node->left();
 

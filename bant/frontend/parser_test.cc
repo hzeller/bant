@@ -69,6 +69,9 @@ class ParserTest : public ::testing::Test {
   BinOpNode *For(Node *subject, BinOpNode *in_expr) {
     return Op(TokenType::kFor, subject, in_expr);
   }
+  BinOpNode *If(Node *subject, Node *cond) {
+    return Op(TokenType::kIf, subject, cond);
+  }
 
   UnaryExpr *UnaryOp(TokenType op, Node *n) {
     return arena_.New<UnaryExpr>(op, n);
@@ -472,6 +475,30 @@ TEST_F(ParserTest, ParseListComprehension) {
   [i + j for i, j in [("a", "b"), ("x", "y")]]     # multi-var into tuple
   [i + j for (i, j) in [("a", "b"), ("x", "y")]]   # multi-var; var-list tuple
   m = { i : "bar" for i in ["x", "y"]}             # map tuple comprehension
+)")));
+}
+
+TEST_F(ParserTest, ParseListComprehensionIf) {
+  Node *const expected = List({
+    // Simple filter
+    ListComprehension(
+      List::Type::kList,
+      For(If(Id("i"), Op(TokenType::kEqualityComparison, Id("i"), Str("x"))),
+          In(Tuple({Id("i")}), List({Str("x"), Str("y")})))),
+
+    // Multiple conditionals and loops
+    ListComprehension(
+      List::Type::kList,
+      For(If(For(If(Op('+', Id("i"), Id("j")),
+                    Op(TokenType::kEqualityComparison, Id("i"), Str("a"))),
+                 In(Tuple({Id("i")}), List({Str("a"), Str("b")}))),
+             Op(TokenType::kEqualityComparison, Id("j"), Str("c"))),
+          In(Tuple({Id("j")}), List({Str("c"), Str("d")})))),
+  });
+
+  EXPECT_EQ(Print(expected), Print(Parse(R"(
+  [i for i in ["x", "y"] if i == "x"]
+  [i + j for i in ["a", "b"] if i == "a" for j in ["c", "d"] if j == "c"]
 )")));
 }
 

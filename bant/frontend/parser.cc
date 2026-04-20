@@ -349,14 +349,14 @@ class Parser::Impl {
     return std::find(list.begin(), list.end(), t) != list.end();
   }
 
-  Node *ParseAtom(bool can_be_optional) {
+  Node *ParseAtom(bool can_be_optional, bool allow_ternary = true) {
     LOG_ENTER();
     Node *n = nullptr;
     switch (scanner_->Peek().type) {
     case '-':
     case TokenType::kNot: {
       const Token tok = scanner_->Next();
-      n = Make<UnaryExpr>(tok.type, ParseAtom(can_be_optional));
+      n = Make<UnaryExpr>(tok.type, ParseAtom(can_be_optional, allow_ternary));
       break;
     }
     case '(': n = ParseParenExpressionOrTuple(); break;
@@ -365,25 +365,26 @@ class Parser::Impl {
 
     // Check for ternary if-else.
     const Token upcoming = scanner_->Peek();
-    if (upcoming.type == TokenType::kIf) {
+    if (allow_ternary && upcoming.type == TokenType::kIf) {
       return ParseIfElse(n);  // TODO: figure out what precendence level this is
     }
 
     return n;
   }
 
-  Node *ParseWithPrecedence(int prec, bool can_be_optional = false) {
+  Node *ParseWithPrecedence(int prec, bool can_be_optional = false,
+                            bool allow_ternary = true) {
     if (prec == 0) {
-      return ParseAtom(can_be_optional);
+      return ParseAtom(can_be_optional, allow_ternary);
     }
     LOG_ENTER();
-    Node *n = ParseWithPrecedence(prec - 1, can_be_optional);
+    Node *n = ParseWithPrecedence(prec - 1, can_be_optional, allow_ternary);
     if (n == nullptr) return n;
     for (;;) {
       const Token upcoming = scanner_->Peek();
       if (IsTokenIn(upcoming.type, kPrecedenceList[prec])) {
         const Token op = scanner_->Next();
-        Node *const right = ParseWithPrecedence(prec - 1);
+        Node *const right = ParseWithPrecedence(prec - 1, false, allow_ternary);
         n = Make<BinOpNode>(n, right, op.type, op.text);
         continue;
       }
@@ -399,10 +400,11 @@ class Parser::Impl {
     return n;
   }
 
-  Node *ParseExpression(bool can_be_optional = false) {
+  Node *ParseExpression(bool can_be_optional = false,
+                        bool allow_ternary = true) {
     // TODO: implement array access and if/else
     return ParseWithPrecedence(ABSL_ARRAYSIZE(kPrecedenceList) - 1,
-                               can_be_optional);
+                               can_be_optional, allow_ternary);
   }
 
   Node *ParseParenExpressionOrTuple() {
@@ -530,39 +532,59 @@ class Parser::Impl {
                                    TokenType expected_end_token) {
     BinOpNode *for_tree = nullptr;
 
-    // 'for' seen, but not consumed yet.
-    while (scanner_->Peek().type == TokenType::kFor) {
-      const Token start_of_for = scanner_->Next();
+    while (true) {
+      TokenType peek_type = scanner_->Peek().type;
+      if (peek_type == TokenType::kFor) {
+        const Token start_of_for = scanner_->Next();
 
-      List *variable_tuple = nullptr;
-      // There can be multipole variables in the list, so they are a tuple.
+        List *variable_tuple = nullptr;
+        // There can be multipole variables in the list, so they are a tuple.
 
-      // On the input, this can look like a list i, i, j or as tuple (i, j, k).
-      // We deal with these variants, but in any case, they are follwed by 'in'.
-      if (scanner_->Peek().type == '(') {  // (i, j, k) case.
-        scanner_->Next();                  // Consume open tuple '('
-        variable_tuple = ParseList(        // .. parse until we see close ')'
-          Make<List>(List::Type::kTuple),
-          [&]() { return ParseOptionalIdentifier(); }, TokenType::kCloseParen);
-        const Token expected_in = scanner_->Next();
-        if (expected_in.type != TokenType::kIn) {
-          ErrAt(expected_in) << "expected 'in' after variable tuple\n";
+        // On the input, this can look like a list i, i, j or as tuple (i, j,
+        // k). We deal with these variants, but in any case, they are follwed by
+        // 'in'.
+        if (scanner_->Peek().type == '(') {  // (i, j, k) case.
+          scanner_->Next();                  // Consume open tuple '('
+          variable_tuple = ParseList(        // .. parse until we see close ')'
+            Make<List>(List::Type::kTuple),
+            [&]() { return ParseOptionalIdentifier(); },
+            TokenType::kCloseParen);
+          const Token expected_in = scanner_->Next();
+          if (expected_in.type != TokenType::kIn) {
+            ErrAt(expected_in) << "expected 'in' after variable tuple\n";
+          }
+        } else {  // i, j, k case. Here the expected list end token is 'in'
+          variable_tuple = ParseList(
+            Make<List>(List::Type::kTuple),
+            [&]() { return ParseOptionalIdentifier(); }, TokenType::kIn);
         }
-      } else {  // i, j, k case. Here the expected list end token is 'in'
-        variable_tuple = ParseList(
-          Make<List>(List::Type::kTuple),
-          [&]() { return ParseOptionalIdentifier(); }, TokenType::kIn);
-      }
 
-      Node *const values_to_iterate_over = ParseExpression();
-      const Token after_pos = scanner_->Peek();
-      const std::string_view text_range{start_of_for.text.end(),
-                                        after_pos.text.begin()};
-      BinOpNode *const range = Make<BinOpNode>(
-        variable_tuple, values_to_iterate_over, TokenType::kIn, text_range);
-      for_tree = Make<BinOpNode>(iterate_target, range, TokenType::kFor,
-                                 start_of_for.text);
-      iterate_target = for_tree;  // Nested loops.
+        Node *const values_to_iterate_over = ParseExpression(false, false);
+        const Token after_pos = scanner_->Peek();
+        const std::string_view text_range{start_of_for.text.end(),
+                                          after_pos.text.begin()};
+        BinOpNode *const range = Make<BinOpNode>(
+          variable_tuple, values_to_iterate_over, TokenType::kIn, text_range);
+        for_tree = Make<BinOpNode>(iterate_target, range, TokenType::kFor,
+                                   start_of_for.text);
+        iterate_target = for_tree;  // Nested loops.
+      } else if (peek_type == TokenType::kIf) {
+        const Token start_of_if = scanner_->Next();
+        Node *cond = ParseExpression(false, false);
+        if (!for_tree) {
+          ErrAt(start_of_if) << "expected for-clause first\n";
+          return nullptr;
+        }
+        Node *subject = for_tree->left();
+        const Token after_pos = scanner_->Peek();
+        std::string_view text_range{start_of_if.text.begin(),
+                                    after_pos.text.begin()};
+        Node *if_node =
+          Make<BinOpNode>(subject, cond, TokenType::kIf, text_range);
+        for_tree->set_left(if_node);
+      } else {
+        break;
+      }
     }
 
     const Token end_tok = scanner_->Next();
