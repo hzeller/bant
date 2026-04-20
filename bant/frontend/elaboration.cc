@@ -927,13 +927,15 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
   void HandleLoad(FunCall *load_fun) {
     const auto args = query::ExtractStringList(load_fun->argument());
     if (args.size() < 2) return;
-    auto bazel_ref = BazelTarget::ParseFrom(args[0], package_);
+    const std::string_view starlark_reference = args[0];
+    auto bazel_ref = BazelTarget::ParseFrom(starlark_reference, package_);
     if (!bazel_ref.has_value()) return;
 
     // If not already cached, trigger parsing Starlark file which then
     // is elaborated.
     const VariableBundle &bzl_variables = project_->GetOrAddStarlarkContent(
-      session_, *bazel_ref, [&](List *ast, VariableBundle *bundle) {
+      session_, starlark_reference, *bazel_ref,
+      [&](List *ast, VariableBundle *bundle) {
         ElaborationOptions starlark_options;
         starlark_options.expand_load_functions = false;  // Don't chase further
         starlark_options.builtin_macro_expansion = false;

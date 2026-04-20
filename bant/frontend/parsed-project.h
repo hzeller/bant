@@ -103,7 +103,8 @@ class ParsedProject : public SourceLocator {
   // content. If starlark file is not available yet, calls "variable_extractor"
   // to fill.
   const VariableBundle &GetOrAddStarlarkContent(
-    Session &session, const BazelTarget &starlark,
+    Session &session, std::string_view starlark_ref,
+    const BazelTarget &starlark,
     const std::function<void(List *ast, VariableBundle *)> &variable_extractor);
 
   // A map of Package -> ParsedBuildFile

@@ -225,7 +225,7 @@ ParsedBuildFile *ParsedProject::AddBuildFileContent(Session &session,
 }
 
 const ParsedProject::VariableBundle &ParsedProject::GetOrAddStarlarkContent(
-  Session &session, const BazelTarget &starlark,
+  Session &session, std::string_view starlark_ref, const BazelTarget &starlark,
   const std::function<void(List *ast, VariableBundle *)> &variable_extractor) {
   if (const auto found = starlark_variables_.find(starlark);
       found != starlark_variables_.end()) {
@@ -246,8 +246,9 @@ const ParsedProject::VariableBundle &ParsedProject::GetOrAddStarlarkContent(
     ReadFileToStringUpdateStat(starlark_file, open_and_read_stat);
   if (!content.has_value()) {
     if (session.flags().verbose) {  // starlark reading is best effort.
-      session.info() << "Could not read " << starlark << " ("
-                     << starlark_file.path() << ")\n";
+      Loc(session.info(), starlark_ref)
+        << " Could not read " << starlark << " (" << starlark_file.path()
+        << ")\n";
     }
     ++error_count_;
     return *bundle;
