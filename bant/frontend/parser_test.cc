@@ -437,12 +437,12 @@ TEST_F(ParserTest, ParseListComprehension) {
       List::Type::kList,  //
       For(Tuple({Op('+', Str("foo"), Id("i"))}),
           In(Tuple({Id("i")}), List({Str("a"), Str("b"), Str("c")})))),
-    // Nested for-lops
+    // Nested for-loops
     ListComprehension(
       List::Type::kList,                                          //
       For(For(Op('+', Id("i"), Id("j")),                          //
-              In(Tuple({Id("i")}), List({Str("x"), Str("y")}))),  //
-          In(Tuple({Id("j")}), List({Str("a"), Str("b")})))),
+              In(Tuple({Id("j")}), List({Str("a"), Str("b")}))),  //
+          In(Tuple({Id("i")}), List({Str("x"), Str("y")})))),
     // For with two variables expanding a tuple
     ListComprehension(
       List::Type::kList,  //
@@ -490,10 +490,10 @@ TEST_F(ParserTest, ParseListComprehensionIf) {
     ListComprehension(
       List::Type::kList,
       For(If(For(If(Op('+', Id("i"), Id("j")),
-                    Op(TokenType::kEqualityComparison, Id("i"), Str("a"))),
-                 In(Tuple({Id("i")}), List({Str("a"), Str("b")}))),
-             Op(TokenType::kEqualityComparison, Id("j"), Str("c"))),
-          In(Tuple({Id("j")}), List({Str("c"), Str("d")})))),
+                    Op(TokenType::kEqualityComparison, Id("j"), Str("c"))),
+                 In(Tuple({Id("j")}), List({Str("c"), Str("d")}))),
+             Op(TokenType::kEqualityComparison, Id("i"), Str("a"))),
+          In(Tuple({Id("i")}), List({Str("a"), Str("b")})))),
   });
 
   EXPECT_EQ(Print(expected), Print(Parse(R"(

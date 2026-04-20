@@ -170,6 +170,15 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
 
   // Very narrow of operations actually supported. Only what we typically need.
   Node *VisitBinOpNode(BinOpNode *b) final {
+    // Evaluate list comprehension chains from the root before children are
+    // walked!
+    if (b->op() == TokenType::kFor) {
+      return ProcessFor(b);
+    }
+    if (b->op() == TokenType::kIf) {
+      return ProcessIf(b);
+    }
+
     Node *post_visit = BaseNodeReplacementVisitor::VisitBinOpNode(b);
     BinOpNode *bin_op = post_visit->CastAsBinOp();  // still binop ?
     if (!bin_op) return post_visit;
@@ -178,12 +187,6 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     // are, we return from there, otherwise we end up at the bottom to
     // report a worthwhile operation to implement.
     switch (bin_op->op()) {
-    case TokenType::kFor: {
-      return ProcessFor(b);
-    }
-    case TokenType::kIf: {
-      return ProcessIf(b);
-    }
     case '+': {
       {
         List *left = bin_op->left()->CastAsList();
@@ -402,18 +405,33 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
   }
 
   Node *VisitListComprehension(ListComprehension *lc) final {
-    // TODO: properly implement flat output with multiple `for`.
-    // Target v0.2.0+
-    current_lh_type_.push(lc->type());
-    return WalkNonNull(lc->for_node());
-    current_lh_type_.pop();
+    List *result = Make<List>(lc->type());
+    List *saved = current_comprehension_output_;
+    current_comprehension_output_ = result;
+
+    Node *eval = WalkNonNull(lc->for_node());
+
+    current_comprehension_output_ = saved;
+    // WalkNonNull returns nullptr on success if `ProcessFor` resolves loop tree
+    // sequence gracefully. If partial evaluation fails to sequentially unpack,
+    // we fallback to returning unresolved portions.
+    if (!eval) return result;
+    return eval;
   }
 
  private:
-  static Node *ProcessIf(BinOpNode *if_node) {
-    const Scalar *const cond_scalar = if_node->right()->CastAsScalar();
-    const List *const cond_list = if_node->right()->CastAsList();
-    if (!cond_scalar && !cond_list) return if_node;
+  Node *ProcessIf(BinOpNode *if_node) {
+    if (!current_comprehension_output_) {
+      return if_node;  // safety wrapper if natively leaked
+    }
+
+    Node *cond_eval = WalkNonNull(if_node->right());
+    const Scalar *const cond_scalar =
+      cond_eval ? cond_eval->CastAsScalar() : nullptr;
+    const List *const cond_list = cond_eval ? cond_eval->CastAsList() : nullptr;
+    if (!cond_scalar && !cond_list) {
+      return if_node;  // Condition unresolved, fallback sequence
+    }
 
     bool is_true = false;
     if (cond_scalar) {
@@ -425,13 +443,17 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     } else if (cond_list) {
       is_true = !cond_list->empty();
     }
-    return is_true ? if_node->left() : nullptr;
+    return is_true ? WalkNonNull(if_node->left()) : nullptr;
   }
 
   Node *ProcessFor(BinOpNode *for_node) {
+    if (!current_comprehension_output_) return for_node;
+
     Node *const subject = for_node->left();
 
-    BinOpNode *const in_node = for_node->right()->CastAsBinOp();
+    Node *in_node_eval = WalkNonNull(for_node->right());
+    BinOpNode *const in_node =
+      in_node_eval ? in_node_eval->CastAsBinOp() : nullptr;
     if (!in_node || !in_node->left() || !in_node->right()) return for_node;
 
     List *const var_tuple = WalkNonNull(in_node->left())->CastAsList();
@@ -443,13 +465,14 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     for (Node *is_var : *var_tuple) {
       if (!is_var->CastAsIdentifier()) return for_node;  // verify all variables
     }
-    List *result = Make<List>(current_lh_type_.top());
+
     query::KwMap varmap;
     for (Node *element : *iterate_over) {
       // Values can be a list/tuple or a single value.
       List::iterator name_it = var_tuple->begin();
-      // Multi-var case for (a, b) in [(1, 2), (3, 4), (5, 6)]
-      if (List *values = element->CastAsList(); values) {
+      // Multi-var case for (a, b) in [(1, 2), (3, 4)]
+      if (List *values = element->CastAsList();
+          values && var_tuple->size() > 1) {
         List::iterator value_it = values->begin();
         while (name_it != var_tuple->end() && value_it != values->end()) {
           const Identifier *const id = (*name_it)->CastAsIdentifier();
@@ -464,10 +487,12 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
 
       Node *substituted =
         VariableSubstituteCopy(subject, project_->arena(), varmap);
-      Node *elabed = WalkNonNull(substituted);  // Apply elaboration
-      if (elabed) result->Append(project_->arena(), elabed);
+      Node *elabed = WalkNonNull(substituted);
+      if (elabed) {
+        current_comprehension_output_->Append(project_->arena(), elabed);
+      }
     }
-    return result;
+    return nullptr;  // successful sequence evaluation
   }
 
   List *ConcatLists(List *left, List *right) {
@@ -1147,6 +1172,7 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
   // comprehension is fixed.
   std::stack<List::Type> current_lh_type_;
   ParsedProject::VariableBundle &variables_;
+  List *current_comprehension_output_ = nullptr;
 };
 
 }  // namespace

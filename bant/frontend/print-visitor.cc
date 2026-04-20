@@ -18,7 +18,6 @@
 #include "bant/frontend/print-visitor.h"
 
 #include <ostream>
-#include <ranges>
 #include <sstream>
 #include <string>
 #include <string_view>
@@ -141,32 +140,16 @@ void PrintVisitor::VisitListComprehension(ListComprehension *lh) {
   WalkNonNull(curr);
 
   // We collected spine from root to leaf, so the outmost loop is at
-  // spine.front(). Because 'If' conditions are injected as the left child of
-  // their 'For' node, the spine sequence is For_A, If_A2, If_A1, For_B, If_B1,
-  // etc. We group them into chunks starting with a For node.
-  std::vector<std::vector<BinOpNode *>> chunks;
+  // spine.front(). Because the AST is built outside-in to match Python
+  // sequence, the spine perfectly aligns with textual order (e.g. For_x, If_x,
+  // For_y, If_y).
   for (BinOpNode *b : spine) {
     if (b->op() == TokenType::kFor) {
-      chunks.push_back({b});
-    } else if (b->op() == TokenType::kIf) {
-      if (!chunks.empty()) {
-        chunks.back().push_back(b);
-      }
-    }
-  }
-
-  // To restore the python evaluation order:
-  // We print chunks from inside-out (reverse order of chunks).
-  // Within each chunk, we print 'For', then we print the 'If' conditions in
-  // reverse order (outside in).
-  for (const auto &chunk : std::ranges::reverse_view(chunks)) {
-    out_ << " for ";
-    WalkNonNull(chunk[0]->right());  // the `in` expression
-
-    for (auto if_it = chunk.rbegin(); if_it != chunk.rend() - 1; ++if_it) {
+      out_ << " for ";
+    } else {
       out_ << " if ";
-      WalkNonNull((*if_it)->right());  // the condition
     }
+    WalkNonNull(b->right());
   }
 
   PrintListTypeClose(lh->type(), out_);

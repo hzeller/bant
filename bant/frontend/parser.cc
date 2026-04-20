@@ -530,7 +530,8 @@ class Parser::Impl {
   // with content on the right. Nested loops have a 'for' loop on their left.
   BinOpNode *ParseComprehensionFor(Node *iterate_target,
                                    TokenType expected_end_token) {
-    BinOpNode *for_tree = nullptr;
+    BinOpNode *root = nullptr;
+    BinOpNode *innermost = nullptr;
 
     while (true) {
       TokenType peek_type = scanner_->Peek().type;
@@ -538,11 +539,6 @@ class Parser::Impl {
         const Token start_of_for = scanner_->Next();
 
         List *variable_tuple = nullptr;
-        // There can be multipole variables in the list, so they are a tuple.
-
-        // On the input, this can look like a list i, i, j or as tuple (i, j,
-        // k). We deal with these variants, but in any case, they are follwed by
-        // 'in'.
         if (scanner_->Peek().type == '(') {  // (i, j, k) case.
           scanner_->Next();                  // Consume open tuple '('
           variable_tuple = ParseList(        // .. parse until we see close ')'
@@ -565,23 +561,28 @@ class Parser::Impl {
                                           after_pos.text.begin()};
         BinOpNode *const range = Make<BinOpNode>(
           variable_tuple, values_to_iterate_over, TokenType::kIn, text_range);
-        for_tree = Make<BinOpNode>(iterate_target, range, TokenType::kFor,
-                                   start_of_for.text);
-        iterate_target = for_tree;  // Nested loops.
+        BinOpNode *const node = Make<BinOpNode>(
+          iterate_target, range, TokenType::kFor, start_of_for.text);
+        if (!root) {
+          root = node;
+        } else {
+          innermost->set_left(node);
+        }
+        innermost = node;
       } else if (peek_type == TokenType::kIf) {
         const Token start_of_if = scanner_->Next();
         Node *cond = ParseExpression(false, false);
-        if (!for_tree) {
+        if (!innermost) {
           ErrAt(start_of_if) << "expected for-clause first\n";
           return nullptr;
         }
-        Node *subject = for_tree->left();
         const Token after_pos = scanner_->Peek();
         std::string_view text_range{start_of_if.text.begin(),
                                     after_pos.text.begin()};
-        Node *if_node =
-          Make<BinOpNode>(subject, cond, TokenType::kIf, text_range);
-        for_tree->set_left(if_node);
+        BinOpNode *if_node =
+          Make<BinOpNode>(innermost->left(), cond, TokenType::kIf, text_range);
+        innermost->set_left(if_node);
+        innermost = if_node;
       } else {
         break;
       }
@@ -593,7 +594,7 @@ class Parser::Impl {
                      << " at end of comprehension\n";
       return nullptr;
     }
-    return for_tree;
+    return root;
   }
 
   static TokenType EndTokenFor(List::Type type) {

@@ -243,6 +243,7 @@ D = [ ">{}, {}, {}<".format(i, j, k)
       for j in [7, 8]
       for k in ["a", "b"]
     ]
+E = [ x + y for x in [10, 20] for y in [1, 2, x] ]
 )lc-in",
     R"lc-result(
 A = [ "num=1", "num=2", "num=3" ]
@@ -252,20 +253,17 @@ M = { "x" : 1, "y" : 2, "z" : 3 }
 IN_LIST = ["a", "b" ]
 C = [ "a.h", "b.h" ]
 
-# Note: this is not a correct starlark-equivalent result: the order of
-# evaluation should be outside-in, and the result should be a single list,
-# not a nested one.
-# It will work for toplevel rules, but not
 D = [
-     [
-       [">1, 7, a<", ">2, 7, a<"],
-       [">1, 8, a<", ">2, 8, a<"],
-     ],
-     [
-       [">1, 7, b<", ">2, 7, b<"],
-       [">1, 8, b<", ">2, 8, b<"],
-     ],
+     ">1, 7, a<",
+     ">1, 7, b<",
+     ">1, 8, a<",
+     ">1, 8, b<",
+     ">2, 7, a<",
+     ">2, 7, b<",
+     ">2, 8, a<",
+     ">2, 8, b<",
 ]
+E = [11, 12, 20, 21, 22, 40]
 )lc-result");
   EXPECT_EQ(result.first, result.second);
 }
@@ -278,11 +276,6 @@ B = [ y for y in [1, 2, 3, 4, 5] if y > 1 if y < 5 ]
 C = [ x + y for x in [10, 20] if x > 10 for y in [1, 2] if y > 1 ]
 D = [ x for x in ["foo", "bar", ""] if x ]
 E = [ x for x in [1, 2] if unknown(x) ]
-# Note: F and G document the current evaluation status-quo.
-# For F, the single-variable list extraction retains prior varmap state for empty iterations.
-# For G, evaluation iterates outside-in (inner loop evaluated before outer), 
-# leaving cross-loop parameters intermittently unbound which preserves the AST node.
-# These should be revisited for exact Python-correct evaluation semantics.
 F = [ x for x in [[1], [], [2]] if x ]
 G = [ x + y for x in [1, 2] for y in [1, 2] if x == y ]
 )lc-in",
@@ -290,24 +283,17 @@ G = [ x + y for x in [1, 2] for y in [1, 2] if x == y ]
 A = [ 3, 4 ]
 B = [ 2, 3, 4 ]
 C = [
-     [22],
+     22,
 ]
 D = [ "foo", "bar" ]
 E = [ 1 if unknown(1), 2 if unknown(2) ]
 F = [
-     1,
-     1,
-     2,
+     [1],
+     [2],
 ]
 G = [
-     [
-         2,
-         3,
-     ] if x == 1,
-     [
-         3,
-         4,
-     ] if x == 2,
+     2,
+     4,
 ]
 )lc-result");
   EXPECT_EQ(result.first, result.second);
