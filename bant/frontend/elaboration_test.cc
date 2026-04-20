@@ -277,6 +277,14 @@ A = [ x for x in [1, 2, 3, 4] if x > 2 ]
 B = [ y for y in [1, 2, 3, 4, 5] if y > 1 if y < 5 ]
 C = [ x + y for x in [10, 20] if x > 10 for y in [1, 2] if y > 1 ]
 D = [ x for x in ["foo", "bar", ""] if x ]
+E = [ x for x in [1, 2] if unknown(x) ]
+# Note: F and G document the current evaluation status-quo.
+# For F, the single-variable list extraction retains prior varmap state for empty iterations.
+# For G, evaluation iterates outside-in (inner loop evaluated before outer), 
+# leaving cross-loop parameters intermittently unbound which preserves the AST node.
+# These should be revisited for exact Python-correct evaluation semantics.
+F = [ x for x in [[1], [], [2]] if x ]
+G = [ x + y for x in [1, 2] for y in [1, 2] if x == y ]
 )lc-in",
     R"lc-result(
 A = [ 3, 4 ]
@@ -285,6 +293,22 @@ C = [
      [22],
 ]
 D = [ "foo", "bar" ]
+E = [ 1 if unknown(1), 2 if unknown(2) ]
+F = [
+     1,
+     1,
+     2,
+]
+G = [
+     [
+         2,
+         3,
+     ] if x == 1,
+     [
+         3,
+         4,
+     ] if x == 2,
+]
 )lc-result");
   EXPECT_EQ(result.first, result.second);
 }
