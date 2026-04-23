@@ -61,6 +61,7 @@ static std::shared_ptr<PathMatcher> MakeFilenameMatcher(
       const std::string escape_special = RE2::QuoteMeta(p);  // quote everything
       re_or_patterns.emplace_back(  // ... then unquote the pattern back
         absl::StrReplaceAll(escape_special, {{R"(\*\*\/)", ".*/?"},  //
+                                             {R"(\*\*)", ".*"},
                                              {R"(\*)", "[^/]*"}}));
     } else {
       verbatim_match.insert(p);  // Simple and fast.
@@ -76,13 +77,21 @@ static std::shared_ptr<PathMatcher> MakeDirectoryMatcher(
   absl::flat_hash_set<std::string> verbatim_match;
   for (std::string_view p : patterns) {
     const size_t last_slash = p.find_last_of('/');
-    if (last_slash == std::string_view::npos) {
+    const std::string_view file_part =
+      last_slash == std::string_view::npos ? p : p.substr(last_slash + 1);
+
+    std::string modified_p;
+    if (absl::StrContains(file_part, "**")) {
+      modified_p = last_slash == std::string_view::npos
+                     ? "**"
+                     : std::string(p.substr(0, last_slash)) + "/**";
+      p = modified_p;
+    } else if (last_slash == std::string_view::npos) {
       verbatim_match.insert("");
       continue;
+    } else {
+      p = p.substr(0, last_slash);  // Only directories for patterns
     }
-    p = p.substr(0, last_slash);  // Only directories for patterns
-    // TODO: is it allowed to have patterns like '**.txt' with the '**' not
-    // in directory ? Because then we just snipped it off and it won't work...
     if (absl::StrContains(p, '*')) {
       // We need to convert file-patterns into directory patterns. Directories
       // only go up to the last element and we need to match a prefix of

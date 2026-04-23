@@ -152,6 +152,32 @@ TEST(GlobMatchBuilderTest, MultiDirZeroOrMoreSegments) {
   EXPECT_FALSE(file_is_matching("a/x/baz.txt"));
 }
 
+// ** should match trailing recursion correctly
+TEST(GlobMatchBuilderTest, DoubleStarDirectoryRecursion) {
+  GlobMatchBuilder glob_builder;
+  glob_builder.AddIncludePattern("foo/**");
+  glob_builder.AddIncludePattern("baz/**.txt");
+
+  auto dir_is_matching = glob_builder.BuildRecurseDirMatchPredicate();
+
+  // Prefix tests
+  EXPECT_TRUE(dir_is_matching("foo"));
+  EXPECT_TRUE(dir_is_matching("foo/bar"));
+  EXPECT_TRUE(dir_is_matching("foo/bar/baz"));
+  EXPECT_FALSE(dir_is_matching("foobar"));
+  EXPECT_TRUE(dir_is_matching("baz"));
+
+  auto file_is_matching = glob_builder.BuildFileMatchPredicate();
+  // File match tests
+  EXPECT_TRUE(file_is_matching("foo/a.txt"));
+  EXPECT_TRUE(file_is_matching("foo/bar/b.txt"));
+  EXPECT_FALSE(file_is_matching("bar/a.txt"));
+
+  // Check wildcard matches appended correctly
+  EXPECT_TRUE(file_is_matching("baz/a.txt"));
+  EXPECT_TRUE(file_is_matching("baz/deep/a.txt"));
+}
+
 TEST(GlobMatchBuilderTest, ExcludeFiles) {
   GlobMatchBuilder glob_builder;
   glob_builder.AddIncludePattern("*.txt");
