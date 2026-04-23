@@ -38,6 +38,7 @@
 #include "bant/util/file-utils.h"
 #include "bant/util/filesystem.h"
 #include "bant/util/stat.h"
+#include "re2/re2.h"
 
 namespace bant {
 
@@ -81,6 +82,8 @@ std::optional<FilesystemPath> BazelWorkspace::FindPathByProject(
 
 bool BestEffortAugmentFromExternalDir(Session &session,
                                       BazelWorkspace &workspace) {
+  static const LazyRE2 kExtensionRe{R"/(^\+[^+]*_extension\+(.*))/"};
+
   bant::Stat &workspace_stats =
     session.GetStatsFor("Augment workspace from ext. dir", "directories");
   const ScopedTimer timer(&workspace_stats.duration);
@@ -94,7 +97,14 @@ bool BestEffortAugmentFromExternalDir(Session &session,
     // separated by extra tilde. W're only interested in the main projects.
     if (std::ranges::count(project_dir.filename(), '~') > 1) continue;
 
-    const std::string_view project_name = project_dir.filename();
+    std::string_view project_name = project_dir.filename();
+
+    // extensions show up as +foo_extension+projectname
+    std::string_view extension_match;
+    if (RE2::PartialMatch(project_name, *kExtensionRe, &extension_match)) {
+      project_name = extension_match;
+    }
+
     auto project_or = VersionedProject::ParseFromDir(project_name);
     if (!project_or) continue;
     // If there is any version of that project already, don't bother.
@@ -138,6 +148,7 @@ static std::optional<int> LoadWorkspaceFromFile(Session &session,
     }
   });
 
+  // TODO: deal with extensions (we only find them in directories right now)
   int count_added = 0;
   query::FindTargets(
     ast, {"http_archive", "bazel_dep"}, [&](const query::Result &result) {
