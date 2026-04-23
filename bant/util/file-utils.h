@@ -83,10 +83,6 @@ class FilesystemPath {
 // Given a shell-globbing pattern, return all the matching files and dirs.
 std::vector<FilesystemPath> Glob(std::string_view glob_pattern);
 
-// Given a filename, read the content of the file into a string. If there was
-// an error, return a nullopt.
-std::optional<std::string> ReadFileToString(const FilesystemPath &filename);
-
 // Same, but update read time and count of stat
 std::optional<std::string> ReadFileToStringUpdateStat(
   const FilesystemPath &filename, Stat &stat);

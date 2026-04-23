@@ -16,14 +16,10 @@
 // 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 #include "bant/util/file-utils.h"
 
-#include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <unistd.h>
 
-#include <cstddef>
 #include <cstdint>
-#include <cstring>
 #include <deque>
 #include <functional>
 #include <optional>
@@ -32,9 +28,7 @@
 #include <utility>
 #include <vector>
 
-#include "absl/cleanup/cleanup.h"
 #include "absl/container/flat_hash_set.h"
-#include "bant/util/filesystem-prewarm-cache.h"
 #include "bant/util/filesystem.h"
 #include "bant/util/glob-match-builder.h"
 #include "bant/util/stat.h"
@@ -136,45 +130,11 @@ std::vector<FilesystemPath> Glob(std::string_view glob_pattern) {
     [&](const FilesystemPath &file) { return accept_matcher(file.path()); });
 }
 
-std::optional<std::string> ReadFileToString(const FilesystemPath &filename) {
-  const int fd = open(filename.c_str(), O_RDONLY);
-  if (fd < 0) return std::nullopt;
-  const absl::Cleanup fd_closer = [fd]() { close(fd); };
-  struct stat st;
-  if (fstat(fd, &st) != 0) return std::nullopt;
-
-  FilesystemPrewarmCacheRememberFileWasAccessed(filename.path());
-  const size_t filesize = st.st_size;
-  bool success = false;
-  std::string content;
-  auto copy_file_to_buffer = [fd, filesize, &success](char *buf,
-                                                      std::size_t available) {
-    // Need to use filesize; alloced_size is >= requested.
-    size_t bytes_left = filesize;
-    while (bytes_left) {
-      const ssize_t r = read(fd, buf, bytes_left);
-      if (r <= 0) break;
-      bytes_left -= r;
-      buf += r;
-    }
-    success = (bytes_left == 0);
-    return filesize;
-  };
-#if __cplusplus >= 202100L  // Implemented in gcc since 202100
-  content.resize_and_overwrite(filesize, copy_file_to_buffer);
-#else
-  content.resize(filesize);
-  copy_file_to_buffer(const_cast<char *>(content.data()), filesize);
-#endif
-  if (!success) return std::nullopt;
-  return content;
-}
-
 std::optional<std::string> ReadFileToStringUpdateStat(
   const FilesystemPath &filename, Stat &fread_stat) {
   std::optional<std::string> content;
   const ScopedTimer timer(&fread_stat.duration);
-  content = ReadFileToString(filename);
+  content = Filesystem::instance().ReadFileToString(filename.path());
   if (content.has_value()) {
     ++fread_stat.count;
     fread_stat.AddBytesProcessed(content->size());

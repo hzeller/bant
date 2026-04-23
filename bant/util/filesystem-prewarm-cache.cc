@@ -17,8 +17,6 @@
 
 #include "bant/util/filesystem-prewarm-cache.h"
 
-#include <unistd.h>
-
 #include <cstdint>
 #include <cstdlib>
 #include <filesystem>
@@ -87,9 +85,8 @@ void FilesystemPrewarmCache::InitCacheFile(bant::Session &session,
       const char type = line[0];
       if (type == 'F') {
         stat.count++;
-        pool_->ExecAsync([line]() {
-          const int discard [[maybe_unused]] = access(line.c_str() + 1, F_OK);
-        });
+        pool_->ExecAsync(
+          [line, &fs]() { fs.ReadFileToString(line.c_str() + 1); });
       } else if (type == 'D') {
         stat.count++;
         pool_->ExecAsync([line, &fs]() { fs.ReadDir(line.c_str() + 1); });
@@ -100,6 +97,8 @@ void FilesystemPrewarmCache::InitCacheFile(bant::Session &session,
   }
   input.close();
 
+  // Only set up writer now after prewarming finished as the prewarming itself
+  // attempts to report the acesses.
   // Best effort: just overwrite if possible. Failure is ok.
   writer_ = std::make_unique<std::fstream>(
     cache_file, std::ios::out | std::ios::binary | std::ios::trunc);

@@ -155,14 +155,15 @@ static std::vector<absl::btree_set<BazelTarget>> MinimizeDependencySet(
 // Open the given file an return an line-indexed content or nullptr if file
 // not found.
 std::optional<DWYUGenerator::SourceFile> DWYUGenerator::TryOpenFile(
-  std::string_view source_file) {
+  std::string_view source_file, Stat &read_stats) {
   SourceFile result;
   // File could come from multiple locations, primary or generated.
   result.is_generated = false;
   std::optional<std::string> src_content;
   for (const std::string_view search_path : kSourceLocations) {
     result.path = absl::StrCat(search_path, source_file);
-    src_content = ReadFileToString(FilesystemPath(result.path));
+    src_content =
+      ReadFileToStringUpdateStat(FilesystemPath(result.path), read_stats);
     if (src_content.has_value()) {
       result.content = std::move(*src_content);
       return result;
@@ -319,10 +320,7 @@ std::optional<DWYUGenerator::SourceFile> DWYUGenerator::ReadSourceForDWYU(
   const std::string source_file =
     build_file.package.FullyQualifiedFile(project_.workspace(), src_name);
   std::optional<SourceFile> source_content;
-  {
-    const ScopedTimer timer(&read_stats.duration);
-    source_content = TryOpenFile(source_file);
-  }
+  source_content = TryOpenFile(source_file, read_stats);
   if (!source_content.has_value()) {
     std::ostream &info_out = session_.info();
     project_.Loc(info_out, src_name)
@@ -462,7 +460,6 @@ DWYUGenerator::DependenciesNeededBySources(
     if (session_.flags().verbose > 1) {
       maybe_log_sourcereference(src_name, source_content->path, target);
     }
-    ++source_read_stats.count;
     ++source_grep_stats.count;
     total_size += source_content->content.size();
     NamedLineIndexedContent source(source_content->path,
@@ -556,7 +553,6 @@ DWYUGenerator::DependenciesNeededBySources(
     }
   }
 
-  source_read_stats.AddBytesProcessed(total_size);
   source_grep_stats.AddBytesProcessed(total_size);
   return result;
 }
@@ -598,7 +594,6 @@ DWYUGenerator::DependenciesNeededByProtoSources(
     if (session_.flags().verbose > 1) {
       maybe_log_sourcereference(src_name, source_content->path, target);
     }
-    ++source_read_stats.count;
     ++source_grep_stats.count;
     total_size += source_content->content.size();
     NamedLineIndexedContent source(source_content->path,
@@ -635,7 +630,6 @@ DWYUGenerator::DependenciesNeededByProtoSources(
     }
   }
 
-  source_read_stats.AddBytesProcessed(total_size);
   source_grep_stats.AddBytesProcessed(total_size);
   return result;
 }

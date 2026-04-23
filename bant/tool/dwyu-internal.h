@@ -58,7 +58,8 @@ class DWYUGenerator {
 
   // Try to find the given file in the soruce tree or the generated tree,
   // and return content and path. Virtual, to make this class testable.
-  virtual std::optional<SourceFile> TryOpenFile(std::string_view source_file);
+  virtual std::optional<SourceFile> TryOpenFile(std::string_view source_file,
+                                                Stat &read_stats);
 
  private:
   // Extract all the known targets in project and remember corresponding node

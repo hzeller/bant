@@ -35,6 +35,7 @@
 #include "bant/tool/dwyu-internal.h"
 #include "bant/tool/edit-callback_testutil.h"
 #include "bant/types-bazel.h"
+#include "bant/util/stat.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
@@ -113,7 +114,8 @@ class TestableDWYUGenerator : public bant::DWYUGenerator {
   }
 
  protected:
-  std::optional<SourceFile> TryOpenFile(std::string_view source_file) override {
+  std::optional<SourceFile> TryOpenFile(std::string_view source_file,
+                                        Stat &) override {
     auto found = source_content_.find(source_file);
     if (found == source_content_.end()) return std::nullopt;
     return SourceFile{

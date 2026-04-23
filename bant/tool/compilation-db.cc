@@ -40,6 +40,7 @@
 #include "bant/session.h"
 #include "bant/types-bazel.h"
 #include "bant/util/file-utils.h"
+#include "bant/util/filesystem.h"
 #include "bant/workspace.h"
 #include "re2/re2.h"
 
@@ -106,7 +107,8 @@ static constexpr std::string_view kCommonDefaultOptions[] = {
 // TODO: just emit the last winning option if multiple same options found.
 //       (right now it emits the _first_)
 // TODO: needs test :)
-std::vector<std::string> ExtractOptionsFromBazelrc(std::string_view content) {
+std::vector<std::string> ExtractOptionsFromBazelrc(
+  const std::string_view content) {
   // Line prefix we're interested in to look for options.
   static const LazyRE2 kLinePrefix{R"/(^\s*(build|test|common)(\:linux)? )/"};
 
@@ -117,13 +119,8 @@ std::vector<std::string> ExtractOptionsFromBazelrc(std::string_view content) {
     R"/(--(?:host_)?c(?:xx)?opt\s*=?\s*['"]?(-[^\s"']+))/"};
 
   std::vector<std::string> result;
-  const auto bazelrc = ReadFileToString(FilesystemPath(".bazelrc"));
-  if (!bazelrc.has_value()) return result;
-
   absl::flat_hash_set<std::string_view> already_seen;
-
-  const std::string_view file_content(*bazelrc);
-  for (std::string_view line : absl::StrSplit(file_content, '\n')) {
+  for (std::string_view line : absl::StrSplit(content, '\n')) {
     if (!RE2::PartialMatch(line, *kLinePrefix)) continue;
     std::string_view cxx_opt;
     while (RE2::FindAndConsume(&line, *kCoptExtract, &cxx_opt)) {
@@ -135,7 +132,7 @@ std::vector<std::string> ExtractOptionsFromBazelrc(std::string_view content) {
 
   // Hack: when this is defined, this implies -DGTEST_HAS_ABSL
   static const LazyRE2 kAbslGtest{"define.*absl=1"};
-  if (RE2::PartialMatch(file_content, *kAbslGtest)) {
+  if (RE2::PartialMatch(content, *kAbslGtest)) {
     result.emplace_back("-DGTEST_HAS_ABSL=1");
   }
 
@@ -144,7 +141,8 @@ std::vector<std::string> ExtractOptionsFromBazelrc(std::string_view content) {
 
 static std::vector<std::string> ExtractOptionsFromBazelrcFile() {
   std::vector<std::string> result;
-  const auto bazelrc = ReadFileToString(FilesystemPath(".bazelrc"));
+  Filesystem &fs = Filesystem::instance();
+  const auto bazelrc = fs.ReadFileToString(".bazelrc");
   if (!bazelrc.has_value()) return result;
   return ExtractOptionsFromBazelrc(*bazelrc);
 }

@@ -36,6 +36,7 @@
 #include "bant/session.h"
 #include "bant/util/arena.h"
 #include "bant/util/file-utils.h"
+#include "bant/util/filesystem.h"
 #include "bant/util/stat.h"
 
 namespace bant {
@@ -111,7 +112,9 @@ static std::optional<int> LoadWorkspaceFromFile(Session &session,
                                                 const FilesystemPath &ws_file,
                                                 std::ostream &msg_stream,
                                                 BazelWorkspace *workspace) {
-  const std::optional<std::string> content = ReadFileToString(ws_file);
+  Filesystem &fs = Filesystem::instance();
+  const std::optional<std::string> content =
+    fs.ReadFileToString(ws_file.path());
   if (!content.has_value()) return std::nullopt;
 
   // TODO: maybe store the names_content for later use to be able to point

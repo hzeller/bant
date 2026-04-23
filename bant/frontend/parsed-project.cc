@@ -44,6 +44,7 @@
 #include "bant/session.h"
 #include "bant/types-bazel.h"
 #include "bant/util/file-utils.h"
+#include "bant/util/filesystem.h"
 #include "bant/util/grep-highlighter.h"
 #include "bant/util/stat.h"
 #include "bant/workspace.h"
@@ -442,7 +443,8 @@ absl::Status ParsedProject::SetBuiltinMacroContent(std::string_view content) {
 
 absl::Status ParsedProject::LoadMacrosFromFile(
   Session &session, const FilesystemPath &macro_file) {
-  std::optional<std::string> content = ReadFileToString(macro_file);
+  std::optional<std::string> content =
+    Filesystem::instance().ReadFileToString(macro_file.path());
   if (!content.has_value()) {
     return absl::NotFoundError(
       absl::StrCat("Macro file not found: ", macro_file.path()));

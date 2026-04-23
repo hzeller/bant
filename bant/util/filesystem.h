@@ -20,10 +20,12 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
 
+#include "absl/base/thread_annotations.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/synchronization/mutex.h"
 
@@ -67,6 +69,10 @@ class Filesystem {
   // we don't even have to hit the physical filesystem.
   bool Exists(std::string_view path);
 
+  // Read file at given path and return as string. If file could not be read,
+  // std::nullopt is returned.
+  std::optional<std::string> ReadFileToString(std::string_view path);
+
   // Evict cache. Might be needed in unit tests.
   void EvictCache();
 
@@ -75,8 +81,8 @@ class Filesystem {
   void SetAlwaysReportEmptyDirectory(std::string_view path);
 
   size_t cache_size() const {
-    const absl::ReaderMutexLock l(mu_);
-    return cache_.size();
+    const absl::ReaderMutexLock l(dir_mutex_);
+    return dir_cache_.size();
   }
 
  private:
@@ -86,8 +92,13 @@ class Filesystem {
 
   static void ReadDirectory(std::string_view path, CacheEntry &result);
 
-  mutable absl::Mutex mu_;
-  absl::flat_hash_map<std::string, CacheEntry> cache_;
+  mutable absl::Mutex dir_mutex_;
+  absl::flat_hash_map<std::string, CacheEntry> dir_cache_
+    ABSL_GUARDED_BY(dir_mutex_);
+
+  mutable absl::Mutex file_mutex_;
+  absl::flat_hash_map<std::string, std::string> file_cache_
+    ABSL_GUARDED_BY(file_mutex_);
 };
 }  // namespace bant
 #endif  // BANT_FILESYSTEM_H

@@ -97,6 +97,7 @@ cc_test(
         "//bant/frontend:parsed-project",
         "//bant/frontend:parsed-project_testutil",
         "//bant/frontend:source-locator",
+        "//bant/util:stat",
         "@abseil-cpp//absl/container:flat_hash_map",
         "@abseil-cpp//absl/log:check",
         "@abseil-cpp//absl/strings:str_format",
