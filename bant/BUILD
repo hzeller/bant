@@ -124,6 +124,7 @@ cc_library(
     deps = [
         ":types",
         "//bant/util:stat",
+        "@abseil-cpp//absl/base:core_headers",
         "@abseil-cpp//absl/container:flat_hash_set",
     ],
 )

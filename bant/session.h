@@ -25,6 +25,7 @@
 #include <utility>
 #include <vector>
 
+#include "absl/base/attributes.h"
 #include "absl/container/flat_hash_set.h"
 #include "bant/output-format.h"
 #include "bant/types.h"
@@ -109,6 +110,29 @@ class Session {
   const Stat *stat(std::string_view subsystem_name) const {
     auto found = stats_.find(subsystem_name);
     return (found != stats_.end()) ? found->second.get() : nullptr;
+  }
+
+  class ScopedVerbosityIncreaser {
+    friend class Session;
+    ScopedVerbosityIncreaser(Session *s, int level_shift)
+        : session_(s), level_shift_(level_shift) {
+      // Make verbosity temporarily harder to reach.
+      session_->flags_.verbose -= level_shift_;
+    }
+    ScopedVerbosityIncreaser(ScopedVerbosityIncreaser &&) = default;
+
+   public:
+    ~ScopedVerbosityIncreaser() { session_->flags_.verbose += level_shift_; }
+
+   private:
+    Session *const session_;
+    const int level_shift_;
+  };
+
+  // Reduce verbosity for the scope of the returned value.
+  ScopedVerbosityIncreaser ScopedDepressLogVerbosity(int value)
+    ABSL_MUST_USE_RESULT {
+    return {this, value};
   }
 
  private:

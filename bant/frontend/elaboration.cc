@@ -983,6 +983,10 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     auto bazel_ref = BazelTarget::ParseFrom(starlark_reference, package_);
     if (!bazel_ref.has_value()) return;
 
+    // Let's not complain too much about what we stumble over in *.bzl files.
+    // This is best effort.
+    const auto reduced_logging = session_.ScopedDepressLogVerbosity(2);
+
     // If not already cached, trigger parsing Starlark file which then
     // is elaborated.
     const VariableBundle &bzl_variables = project_->GetOrAddStarlarkContent(
