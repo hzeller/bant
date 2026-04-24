@@ -202,7 +202,7 @@ cc_library(
   }
 
   {  // Files relative to current directory are properly handled.
-    DWYUTestFixture tester(pp.project());
+    DWYUTestFixture tester(pp.project(), /*verbose_level=*/2);
     tester.ExpectAdd(":foo");
     tester.AddSource("some/path/bar.h", "");
     tester.AddSource("some/path/bar.cc", R"(

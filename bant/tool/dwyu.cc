@@ -479,9 +479,11 @@ DWYUGenerator::DependenciesNeededBySources(
       if (IsHeaderInList(inc_file, sources, "")) {
         if (!source_content->is_generated) {  // Only complain if actionable
           maybe_log_sourcereference(src_name, source_content->path, target);
-          source.Loc(info_out, inc_file)
-            << " " << inc_file << " header relative to this file. "
-            << "Consider FQN relative to project root.\n";
+          if (session_.flags().verbose > 1) {
+            source.Loc(info_out, inc_file)
+              << " " << inc_file << " header relative to this file. "
+              << "Consider FQN relative to project root.\n";
+          }
         }
         continue;  // But, anyway, found it in our own sources; accounted for.
       }
@@ -512,9 +514,11 @@ DWYUGenerator::DependenciesNeededBySources(
           found.has_value()) {
         if (!source_content->is_generated) {  // Only complain if actionable
           maybe_log_sourcereference(src_name, source_content->path, target);
-          source.Loc(info_out, inc_file)
-            << " " << inc_file << " header relative to this file. "
-            << "Consider FQN relative to project root.\n";
+          if (session_.flags().verbose > 1) {
+            source.Loc(info_out, inc_file)
+              << " " << inc_file << " header relative to this file. "
+              << "Consider FQN relative to project root.\n";
+          }
         }
         maybe_log(source, inc_file, *found->target_set);
         AddVisibleAlternativesWithStratum(target, *found->target_set, result);
