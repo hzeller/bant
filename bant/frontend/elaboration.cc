@@ -457,9 +457,15 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     if (!in_node || !in_node->left() || !in_node->right()) return for_node;
 
     List *const var_tuple = WalkNonNull(in_node->left())->CastAsList();
-    List *const iterate_over = WalkNonNull(in_node->right())->CastAsList();
+    List *iterate_over = WalkNonNull(in_node->right())->CastAsList();
     if (!var_tuple || !iterate_over) {
       return for_node;
+    }
+
+    if (iterate_over->type() == List::Type::kMap) {
+      // Python-ism: when iterating over a map, it does not return the tuples
+      // but just the keys.
+      iterate_over = ExtractMapItems(iterate_over, MapExtract::kKeys);
     }
 
     for (Node *is_var : *var_tuple) {

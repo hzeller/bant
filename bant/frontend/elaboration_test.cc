@@ -859,6 +859,8 @@ BARITEMS = FOO.items()
 
 BAZ = { 'x' : 1, 'y' : 2, 'z' : 3}.keys()  # call directly on literal
 QUX = [element for element in { 'x' : 1, 'y' : 2, 'z' : 3}.keys()]
+# Just iterating over a map yields the keys
+QUX2 = [element for element in { 'x' : 1, 'y' : 2, 'z' : 3}]
   )",
     R"(
 FOO = { 'hello' : 'hi', 'answer' : '42', 1024 : 'kibi' }
@@ -867,6 +869,7 @@ BARITEMS = [ ('hello', 'hi'), ('answer', '42'), (1024, 'kibi') ]
 
 BAZ = [ 'x', 'y', 'z' ]
 QUX = [ 'x', 'y', 'z' ]
+QUX2 = [ 'x', 'y', 'z' ]
 )");
   EXPECT_EQ(result.first, result.second);
 }
