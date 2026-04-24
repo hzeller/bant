@@ -32,18 +32,26 @@ void Stat::Add(const Stat &other) {
   }
 }
 
-std::string Stat::ToString() const {
+std::string Stat::ToString(bool with_highlight) const {
   const int64_t duration_usec = absl::ToInt64Microseconds(duration);
+  static constexpr int kSubjectWidth = 17;
+  static constexpr float kMiB = 1 << 20;
+  const char *mark = with_highlight ? "\033[1m" : "";
+  const char *reset = with_highlight ? "\033[0m" : "";
   if (bytes_processed.has_value() && duration_usec > 0) {
-    const float megabyte_per_sec = 1.0f * *bytes_processed / duration_usec;
-    return absl::StrFormat("%5d %s with %.2f KiB in %8.3fms (%7.2f MB/sec)",
-                           count, subject, *bytes_processed / 1024,
-                           duration_usec / 1000.0, megabyte_per_sec);
+    const float megabyte_per_sec = 1e6f * *bytes_processed / kMiB / duration_usec;
+    return absl::StrFormat("%s%6d%s %-*s in %s%8.3fms%s (%7.1f KiB; %s%7.2f MiB/sec%s)",
+                           mark, count, reset,
+                           kSubjectWidth, subject,
+                           mark, duration_usec / 1000.0, reset,
+                           *bytes_processed / 1024,
+                           mark, megabyte_per_sec, reset);
   }
   if (duration_usec > 0) {
-    return absl::StrFormat("%5d %s in %.3fms", count, subject,
-                           duration_usec / 1000.0);
+    return absl::StrFormat("%s%6d%s %-*s in %s%8.3fms%s",
+                           mark, count, reset, kSubjectWidth, subject,
+                           mark, duration_usec / 1000.0, reset);
   }
-  return absl::StrFormat("%5d %s", count, subject);
+  return absl::StrFormat("%s%6d%s %s", mark, count, reset, subject);
 }
 }  // namespace bant

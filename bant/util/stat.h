@@ -66,7 +66,7 @@ struct Stat {
   void Add(const Stat &other);
 
   // Print readable string with "subject" used to describe the count.
-  std::string ToString() const;
+  std::string ToString(bool with_hightlight = true) const;
 };
 
 inline std::ostream &operator<<(std::ostream &out, const Stat &stat) {
