@@ -39,18 +39,17 @@ std::string Stat::ToString(bool with_highlight) const {
   const char *mark = with_highlight ? "\033[1m" : "";
   const char *reset = with_highlight ? "\033[0m" : "";
   if (bytes_processed.has_value() && duration_usec > 0) {
-    const float megabyte_per_sec = 1e6f * *bytes_processed / kMiB / duration_usec;
-    return absl::StrFormat("%s%6d%s %-*s in %s%8.3fms%s (%7.1f KiB; %s%7.2f MiB/sec%s)",
-                           mark, count, reset,
-                           kSubjectWidth, subject,
-                           mark, duration_usec / 1000.0, reset,
-                           *bytes_processed / 1024,
-                           mark, megabyte_per_sec, reset);
+    const float megabyte_per_sec =
+      1e6f * *bytes_processed / kMiB / duration_usec;
+    return absl::StrFormat(
+      "%s%6d%s %-*s in %s%8.3fms%s (%7.1f KiB; %s%7.2f MiB/sec%s)", mark, count,
+      reset, kSubjectWidth, subject, mark, duration_usec / 1000.0, reset,
+      *bytes_processed / 1024, mark, megabyte_per_sec, reset);
   }
   if (duration_usec > 0) {
-    return absl::StrFormat("%s%6d%s %-*s in %s%8.3fms%s",
-                           mark, count, reset, kSubjectWidth, subject,
-                           mark, duration_usec / 1000.0, reset);
+    return absl::StrFormat("%s%6d%s %-*s in %s%8.3fms%s", mark, count, reset,
+                           kSubjectWidth, subject, mark, duration_usec / 1000.0,
+                           reset);
   }
   return absl::StrFormat("%s%6d%s %s", mark, count, reset, subject);
 }

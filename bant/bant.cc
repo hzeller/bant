@@ -39,9 +39,9 @@ int getopt(int, char *const *, const char *);  // NOLINT
 #include <system_error>
 #include <vector>
 
-#include "absl/strings/str_format.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/strings/numbers.h"
+#include "absl/strings/str_format.h"
 #include "absl/time/time.h"
 #include "bant/cli-commands.h"
 #include "bant/output-format.h"
@@ -319,8 +319,9 @@ int main(int argc, char *argv[]) {
     // If verbose explicitly chosen, we want to print this even if -q.
     // So not to info_out, but std::cerr
     for (const std::string_view subsystem : session.stat_keys()) {
-      std::cerr << absl::StrFormat("%-32s %s\n",
-                                   subsystem, session.stat(subsystem)->ToString(flags.do_color));
+      std::cerr << absl::StrFormat(
+        "%-32s %s\n", subsystem,
+        session.stat(subsystem)->ToString(flags.do_color));
     }
     std::cerr << "Total walltime " << runtime << "\n";
   }

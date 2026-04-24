@@ -229,8 +229,8 @@ DependencyGraph BuildDependencyGraph(Session &session,
 
   NeedDependencyWithOneExample deps_to_resolve_todo;
 
-  Stat &stat = session.GetStatsFor("Dependency follow iterations",
-                                   "rounds w/ elab");
+  Stat &stat =
+    session.GetStatsFor("Dependency follow iterations", "rounds w/ elab");
   const ScopedTimer timer(&stat.duration);
 
   // TODO: the genrules should be expanded as we widen to other packages
