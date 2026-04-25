@@ -188,6 +188,13 @@ cc_library(
   srcs = ["bar.cc"],
   # needed :foo dependency not given
 )
+
+cc_library(
+  name = "baz",
+  hdrs = ["src/baz.h", "src/bar.h"],
+  srcs = ["src/baz.cc"],  # includes bar.h, which refers to our src/bar.h
+  # needed :foo, but not bar
+)
 )");
 
   {
@@ -209,6 +216,21 @@ cc_library(
 #include "foo.h"
 )");
     tester.RunForTarget("//some/path:bar");
+    EXPECT_THAT(tester.LogContent(), HasSubstr("Consider FQN"));
+  }
+
+  {  // Files relative to current directory are properly handled.
+    DWYUTestFixture tester(pp.project(), /*verbose_level=*/2);
+    tester.ExpectAdd(":foo");
+    // Should not be added: :bar, as the bar header is meant to come from local
+    tester.AddSource("some/path/src/baz.h", "");
+    tester.AddSource("some/path/src/bar.h", "");
+    tester.AddSource("some/path/src/baz.cc", R"(
+#include "some/path/src/baz.h" // local baz, properly
+#include "bar.h"   // relative bar.h from this library not the other one
+#include "foo.h"   // this requires :foo
+)");
+    tester.RunForTarget("//some/path:baz");
     EXPECT_THAT(tester.LogContent(), HasSubstr("Consider FQN"));
   }
 

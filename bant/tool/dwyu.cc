@@ -49,6 +49,11 @@
 #include "bant/workspace.h"
 #include "re2/re2.h"
 
+//
+// This file is a dense bowl of spaghetti as a result of ad-hoc adding features.
+// Refactor.
+//
+
 // Looking for source files directly in the source tree, but if not found
 // in the various locations generated files could be.
 #define LINK_PREFIX "bazel-"
@@ -115,9 +120,10 @@ static bool IsHeaderInList(std::string_view header,
   // The list items are provided without the full path in the cc_library(),
   // so we always need to prepend that prefix_path.
   for (const std::string_view list_item : list) {
-    if (header.ends_with(list_item) &&  // cheap first test before strcat
+    if (list_item.ends_with(header) &&  // cheap first test before strcat
         (header == list_item ||
-         absl::StrCat(prefix_path, "/", list_item) == header)) {
+         absl::StrCat(prefix_path, "/", list_item) == header ||
+         absl::StrCat(prefix_path, "/", header) == list_item)) {
       return true;
     }
   }
@@ -486,7 +492,9 @@ DWYUGenerator::DependenciesNeededBySources(
       }
 
       // mmh, maybe we included it without the proper prefix ?
-      if (IsHeaderInList(inc_file, sources, "")) {
+      std::string_view src_prefix =
+        src_name.substr(0, src_name.find_last_of('/'));
+      if (IsHeaderInList(inc_file, sources, src_prefix)) {
         // Only complain if actionable
         if (!source_content->is_generated && session_.flags().verbose > 1) {
           maybe_log_sourcereference(src_name, source_content->path, target);
