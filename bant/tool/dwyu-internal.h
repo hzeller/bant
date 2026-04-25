@@ -20,6 +20,7 @@
 
 #include <cstddef>
 #include <optional>
+#include <ostream>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -30,6 +31,7 @@
 #include "bant/explore/query-utils.h"
 #include "bant/frontend/named-content.h"
 #include "bant/frontend/parsed-project.h"
+#include "bant/frontend/source-locator.h"
 #include "bant/session.h"
 #include "bant/tool/edit-callback.h"
 #include "bant/types-bazel.h"
@@ -128,6 +130,9 @@ class DWYUGenerator {
   void AddVisibleAlternativesWithStratum(
     const BazelTarget &target, const absl::btree_set<BazelTarget> &alternatives,
     std::vector<absl::btree_set<BazelTarget>> &result);
+
+  // Print filename and line/column of given string-view, possibly colored.
+  std::ostream &Loc(const SourceLocator &locator, std::string_view where) const;
 
   Session &session_;
   const ParsedProject &project_;

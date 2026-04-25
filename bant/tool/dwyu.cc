@@ -38,6 +38,7 @@
 #include "bant/frontend/ast.h"
 #include "bant/frontend/named-content.h"
 #include "bant/frontend/parsed-project.h"
+#include "bant/frontend/source-locator.h"
 #include "bant/session.h"
 #include "bant/tool/dwyu-internal.h"
 #include "bant/tool/edit-callback.h"
@@ -85,10 +86,21 @@ class Colored {
   const char *const escape_code_;
 };
 
+class Bold : public Colored {
+ public:
+  explicit Bold(const Session &s) : Colored(s, "\033[1m") {}
+};
+
 class Red : public Colored {
  public:
   explicit Red(const Session &s) : Colored(s, "\033[31m") {}
 };
+
+class BlueBold : public Colored {
+ public:
+  explicit BlueBold(const Session &s) : Colored(s, "\033[34;1m") {}
+};
+
 class Norm : public Colored {
  public:
   explicit Norm(const Session &s) : Colored(s, "\033[0m") {}
@@ -220,7 +232,7 @@ bool DWYUGenerator::IsTestonlyCompatible(const BazelTarget &target,
     return true;  // target and dependency are both tests.
   }
 
-  project_.Loc(session_.info(), target_detail.name)
+  Loc(project_, target_detail.name)
     << " '" << target << "' is using headers that would be provided by '" << dep
     << "', but the latter is marked testonly, the former not. "
     << "Not adding dependency.\n";
@@ -323,7 +335,7 @@ std::optional<DWYUGenerator::SourceFile> DWYUGenerator::ReadSourceForDWYU(
   source_content = TryOpenFile(source_file, read_stats);
   if (!source_content.has_value()) {
     std::ostream &info_out = session_.info();
-    project_.Loc(info_out, src_name)
+    Loc(project_, src_name)
       << " Can not read source '" << source_file << "' for target " << target;
     const auto from_genrule = files_from_genrules_.find(source_file);
     if (from_genrule != files_from_genrules_.end()) {
@@ -341,12 +353,10 @@ void DWYUGenerator::LogUnknownProvider(const NamedLineIndexedContent &source,
                                        std::string_view ref_file,
                                        std::string_view ref_keyword) {
   if (!session_.flags().verbose) return;
-  std::ostream &info_out = session_.info();
-  source.Loc(info_out, ref_file)
-    << " " << ref_keyword << " \"" << ref_file << "\"\n";
-  source.Loc(info_out, ref_file)
-    << Red(session_) << "    ?      ^ unknown provider "
-    << "-- Missing or from non-standard bazel-rule ?" << Norm(session_) << "\n";
+  Loc(source, ref_file) << " " << ref_keyword << " \"" << ref_file << "\"\n";
+  Loc(source, ref_file) << Red(session_) << "    ?      ^ unknown provider "
+                        << "-- Missing or from non-standard bazel-rule ?"
+                        << Norm(session_) << "\n";
 }
 
 void DWYUGenerator::AddVisibleAlternatives(
@@ -412,7 +422,6 @@ DWYUGenerator::DependenciesNeededBySources(
   Stat &source_read_stats = session_.GetStatsFor("read(C++ source)", "sources");
   Stat &source_grep_stats = session_.GetStatsFor("Grep'ed for #inc", "sources");
 
-  std::ostream &info_out = session_.info();
   size_t total_size = 0;
 
   // Log providers if super verbose -vvv
@@ -420,7 +429,7 @@ DWYUGenerator::DependenciesNeededBySources(
                        std::string_view inc_file,
                        const absl::btree_set<BazelTarget> &alternatives) {
     if (session_.flags().verbose < 3) return;
-    source.Loc(info_out, inc_file) << " #include \"" << inc_file << "\"\n";
+    Loc(source, inc_file) << " #include \"" << inc_file << "\"\n";
     for (const BazelTarget &possible_provider : alternatives) {
       std::stringstream msg;
       std::string why;
@@ -430,7 +439,7 @@ DWYUGenerator::DependenciesNeededBySources(
         msg << Red(session_) << " (deprecated: " << *reason << ")"
             << Norm(session_);
       }
-      source.Loc(info_out, inc_file)
+      Loc(source, inc_file)
         << "    | " << possible_provider << msg.str() << "\n";
     }
   };
@@ -443,8 +452,9 @@ DWYUGenerator::DependenciesNeededBySources(
                                        const std::string &path,
                                        const BazelTarget &target) {
     if (source_logged_already) return;
-    project_.Loc(info_out, src_name)
-      << " `" << path << "` include dependency check (" << target << ")\n";
+    Loc(project_, src_name)
+      << Bold(session_) << " `" << path << "` include dependency check ("
+      << target << ")" << Norm(session_) << "\n";
     source_logged_already = true;
   };
 
@@ -477,13 +487,12 @@ DWYUGenerator::DependenciesNeededBySources(
 
       // mmh, maybe we included it without the proper prefix ?
       if (IsHeaderInList(inc_file, sources, "")) {
-        if (!source_content->is_generated) {  // Only complain if actionable
+        // Only complain if actionable
+        if (!source_content->is_generated && session_.flags().verbose > 1) {
           maybe_log_sourcereference(src_name, source_content->path, target);
-          if (session_.flags().verbose > 1) {
-            source.Loc(info_out, inc_file)
-              << " " << inc_file << " header relative to this file. "
-              << "Consider FQN relative to project root.\n";
-          }
+          Loc(source, inc_file)
+            << " " << inc_file << " header relative to this file. "
+            << "Consider FQN relative to project root.\n";
         }
         continue;  // But, anyway, found it in our own sources; accounted for.
       }
@@ -497,7 +506,7 @@ DWYUGenerator::DependenciesNeededBySources(
         const size_t inc_len = inc_file.length();
         if (found_len != inc_len && session_.flags().verbose > 1) {
           maybe_log_sourcereference(src_name, source_content->path, target);
-          source.Loc(info_out, inc_file)
+          Loc(source, inc_file)
             << " FYI: instead of '" << inc_file << "' found library that "
             << "provides " << ((found_len < inc_len) ? "shorter" : "longer")
             << " same-suffix path '" << found_result.match << "'\n";
@@ -512,13 +521,12 @@ DWYUGenerator::DependenciesNeededBySources(
       const std::string abs_header = build_file.package.QualifiedFile(inc_file);
       if (const auto &found = FindBySuffix(headers_from_libs_, abs_header);
           found.has_value()) {
-        if (!source_content->is_generated) {  // Only complain if actionable
+        // Only complain if actionable
+        if (!source_content->is_generated && session_.flags().verbose > 1) {
           maybe_log_sourcereference(src_name, source_content->path, target);
-          if (session_.flags().verbose > 1) {
-            source.Loc(info_out, inc_file)
-              << " " << inc_file << " header relative to this file. "
-              << "Consider FQN relative to project root.\n";
-          }
+          Loc(source, inc_file)
+            << " " << inc_file << " header relative to this file. "
+            << "Consider FQN relative to project root.\n";
         }
         maybe_log(source, inc_file, *found->target_set);
         AddVisibleAlternativesWithStratum(target, *found->target_set, result);
@@ -533,7 +541,7 @@ DWYUGenerator::DependenciesNeededBySources(
       if (const auto found = files_from_genrules_.find(inc_file);
           found != files_from_genrules_.end()) {
         maybe_log_sourcereference(src_name, source_content->path, target);
-        source.Loc(info_out, inc_file)
+        Loc(source, inc_file)
           << " " << inc_file << " not accounted for; generated by genrule "
           << found->second.ToString() << ", but not "
           << "in hdrs=[...] of any cc_library() we depend on.\n";
@@ -571,7 +579,6 @@ DWYUGenerator::DependenciesNeededByProtoSources(
   Stat &source_grep_stats =
     session_.GetStatsFor("Grep'ed for import", "sources");
 
-  std::ostream &info_out = session_.info();
   size_t total_size = 0;
 
   // We log the source on -vv, but sometimes also in less verbose
@@ -581,7 +588,7 @@ DWYUGenerator::DependenciesNeededByProtoSources(
                                        const std::string &path,
                                        const BazelTarget &target) {
     if (source_logged_already) return;
-    project_.Loc(info_out, src_name)
+    Loc(project_, src_name)
       << " `" << path << "` import dependency check (" << target << ")\n";
     source_logged_already = true;
   };
@@ -616,9 +623,9 @@ DWYUGenerator::DependenciesNeededByProtoSources(
       if (const auto &found = FindBySuffix(protos_from_libs_, imp_file);
           found.has_value()) {
         if (session_.flags().verbose >= 3) {
-          source.Loc(info_out, imp_file) << " import \"" << imp_file << "\"\n";
+          Loc(source, imp_file) << " import \"" << imp_file << "\"\n";
           for (const BazelTarget &p : *found->target_set) {
-            source.Loc(info_out, imp_file) << "    | " << p << "\n";
+            Loc(source, imp_file) << "    | " << p << "\n";
           }
         }
         AddVisibleAlternatives(target, *found->target_set, result);
@@ -686,7 +693,7 @@ void DWYUGenerator::CreateEditsForTarget(const BazelTarget &target,
     const auto requested_target = BazelTarget::ParseFrom(dependency_target,  //
                                                          target.package);
     if (!requested_target.has_value()) {
-      project_.Loc(session_.info(), dependency_target)
+      Loc(project_, dependency_target)
         << " Invalid target name '" << dependency_target << "'\n";
       continue;
     }
@@ -701,11 +708,11 @@ void DWYUGenerator::CreateEditsForTarget(const BazelTarget &target,
     if (checked_off_by.contains(*requested_target)) {
       const BazelTarget &previously = checked_off_by[*requested_target];
       if (previously == *requested_target) {
-        project_.Loc(session_.info(), dependency_target)
+        Loc(project_, dependency_target)
           << " in target " << target << ": dependency " << dependency_target
           << " same dependency mentioned multiple times. Run buildifier\n";
       } else {
-        project_.Loc(session_.info(), dependency_target)
+        Loc(project_, dependency_target)
           << " in target " << target << ": dependency " << dependency_target
           << " provides headers already provided by " << previously
           << " before. Multiple libraries providing the same headers ?\n";
@@ -726,7 +733,7 @@ void DWYUGenerator::CreateEditsForTarget(const BazelTarget &target,
         emit_deps_edit_(EditRequest::kRemove, target, dependency_target, "");
       }
     } else if (!all_header_deps_known && session_.flags().verbose > 1) {
-      project_.Loc(session_.info(), dependency_target)
+      Loc(project_, dependency_target)
         << ": Unsure what " << requested_target->ToString()
         << " provides, but there are also unaccounted headers. Won't remove.\n";
     }
@@ -736,7 +743,7 @@ void DWYUGenerator::CreateEditsForTarget(const BazelTarget &target,
   for (const auto &need_add_alternatives : deps_needed) {
     // Only possible to auto-add if there is exactly one alternative.
     if (need_add_alternatives.size() > 1) {
-      project_.Loc(session_.info(), details.name)
+      Loc(project_, details.name)
         << " Can't auto-fix: Referenced headers in " << target
         << " need exactly one of multiple choices\nAlternatives are:\n";
       for (const BazelTarget &target : need_add_alternatives) {
@@ -756,17 +763,26 @@ void DWYUGenerator::CreateEditsForTarget(const BazelTarget &target,
                       need_add.ToStringRelativeTo(target.package));
       if (session_.flags().verbose) {
         if (auto reason = DeprecationReason(need_add)) {
-          project_.Loc(session_.info(), details.name)
+          Loc(project_, details.name)
             << " Only suitable dependency " << need_add
             << " is deprecated: " << *reason << "\n";
         }
       }
     } else if (session_.flags().verbose > 1) {
-      project_.Loc(session_.info(), details.name)
+      Loc(project_, details.name)
         << ": Would add " << need_add << ", but not visible. " << visibility_msg
         << "\n";
     }
   }
+}
+
+std::ostream &DWYUGenerator::Loc(const SourceLocator &locator,
+                                 std::string_view where) const {
+  std::ostream &out = session_.info();
+  out << BlueBold(session_);
+  locator.Loc(out, where);
+  out << Norm(session_);
+  return out;
 }
 
 // -- Publically visible interface

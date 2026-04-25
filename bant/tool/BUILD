@@ -46,6 +46,7 @@ cc_library(
         "//bant/frontend:named-content",
         "//bant/frontend:parsed-project",
         "//bant/frontend:parser",
+        "//bant/frontend:source-locator",
         "//bant/util:file-utils",
         "//bant/util:stat",
         "@abseil-cpp//absl/container:btree",
