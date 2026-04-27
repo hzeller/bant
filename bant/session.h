@@ -112,6 +112,9 @@ class Session {
     return (found != stats_.end()) ? found->second.get() : nullptr;
   }
 
+  // Require at least this meany `-v`
+  bool MinVerbosity(int v) const { return flags_.verbose >= v; }
+
   class ScopedVerbosityIncreaser {
     friend class Session;
     ScopedVerbosityIncreaser(Session *s, int level_shift)

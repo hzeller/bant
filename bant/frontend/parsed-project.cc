@@ -246,7 +246,7 @@ const ParsedProject::VariableBundle &ParsedProject::GetOrAddStarlarkContent(
   std::optional<std::string> content =
     ReadFileToStringUpdateStat(starlark_file, open_and_read_stat);
   if (!content.has_value()) {
-    if (session.flags().verbose) {  // starlark reading is best effort.
+    if (session.MinVerbosity(1)) {  // starlark reading is best effort.
       Loc(session.info(), starlark_ref)
         << " Could not read " << starlark << " (" << starlark_file.path()
         << ")\n";
@@ -272,7 +272,7 @@ const ParsedProject::VariableBundle &ParsedProject::GetOrAddStarlarkContent(
   RegisterLocationRange(parse_result.source_.content(), &parse_result.source_);
 
   if (parser.parse_error()) {
-    if (session.flags().verbose) {
+    if (session.MinVerbosity(1)) {
       session.error() << error_collect.str();
     }
     ++error_count_;

@@ -359,7 +359,7 @@ std::optional<DWYUGenerator::SourceFile> DWYUGenerator::ReadSourceForDWYU(
 void DWYUGenerator::LogUnknownProvider(const NamedLineIndexedContent &source,
                                        std::string_view ref_file,
                                        std::string_view ref_keyword) {
-  if (!session_.flags().verbose) return;
+  if (!session_.MinVerbosity(1)) return;
   Loc(source, ref_file) << " " << ref_keyword << " \"" << ref_file << "\"\n";
   Loc(source, ref_file) << Red(session_) << "    ?      ^ unknown provider "
                         << "-- Missing or from non-standard bazel-rule ?"
@@ -435,7 +435,7 @@ DWYUGenerator::DependenciesNeededBySources(
   auto maybe_log = [&](const NamedLineIndexedContent &source,
                        std::string_view inc_file,
                        const absl::btree_set<BazelTarget> &alternatives) {
-    if (session_.flags().verbose < 3) return;
+    if (!session_.MinVerbosity(3)) return;
     Loc(source, inc_file) << " #include \"" << inc_file << "\"\n";
     for (const BazelTarget &possible_provider : alternatives) {
       std::stringstream msg;
@@ -474,7 +474,7 @@ DWYUGenerator::DependenciesNeededBySources(
                         all_headers_accounted_for);
     if (!source_content.has_value()) continue;
 
-    if (session_.flags().verbose > 1) {
+    if (session_.MinVerbosity(2)) {
       maybe_log_sourcereference(src_name, source_content->path, target);
     }
     ++source_grep_stats.count;
@@ -499,7 +499,7 @@ DWYUGenerator::DependenciesNeededBySources(
       }
       if (IsHeaderInList(inc_file, sources, src_prefix)) {
         // Only complain if actionable
-        if (!source_content->is_generated && session_.flags().verbose > 1) {
+        if (!source_content->is_generated && session_.MinVerbosity(2)) {
           maybe_log_sourcereference(src_name, source_content->path, target);
           Loc(source, inc_file)
             << " " << inc_file << " header relative to this file. "
@@ -515,7 +515,7 @@ DWYUGenerator::DependenciesNeededBySources(
         // Do some reporting if fuzzy match hit.
         const size_t found_len = found_result.match.length();
         const size_t inc_len = inc_file.length();
-        if (found_len != inc_len && session_.flags().verbose > 1) {
+        if (found_len != inc_len && session_.MinVerbosity(2)) {
           maybe_log_sourcereference(src_name, source_content->path, target);
           Loc(source, inc_file)
             << " FYI: instead of '" << inc_file << "' found library that "
@@ -533,7 +533,7 @@ DWYUGenerator::DependenciesNeededBySources(
       if (const auto &found = FindBySuffix(headers_from_libs_, abs_header);
           found.has_value()) {
         // Only complain if actionable
-        if (!source_content->is_generated && session_.flags().verbose > 1) {
+        if (!source_content->is_generated && session_.MinVerbosity(2)) {
           maybe_log_sourcereference(src_name, source_content->path, target);
           Loc(source, inc_file)
             << " " << inc_file << " header relative to this file. "
@@ -567,7 +567,7 @@ DWYUGenerator::DependenciesNeededBySources(
 
       // No luck. Source includes it, but we don't know where it is.
       // Be careful with remove suggestion, so consider 'not accounted for'.
-      if (session_.flags().verbose) {
+      if (session_.MinVerbosity(1)) {
         // Until all common reasons why we don't find a provider is resolved,
         // report.
         maybe_log_sourcereference(src_name, source_content->path, target);
@@ -600,7 +600,8 @@ DWYUGenerator::DependenciesNeededByProtoSources(
                                        const BazelTarget &target) {
     if (source_logged_already) return;
     Loc(project_, src_name)
-      << " `" << path << "` import dependency check (" << target << ")\n";
+      << Bold(session_) << " `" << path << "` import dependency check ("
+      << target << ")" << Norm(session_) << "\n";
     source_logged_already = true;
   };
 
@@ -613,7 +614,7 @@ DWYUGenerator::DependenciesNeededByProtoSources(
                         all_imports_accounted_for);
     if (!source_content.has_value()) continue;
 
-    if (session_.flags().verbose > 1) {
+    if (session_.MinVerbosity(2)) {
       maybe_log_sourcereference(src_name, source_content->path, target);
     }
     ++source_grep_stats.count;
@@ -633,7 +634,7 @@ DWYUGenerator::DependenciesNeededByProtoSources(
 
       if (const auto &found = FindBySuffix(protos_from_libs_, imp_file);
           found.has_value()) {
-        if (session_.flags().verbose >= 3) {
+        if (session_.MinVerbosity(3)) {
           Loc(source, imp_file) << " import \"" << imp_file << "\"\n";
           for (const BazelTarget &p : *found->target_set) {
             Loc(source, imp_file) << "    | " << p << "\n";
@@ -645,7 +646,7 @@ DWYUGenerator::DependenciesNeededByProtoSources(
 
       *all_imports_accounted_for = false;
 
-      if (session_.flags().verbose) {
+      if (session_.MinVerbosity(1)) {
         maybe_log_sourcereference(src_name, source_content->path, target);
       }
       LogUnknownProvider(source, imp_file, "import");
@@ -743,7 +744,7 @@ void DWYUGenerator::CreateEditsForTarget(const BazelTarget &target,
           !RE2::PartialMatch(line, *kExcludeVetoUserCommentRe)) {
         emit_deps_edit_(EditRequest::kRemove, target, dependency_target, "");
       }
-    } else if (!all_header_deps_known && session_.flags().verbose > 1) {
+    } else if (!all_header_deps_known && session_.MinVerbosity(2)) {
       Loc(project_, dependency_target)
         << ": Unsure what " << requested_target->ToString()
         << " provides, but there are also unaccounted headers. Won't remove.\n";
@@ -772,14 +773,14 @@ void DWYUGenerator::CreateEditsForTarget(const BazelTarget &target,
         IsTestonlyCompatible(target, need_add)) {
       emit_deps_edit_(EditRequest::kAdd, target, "",
                       need_add.ToStringRelativeTo(target.package));
-      if (session_.flags().verbose) {
+      if (session_.MinVerbosity(1)) {
         if (auto reason = DeprecationReason(need_add)) {
           Loc(project_, details.name)
             << " Only suitable dependency " << need_add
             << " is deprecated: " << *reason << "\n";
         }
       }
-    } else if (session_.flags().verbose > 1) {
+    } else if (session_.MinVerbosity(2)) {
       Loc(project_, details.name)
         << ": Would add " << need_add << ", but not visible. " << visibility_msg
         << "\n";

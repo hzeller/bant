@@ -242,7 +242,7 @@ CliStatus RunCommand(Session &session, Command cmd,
       graph = bant::BuildDependencyGraph(
         session, dep_pattern, flags.recurse_dependency_depth, &project);
       const size_t after_build_files = project.ParsedFiles().size();
-      if (session.flags().verbose) {
+      if (session.MinVerbosity(1)) {
         session.info() << "Dependency graph expanded build file# from initial "
                        << before_build_files << " to " << after_build_files
                        << "; " << graph.depends_on.size() << " targets and "

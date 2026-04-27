@@ -348,10 +348,10 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     // TODO: implement. So far only implemention of ops observed in the
     // field. For that observation and choose priority: turn on this log :)
     // Looks like next candidate might be '%' for formatting...
-    if (session_.flags().verbose > 1) {
+    if (session_.MinVerbosity(2)) {
       auto &log = project_->Loc(session_.info(), bin_op->source_range());
       log << "Op `" << bin_op->op() << "` for operands not implemented yet;";
-      if (session_.flags().verbose > 2) {
+      if (session_.MinVerbosity(3)) {
         log << " (" << bin_op << ")";  // Noisy: whole operation around.
       }
       log << "\n";
