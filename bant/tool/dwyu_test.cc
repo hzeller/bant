@@ -290,6 +290,25 @@ cc_library(
   }
 }
 
+TEST(DWYUTest, HeaderIncludingIncFromSource) {
+  ParsedProjectTestUtil pp;
+  pp.Add("//path", R"(
+cc_library(
+  name = "foo",
+  srcs = ["foo.inc"],
+  hdrs = ["foo.h"]
+)
+)");
+  {
+    DWYUTestFixture tester(pp.project());
+    tester.AddSource("path/foo.inc", "");
+    tester.AddSource("path/foo.h", R"(
+#include "path/foo.inc"  // should be recognized to come from own target
+)");
+    tester.RunForTarget("//path:foo");
+  }
+}
+
 TEST(DWYUTest, ChooseMinimalDependencySetIfMultipleLibrariesProvideHeader) {
   ParsedProjectTestUtil pp;
   pp.Add("//path", R"(

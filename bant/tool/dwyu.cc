@@ -120,7 +120,8 @@ static bool IsHeaderInList(std::string_view header,
   // The list items are provided without the full path in the cc_library(),
   // so we always need to prepend that prefix_path.
   for (const std::string_view list_item : list) {
-    if (list_item.ends_with(header) &&  // cheap first test before strcat
+    if ((list_item.ends_with(header) ||
+         header.ends_with(list_item)) &&  // cheap first test before strcat
         (header == list_item ||
          absl::StrCat(prefix_path, "/", list_item) == header ||
          absl::StrCat(prefix_path, "/", header) == list_item)) {
@@ -492,8 +493,10 @@ DWYUGenerator::DependenciesNeededBySources(
       }
 
       // mmh, maybe we included it without the proper prefix ?
-      std::string_view src_prefix =
-        src_name.substr(0, src_name.find_last_of('/'));
+      std::string_view src_prefix;
+      if (auto sl = src_name.find_last_of('/'); sl != std::string_view::npos) {
+        src_prefix = src_name.substr(0, sl);
+      }
       if (IsHeaderInList(inc_file, sources, src_prefix)) {
         // Only complain if actionable
         if (!source_content->is_generated && session_.flags().verbose > 1) {
