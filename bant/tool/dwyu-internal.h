@@ -94,6 +94,7 @@ class DWYUGenerator {
   std::vector<absl::btree_set<BazelTarget>> DependenciesNeededBySources(
     const BazelTarget &target, const ParsedBuildFile &build_file,
     const std::vector<std::string_view> &sources,
+    const std::vector<std::string_view> &inc_paths,
     bool *all_headers_accounted_for);
 
   // Similar to DependenciesNeededBySources but for proto_library targets.

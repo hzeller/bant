@@ -415,6 +415,8 @@ void DWYUGenerator::AddVisibleAlternativesWithStratum(
       const bool is_deprecated = DeprecationReason(t).has_value();
       if (is_deprecated && found_non_deprecated) continue;
       if (!is_deprecated && !found_non_deprecated) {
+        // Until we find the first non-deprecated alternative, we also
+        // keep deprecated targets as they might be our only chance.
         temp_result.clear();
         stratum_range = Range{};
         found_non_deprecated = true;
@@ -441,6 +443,7 @@ std::vector<absl::btree_set<BazelTarget>>
 DWYUGenerator::DependenciesNeededBySources(
   const BazelTarget &target, const ParsedBuildFile &build_file,
   const std::vector<std::string_view> &sources,
+  const std::vector<std::string_view> &inc_paths,
   bool *all_headers_accounted_for) {
   Stat &source_read_stats = session_.GetStatsFor("read(C++ source)", "sources");
   Stat &source_grep_stats = session_.GetStatsFor("Grep'ed for #inc", "sources");
@@ -448,6 +451,8 @@ DWYUGenerator::DependenciesNeededBySources(
   size_t total_size = 0;
 
   // Log providers if super verbose -vvv
+  // This shows a after the include all the dependencies that can provide
+  // it.
   auto maybe_log = [&](const NamedLineIndexedContent &source,
                        std::string_view inc_file,
                        const absl::btree_set<BazelTarget> &alternatives) {
@@ -510,7 +515,28 @@ DWYUGenerator::DependenciesNeededBySources(
         continue;  // Cool, our own list srcs=[...], hdrs=[...]
       }
 
-      // mmh, maybe we included it without the proper prefix ?
+      // Check for all include prefices found in includes = [], effectively
+      // making includes visible under shorter paths.
+      bool found_local_inc = false;
+      for (std::string_view src_prefix : inc_paths) {
+        if (IsHeaderInList(inc_file, sources, src_prefix)) {
+          // Only complain if actionable
+          if (!source_content->is_generated && session_.MinVerbosity(2)) {
+            maybe_log_sourcereference(src_name, source_content->path, target);
+            Loc(source, inc_file)
+              << Bold(session_) << " -I" << src_prefix << Norm(session_)
+              << " matched " << Magenta(session_) << inc_file << Norm(session_)
+              << " header relative to this package. "
+              << "Consider FQN relative to project root.\n";
+          }
+          // But, anyway, found it in our own sources; accounted for.
+          found_local_inc = true;
+        }
+      }
+      if (found_local_inc) continue;
+
+      // mmh, maybe we included it without the proper prefix, but somewhat
+      // assuming it is local ? Some code assumes `-I.`
       std::string_view src_prefix;
       if (auto sl = src_name.find_last_of('/'); sl != std::string_view::npos) {
         src_prefix = src_name.substr(0, sl);
@@ -699,12 +725,16 @@ void DWYUGenerator::CreateEditsForTarget(const BazelTarget &target,
     query::AppendStringList(details.hdrs_list, sources);
   }
 
+  // all implicit -I with includes = ["include"] elements.
+  auto inc_dirs = query::ExtractStringList(details.includes_list);
+
   // Grep for all includes/imports they use to determine which deps we need
-  auto deps_needed = is_proto_library
-                       ? DependenciesNeededByProtoSources(
-                           target, build_file, sources, &all_header_deps_known)
-                       : DependenciesNeededBySources(
-                           target, build_file, sources, &all_header_deps_known);
+  auto deps_needed =
+    is_proto_library
+      ? DependenciesNeededByProtoSources(target, build_file, sources,
+                                         &all_header_deps_known)
+      : DependenciesNeededBySources(target, build_file, sources, inc_dirs,
+                                    &all_header_deps_known);
   deps_needed = MinimizeDependencySet(deps_needed);
   OneToOne<BazelTarget, BazelTarget> checked_off_by;
   auto IsNeededInSourcesAndCheckOff = [&](const BazelTarget &target) -> bool {

@@ -270,6 +270,34 @@ cc_library(
   }
 }
 
+TEST(DWYUTest, DependencyCheckIncludesAgainstPathFromIncludesAttribute) {
+  ParsedProjectTestUtil pp;
+  pp.Add("//some/path", R"(
+cc_library(
+  name = "foo",
+  srcs = [
+     "src/subdir/foo.cc",
+     "src/foo.h"
+  ],
+  hdrs = ["include/bar.h"],
+  includes = [ "src", "include" ],
+)
+)");
+
+  {
+    DWYUTestFixture tester(pp.project(), /*verbose_level=*/2);
+    tester.AddSource("some/path/include/bar.h", "");
+    tester.AddSource("some/path/src/foo.h", "");
+    tester.AddSource("some/path/src/subdir/foo.cc", R"(
+#include "foo.h"   // include = ["src"] adds that to -I
+#include "bar.h"   // include = ["include"] adds that to -I
+)");
+    tester.RunForTarget("//some/path:foo");
+    EXPECT_THAT(tester.LogContent(), HasSubstr("-Isrc matched foo.h"));
+    EXPECT_THAT(tester.LogContent(), HasSubstr("-Iinclude matched bar.h"));
+  }
+}
+
 TEST(DWYUTest, ToplevelIncludesWithoutPrefixSlashWork) {
   ParsedProjectTestUtil pp;
   pp.Add("//", R"(
