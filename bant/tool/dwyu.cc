@@ -625,7 +625,7 @@ DWYUGenerator::DependenciesNeededByProtoSources(
     Loc(project_, src_name)
       << Invert(session_) << "[ " << Bold(session_) << path << BoldOff(session_)
       << " proto import dependency check " << Bold(session_) << "(" << target
-      << ") " << Norm(session_) << "\n";
+      << ") ]" << Norm(session_) << "\n";
     source_logged_already = true;
   };
 
