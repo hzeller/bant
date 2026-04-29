@@ -112,12 +112,10 @@ cc_library(
 )
 )");
   std::stringstream log_absorb;
-  auto hdrs_map = ExtractExpandedHeaderToLibMapping(
-    pp.project(), log_absorb);
+  auto hdrs_map = ExtractExpandedHeaderToLibMapping(pp.project(), log_absorb);
   EXPECT_THAT(hdrs_map,
               Contains(Pair("some/path/myinc/baz.h", Ts("//some/path:foo"))));
-  EXPECT_THAT(hdrs_map,
-              Contains(Pair("baz.h", Ts("//some/path:foo"))));
+  EXPECT_THAT(hdrs_map, Contains(Pair("baz.h", Ts("//some/path:foo"))));
 }
 
 // Sources are much simpler. Just matter-of-fact, no include path fiddling.
