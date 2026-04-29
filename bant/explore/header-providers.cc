@@ -150,6 +150,7 @@ static void IterateCCLibraryHeaders(const ParsedBuildFile &build_file,
 
       hdrs.insert(hdrs.end(), textual_hdrs.begin(), textual_hdrs.end());
       query::AppendStringList(cc_lib.public_hdrs, hdrs);  // grpc hack.
+      const auto incdirs = query::ExtractStringList(cc_lib.includes_list);
       for (const std::string_view header : hdrs) {
         if (absl_string_view_skip && header == "string_view.h") continue;
 
@@ -171,9 +172,9 @@ static void IterateCCLibraryHeaders(const ParsedBuildFile &build_file,
         // TODO: double check that the following is what incdirs is supposed to
         // do. Looks like it works for zlib.
         // Could also show up under shorter path with -I
-        const auto incdirs = query::ExtractStringList(cc_lib.includes_list);
         for (const std::string_view dir : incdirs) {
-          std::string prefix(dir);
+          const std::string_view incdir = (dir == ".") ? "" : dir;
+          std::string prefix(build_file.package.QualifiedFile(incdir));
           if (!prefix.ends_with('/')) {
             prefix.append("/");
           }

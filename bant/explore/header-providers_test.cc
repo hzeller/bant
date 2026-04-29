@@ -77,9 +77,8 @@ cc_library(
   name = "baz",
   hdrs = ["subdir/baz.h"],
   includes =[                        # allow to -I without that subdir
-     "prefix/dir/subdir",
-     "prefix/dir/",                  # trailing slash should not trip
-     # TODO: should it also works as "subdir" with package as implicit prefix?
+     "subdir",
+     ".",
   ]
 ],
 )
@@ -101,6 +100,24 @@ cc_library(
               Contains(Pair("subdir/baz.h", Ts("//prefix/dir:baz"))));
   EXPECT_THAT(header_map, Contains(Pair("prefix/dir/subdir/baz.h",
                                         Ts("//prefix/dir:baz"))));
+}
+
+TEST(SourceToLibMapping, LibHeaderMapIncludesWithAllPossiblePrefices) {
+  ParsedProjectTestUtil pp;
+  pp.Add("//some/path", R"(
+cc_library(
+  name = "foo",
+  hdrs = ["myinc/baz.h"],
+  includes = ["myinc"],
+)
+)");
+  std::stringstream log_absorb;
+  auto hdrs_map = ExtractExpandedHeaderToLibMapping(
+    pp.project(), log_absorb);
+  EXPECT_THAT(hdrs_map,
+              Contains(Pair("some/path/myinc/baz.h", Ts("//some/path:foo"))));
+  EXPECT_THAT(hdrs_map,
+              Contains(Pair("baz.h", Ts("//some/path:foo"))));
 }
 
 // Sources are much simpler. Just matter-of-fact, no include path fiddling.
