@@ -24,7 +24,32 @@
 #include <vector>
 
 #include "bant/frontend/ast.h"
+#include "bant/frontend/operator-precedence.h"
 #include "bant/frontend/scanner.h"
+
+namespace bant {
+
+namespace {
+class ScopedPrecedence {
+ public:
+  ScopedPrecedence(PrintVisitor::PrecedenceState *current, int node_precedence,
+                   bool req)
+      : current_(current), saved_state_(*current) {
+    current_->level = node_precedence;
+    current_->require_parens_if_equal = req;
+  }
+  ~ScopedPrecedence() { *current_ = saved_state_; }
+
+  void Set(int precedence, bool parens_if_equal) {
+    current_->level = precedence;
+    current_->require_parens_if_equal = parens_if_equal;
+  }
+
+ private:
+  PrintVisitor::PrecedenceState *const current_;
+  const PrintVisitor::PrecedenceState saved_state_;
+};
+}  // namespace
 
 // TODO: put this in some other place. There is also color handling in dwyu
 // and others places.
@@ -42,7 +67,6 @@ static constexpr Colors kColor = {
   .reset = "\033[0m",
 };
 
-namespace bant {
 void PrintVisitor::VisitFunCall(FunCall *f) {
   if (do_color_) out_ << kColor.bold;
   out_ << f->identifier()->id();
@@ -77,6 +101,9 @@ void PrintVisitor::VisitList(List *l) {
   if (needs_multiline) out_ << "\n";
   indent_ += kIndentSpaces;
   bool is_first = true;
+
+  ScopedPrecedence scope(&current_precedence_, kLowestPrecedence, false);
+
   for (Node *node : *l) {
     if (!is_first) out_ << ",\n";
     if (needs_multiline) out_ << std::string(indent_, ' ');
@@ -85,6 +112,7 @@ void PrintVisitor::VisitList(List *l) {
     }
     is_first = false;
   }
+
   // If a tuple only contains one element, then we need a final ','
   // to disambiguate from a parenthesized expression.
   if (l->type() == List::Type::kTuple && l->size() == 1) {
@@ -98,31 +126,79 @@ void PrintVisitor::VisitList(List *l) {
   PrintListTypeClose(l->type(), out_);
 }
 
+namespace {
+// Helper to look up the precedence level of a given operator token.
+// Returns kLowestPrecedence if the operator is not found in the precedence
+// list.
+int GetPrecedenceLevel(TokenType op, bool is_unary = false) {
+  for (int i = 0; i <= kLowestBinaryPrecedence; ++i) {
+    if (kPrecedenceList[i].is_unary != is_unary) continue;
+    for (TokenType t : kPrecedenceList[i].tokens) {
+      if (t == op) return i;
+    }
+  }
+  return kLowestPrecedence;
+}
+}  // namespace
+
+bool PrintVisitor::CheckAndPrintParensOpen(int node_precedence) {
+  const bool needs_parens = (current_precedence_.level < node_precedence) ||
+                            (current_precedence_.level == node_precedence &&
+                             current_precedence_.require_parens_if_equal);
+  if (needs_parens) out_ << "(";
+  return needs_parens;
+}
+
 void PrintVisitor::VisitUnaryExpr(UnaryExpr *e) {
+  const int node_precedence = GetPrecedenceLevel(e->op(), true);
+  const bool need_parens = CheckAndPrintParensOpen(node_precedence);
+
   out_ << e->op();
   if (e->op() == TokenType::kNot) out_ << " ";
-  WalkNonNull(e->node());
+
+  {
+    ScopedPrecedence scope(&current_precedence_, node_precedence, false);
+    WalkNonNull(e->node());
+  }
+
+  if (need_parens) out_ << ")";
 }
 
 void PrintVisitor::VisitAssignment(Assignment *a) {
   if (do_color_) out_ << kColor.assignment_lhs;
-  WalkNonNull(a->left());
-  if (do_color_) out_ << kColor.reset;
-  out_ << " = ";
-  WalkNonNull(a->right());
+
+  {
+    ScopedPrecedence scope(&current_precedence_, kLowestPrecedence, false);
+    WalkNonNull(a->left());
+    if (do_color_) out_ << kColor.reset;
+    out_ << " = ";
+    WalkNonNull(a->right());
+  }
 }
 
 void PrintVisitor::VisitBinOpNode(BinOpNode *b) {
+  const int node_prec = b->op() == '[' ? 1 : GetPrecedenceLevel(b->op(), false);
+  const bool need_parens = CheckAndPrintParensOpen(node_prec);
+
+  ScopedPrecedence scope(&current_precedence_, node_prec, false);
   WalkNonNull(b->left());
-  if (b->op() == '.' || b->op() == '[') {
-    out_ << b->op();  // No spacing around some operators.
+
+  if (b->op() == '[') {
+    out_ << "[";
+    scope.Set(kLowestPrecedence, false);  // New context inside brackets
+    WalkNonNull(b->right());
+    out_ << "]";
+  } else if (b->op() == '.') {
+    out_ << ".";
+    scope.Set(node_prec, true);
+    WalkNonNull(b->right());
   } else {
     out_ << " " << b->op() << " ";
+    scope.Set(node_prec, true);
+    WalkNonNull(b->right());
   }
-  WalkNonNull(b->right());
-  if (b->op() == '[') {  // Array access is a BinOp with '[' as op.
-    out_ << "]";
-  }
+
+  if (need_parens) out_ << ")";
 }
 
 void PrintVisitor::VisitListComprehension(ListComprehension *lh) {
@@ -140,6 +216,8 @@ void PrintVisitor::VisitListComprehension(ListComprehension *lh) {
     }
     break;
   }
+
+  ScopedPrecedence scope(&current_precedence_, kLowestPrecedence, false);
 
   // Print the inner subject expression
   WalkNonNull(curr);
@@ -161,13 +239,23 @@ void PrintVisitor::VisitListComprehension(ListComprehension *lh) {
 }
 
 void PrintVisitor::VisitTernary(Ternary *t) {
+  const int node_precedence = kTernaryPrecedence;
+  const bool need_parens = CheckAndPrintParensOpen(node_precedence);
+
+  ScopedPrecedence scope(&current_precedence_, node_precedence, true);
   WalkNonNull(t->positive());
+
   out_ << " if ";
+  scope.Set(node_precedence, true);
   WalkNonNull(t->condition());
+
   if (t->negative()) {
     out_ << " else ";
-    t->negative()->Accept(this);
+    scope.Set(node_precedence, false);
+    WalkNonNull(t->negative());
   }
+
+  if (need_parens) out_ << ")";
 }
 
 void PrintVisitor::VisitScalar(Scalar *s) {

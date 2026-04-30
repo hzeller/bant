@@ -21,6 +21,7 @@
 #include <ostream>
 
 #include "bant/frontend/ast.h"
+#include "bant/frontend/operator-precedence.h"
 
 namespace bant {
 class PrintVisitor : public BaseVoidVisitor {
@@ -40,11 +41,24 @@ class PrintVisitor : public BaseVoidVisitor {
   void VisitScalar(Scalar *s) final;
   void VisitIdentifier(Identifier *i) final;
 
+  struct PrecedenceState {
+    // The current precedence level context (lower number = tighter binding).
+    int level = kLowestPrecedence;
+
+    // Whether parentheses are required if the child's precedence exactly
+    // matches. Used to correctly enforce left-to-right or right-to-left
+    // associativity.
+    bool require_parens_if_equal = false;
+  };
+
  private:
+  bool CheckAndPrintParensOpen(int node_precedence);
+
   std::ostream &out_;
   const bool do_color_;
-
   int indent_ = 0;
+
+  PrecedenceState current_precedence_;
 };
 }  // namespace bant
 

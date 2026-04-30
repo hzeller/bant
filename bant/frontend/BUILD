@@ -65,6 +65,7 @@ cc_library(
     ],
     hdrs = [
         "ast.h",
+        "operator-precedence.h",
         "parser.h",
         "print-visitor.h",
         "scanner.h",
@@ -73,7 +74,6 @@ cc_library(
         ":linecolumn-map",
         ":named-content",
         "//bant/util:memory",
-        "@abseil-cpp//absl/base:core_headers",
         "@abseil-cpp//absl/log:check",
         "@abseil-cpp//absl/strings",
     ],
@@ -112,6 +112,19 @@ cc_test(
         "//bant/util:memory",
         "@abseil-cpp//absl/log:check",
         "@abseil-cpp//absl/log:die_if_null",
+        "@googletest//:gtest",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "print-visitor_test",
+    size = "small",
+    srcs = ["print-visitor_test.cc"],
+    deps = [
+        ":named-content",
+        ":parser",
+        "//bant/util:memory",
         "@googletest//:gtest",
         "@googletest//:gtest_main",
     ],

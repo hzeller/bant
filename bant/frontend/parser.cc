@@ -28,8 +28,8 @@
 #include <iostream>
 #include <string_view>
 
-#include "absl/base/macros.h"
 #include "bant/frontend/ast.h"
+#include "bant/frontend/operator-precedence.h"
 #include "bant/frontend/scanner.h"
 #include "bant/util/arena.h"
 
@@ -78,29 +78,6 @@ namespace bant {
 // Simple recursive descent parser. As Parser::Impl to not clobber the header
 // file with all the parse methods needed for the productions.
 class Parser::Impl {
-  struct OperatorLevel {
-    bool is_unary;
-    std::initializer_list<TokenType> tokens;
-  };
-
-  static constexpr OperatorLevel kPrecedenceList[] = {
-    // Strong to weak
-    {false, {}},       // 0: handled by ParseAtom()
-    {false, {kDot}},   // 1: scoped invocation
-    {true, {kMinus}},  // 2: unary -
-    {false, {kMultiply, kDivide, kFloorDivide, kPercent}},
-    {false, {kPlus, kMinus}},
-    {false, {kShiftLeft, kShiftRight}},
-    {false, {kPipeOrBitwiseOr}},
-    {false,
-     {kLessThan, kLessEqual, kEqualityComparison, kGreaterEqual, kGreaterThan,
-      kNotEqual, kIn, kNotIn}},
-    {true, {kNot}},  // 8: unary not
-    {false, {kAnd}},
-    {false, {kOr}},
-    // kAssign but not handled here.
-  };
-
  public:
   Impl(Scanner *token_source, Arena *allocator, std::ostream &err_out)
       : scanner_(token_source), node_arena_(allocator), err_out_(err_out) {}
@@ -411,8 +388,7 @@ class Parser::Impl {
 
   Node *ParseExpression(bool can_be_optional = false,
                         bool allow_ternary = true) {
-    Node *n =
-      ParseWithPrecedence(ABSL_ARRAYSIZE(kPrecedenceList) - 1, can_be_optional);
+    Node *n = ParseWithPrecedence(kLowestBinaryPrecedence, can_be_optional);
     if (n && allow_ternary && scanner_->Peek().type == TokenType::kIf) {
       n = ParseIfElse(n);
     }

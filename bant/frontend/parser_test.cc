@@ -249,9 +249,8 @@ TEST_F(ParserTest, SimpleExpressions) {
   Node *const expected = List({
     Assign("a", Op('+', Int(40), Int(2))),
     Assign("b", Op('/', Op('*', Int(30), Int(7)), Int(2))),
-    // note: no proper precedence yet, should be like 'e'
     Assign("c", Op('/', Op('+', Int(30), Int(7)), Int(2))),
-    Assign("d", Op('/', Op('+', Int(30), Int(7)), Int(2))),
+    Assign("d", Op('+', Int(30), Op('/', Int(7), Int(2)))),
     Assign("e", Op('+', Int(30), Op('/', Int(7), Int(2)))),
     Assign("f", UnaryOp(TokenType::kMinus, Int(30))),
     Assign("g", Op(TokenType::kEqualityComparison, Id("a"), Id("b"))),
@@ -268,8 +267,8 @@ TEST_F(ParserTest, SimpleExpressions) {
   EXPECT_EQ(Print(expected), Print(Parse(R"(
 a = 40 + 2
 b = 30 * 7 / 2
-c = 30 + 7 / 2
-d = (30 + 7) / 2
+c = (30 + 7) / 2
+d = 30 + 7 / 2
 e = 30 + (7 / 2)
 f = -30
 g = a == b
@@ -552,6 +551,9 @@ a = 42 + 8
 TEST_F(ParserTest, ParseTernary) {
   Node *n = Parse("[foo() if a + b else baz()]");
   EXPECT_EQ(Print(n), "[[foo() if a + b else baz()]]");
+
+  n = Parse("[a + (b if c else d) + e]");
+  EXPECT_EQ(Print(n), "[[a + (b if c else d) + e]]");
 }
 
 // Testing some functionality that can be used for initial 'macro'
