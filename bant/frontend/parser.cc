@@ -78,18 +78,26 @@ namespace bant {
 // Simple recursive descent parser. As Parser::Impl to not clobber the header
 // file with all the parse methods needed for the productions.
 class Parser::Impl {
-  static constexpr std::initializer_list<TokenType> kPrecedenceList[] = {
+  struct OperatorLevel {
+    bool is_unary;
+    std::initializer_list<TokenType> tokens;
+  };
+
+  static constexpr OperatorLevel kPrecedenceList[] = {
     // Strong to weak
-    {},      // handled by ParseAtom()
-    {kDot},  // scoped invocation
-    {kMultiply, kDivide, kFloorDivide, kPercent},
-    {kPlus, kMinus},
-    {kShiftLeft, kShiftRight},
-    {kPipeOrBitwiseOr},
-    {kLessThan, kLessEqual, kEqualityComparison, kGreaterEqual, kGreaterThan,
-     kNotEqual, kIn, kNotIn},
-    {kAnd},
-    {kOr},
+    {false, {}},       // 0: handled by ParseAtom()
+    {false, {kDot}},   // 1: scoped invocation
+    {true, {kMinus}},  // 2: unary -
+    {false, {kMultiply, kDivide, kFloorDivide, kPercent}},
+    {false, {kPlus, kMinus}},
+    {false, {kShiftLeft, kShiftRight}},
+    {false, {kPipeOrBitwiseOr}},
+    {false,
+     {kLessThan, kLessEqual, kEqualityComparison, kGreaterEqual, kGreaterThan,
+      kNotEqual, kIn, kNotIn}},
+    {true, {kNot}},  // 8: unary not
+    {false, {kAnd}},
+    {false, {kOr}},
     // kAssign but not handled here.
   };
 
@@ -353,12 +361,6 @@ class Parser::Impl {
     LOG_ENTER();
     Node *n = nullptr;
     switch (scanner_->Peek().type) {
-    case '-':
-    case TokenType::kNot: {
-      const Token tok = scanner_->Next();
-      n = Make<UnaryExpr>(tok.type, ParseAtom(can_be_optional, allow_ternary));
-      break;
-    }
     case '(': n = ParseParenExpressionOrTuple(); break;
     default: n = ParseValueOrIdentifier(can_be_optional);
     }
@@ -378,24 +380,40 @@ class Parser::Impl {
       return ParseAtom(can_be_optional, allow_ternary);
     }
     LOG_ENTER();
-    Node *n = ParseWithPrecedence(prec - 1, can_be_optional, allow_ternary);
+
+    Node *n = nullptr;
+    const Token upcoming = scanner_->Peek();
+
+    if (kPrecedenceList[prec].is_unary &&
+        IsTokenIn(upcoming.type, kPrecedenceList[prec].tokens)) {
+      const Token tok = scanner_->Next();
+      n = Make<UnaryExpr>(
+        tok.type, ParseWithPrecedence(prec, can_be_optional, allow_ternary));
+    } else {
+      n = ParseWithPrecedence(prec - 1, can_be_optional, allow_ternary);
+    }
+
     if (n == nullptr) return n;
-    for (;;) {
-      const Token upcoming = scanner_->Peek();
-      if (IsTokenIn(upcoming.type, kPrecedenceList[prec])) {
-        const Token op = scanner_->Next();
-        Node *const right = ParseWithPrecedence(prec - 1, false, allow_ternary);
-        n = Make<BinOpNode>(n, right, op.type, op.text);
-        continue;
+
+    if (!kPrecedenceList[prec].is_unary) {
+      for (;;) {
+        const Token upcoming_bin = scanner_->Peek();
+        if (IsTokenIn(upcoming_bin.type, kPrecedenceList[prec].tokens)) {
+          const Token op = scanner_->Next();
+          Node *const right =
+            ParseWithPrecedence(prec - 1, false, allow_ternary);
+          n = Make<BinOpNode>(n, right, op.type, op.text);
+          continue;
+        }
+        // Array/slice subscript [] binds at the same level as dot (.).
+        if (prec == 1 && upcoming_bin.type == '[' &&
+            !upcoming_bin.newline_since_last_token) {
+          const Token op = scanner_->Next();
+          n = Make<BinOpNode>(n, ParseArrayOrSliceAccess(), op.type, op.text);
+          continue;
+        }
+        break;
       }
-      // Array/slice subscript [] binds at the same level as dot (.).
-      if (prec == 1 && upcoming.type == '[' &&
-          !upcoming.newline_since_last_token) {
-        const Token op = scanner_->Next();
-        n = Make<BinOpNode>(n, ParseArrayOrSliceAccess(), op.type, op.text);
-        continue;
-      }
-      break;
     }
     return n;
   }

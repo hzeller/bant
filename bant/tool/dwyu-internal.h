@@ -58,7 +58,7 @@ class DWYUGenerator {
     bool is_generated;    // This is the output of some other rule.
   };
 
-  // Try to find the given file in the soruce tree or the generated tree,
+  // Try to find the given file in the source tree or the generated tree,
   // and return content and path. Virtual, to make this class testable.
   virtual std::optional<SourceFile> TryOpenFile(std::string_view source_file,
                                                 Stat &read_stats);

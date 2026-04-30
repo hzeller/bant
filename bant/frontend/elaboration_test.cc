@@ -608,7 +608,7 @@ TEST_F(ElaborationTest, StartsWithString) {
     R"(
 A = "foo/bar/baz".startswith("foo")
 B = "foo/bar/baz".startswith("baz")
-B1 = not ("foo/bar/baz".startswith("baz"))  # Precedence issue
+B1 = not "foo/bar/baz".startswith("baz")
 C = "foo/bar/baz".startswith()
 )",
     R"(
