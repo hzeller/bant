@@ -17,6 +17,7 @@
 
 #include "bant/frontend/elaboration.h"
 
+#include <cctype>
 #include <compare>
 #include <cstddef>
 #include <cstdint>
@@ -639,6 +640,9 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     if (method_name == "startswith") {
       return HandleStringStartsWith(orig, str, method->argument());
     }
+    if (method_name == "title") {
+      return HandleStringTitle(orig, str, method->argument());
+    }
     return orig;  // Not handled.
   }
 
@@ -797,6 +801,16 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     std::string subject(str);
     const auto &location = project_->GetLocation(str);
     return MakeBoolWithStringRep(location, subject.starts_with(with));
+  }
+
+  Node *HandleStringTitle(Node *orig, std::string_view str, List *args) {
+    std::string result(str);
+    bool new_word = true;
+    for (char &c : result) {
+      if (new_word && std::isalpha(c)) c = toupper(c);
+      new_word = std::isspace(c);
+    }
+    return MakeNewStringScalarFrom(result, project_->GetLocation(str));
   }
 
   Node *HandleStringRsplit(Node *orig, std::string_view str, List *args) {

@@ -621,6 +621,22 @@ C = "foo/bar/baz".startswith()
   EXPECT_EQ(result.first, result.second);
 }
 
+TEST_F(ElaborationTest, TitleString) {
+  auto result = ElabAndPrint(
+    R"(
+A = "hello world".title()
+B = "hello   w0rld".title()
+C = "h e l l o".title()
+)",
+    R"(
+A = "Hello World"
+B = "Hello   W0rld"
+C = "H E L L O"
+)");
+
+  EXPECT_EQ(result.first, result.second);
+}
+
 TEST_F(ElaborationTest, StringInList) {
   auto result = ElabAndPrint(
     R"(
