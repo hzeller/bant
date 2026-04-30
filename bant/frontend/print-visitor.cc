@@ -49,16 +49,27 @@ class ScopedPrecedence {
   PrintVisitor::PrecedenceState *const current_;
   const PrintVisitor::PrecedenceState saved_state_;
 };
-}  // namespace
 
 // TODO: put this in some other place. There is also color handling in dwyu
 // and others places.
-namespace {
 struct Colors {
   std::string_view bold;
   std::string_view assignment_lhs;
   std::string_view reset;
 };
+
+// Helper to look up the precedence level of a given operator token.
+// Returns kLowestPrecedence if the operator is not found in the precedence
+// list.
+static int GetPrecedenceLevel(TokenType op, bool is_unary = false) {
+  for (int i = 0; i <= kLowestBinaryPrecedence; ++i) {
+    if (kPrecedenceList[i].is_unary != is_unary) continue;
+    for (TokenType t : kPrecedenceList[i].tokens) {
+      if (t == op) return i;
+    }
+  }
+  return kLowestPrecedence;
+}
 }  // namespace
 
 static constexpr Colors kColor = {
@@ -125,21 +136,6 @@ void PrintVisitor::VisitList(List *l) {
   }
   PrintListTypeClose(l->type(), out_);
 }
-
-namespace {
-// Helper to look up the precedence level of a given operator token.
-// Returns kLowestPrecedence if the operator is not found in the precedence
-// list.
-int GetPrecedenceLevel(TokenType op, bool is_unary = false) {
-  for (int i = 0; i <= kLowestBinaryPrecedence; ++i) {
-    if (kPrecedenceList[i].is_unary != is_unary) continue;
-    for (TokenType t : kPrecedenceList[i].tokens) {
-      if (t == op) return i;
-    }
-  }
-  return kLowestPrecedence;
-}
-}  // namespace
 
 bool PrintVisitor::CheckAndPrintParensOpen(int node_precedence) {
   const bool needs_parens = (current_precedence_.level < node_precedence) ||
