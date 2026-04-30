@@ -389,6 +389,7 @@ EXPECT_FALSE = 5 == 7
 EXPECT_FALSE = 5 >= 7
 EXPECT_TRUE = 5 < 7 or "foo" == "bar"
 EXPECT_FALSE = 5 < 7 and "foo" == "bar"
+EXPECT_FALSE = not True
 )",
     R"(
 EXPECT_FALSE = False
@@ -399,6 +400,7 @@ EXPECT_TRUE = True
 EXPECT_FALSE = False
 EXPECT_FALSE = False
 EXPECT_TRUE = True
+EXPECT_FALSE = False
 EXPECT_FALSE = False
 )");
 
@@ -596,6 +598,24 @@ B = "foobarfoobaz".replace('foo', 'FOO')
     R"(
 A = "foo_bar_baz"
 B = "FOObarFOObaz"
+)");
+
+  EXPECT_EQ(result.first, result.second);
+}
+
+TEST_F(ElaborationTest, StartsWithString) {
+  auto result = ElabAndPrint(
+    R"(
+A = "foo/bar/baz".startswith("foo")
+B = "foo/bar/baz".startswith("baz")
+B1 = not ("foo/bar/baz".startswith("baz"))  # Precedence issue
+C = "foo/bar/baz".startswith()
+)",
+    R"(
+A = True
+B = False
+B1 = True
+C = "foo/bar/baz".startswith()
 )");
 
   EXPECT_EQ(result.first, result.second);

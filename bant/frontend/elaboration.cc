@@ -410,6 +410,9 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     case '-':
       return MakeIntWithStringRep(project_->GetLocation(scalar->AsString()),
                                   -scalar->AsInt());
+    case kNot:
+      return MakeBoolWithStringRep(project_->GetLocation(scalar->AsString()),
+                                   !scalar->AsInt());
     default: return unary;
     }
   }
@@ -633,7 +636,9 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     if (method_name == "replace") {
       return HandleStringReplace(orig, str, method->argument());
     }
-
+    if (method_name == "startswith") {
+      return HandleStringStartsWith(orig, str, method->argument());
+    }
     return orig;  // Not handled.
   }
 
@@ -783,6 +788,15 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
       start_pos += to.length();
     }
     return MakeNewStringScalarFrom(subject, project_->GetLocation(str));
+  }
+
+  Node *HandleStringStartsWith(Node *orig, std::string_view str, List *args) {
+    auto start_args = ExtractScalarPosArgs(args);
+    if (!start_args.has_value() || start_args->size() != 1) return orig;
+    const std::string_view with = start_args->at(0);
+    std::string subject(str);
+    const auto &location = project_->GetLocation(str);
+    return MakeBoolWithStringRep(location, subject.starts_with(with));
   }
 
   Node *HandleStringRsplit(Node *orig, std::string_view str, List *args) {
