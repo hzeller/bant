@@ -108,6 +108,12 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     // Implementing a few common functions. Getting out of hand to do this
     // inline here. Think of breaking them out.
     const std::string_view fun_name = f->identifier()->id();
+    if (fun_name == "struct") {
+      // fun-args: already a tagged tuple; relabel as struct.
+      List *const tagged_tuple_to_be_struct = f->argument();
+      tagged_tuple_to_be_struct->set_type(List::Type::kStruct);
+      return tagged_tuple_to_be_struct;
+    }
     if (fun_name == "glob") {
       return HandleGlob(f);
     }
@@ -271,6 +277,10 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
         FunCall *method_call = bin_op->right()->CastAsFunCall();
         if (lhs && method_call) {
           return ListMethodCall(bin_op, lhs, method_call);
+        }
+        Identifier *field = bin_op->right()->CastAsIdentifier();
+        if (lhs && field) {
+          return StructAccess(bin_op, lhs, field);
         }
       }
       break;
@@ -876,6 +886,18 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
       if (key_scalar->AsString() == key) return kv->right();
     }
     return fallback_value ? fallback_value : orig;
+  }
+
+  static Node *StructAccess(Node *orig, List *tagged_tuple, Identifier *field) {
+    if (tagged_tuple->type() != List::Type::kStruct) return orig;
+    for (Node *element : *tagged_tuple) {
+      BinOpNode *const kv = element->CastAsBinOp();
+      if (!kv || kv->op() != '=') continue;  // Looking for tagged tuple item
+      const Identifier *const struct_field = kv->left()->CastAsIdentifier();
+      if (!struct_field) continue;
+      if (struct_field->id() == field->id()) return kv->right();
+    }
+    return orig;
   }
 
   static Node *MapGetAccess(Node *orig, List *map_list, List *args) {

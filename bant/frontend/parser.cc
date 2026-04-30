@@ -600,7 +600,9 @@ class Parser::Impl {
   static TokenType EndTokenFor(List::Type type) {
     switch (type) {
     case List::Type::kList: return TokenType::kCloseSquare;
-    case List::Type::kTuple: return TokenType::kCloseParen;
+    case List::Type::kTuple:
+    case List::Type::kStruct:  // Not really happening in parser
+      return TokenType::kCloseParen;
     case List::Type::kMap: return TokenType::kCloseBrace;
     }
     return TokenType::kCloseSquare;  // Should not happen.

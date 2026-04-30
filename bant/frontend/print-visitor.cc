@@ -54,18 +54,23 @@ static void PrintListTypeOpen(List::Type t, std::ostream &out) {
   switch (t) {
   case List::Type::kList: out << "["; break;
   case List::Type::kMap: out << "{"; break;
-  case List::Type::kTuple: out << "("; break;
+  case List::Type::kTuple:
+  case List::Type::kStruct: out << "("; break;
   }
 }
 static void PrintListTypeClose(List::Type t, std::ostream &out) {
   switch (t) {
   case List::Type::kList: out << "]"; break;
   case List::Type::kMap: out << "}"; break;
-  case List::Type::kTuple: out << ")"; break;
+  case List::Type::kTuple:
+  case List::Type::kStruct: out << ")"; break;
   }
 }
 
 void PrintVisitor::VisitList(List *l) {
+  if (l->type() == List::Type::kStruct) {
+    out_ << "struct";  // this way, it looks like a function call again.
+  }
   static constexpr int kIndentSpaces = 4;
   PrintListTypeOpen(l->type(), out_);
   const bool needs_multiline = (l->size() > 1);

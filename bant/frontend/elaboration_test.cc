@@ -916,6 +916,23 @@ BAZ = {"hello": 'foo', 'another': 'bar'}
   EXPECT_EQ(result.first, result.second);
 }
 
+TEST_F(ElaborationTest, StructAccess) {
+  auto result = ElabAndPrint(
+    R"(
+SOME_STRUCT = struct(green = '#00FF00', "should skip", blue = '#0000FF')
+SFOO = SOME_STRUCT.green
+SBAR = SOME_STRUCT.blue
+SBAZ = SOME_STRUCT.noexist
+  )",
+    R"(
+SOME_STRUCT = struct(green = '#00FF00', "should skip", blue = '#0000FF')
+SFOO = '#00FF00'
+SBAR = '#0000FF'
+SBAZ = struct(green = '#00FF00', "should skip", blue = '#0000FF').noexist
+)");
+  EXPECT_EQ(result.first, result.second);
+}
+
 static std::pair<std::string, std::string> TestGlobFile(
   std::string_view test_name, ElaborationTest *test, std::string_view package,
   std::string_view filename, std::string_view glob_pattern) {

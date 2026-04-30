@@ -241,9 +241,10 @@ class List : public Node {
 
  public:
   using iterator = Container::iterator;
-  enum class Type { kList, kMap, kTuple };
+  enum class Type { kList, kMap, kTuple, kStruct };
 
   Type type() const { return type_; }
+  void set_type(Type t) { type_ = t; }
   size_t size() const { return list_.size(); }
   bool empty() const { return list_.size() == 0; }
 
@@ -274,7 +275,7 @@ class List : public Node {
   friend class BaseNodeReplacementVisitor;
   explicit List(Type t) : type_(t) {}
 
-  const Type type_;
+  Type type_;
   Container list_;
 };
 
