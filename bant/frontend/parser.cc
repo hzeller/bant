@@ -357,7 +357,7 @@ class Parser::Impl {
     return std::find(list.begin(), list.end(), t) != list.end();
   }
 
-  Node *ParseAtom(bool can_be_optional, bool allow_ternary = true) {
+  Node *ParseAtom(bool can_be_optional) {
     LOG_ENTER();
     Node *n = nullptr;
     switch (scanner_->Peek().type) {
@@ -365,19 +365,12 @@ class Parser::Impl {
     default: n = ParseValueOrIdentifier(can_be_optional);
     }
 
-    // Check for ternary if-else.
-    const Token upcoming = scanner_->Peek();
-    if (allow_ternary && upcoming.type == TokenType::kIf) {
-      return ParseIfElse(n);  // TODO: figure out what precendence level this is
-    }
-
     return n;
   }
 
-  Node *ParseWithPrecedence(int prec, bool can_be_optional = false,
-                            bool allow_ternary = true) {
+  Node *ParseWithPrecedence(int prec, bool can_be_optional = false) {
     if (prec == 0) {
-      return ParseAtom(can_be_optional, allow_ternary);
+      return ParseAtom(can_be_optional);
     }
     LOG_ENTER();
 
@@ -387,10 +380,9 @@ class Parser::Impl {
     if (kPrecedenceList[prec].is_unary &&
         IsTokenIn(upcoming.type, kPrecedenceList[prec].tokens)) {
       const Token tok = scanner_->Next();
-      n = Make<UnaryExpr>(
-        tok.type, ParseWithPrecedence(prec, can_be_optional, allow_ternary));
+      n = Make<UnaryExpr>(tok.type, ParseWithPrecedence(prec, can_be_optional));
     } else {
-      n = ParseWithPrecedence(prec - 1, can_be_optional, allow_ternary);
+      n = ParseWithPrecedence(prec - 1, can_be_optional);
     }
 
     if (n == nullptr) return n;
@@ -400,8 +392,7 @@ class Parser::Impl {
         const Token upcoming_bin = scanner_->Peek();
         if (IsTokenIn(upcoming_bin.type, kPrecedenceList[prec].tokens)) {
           const Token op = scanner_->Next();
-          Node *const right =
-            ParseWithPrecedence(prec - 1, false, allow_ternary);
+          Node *const right = ParseWithPrecedence(prec - 1, false);
           n = Make<BinOpNode>(n, right, op.type, op.text);
           continue;
         }
@@ -420,9 +411,12 @@ class Parser::Impl {
 
   Node *ParseExpression(bool can_be_optional = false,
                         bool allow_ternary = true) {
-    // TODO: implement array access and if/else
-    return ParseWithPrecedence(ABSL_ARRAYSIZE(kPrecedenceList) - 1,
-                               can_be_optional, allow_ternary);
+    Node *n =
+      ParseWithPrecedence(ABSL_ARRAYSIZE(kPrecedenceList) - 1, can_be_optional);
+    if (n && allow_ternary && scanner_->Peek().type == TokenType::kIf) {
+      n = ParseIfElse(n);
+    }
+    return n;
   }
 
   Node *ParseParenExpressionOrTuple() {

@@ -730,6 +730,8 @@ FOO = "foo" if "e" in "yes" else "bar"
 SMALL_TESTS=["f" + "oo", "bar", "baz"]  # make sure it is evaluated
 TAG = ["small"] if "foo" in SMALL_TESTS else ["moderate"]
 TAG = ["small"] if "foo" not in SMALL_TESTS else ["mod" + "erate"]
+FCALL = "hello".title() if False else "World"
+PLUS = "he" + ("lo" if False else "y")
 UNDEFINED = "foo" if variable else "bar"
 )",
     R"(
@@ -743,6 +745,8 @@ FOO = "foo"
 SMALL_TESTS=["foo", "bar", "baz"]
 TAG = ["small"]
 TAG = ["moderate"]
+FCALL = "World"
+PLUS = "hey"
 UNDEFINED = "foo" if variable else "bar"
 )");
 
