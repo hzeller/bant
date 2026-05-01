@@ -377,16 +377,39 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     return bin_op;
   }
 
+  // TODO: maybe some global variable of sorts to represent None ? We'd loose
+  // locataion though.
+  static bool IsNone(Node *node) {
+    if (node == nullptr) return true;
+    Identifier *const maybe_constant = node->CastAsIdentifier();
+    if (!maybe_constant) return false;
+    return maybe_constant->id() == "None";
+  }
+
   Node *HandleComparison(BinOpNode *bin_op) {
+    bool result;
     const Scalar *const lhs = bin_op->left()->CastAsScalar();
     const Scalar *const rhs = bin_op->right()->CastAsScalar();
+
     if (!lhs || !rhs || lhs->type() != rhs->type()) {
-      return bin_op;
+      const int none_count = IsNone(bin_op->left()) + IsNone(bin_op->right());
+      if (none_count == 0) return bin_op;  // Not a None comparison.
+      switch (bin_op->op()) {
+      case kEqualityComparison:
+        result = (none_count == 2);  // Only equal iff None == None
+        break;
+      case kNotEqual:
+        result = (none_count != 2);  // Any concrete Scalar is never None
+        break;
+      default: return bin_op;  // Can't use other comparison operators with None
+      }
+      return MakeBoolWithStringRep(
+        project_->GetLocation(bin_op->source_range()), result);
     }
+
     auto cmp = (lhs->type() == Scalar::ScalarType::kInt)
                  ? lhs->AsInt() <=> rhs->AsInt()
                  : lhs->AsString() <=> rhs->AsString();
-    bool result;
     switch (bin_op->op()) {
     case kLessThan: result = std::is_lt(cmp); break;
     case kLessEqual: result = std::is_lteq(cmp); break;

@@ -381,26 +381,38 @@ TEST_F(ElaborationTest, Comparisons) {
   auto result = ElabAndPrint(
     R"(
 EXPECT_FALSE = "foo" == "bar"
-EXPECT_TRUE = "foo" > "bar"
-EXPECT_TRUE = "foo" == "foo"
-EXPECT_TRUE = "foo" >= "foo"
-EXPECT_TRUE = 5 < 7
+EXPECT_TRUE  = "foo" > "bar"
+EXPECT_TRUE  = "foo" == "foo"
+EXPECT_TRUE  = "foo" >= "foo"
+EXPECT_TRUE  = 5 < 7
 EXPECT_FALSE = 5 == 7
 EXPECT_FALSE = 5 >= 7
-EXPECT_TRUE = 5 < 7 or "foo" == "bar"
+EXPECT_TRUE  = 5 < 7 or "foo" == "bar"
 EXPECT_FALSE = 5 < 7 and "foo" == "bar"
 EXPECT_FALSE = not True
+EXPECT_FALSE = "" == None
+EXPECT_FALSE = 42 == None
+EXPECT_TRUE  = "" != None
+EXPECT_TRUE  = 42 != None
+EXPECT_TRUE  = None == None
+EXPECT_FALSE = None != None
 )",
     R"(
 EXPECT_FALSE = False
-EXPECT_TRUE = True
-EXPECT_TRUE = True
-EXPECT_TRUE = True
-EXPECT_TRUE = True
+EXPECT_TRUE  = True
+EXPECT_TRUE  = True
+EXPECT_TRUE  = True
+EXPECT_TRUE  = True
 EXPECT_FALSE = False
 EXPECT_FALSE = False
-EXPECT_TRUE = True
+EXPECT_TRUE  = True
 EXPECT_FALSE = False
+EXPECT_FALSE = False
+EXPECT_FALSE = False
+EXPECT_FALSE = False
+EXPECT_TRUE  = True
+EXPECT_TRUE  = True
+EXPECT_TRUE  = True
 EXPECT_FALSE = False
 )");
 
