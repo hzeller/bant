@@ -130,6 +130,8 @@ Commands (unique prefix sufficient):
                      → 3 column table: (buildfile:location, ruletype, target)
     list-leafs     : Show only targets not referenced anywhere.
                      → 3 column table: (buildfile:location, ruletype, target)
+    list-filegroups: List all filegroups/genrule and the files they provide
+                     → 2 column table: (target, file*)
     aliased-by     : List targets and the various aliases pointing to it.
                      → 2 column table: (actual, alias*)
     depends-on     : List cc library targets and the libraries they depend on

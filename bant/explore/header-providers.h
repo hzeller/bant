@@ -41,10 +41,14 @@ namespace bant {
 using ProvidedFromTarget = OneToOne<std::string, BazelTarget>;
 using ProvidedFromTargetSet = OneToNSet<std::string, BazelTarget>;
 
+// An inverse map for files provided by bazel target yielding files. Used for
+// {genrule,filegroup} -> file
+using TargetProvidedFiles = OneToNSet<BazelTarget, std::string>;
+
 // Givent the "project", creates a mapping of all headers that are exported by
 // cc_library() targets to their respective targets. If a header can be reached
-// multiple ways (e.g. due to include = [] directives), thes are also part
-// of the target set.
+// multiple ways (e.g. due to include = [] directives), they are also part
+// of the keys.
 // If "suffix_index" is set, output is compatible with FinxBySuffix()
 ProvidedFromTargetSet ExtractExpandedHeaderToLibMapping(
   const ParsedProject &project, std::ostream &info_out,
@@ -77,6 +81,10 @@ ProvidedFromTarget ExtractGeneratedFromGenrule(const ParsedProject &project,
                                                std::ostream &info_out,
                                                bool suffix_index = false);
 
+// Returns a map from targets to all the files they provide. Looks
+// at filegroups and genrules.
+TargetProvidedFiles ExtractTargetProvidingFiles(const ParsedProject &project);
+
 struct FindResult {
   std::string match;  // Found match. Different from query if fuzzy match.
   const absl::btree_set<BazelTarget> *target_set;
@@ -92,7 +100,7 @@ std::optional<FindResult> FindBySuffix(const ProvidedFromTargetSet &index,
                                        std::string_view key,
                                        size_t min_fuzzy_paths = 2);
 
-// Pretty provided files and targets they are coming from in two columns.
+// Pretty-print provided files and targets they are coming from in two columns.
 void PrintProvidedSources(Session &session, const std::string &table_header,
                           const BazelTargetMatcher &pattern,
                           const ProvidedFromTarget &provided_from_lib);
@@ -100,6 +108,9 @@ void PrintProvidedSources(Session &session, const std::string &table_header,
 void PrintProvidedSources(Session &session, const std::string &table_header,
                           const BazelTargetMatcher &pattern,
                           const ProvidedFromTargetSet &provided_from_lib);
+
+void PrintTargetFileSet(Session &session, const BazelTargetMatcher &pattern,
+                        const TargetProvidedFiles &target_to_files);
 
 }  // namespace bant
 

@@ -248,6 +248,33 @@ genrule(
               Contains(Pair("gen/ai/lucy-🌈-💎.txt", T("//gen/ai:llm"))));
 }
 
+TEST(HeaderToLibMapping, FileExtraction) {
+  ParsedProjectTestUtil pp;
+  pp.Add("//some/package", R"(
+genrule(
+   name = "generated_file",
+   outs = [ "foo.h", "bar.h"],
+)");
+  pp.Add("//some/files", R"(
+filegroup(
+   name = "some_group",
+   outs = [ "hello.h", "world.h"],
+)");
+  auto target_to_file = ExtractTargetProvidingFiles(pp.project());
+  using Fs = TargetProvidedFiles::mapped_type;
+
+  EXPECT_THAT(target_to_file, Contains(Pair(T("//some/package:generated_file"),
+                                            Fs{
+                                              "some/package/foo.h",
+                                              "some/package/bar.h",
+                                            })));
+  EXPECT_THAT(target_to_file, Contains(Pair(T("//some/files:some_group"),
+                                            Fs{
+                                              "some/files/hello.h",
+                                              "some/files/world.h",
+                                            })));
+}
+
 static std::string reverse(std::string_view in) {
   // This is a whitebox approach as we know how the index needs to be stored,
   // but ok as header-providers.cc and this test go hand-in-hand.

@@ -442,6 +442,30 @@ ProvidedFromTarget ExtractGeneratedFromGenrule(const ParsedProject &project,
   return result;
 }
 
+TargetProvidedFiles ExtractTargetProvidingFiles(const ParsedProject &project) {
+  TargetProvidedFiles result;
+  for (const auto &[_, file_content] : project.ParsedFiles()) {
+    if (!file_content->ast) continue;
+    query::FindTargets(
+      file_content->ast, {"genrule", "filegroup"},
+      [&](const query::Result &params) {
+        std::vector<std::string_view> file_list;
+        query::AppendStringList(params.outs_list, file_list);
+        query::AppendStringList(params.srcs_list, file_list);
+
+        auto target = file_content->package.QualifiedTarget(params.name);
+        if (!target.has_value()) return;
+
+        auto &file_collect = result[*target];
+        for (const std::string_view file : file_list) {
+          const auto fqn = file_content->package.QualifiedFile(file);
+          file_collect.insert(fqn);
+        }
+      });
+  }
+  return result;
+}
+
 static std::string_view CommonPrefix(std::string_view a, std::string_view b) {
   if (b.length() < a.length()) {
     std::swap(a, b);
@@ -534,4 +558,21 @@ void PrintProvidedSources(Session &session, const std::string &table_header,
   }
   printer->Finish();
 }
+
+void PrintTargetFileSet(Session &session, const BazelTargetMatcher &pattern,
+                        const TargetProvidedFiles &target_to_files) {
+  auto highlighter = CreateGrepHighlighterFromFlags(session);
+  if (!highlighter) return;
+  auto printer =
+    TablePrinter::Create(session.out(), session.flags().output_format,
+                         *highlighter, {"label", "files"});
+  for (const auto &[target, files] : target_to_files) {
+    if (!pattern.Match(target)) continue;
+    std::vector<std::string> list;
+    list.insert(list.begin(), files.begin(), files.end());
+    printer->AddRowWithRepeatedLastColumn({target.ToString()}, list);
+  }
+  printer->Finish();
+}
+
 }  // namespace bant
