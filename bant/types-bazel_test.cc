@@ -206,6 +206,18 @@ TEST(TypesBazel, QualifiedFile) {
   EXPECT_EQ(p.QualifiedFile("//abs/path:quux.cc"), "abs/path/quux.cc");
 }
 
+TEST(TypesBazel, MakeRelativeFile) {
+  {
+    const BazelPackage p("", "");
+    EXPECT_EQ(p.MakeRelative("foo/bar.h"), "foo/bar.h");
+  }
+  {
+    const BazelPackage p("", "some/package");
+    EXPECT_EQ(p.MakeRelative("some/package/foo/bar.h"), "foo/bar.h");
+    EXPECT_EQ(p.MakeRelative("baz/other.h"), "baz/other.h");  // fallback
+  }
+}
+
 TEST(TypesBazel, QualifiedTarget) {
   const BazelPackage p("", "bar/baz");
   EXPECT_EQ(p.QualifiedTarget("quux"), TargetOrDie("//bar/baz:quux"));

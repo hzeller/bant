@@ -57,6 +57,9 @@ struct BazelPackage {
   std::string FullyQualifiedFile(const BazelWorkspace &workspace,
                                  std::string_view relative_file) const;
 
+  // Given a fully qualified name and make relative.
+  std::string_view MakeRelative(std::string_view fqn_file) const;
+
   auto operator<=>(const BazelPackage &o) const = default;
 };
 

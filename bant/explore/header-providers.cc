@@ -106,11 +106,43 @@ static std::string_view StripIfNeeded(std::string_view file_path,
   return file_path;
 }
 
+// Look at list of sources and see if there are labels in there that are not
+// direct files, but references to filegroups. Expands these file-groups and
+// append to the given list (for now, we just leave the filegroup labels
+// in the list)
+void ExpandFilegroupsInList(const BazelPackage &context_package,
+                            const TargetProvidedFiles &filegropus,
+                            std::vector<std::string_view> *list) {
+  absl::btree_set<std::string_view> collected_files;
+  for (const std::string_view element : *list) {
+    // Let's test if this can be resolved as a filegroup-interpretable target
+    const auto potential_target = context_package.QualifiedTarget(element);
+    if (!potential_target.has_value()) continue;
+    if (const auto found = filegropus.find(*potential_target);
+        found != filegropus.end()) {
+      for (std::string_view filename : found->second) {
+        // Filenames are fqn, but then will be attempted to make fqn later
+        // again. So make them relative for now.
+        collected_files.insert(context_package.MakeRelative(filename));
+      }
+    }
+  }
+
+  list->insert(list->end(), collected_files.begin(), collected_files.end());
+}
+
+// Indexes needed for lookups during construction of other indexes.
+struct HelperIndex {
+  OneToN<BazelTarget, BazelTarget> alias_index;
+  TargetProvidedFiles filegroups;
+};
+
 // Go through cc_library()s and call callback for each header file it exports.
 using FindHeaderCallback =
   std::function<void(const BazelTarget &library, std::string_view hdr_loc,
                      std::string_view header_fqn)>;
 static void IterateCCLibraryHeaders(const ParsedBuildFile &build_file,
+                                    const TargetProvidedFiles &filegroups,
                                     const FindHeaderCallback &callback) {
   // Unfortunately, grpc does not simply have a cc_library(), but its own
   // rule or macro, making it invisible if we just look at cc_library.
@@ -118,12 +150,13 @@ static void IterateCCLibraryHeaders(const ParsedBuildFile &build_file,
   // TODO: this might be doable with macros these days ?
   static const std::initializer_list<std::string_view> kInterestingLibRules{
     "cc_library",
-    "grpc_cc_library",
+    "grpc_cc_library",  // TODO: this should be doable with macros these days.
   };
 
+  const BazelPackage &package = build_file.package;
   query::FindTargets(
     build_file.ast, kInterestingLibRules, [&](const query::Result &cc_lib) {
-      auto cc_library = build_file.package.QualifiedTarget(cc_lib.name);
+      auto cc_library = package.QualifiedTarget(cc_lib.name);
       if (!cc_library.has_value()) return;
 
       auto hdrs = query::ExtractStringList(cc_lib.hdrs_list);
@@ -139,8 +172,7 @@ static void IterateCCLibraryHeaders(const ParsedBuildFile &build_file,
       // This way, we get the desired behavior of bant suggesting to use
       // the :string_view library.
       // Narrow this hack to the very specific library.
-      bool absl_string_view_skip =
-        (build_file.package.path.ends_with("absl/strings"));
+      bool absl_string_view_skip = (package.path.ends_with("absl/strings"));
       if (absl_string_view_skip) {
         absl_string_view_skip =
           std::find(hdrs.begin(), hdrs.end(), "string_view.h") != hdrs.end() &&
@@ -150,6 +182,10 @@ static void IterateCCLibraryHeaders(const ParsedBuildFile &build_file,
 
       hdrs.insert(hdrs.end(), textual_hdrs.begin(), textual_hdrs.end());
       query::AppendStringList(cc_lib.public_hdrs, hdrs);  // grpc hack.
+
+      // If there are references to filegroups, exand these to files first.
+      ExpandFilegroupsInList(package, filegroups, &hdrs);
+
       const auto incdirs = query::ExtractStringList(cc_lib.includes_list);
       for (const std::string_view header : hdrs) {
         if (absl_string_view_skip && header == "string_view.h") continue;
@@ -161,7 +197,7 @@ static void IterateCCLibraryHeaders(const ParsedBuildFile &build_file,
         }
 
         // Assemble the header filename as it can be #include'ed in sources.
-        const std::string header_fqn = build_file.package.QualifiedFile(header);
+        const std::string header_fqn = package.QualifiedFile(header);
 
         callback(*cc_library, header,
                  StripIfNeeded(header_fqn, cc_lib.strip_include_prefix));
@@ -202,16 +238,17 @@ static void InsertLibAndAliasesToTargetSet(
   }
 }
 
-static void AppendCCLibraryHeaders(
-  const ParsedBuildFile &build_file,
-  const OneToN<BazelTarget, BazelTarget> &alias_index, std::ostream &info_out,
-  bool suffix_index, ProvidedFromTargetSet &result) {
+static void AppendCCLibraryHeaders(const ParsedBuildFile &build_file,
+                                   const HelperIndex &idx,
+                                   std::ostream &info_out, bool suffix_index,
+                                   ProvidedFromTargetSet &result) {
   IterateCCLibraryHeaders(
-    build_file, [&](const BazelTarget &cc_library, std::string_view hdr_loc,
-                    std::string_view header_fqn) {
+    build_file, idx.filegroups,
+    [&](const BazelTarget &cc_library, std::string_view hdr_loc,
+        std::string_view header_fqn) {
       const std::string_view canonicalized = LightCanonicalizePath(header_fqn);
       const std::string key = KeyTransform(canonicalized, suffix_index);
-      InsertLibAndAliasesToTargetSet(key, cc_library, alias_index, result);
+      InsertLibAndAliasesToTargetSet(key, cc_library, idx.alias_index, result);
     });
 }
 
@@ -324,16 +361,19 @@ ProvidedFromTargetSet ExtractExpandedHeaderToLibMapping(
   const ParsedProject &project, std::ostream &info_out, bool suffix_index) {
   ProvidedFromTargetSet result;
 
-  const auto aliased_by_index = ExtractAliasedBy(project);
+  const HelperIndex idx{
+    .alias_index = ExtractAliasedBy(project),
+    .filegroups = ExtractTargetProvidingFiles(project),
+  };
 
   for (const auto &[_, build_file] : project.ParsedFiles()) {
     if (!build_file->ast) continue;
 
     // There are multiple rule types that behave like a cc library and
     // provide header files.
-    AppendCCLibraryHeaders(*build_file, aliased_by_index,  //
+    AppendCCLibraryHeaders(*build_file, idx,  //
                            info_out, suffix_index, result);
-    AppendProtoLibraryHeaders(*build_file, aliased_by_index,  //
+    AppendProtoLibraryHeaders(*build_file, idx.alias_index,  //
                               suffix_index, result);
   }
 

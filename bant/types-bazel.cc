@@ -95,6 +95,14 @@ std::string BazelPackage::FullyQualifiedFile(
   return root_dir.append(QualifiedFile(relative_file));
 }
 
+std::string_view BazelPackage::MakeRelative(std::string_view fqn_file) const {
+  if (fqn_file.starts_with(path)) {
+    const std::string_view result = fqn_file.substr(path.size());
+    if (result[0] == '/') return result.substr(1);
+  }
+  return fqn_file;  // Fallback.
+}
+
 /*static*/ std::optional<BazelPackage> BazelPackage::ParseFrom(
   std::string_view str) {
   auto maybe_colon = str.find_last_of(':');

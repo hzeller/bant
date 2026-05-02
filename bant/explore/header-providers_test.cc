@@ -118,6 +118,30 @@ cc_library(
   EXPECT_THAT(hdrs_map, Contains(Pair("baz.h", Ts("//some/path:foo"))));
 }
 
+TEST(SourceToLibMapping, LibHeaderMapExpandsFilegroups) {
+  ParsedProjectTestUtil pp;
+  pp.Add("//some/path", R"(
+filegroup(
+  name = "headers",
+  srcs = [
+     "foo.h",    # direct name
+     ":bar.h",   # but also valid with :-prefix
+  ]
+)
+
+cc_library(
+  name = "foo",
+  hdrs = [":headers"],
+)
+)");
+  std::stringstream log_absorb;
+  auto hdrs_map = ExtractExpandedHeaderToLibMapping(pp.project(), log_absorb);
+  EXPECT_THAT(hdrs_map,
+              Contains(Pair("some/path/foo.h", Ts("//some/path:foo"))));
+  EXPECT_THAT(hdrs_map,
+              Contains(Pair("some/path/bar.h", Ts("//some/path:foo"))));
+}
+
 // Sources are much simpler. Just matter-of-fact, no include path fiddling.
 TEST(SourceToLibMapping, CCRuleExtraction) {
   ParsedProjectTestUtil pp;
