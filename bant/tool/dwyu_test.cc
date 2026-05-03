@@ -802,12 +802,14 @@ cc_library(
 )
 )");
 
-  DWYUTestFixture tester(pp.project());
+  DWYUTestFixture tester(pp.project(), /*verbose_level=*/2);
   tester.AddSource("some/path/bar.cc", R"(
 #include "some/path/unaccounted-header.h"
 )");
   tester.RunForTarget("//some/path:bar");
   EXPECT_THAT(tester.LogContent(), HasSubstr("unknown provider"));
+  EXPECT_THAT(tester.LogContent(),
+              HasSubstr(":foo dependency looks superfluous"));
 }
 
 TEST(DWYUTest, DoNotRemove_AlwayslinkDependency) {

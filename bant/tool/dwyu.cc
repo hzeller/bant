@@ -800,8 +800,10 @@ void DWYUGenerator::CreateEditsForTarget(const BazelTarget &target,
       }
     } else if (!all_header_deps_known && session_.MinVerbosity(2)) {
       Loc(project_, dependency_target)
-        << ": Unsure what " << requested_target->ToString()
-        << " provides, but there are also unaccounted headers. Won't remove.\n";
+        << " " << Bold(session_) << requested_target->ToString()
+        << Norm(session_) << " dependency looks superfluous in "
+        << Bold(session_) << target << Norm(session_)
+        << ", but there are also unaccounted headers. Won't remove.\n";
     }
   }
 
