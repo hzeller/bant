@@ -796,20 +796,42 @@ cc_library(
 )
 
 cc_library(
-  name = "bar",
-  srcs = ["bar.cc"],
-  deps = [":foo"],   # Not nominally needed, but we can't be sure to remove.
+  name = "bar",          # a library without headers, should be consider keep
+  srcs = ["foo.cc"],
+)
+
+cc_library(
+  name = "baz",
+  srcs = ["baz.cc"],
+  hdrs = ["baz.h"],
+)
+
+cc_library(
+  name = "quux",
+  srcs = ["quux.cc"],
+  deps = [
+       ":foo",     # Not nominally needed, but we can't be sure to remove.
+       ":bar",     # considered an alwayslink
+       ":baz",     # buildcleaner:keep
+   ],
 )
 )");
 
   DWYUTestFixture tester(pp.project(), /*verbose_level=*/2);
-  tester.AddSource("some/path/bar.cc", R"(
+  tester.AddSource("some/path/quux.cc", R"(
 #include "some/path/unaccounted-header.h"
 )");
-  tester.RunForTarget("//some/path:bar");
+  tester.RunForTarget("//some/path:quux");
   EXPECT_THAT(tester.LogContent(), HasSubstr("unknown provider"));
   EXPECT_THAT(tester.LogContent(),
               HasSubstr(":foo dependency looks superfluous"));
+  // However, we do NOT want to report the dependency that we consider
+  // alwayslink...
+  EXPECT_THAT(tester.LogContent(),
+              Not(HasSubstr(":bar dependency looks superfluous")));
+  // .. or keep
+  EXPECT_THAT(tester.LogContent(),
+              Not(HasSubstr(":baz dependency looks superfluous")));
 }
 
 TEST(DWYUTest, DoNotRemove_AlwayslinkDependency) {
@@ -852,16 +874,25 @@ cc_library(
 cc_library(
   name = "baz",
   srcs = ["baz.cc"],
+  hdrs = ["baz.h"],   # Provides a header that is not included -> Remove lib
+)
+
+cc_library(
+  name = "quux",
+  srcs = ["quux.cc"],
   deps = [
     ":foo",
     ":bar",
+    ":baz",
   ]
 )
 )");
 
   DWYUTestFixture tester(pp.project());
-  tester.AddSource("some/path/baz.cc", "/* no include */");
-  tester.RunForTarget("//some/path:baz");
+  tester.AddSource("some/path/quux.cc", "/* no include */");
+
+  tester.ExpectRemove(":baz");  // Only one expected to be removed.
+  tester.RunForTarget("//some/path:quux");
 }
 
 TEST(DWYUTest, Add_ProtoLibraryForProtoInclude) {

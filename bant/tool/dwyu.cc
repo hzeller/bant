@@ -786,24 +786,32 @@ void DWYUGenerator::CreateEditsForTarget(const BazelTarget &target,
       continue;
     }
 
-    // Looks like we don't need this dependency. But maybe we don't quite know:
-    const bool potential_remove_suggestion_safe =
-      all_header_deps_known && !IsAlwayslink(*requested_target);
+    // -- Looks like we don't need this dependency. Consider removing.
 
-    // Emit the edits.
-    if (potential_remove_suggestion_safe) {
+    // ... but be cautious. We can only remove if we otherwise could associate
+    // a dependency for every header-include we saw.
+    const bool potential_remove_suggestion_safe = all_header_deps_known;
+
+    // There are also other reasons why we might not want to remove a dependency
+    bool veto_removal = IsAlwayslink(*requested_target);
+    if (!veto_removal) {  // But maybe buildcleaner:keep ?
       static const LazyRE2 kExcludeVetoUserCommentRe{"#.*keep"};
       const auto line = project_.GetSurroundingLine(dependency_target);
-      if (session_.flags().ignore_keep_comment ||
-          !RE2::PartialMatch(line, *kExcludeVetoUserCommentRe)) {
+      veto_removal = (!session_.flags().ignore_keep_comment &&
+                      RE2::PartialMatch(line, *kExcludeVetoUserCommentRe));
+    }
+
+    // Emit the edits.
+    if (!veto_removal) {
+      if (potential_remove_suggestion_safe) {
         emit_deps_edit_(EditRequest::kRemove, target, dependency_target, "");
+      } else if (session_.MinVerbosity(2)) {
+        Loc(project_, dependency_target)
+          << " " << Bold(session_) << requested_target->ToString()
+          << Norm(session_) << " dependency looks superfluous in "
+          << Bold(session_) << target << Norm(session_)
+          << ", but there are also unaccounted headers. Won't remove.\n";
       }
-    } else if (!all_header_deps_known && session_.MinVerbosity(2)) {
-      Loc(project_, dependency_target)
-        << " " << Bold(session_) << requested_target->ToString()
-        << Norm(session_) << " dependency looks superfluous in "
-        << Bold(session_) << target << Norm(session_)
-        << ", but there are also unaccounted headers. Won't remove.\n";
     }
   }
 
