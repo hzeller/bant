@@ -29,6 +29,7 @@
 
 using ::testing::Contains;
 using ::testing::ElementsAre;
+using ::testing::Not;
 using ::testing::Pair;
 
 namespace bant {
@@ -140,6 +141,7 @@ cc_library(
               Contains(Pair("some/path/foo.h", Ts("//some/path:foo"))));
   EXPECT_THAT(hdrs_map,
               Contains(Pair("some/path/bar.h", Ts("//some/path:foo"))));
+  EXPECT_THAT(hdrs_map, Not(Contains(Pair(":headers", Ts("//some/path:foo")))));
 }
 
 // Sources are much simpler. Just matter-of-fact, no include path fiddling.
@@ -287,16 +289,19 @@ filegroup(
   auto target_to_file = ExtractTargetProvidingFiles(pp.project());
   using Fs = TargetProvidedFiles::mapped_type;
 
-  EXPECT_THAT(target_to_file, Contains(Pair(T("//some/package:generated_file"),
-                                            Fs{
-                                              "some/package/foo.h",
-                                              "some/package/bar.h",
-                                            })));
-  EXPECT_THAT(target_to_file, Contains(Pair(T("//some/files:some_group"),
-                                            Fs{
-                                              "some/files/hello.h",
-                                              "some/files/world.h",
-                                            })));
+  // Note, we don't get the fully expanded files (some/package/foo.h), but
+  // the plain ones. If someone needs the full files, they need to expand it
+  // according to the package of the target.
+  EXPECT_THAT(target_to_file,
+              Contains(Pair(T("//some/package:generated_file"), Fs{
+                                                                  "foo.h",
+                                                                  "bar.h",
+                                                                })));
+  EXPECT_THAT(target_to_file,
+              Contains(Pair(T("//some/files:some_group"), Fs{
+                                                            "hello.h",
+                                                            "world.h",
+                                                          })));
 }
 
 static std::string reverse(std::string_view in) {

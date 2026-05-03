@@ -106,31 +106,6 @@ static std::string_view StripIfNeeded(std::string_view file_path,
   return file_path;
 }
 
-// Look at list of sources and see if there are labels in there that are not
-// direct files, but references to filegroups. Expands these file-groups and
-// append to the given list (for now, we just leave the filegroup labels
-// in the list)
-void ExpandFilegroupsInList(const BazelPackage &context_package,
-                            const TargetProvidedFiles &filegropus,
-                            std::vector<std::string_view> *list) {
-  absl::btree_set<std::string_view> collected_files;
-  for (const std::string_view element : *list) {
-    // Let's test if this can be resolved as a filegroup-interpretable target
-    const auto potential_target = context_package.QualifiedTarget(element);
-    if (!potential_target.has_value()) continue;
-    if (const auto found = filegropus.find(*potential_target);
-        found != filegropus.end()) {
-      for (std::string_view filename : found->second) {
-        // Filenames are fqn, but then will be attempted to make fqn later
-        // again. So make them relative for now.
-        collected_files.insert(context_package.MakeRelative(filename));
-      }
-    }
-  }
-
-  list->insert(list->end(), collected_files.begin(), collected_files.end());
-}
-
 // Indexes needed for lookups during construction of other indexes.
 struct HelperIndex {
   OneToN<BazelTarget, BazelTarget> alias_index;
@@ -486,24 +461,56 @@ TargetProvidedFiles ExtractTargetProvidingFiles(const ParsedProject &project) {
   TargetProvidedFiles result;
   for (const auto &[_, file_content] : project.ParsedFiles()) {
     if (!file_content->ast) continue;
-    query::FindTargets(
-      file_content->ast, {"genrule", "filegroup"},
-      [&](const query::Result &params) {
-        std::vector<std::string_view> file_list;
-        query::AppendStringList(params.outs_list, file_list);
-        query::AppendStringList(params.srcs_list, file_list);
+    query::FindTargets(file_content->ast, {"genrule", "filegroup"},
+                       [&](const query::Result &params) {
+                         std::vector<std::string_view> file_list;
+                         query::AppendStringList(params.outs_list, file_list);
+                         query::AppendStringList(params.srcs_list, file_list);
 
-        auto target = file_content->package.QualifiedTarget(params.name);
-        if (!target.has_value()) return;
+                         auto target =
+                           file_content->package.QualifiedTarget(params.name);
+                         if (!target.has_value()) return;
 
-        auto &file_collect = result[*target];
-        for (const std::string_view file : file_list) {
-          const auto fqn = file_content->package.QualifiedFile(file);
-          file_collect.insert(fqn);
-        }
-      });
+                         auto &file_collect = result[*target];
+                         for (const std::string_view file : file_list) {
+                           file_collect.insert(file);
+                         }
+                       });
   }
   return result;
+}
+
+bool ExpandFilegroupsInList(const BazelPackage &context_package,
+                            const TargetProvidedFiles &filegropus,
+                            std::vector<std::string_view> *list) {
+  bool any_expansion = false;
+  absl::btree_set<std::string_view> collected_files;
+  for (const std::string_view element : *list) {
+    bool expanded_filegroup = false;
+    // Let's test if this can be resolved as a filegroup-interpretable target
+    const auto potential_target = context_package.QualifiedTarget(element);
+    if (potential_target.has_value()) {
+      if (const auto found = filegropus.find(*potential_target);
+          found != filegropus.end()) {
+        for (std::string_view filename : found->second) {
+          collected_files.insert(filename);
+        }
+        expanded_filegroup = true;
+        any_expansion = true;
+      }
+    }
+
+    if (!expanded_filegroup) {
+      // Otherwise, just keep the file as-is
+      collected_files.insert(element);
+    }
+  }
+
+  if (any_expansion) {
+    list->clear();
+    list->insert(list->end(), collected_files.begin(), collected_files.end());
+  }
+  return any_expansion;
 }
 
 static std::string_view CommonPrefix(std::string_view a, std::string_view b) {

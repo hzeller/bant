@@ -120,7 +120,8 @@ class DWYUGenerator {
   // Log "unknown provider" warning for an unresolved include/import.
   void LogUnknownProvider(const NamedLineIndexedContent &source,
                           std::string_view ref_file,
-                          std::string_view ref_keyword);
+                          std::string_view ref_keyword,
+                          std::string_view extra_info);
 
   // Filter alternatives to only visible targets and append to result.
   void AddVisibleAlternatives(
@@ -138,6 +139,7 @@ class DWYUGenerator {
   Session &session_;
   const ParsedProject &project_;
   const EditCallback emit_deps_edit_;
+  TargetProvidedFiles filegroups_;
   ProvidedFromTargetSet headers_from_libs_;
   ProvidedFromTargetSet protos_from_libs_;
   ProvidedFromTarget files_from_genrules_;

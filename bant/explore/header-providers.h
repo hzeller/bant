@@ -23,6 +23,7 @@
 #include <ostream>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include "absl/container/btree_set.h"
 #include "bant/frontend/parsed-project.h"
@@ -42,8 +43,8 @@ using ProvidedFromTarget = OneToOne<std::string, BazelTarget>;
 using ProvidedFromTargetSet = OneToNSet<std::string, BazelTarget>;
 
 // An inverse map for files provided by bazel target yielding files. Used for
-// {genrule,filegroup} -> file
-using TargetProvidedFiles = OneToNSet<BazelTarget, std::string>;
+// {genrule,filegroup} -> file. The string-view points to original source.
+using TargetProvidedFiles = OneToNSet<BazelTarget, std::string_view>;
 
 // Givent the "project", creates a mapping of all headers that are exported by
 // cc_library() targets to their respective targets. If a header can be reached
@@ -82,8 +83,19 @@ ProvidedFromTarget ExtractGeneratedFromGenrule(const ParsedProject &project,
                                                bool suffix_index = false);
 
 // Returns a map from targets to all the files they provide. Looks
-// at filegroups and genrules.
+// at filegroups and genrules. The returned mapping are string_view that
+// point to the original locaion in the project, so can be location extracted.
 TargetProvidedFiles ExtractTargetProvidingFiles(const ParsedProject &project);
+
+// Expand every element in the list that is a filegroup with the content
+// of that filegroup; leave other elements as-is.
+// The string_views in the list will always point to the original location
+// in the project, so it is possible to trace these back to the original BUILD
+// file.
+// Returns 'true' if filegroups have been expanded.
+bool ExpandFilegroupsInList(const BazelPackage &context_package,
+                            const TargetProvidedFiles &filegropus,
+                            std::vector<std::string_view> *list);
 
 struct FindResult {
   std::string match;  // Found match. Different from query if fuzzy match.

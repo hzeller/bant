@@ -337,6 +337,39 @@ cc_library(
   }
 }
 
+TEST(DWYUTest, FilesComingFromFilegroupsAreExpanded) {
+  ParsedProjectTestUtil pp;
+  pp.Add("//path", R"(
+filegroup(
+  name = "foo_hdrs",
+  srcs = ["foo.h"],
+)
+cc_library(
+  name = "foo",
+  srcs = ["foo.cc"],
+  hdrs = [":foo_hdrs"],
+)
+
+filegroup(
+  name = "quux_srcs",
+  srcs = ["quux.cc"],
+)
+cc_library(
+  name = "quux",
+  srcs = [":quux_srcs"],
+)
+)");
+  {
+    DWYUTestFixture tester(pp.project());
+    tester.ExpectAdd(":foo");
+    tester.AddSource("path/foo.h", "");
+    tester.AddSource("path/quux.cc", R"(
+#include "path/foo.h"
+)");
+    tester.RunForTarget("//path:quux");
+  }
+}
+
 TEST(DWYUTest, ChooseMinimalDependencySetIfMultipleLibrariesProvideHeader) {
   ParsedProjectTestUtil pp;
   pp.Add("//path", R"(

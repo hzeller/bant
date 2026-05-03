@@ -374,12 +374,12 @@ std::optional<DWYUGenerator::SourceFile> DWYUGenerator::ReadSourceForDWYU(
 
 void DWYUGenerator::LogUnknownProvider(const NamedLineIndexedContent &source,
                                        std::string_view ref_file,
-                                       std::string_view ref_keyword) {
+                                       std::string_view ref_keyword,
+                                       std::string_view extra_info) {
   if (!session_.MinVerbosity(1)) return;
   Loc(source, ref_file) << " " << ref_keyword << " \"" << ref_file << "\"\n";
-  Loc(source, ref_file) << Red(session_) << "    ?      ^ unknown provider "
-                        << "-- Missing or from non-standard bazel-rule ?"
-                        << Norm(session_) << "\n";
+  Loc(source, ref_file) << Red(session_) << "    ?      ^ unknown provider"
+                        << Norm(session_) << extra_info << "\n";
 }
 
 void DWYUGenerator::AddVisibleAlternatives(
@@ -592,6 +592,16 @@ DWYUGenerator::DependenciesNeededBySources(
         continue;
       }
 
+      // Hack: seen in swig-generated files: they include "assert.h", but
+      // clearly mean the system header.
+      // So after we've checked all other possible providers, let's just waive
+      // this one here.
+      if (inc_file == "assert.h") {
+        LogUnknownProvider(source, inc_file, "#include",
+                           " (assuming system header and moving on.)");
+        continue;
+      }
+
       // Everything beyond here, we don't really know where a header is
       // coming from, so need to be careful suggesting removal of any dep.
       *all_headers_accounted_for = false;
@@ -621,7 +631,8 @@ DWYUGenerator::DependenciesNeededBySources(
         // report.
         maybe_log_sourcereference(src_name, source_content->path, target);
       }
-      LogUnknownProvider(source, inc_file, "#include");
+      LogUnknownProvider(source, inc_file, "#include",
+                         " -- Missing or from non-standard bazel-rule ?");
     }
   }
 
@@ -699,7 +710,8 @@ DWYUGenerator::DependenciesNeededByProtoSources(
       if (session_.MinVerbosity(1)) {
         maybe_log_sourcereference(src_name, source_content->path, target);
       }
-      LogUnknownProvider(source, imp_file, "import");
+      LogUnknownProvider(source, imp_file, "import",
+                         " -- Missing or from non-standard bazel-rule ?");
     }
   }
 
@@ -723,6 +735,14 @@ void DWYUGenerator::CreateEditsForTarget(const BazelTarget &target,
   auto sources = query::ExtractStringList(details.srcs_list);
   if (!is_proto_library) {
     query::AppendStringList(details.hdrs_list, sources);
+  }
+
+  // TODO: the following is expensive: we don't know what changed, so we have
+  // to re-run the expansion over all sources again. Ideally, this should be
+  // handled by ExpandFilegroupsInList() whenever it expands files.
+  int max_rounds = 2;
+  while (ExpandFilegroupsInList(target.package, filegroups_, &sources) &&
+         --max_rounds > 0) {
   }
 
   // all implicit -I with includes = ["include"] elements.
@@ -930,6 +950,11 @@ DWYUGenerator::DWYUGenerator(Session &session, const ParsedProject &project,
       emit_deps_edit_(std::move(emit_deps_edit)) {
   Stat &stats = session_.GetStatsFor("DWYU preparation", "indexed targets");
   const ScopedTimer timer(&stats.duration);
+
+  // TODO: we create this filegroups multiple times: here, but then the
+  // ExctractExpandedHaderToLibMapping() also internally does the same thing.
+  // We should just pass this through.
+  filegroups_ = ExtractTargetProvidingFiles(project);
 
   headers_from_libs_ =
     ExtractExpandedHeaderToLibMapping(project, session.info(),
