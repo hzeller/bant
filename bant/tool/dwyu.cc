@@ -557,6 +557,10 @@ DWYUGenerator::DependenciesNeededBySources(
           found.has_value()) {
         const auto &found_result = found.value();
 
+        // Is it ourselve we found ? (this can happen with messy build files).
+        // In that case: move on.
+        if (found_result.target_set->contains(target)) continue;
+
         // Do some reporting if fuzzy match hit.
         const size_t found_len = found_result.match.length();
         const size_t inc_len = inc_file.length();
@@ -579,6 +583,8 @@ DWYUGenerator::DependenciesNeededBySources(
       const std::string abs_header = build_file.package.QualifiedFile(inc_file);
       if (const auto &found = FindBySuffix(headers_from_libs_, abs_header);
           found.has_value()) {
+        if (found->target_set->contains(target)) continue;  // found self
+
         // Only complain if actionable
         if (!source_content->is_generated && session_.MinVerbosity(2)) {
           maybe_log_sourcereference(src_name, source_content->path, target);
