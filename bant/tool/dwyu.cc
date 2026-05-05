@@ -362,8 +362,10 @@ std::optional<DWYUGenerator::SourceFile> DWYUGenerator::ReadSourceForDWYU(
       << " Can not read source '" << source_file << "' for target " << target;
     const auto from_genrule = files_from_genrules_.find(source_file);
     if (from_genrule != files_from_genrules_.end()) {
-      info_out << "; Run genrule `bazel build " << from_genrule->second
+      info_out << "; Run generating `bazel build " << from_genrule->second
                << "` first.\n";
+      // Remember to put out a one-liner log in the end.
+      suggested_genrules_to_run_.insert(from_genrule->second);
     } else {
       info_out << " -- Missing ?\n";
     }
@@ -994,6 +996,19 @@ size_t DWYUGenerator::CreateEditsForPattern(const BazelTargetMatcher &pattern) {
   return matching_patterns;
 }
 
+void DWYUGenerator::PrintGenruleTargetsToRun(std::ostream &out) {
+  if (suggested_genrules_to_run_.empty()) return;
+  out << "\n"
+      << Bold(session_)
+      << "Run the following rules for bant dwyu to see generated files."
+      << Norm(session_) << "\n";
+  out << "bazel build --remote_download_outputs=all";
+  for (const BazelTarget &target : suggested_genrules_to_run_) {
+    out << " " << target;
+  }
+  out << "\n";
+}
+
 size_t CreateDependencyEdits(Session &session, const ParsedProject &project,
                              const BazelTargetMatcher &pattern,
                              const EditCallback &emit_deps_edit) {
@@ -1018,6 +1033,7 @@ size_t CreateDependencyEdits(Session &session, const ParsedProject &project,
     session.info() << " Emitted " << edits_emitted << " edits.";
   }
   session.info() << "\n";
+  gen.PrintGenruleTargetsToRun(session.info());
   return edits_emitted;
 }
 }  // namespace bant

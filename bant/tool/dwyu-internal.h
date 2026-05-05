@@ -50,6 +50,10 @@ class DWYUGenerator {
   // Return number of targets that matched pattern and have been processed.
   size_t CreateEditsForPattern(const BazelTargetMatcher &pattern);
 
+  // Print some summary of targets that should be run to get more insight
+  // in generated code.
+  void PrintGenruleTargetsToRun(std::ostream &out);
+
  protected:
   // Extracted source file.
   struct SourceFile {
@@ -144,6 +148,7 @@ class DWYUGenerator {
   ProvidedFromTargetSet protos_from_libs_;
   ProvidedFromTarget files_from_genrules_;
   absl::btree_map<BazelTarget, query::Result> known_libs_;
+  absl::btree_set<BazelTarget> suggested_genrules_to_run_;
 };
 }  // namespace bant
 
