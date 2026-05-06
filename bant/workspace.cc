@@ -17,7 +17,6 @@
 
 #include "bant/workspace.h"
 
-#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <optional>
@@ -40,6 +39,9 @@
 #include "bant/util/stat.h"
 #include "re2/re2.h"
 
+// TODO: the extraction from directory names is mostly done empirically. If
+// there is a documentation for bazel paths, we should consult that.
+
 namespace bant {
 
 static constexpr std::string_view kExternalBaseDir =
@@ -56,7 +58,7 @@ static constexpr std::string_view kExternalBaseDir =
     result.project = dir.substr(0, tilde_pos);
     result.version = dir.substr(tilde_pos + 1);
   } else {
-    if (dir.ends_with("+")) dir.remove_suffix(1);  // bazel8-ism
+    if (dir.ends_with("+")) dir.remove_suffix(1);  // bazel8+-ism
     result.project = dir;
   }
   return result;
@@ -82,7 +84,7 @@ std::optional<FilesystemPath> BazelWorkspace::FindPathByProject(
 
 bool BestEffortAugmentFromExternalDir(Session &session,
                                       BazelWorkspace &workspace) {
-  static const LazyRE2 kExtensionRe{R"/(^\+[^+]*_extension\+(.*))/"};
+  static const LazyRE2 kExtensionRe{R"/(^(?:_main)?[+~][^+~]*[+~](.*))/"};
 
   bant::Stat &workspace_stats =
     session.GetStatsFor("Augment workspace from ext. dir", "directories");
@@ -93,13 +95,10 @@ bool BestEffortAugmentFromExternalDir(Session &session,
   for (const FilesystemPath &project_dir : Glob(pattern)) {
     if (!project_dir.is_directory()) continue;  // Projects are in directories.
 
-    // Some sub-projects such as toolchains used by projects seem to be
-    // separated by extra tilde. W're only interested in the main projects.
-    if (std::ranges::count(project_dir.filename(), '~') > 1) continue;
-
     std::string_view project_name = project_dir.filename();
 
     // extensions show up as +foo_extension+projectname
+    //                    or _main~foo_extension~projectname
     std::string_view extension_match;
     if (RE2::PartialMatch(project_name, *kExtensionRe, &extension_match)) {
       project_name = extension_match;
