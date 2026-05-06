@@ -47,7 +47,7 @@ class PrintVisitorTest : public ::testing::Test {
 
     std::stringstream ss;
     PrintVisitor printer(ss);
-    EXPECT_EQ(ast->size(), 1);  // We only send one construct to this function.
+    EXPECT_EQ(ast->size(), 1u);  // We only send one construct to this function.
     ast->at(0)->Accept(&printer);
 
     // We don't care about the neat formatting with newlines and stuff, just
