@@ -603,9 +603,11 @@ DWYUGenerator::DependenciesNeededBySources(
       // So after we've checked all other possible providers, let's just waive
       // this one here.
       if (inc_file == "assert.h") {
-        maybe_log_source_headline(src_name, source_content->path, target);
-        LogUnknownProvider(source, inc_file, "#include",
-                           " (assuming system header and moving on.)");
+        if (session_.MinVerbosity(2)) {  // quasi-benign. Only on high verbose
+          maybe_log_source_headline(src_name, source_content->path, target);
+          LogUnknownProvider(source, inc_file, "#include",
+                             " (assuming system header and moving on.)");
+        }
         continue;
       }
 
