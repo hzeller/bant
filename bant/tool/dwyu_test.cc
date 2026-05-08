@@ -819,6 +819,35 @@ cc_library(
   tester.RunForTarget("//some/path:baz");
 }
 
+TEST(DWYUTest, DoNotRemove_IfThereIsSourceThatCanNotBeRead) {
+  ParsedProjectTestUtil pp;
+  pp.Add("//some/path", R"(
+cc_library(
+  name = "bar",
+  hdrs = ["bar.h"],
+)
+
+cc_library(
+  name = "foo",
+  srcs = [
+     "notfound.cc",
+  ],
+  deps = [
+     ":bar",  # dependency that we can't know if safe to remove.
+  ],
+)
+)");
+
+  {
+    DWYUTestFixture tester(pp.project(), /*verbose_level=*/2);
+    // Explicitly not adding the source.
+    // We don't know if we can remove :bar dependency.
+    tester.RunForTarget("//some/path:foo");
+    EXPECT_THAT(tester.LogContent(), HasSubstr("Can not read source"));
+    EXPECT_THAT(tester.LogContent(), HasSubstr("looks superfluous"));
+  }
+}
+
 TEST(DWYUTest, DoNotRemove_IfThereIsAHeaderThatIsUnaccounted) {
   ParsedProjectTestUtil pp;
   pp.Add("//some/path", R"(

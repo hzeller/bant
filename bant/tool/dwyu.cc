@@ -834,7 +834,7 @@ void DWYUGenerator::CreateEditsForTarget(const BazelTarget &target,
           << " " << Bold(session_) << requested_target->ToString()
           << Norm(session_) << " dependency looks superfluous in "
           << Bold(session_) << target << Norm(session_)
-          << ", but there are also unaccounted headers. Won't remove.\n";
+          << ", but there are also unaccounted sources. Won't remove.\n";
       }
     }
   }
