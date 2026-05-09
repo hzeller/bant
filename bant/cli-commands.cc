@@ -145,7 +145,7 @@ std::optional<CliStatus> RunDebugCommand(Session &session, Command cmd) {
 
   if (session.flags().elaborate) {
     const ElaborationOptions options{.builtin_macro_expansion =
-                                       session.flags().builtin_macro_expand};
+                                       session.flags().bant_macro_expand};
     Elaborate(session, &project, options, parsed);
   }
   if (cmd == Command::kPrint && parsed->ast) {
@@ -213,12 +213,12 @@ CliStatus RunCommand(Session &session, Command cmd,
   // Only for print and parse we give finer control
   if (cmd != Command::kParse && cmd != Command::kPrint) {
     flags.elaborate = true;
-    flags.builtin_macro_expand = true;
+    flags.bant_macro_expand = true;
   }
 
   if (flags.elaborate) {
     const ElaborationOptions options{.builtin_macro_expansion =
-                                       flags.builtin_macro_expand};
+                                       flags.bant_macro_expand};
     bant::Elaborate(session, &project, options);
   }
 

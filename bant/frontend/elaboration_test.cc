@@ -43,7 +43,7 @@ class ElaborationTest : public ::testing::Test {
     std::string_view expected,
     const CommandlineFlags &flags = CommandlineFlags{
       .verbose = 1,
-      .builtin_macro_expand = true,
+      .bant_macro_expand = true,
     }) {
     elaborated_ = pp_.Add(package, to_elaborate);
 
@@ -52,7 +52,7 @@ class ElaborationTest : public ::testing::Test {
     EXPECT_EQ(pp_.project().error_count(), 0) << "invalid test inputs.";
 
     const ElaborationOptions elab_options{.builtin_macro_expansion =
-                                            flags.builtin_macro_expand};
+                                            flags.bant_macro_expand};
     Session session(&std::cerr, &std::cerr, flags);
     const std::string elab_print =
       ToString(bant::Elaborate(session, &pp_.project(), elaborated_->package,
@@ -67,7 +67,7 @@ class ElaborationTest : public ::testing::Test {
     std::string_view to_elaborate, std::string_view expected,
     const CommandlineFlags &flags = CommandlineFlags{
       .verbose = 1,
-      .builtin_macro_expand = true,
+      .bant_macro_expand = true,
     }) {
     return ElabInPackageAndPrint("//elab", to_elaborate, expected, flags);
   }

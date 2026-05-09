@@ -54,7 +54,7 @@ struct CommandlineFlags {
   bool print_ast = false;  // Print ast instead of just rules.
   bool print_only_errors = false;
   bool elaborate = false;
-  bool builtin_macro_expand = false;
+  bool bant_macro_expand = false;
   bool ignore_keep_comment = false;
   bool only_physical_files = false;  // for target-{srcs,hdrs,data}
   int recurse_dependency_depth = 0;

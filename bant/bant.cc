@@ -111,7 +111,7 @@ Commands (unique prefix sufficient):
     print          : Print rules matching pattern. (-E : only files w/ errors)
                       -a : print all toplevel items in packages, not just rules.
                       -e : elaborate; light eval: expand variables, concat etc.
-                      -b : elaborate including expansion of built-in macros.
+                      -m : elaborate including expansion of macros.
                       -g, -i, -O work here and print the whole item on match.
     parse          : Parse all BUILD files from pattern. Follow deps with -r
                      Emit parse errors. Silent otherwise: No news are good news.
@@ -217,7 +217,7 @@ int main(int argc, char *argv[]) {
     {"json", OutputFormat::kJSON},     {"graphviz", OutputFormat::kGraphviz},
   };
   int opt;
-  while ((opt = getopt(argc, argv, "C:qo:vhaEF:ecbf:r::Vkg:iT:PO")) != -1) {
+  while ((opt = getopt(argc, argv, "C:qo:vhaEF:ecbmf:r::Vkg:iT:PO")) != -1) {
     switch (opt) {
     case 'C': {
       std::error_code err;
@@ -270,7 +270,12 @@ int main(int argc, char *argv[]) {
     case 'a': flags.print_ast = true; break;
     case 'E': flags.print_only_errors = true; break;
     case 'F': flags.direct_filename = optarg; break;
-    case 'b': flags.elaborate = flags.builtin_macro_expand = true; break;
+    case 'b':  // legacy for 'builtin' macro
+      fprintf(stderr, "FYI: '-b' option is renamed '-m' (for macro)\n\n");
+      [[fallthrough]];
+    case 'm':  // better name 'm' for macro as we now have .bant-macros
+      flags.elaborate = flags.bant_macro_expand = true;
+      break;
     case 'e': flags.elaborate = true; break;
     case 'f': {
       auto found = kFormatOutNames.lower_bound(optarg);

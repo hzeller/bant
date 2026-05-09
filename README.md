@@ -170,9 +170,9 @@ the result. Supported are:
   * Array accesses.
   * String and list concatenation with `+`.
   * Some basic arithmetic operators.
-  * Macro substitution of [builtin-macros] (in a bant-specific syntax) to
-    help bant better see through some constructs (used in `dwyu`; to enable
-    in printing: use `-b`).
+  * Macro substitution of [builtin-macros] or `.bant-macros` (in a
+    bant-specific syntax) to help bant better see through some constructs
+    (used in `dwyu`; to enable in printing: use `-m`).
 
 If you suspect an operation is not evaluated, invoke bant with extra verbose
 `-vv` - it will show what operations it glossed over (If observed in the field:
@@ -262,7 +262,7 @@ bant list-targets //...     # list all targets of current project
 bant list-targets -r //...  # also recursively following all dependencies
 ```
 
-If `-b` is given, the built-in macros are applied, so special rules are
+If `-m` is given, the active macros are applied, so special rules are
 expanded, making more obscure rules become `genrule` and `cc_library`.
 
 #### list-leafs
@@ -341,7 +341,7 @@ bazel build $(bant list-targets | awk '/genrule|cc_proto_library/ {print $3}')
 ```
 
 (but of course there might be other bazel rules beside obvious genrules that
-create artifacts, so `bant list-targets -b` could expand more of these
+create artifacts, so `bant list-targets -m` could expand more of these
 or global `bazel build ...` will catch these as well)
 
 Given that `bazel` adapts the visible external projects depending on what
