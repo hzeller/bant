@@ -984,6 +984,51 @@ cc_library(
   tester.RunForTarget("//some/path:bar");
 }
 
+TEST(DWYUTest, Add_ProtoLibraryForProtoIncludeViaMultiLevelDependency) {
+  ParsedProjectTestUtil pp;
+  pp.Add("//some/path", R"(
+proto_library(
+  name = "foo_proto",
+  srcs = ["foo.proto"],
+)
+
+proto_library(
+  name = "bar_proto",
+  srcs = ["bar.proto"],
+)
+
+proto_library(
+  name = "baz_proto",
+  deps = [":bar_proto"],
+)
+
+proto_library(
+  name = "all_proto",
+  deps = [
+    ":foo_proto",
+    ":baz_proto",
+  ]
+)
+
+cc_proto_library(
+  name = "all_proto_lib",
+  deps = [":all_proto"],
+)
+
+cc_library(
+  name = "bar",
+  srcs = ["bar.cc"],
+)
+)");
+
+  DWYUTestFixture tester(pp.project());
+  tester.AddSource("some/path/bar.cc", R"(
+#include "some/path/bar.pb.h"
+)");
+  tester.ExpectAdd(":all_proto_lib");
+  tester.RunForTarget("//some/path:bar");
+}
+
 TEST(DWYUTest, Add_ProtoGrpcLibraryForProtoInclude) {
   ParsedProjectTestUtil pp;
   pp.Add("//some/path", R"(
