@@ -395,7 +395,7 @@ overhead.
 
 ```
 bant v0.2.xx <http://bant.build/>
-Copyright (c) 2024-2025 Henner Zeller. This program is free software; GPL 3.0.
+Copyright (c) 2024-2026 Henner Zeller. This program is free software; GPL 3.0.
 Usage: bant [options] <command> [bazel-target-pattern...]
 Options
     -C <directory> : Change to this project directory first (default = '.')
@@ -404,11 +404,12 @@ Options
     -f <format>    : Output format, support depends on command. One of
                    : native (default), s-expr, plist, json, csv
                      Unique prefix ok, so -fs , -fp, -fj or -fc is sufficient.
-    -g <regex>     : 'grep' filter output with regular expression. Can be
+    -g <regex>     : 'grep'-filter output with regular expression. Can be
                      provided multiple times to narrow match ('and' semantics).
-                     Outputs are highlit with different colors (also see '-O')
-    -O             : 'or' smentics for for `-g`. Instead of requiring all
-                     regexs to match for a record, require one of them.
+                     Matches are highlit with different colors (also see '-O').
+    -i             : (with `-g`): Treat regex case insensitively.
+    -O             : (with `-g`): 'or' match smentics. Instead of requiring all
+                     regexs to match for a record, require at least one of them.
     -r             : Follow dependencies recursively starting from pattern.
                      Without numeric parameter, follows dependencies to the end.
                      An optional parameter allows to limit the nesting depth,
@@ -425,10 +426,8 @@ Commands (unique prefix sufficient):
     print          : Print rules matching pattern. (-E : only files w/ errors)
                       -a : print all toplevel items in packages, not just rules.
                       -e : elaborate; light eval: expand variables, concat etc.
-                      -b : elaborate including expansion of built-in macros.
-                      -g <regex> : 'grep' - only print targets where any string
-                                    matches regex.
-                      -i If '-g' is given: case insensitive
+                      -m : elaborate including expansion of macros.
+                      -g, -i, -O work here and print the whole item on match.
     parse          : Parse all BUILD files from pattern. Follow deps with -r
                      Emit parse errors. Silent otherwise: No news are good news.
                       -v : some stats.
@@ -446,13 +445,15 @@ Commands (unique prefix sufficient):
                      → 3 column table: (buildfile:location, ruletype, target)
     list-leafs     : Show only targets not referenced anywhere.
                      → 3 column table: (buildfile:location, ruletype, target)
+    list-filegroups: List all filegroups/genrule and the files they provide
+                     → 2 column table: (target, file*)
     aliased-by     : List targets and the various aliases pointing to it.
                      → 2 column table: (actual, alias*)
     depends-on     : List cc library targets and the libraries they depend on
                      → 2 column table: (target, dependency*)
     has-dependent  : List cc library targets and the libraries that depend on it
                      → 2 column table: (target, dependent*)
-    target-hdrs,    : Print either hdrs, srcs or data mentioned in targets.
+    target-hdrs,   : Print either hdrs, srcs or data mentioned in targets.
     target-srcs,     -P: only if these are physical files
     target-data      → 2 column table: (header-filename, target)
     lib-headers    : Like target-hdrs, but all reachable paths expanded with all
