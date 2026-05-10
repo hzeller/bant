@@ -200,3 +200,6 @@ xls_cc_embed_data = (
 xls_pass = bant_forward_args(
     cc_library(),
 )
+
+perfetto_proto_library = bant_forward_args(proto_library())
+perfetto_cc_proto_library = bant_forward_args(cc_proto_library())
