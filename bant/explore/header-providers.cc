@@ -159,8 +159,10 @@ static void IterateCCLibraryHeaders(const ParsedBuildFile &build_file,
       query::AppendStringList(cc_lib.public_hdrs, hdrs);  // grpc hack.
 
       // If there are references to filegroups, exand these to files first.
-      ExpandFilegroupsInList(package, filegroups, &hdrs);
-
+      int max_roudnds = 2;
+      while (ExpandFilegroupsInList(package, filegroups, &hdrs) &&
+             --max_roudnds > 0) {
+      }
       const auto incdirs = query::ExtractStringList(cc_lib.includes_list);
       for (const std::string_view header : hdrs) {
         if (absl_string_view_skip && header == "string_view.h") continue;
@@ -239,10 +241,11 @@ static void AppendCCLibraryHeaders(const ParsedBuildFile &build_file,
 //  2. find all used proto_library()s that are mentioned in cc_proto_library()s,
 //     derive the header file from the *.proto file and store the mapping
 //     header->cc_library that we're after.
-static void AppendProtoLibraryHeaders(
-  const ParsedBuildFile &build_file,
-  const OneToN<BazelTarget, BazelTarget> &alias_index, bool reverse,
-  ProvidedFromTargetSet &result) {
+static void AppendProtoLibraryHeaders(const ParsedBuildFile &build_file,
+                                      const HelperIndex &idx, bool reverse,
+                                      ProvidedFromTargetSet &result) {
+  const BazelPackage &package = build_file.package;
+
   // TODO: once we wire the DependencyGraph through, we can make the look-up
   // in one go. Also we wouldn't be limited to proto_library() and
   // cc_proto_library() having to reside in one package.
@@ -259,7 +262,7 @@ static void AppendProtoLibraryHeaders(
   OneToOne<BazelTarget, BazelTarget> proto_lib2cc_proto_lib[2];
   query::FindTargets(
     build_file.ast, kInterestingLibRules, [&](const query::Result &cc_plib) {
-      auto target = build_file.package.QualifiedTarget(cc_plib.name);
+      auto target = package.QualifiedTarget(cc_plib.name);
       if (!target.has_value()) return;
 
       const bool is_grpc = (cc_plib.rule == "cc_grpc_library");
@@ -270,7 +273,7 @@ static void AppendProtoLibraryHeaders(
                              : query::ExtractStringList(cc_plib.deps_list);
 
       for (const std::string_view dep : cc_proto_deps) {
-        auto proto_library = BazelTarget::ParseFrom(dep, build_file.package);
+        auto proto_library = BazelTarget::ParseFrom(dep, package);
         if (!proto_library.has_value()) continue;
         proto_lib2cc_proto_lib[is_grpc].insert({*proto_library, *target});
       }
@@ -283,7 +286,7 @@ static void AppendProtoLibraryHeaders(
   // Putting it all together.
   query::FindTargets(
     build_file.ast, {"proto_library"}, [&](const query::Result &proto_lib) {
-      auto target = build_file.package.QualifiedTarget(proto_lib.name);
+      auto target = package.QualifiedTarget(proto_lib.name);
       if (!target.has_value()) return;
 
       for (const bool is_grpc : {false, true}) {
@@ -301,7 +304,13 @@ static void AppendProtoLibraryHeaders(
 
         // Now, look through all *.proto files this proto_library() gets,
         // assemble the header filename from it and record in our result.
-        const auto proto_srcs = query::ExtractStringList(proto_lib.srcs_list);
+        auto proto_srcs = query::ExtractStringList(proto_lib.srcs_list);
+        query::AppendStringList(proto_lib.deps_list, proto_srcs);
+        int max_roudnds = 2;
+        while (ExpandFilegroupsInList(package, idx.filegroups, &proto_srcs) &&
+               --max_roudnds > 0) {
+        }
+
         for (std::string_view proto : proto_srcs) {
           if (!proto.ends_with(".proto")) {
             // possibly file list. Not handling that yet.
@@ -317,13 +326,13 @@ static void AppendProtoLibraryHeaders(
           const std::string_view stem = proto.substr(0, dot_pos);
           for (const std::string_view suffix : {".pb.h", ".proto.h"}) {
             std::string proto_header = absl::StrCat(stem, middle_name, suffix);
-            proto_header = build_file.package.QualifiedFile(proto_header);
+            proto_header = package.QualifiedFile(proto_header);
             // What is strip_include_prefix is called strip_import_prefix
             // for proto_library().
             const std::string_view maybe_stripped =
               StripIfNeeded(proto_header, proto_lib.strip_import_prefix);
             const std::string key = KeyTransform(maybe_stripped, reverse);
-            InsertLibAndAliasesToTargetSet(key, cc_proto_lib, alias_index,
+            InsertLibAndAliasesToTargetSet(key, cc_proto_lib, idx.alias_index,
                                            result);
           }
         }
@@ -348,7 +357,7 @@ ProvidedFromTargetSet ExtractExpandedHeaderToLibMapping(
     // provide header files.
     AppendCCLibraryHeaders(*build_file, idx,  //
                            info_out, suffix_index, result);
-    AppendProtoLibraryHeaders(*build_file, idx.alias_index,  //
+    AppendProtoLibraryHeaders(*build_file, idx,  //
                               suffix_index, result);
   }
 
@@ -461,21 +470,29 @@ TargetProvidedFiles ExtractTargetProvidingFiles(const ParsedProject &project) {
   TargetProvidedFiles result;
   for (const auto &[_, file_content] : project.ParsedFiles()) {
     if (!file_content->ast) continue;
-    query::FindTargets(file_content->ast, {"genrule", "filegroup"},
-                       [&](const query::Result &params) {
-                         std::vector<std::string_view> file_list;
-                         query::AppendStringList(params.outs_list, file_list);
-                         query::AppendStringList(params.srcs_list, file_list);
+    query::FindTargets(
+      file_content->ast, {"genrule", "filegroup", "proto_library"},
+      [&](const query::Result &params) {
+        auto target = file_content->package.QualifiedTarget(params.name);
+        if (!target.has_value()) return;
 
-                         auto target =
-                           file_content->package.QualifiedTarget(params.name);
-                         if (!target.has_value()) return;
+        std::vector<std::string_view> file_list;
+        // filegroups and proto_library have sources.
+        query::AppendStringList(params.srcs_list, file_list);
 
-                         auto &file_collect = result[*target];
-                         for (const std::string_view file : file_list) {
-                           file_collect.insert(file);
-                         }
-                       });
+        // Genrule outputs are used in other context as if
+        // they were a filegroup.
+        query::AppendStringList(params.outs_list, file_list);
+
+        // proto library deps just point to other proto files,
+        // so this also behaves like a filegroup.
+        query::AppendStringList(params.deps_list, file_list);
+
+        auto &file_collect = result[*target];
+        for (const std::string_view file : file_list) {
+          file_collect.insert(file);
+        }
+      });
   }
   return result;
 }
@@ -483,6 +500,8 @@ TargetProvidedFiles ExtractTargetProvidingFiles(const ParsedProject &project) {
 bool ExpandFilegroupsInList(const BazelPackage &context_package,
                             const TargetProvidedFiles &filegropus,
                             std::vector<std::string_view> *list) {
+  // TODO: currently users of this function recursively expand filegroups if
+  // the result contained filegroups. Put this loop in here.
   bool any_expansion = false;
   absl::btree_set<std::string_view> collected_files;
   for (const std::string_view element : *list) {
