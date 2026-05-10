@@ -477,23 +477,23 @@ DWYUGenerator::DependenciesNeededBySources(
 
   // Whenever we encounter an issue in the processing of a source, we first
   // add a headline for easier visual navigation in the log.
-  bool source_logged_already = false;
+  bool source_headline_logged_already = false;
   auto maybe_log_source_headline = [&](std::string_view src_name,
                                        const std::string &path,
                                        const BazelTarget &target) {
     if (!session_.MinVerbosity(1)) return;
-    if (source_logged_already) return;
+    if (source_headline_logged_already) return;
     Loc(project_, src_name)
       << Invert(session_) << "[ " << Bold(session_) << path << BoldOff(session_)
       << " include dependency check " << Bold(session_) << "(" << target
       << ") ]" << Norm(session_) << "\n";
-    source_logged_already = true;
+    source_headline_logged_already = true;
   };
 
   std::vector<absl::btree_set<BazelTarget>> result;
 
   for (const std::string_view src_name : sources) {
-    source_logged_already = false;
+    source_headline_logged_already = false;
     auto source_content =
       ReadSourceForDWYU(src_name, target, build_file, source_read_stats,
                         all_headers_accounted_for);
@@ -573,7 +573,10 @@ DWYUGenerator::DependenciesNeededBySources(
             << " same-suffix path '" << Magenta(session_) << found_result.match
             << Norm(session_) << "'\n";
         }
-        maybe_log(source, inc_file, *found_result.target_set);
+        if (session_.MinVerbosity(3)) {
+          maybe_log_source_headline(src_name, source_content->path, target);
+          maybe_log(source, inc_file, *found_result.target_set);
+        }
         AddVisibleAlternativesWithStratum(target, *found_result.target_set,
                                           result);
         continue;
@@ -593,7 +596,10 @@ DWYUGenerator::DependenciesNeededBySources(
             << Norm(session_) << " header relative to this file. "
             << "Consider FQN relative to project root.\n";
         }
-        maybe_log(source, inc_file, *found->target_set);
+        if (session_.MinVerbosity(3)) {
+          maybe_log_source_headline(src_name, source_content->path, target);
+          maybe_log(source, inc_file, *found->target_set);
+        }
         AddVisibleAlternativesWithStratum(target, *found->target_set, result);
         continue;
       }
