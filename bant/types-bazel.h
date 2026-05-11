@@ -100,6 +100,11 @@ inline std::ostream &operator<<(std::ostream &o, const BazelTarget &t) {
   return o << t.ToString();
 }
 
+template <typename Sink>
+void AbslStringify(Sink &sink, const BazelTarget &t) {
+  sink.Append(t.ToString());
+}
+
 // An oracle to ask if bazel targets or packages are included in some
 // pattern this matcher represents.
 class BazelTargetMatcher {
