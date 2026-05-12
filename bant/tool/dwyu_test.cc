@@ -984,7 +984,7 @@ cc_library(
   tester.RunForTarget("//some/path:bar");
 }
 
-TEST(DWYUTest, Add_ProtoLibraryForProtoIncludeViaMultiLevelDependency) {
+TEST(DWYUTest, Add_ProtoLibraryForProtoIncludeThatActsAsDependencyForwarder) {
   ParsedProjectTestUtil pp;
   pp.Add("//some/path", R"(
 proto_library(
@@ -1026,6 +1026,78 @@ cc_library(
 #include "some/path/bar.pb.h"
 )");
   tester.ExpectAdd(":all_proto_lib");
+  tester.RunForTarget("//some/path:bar");
+}
+
+TEST(DWYUTest, Add_ProtoLibraryForProtoIncludeNotADependencyForwarder) {
+  ParsedProjectTestUtil pp;
+  pp.Add("//some/path", R"(
+proto_library(
+  name = "foo_proto",
+  srcs = ["foo.proto"],
+)
+
+cc_proto_library(
+  name = "foo_proto_lib",
+  deps = [":foo_proto"],
+)
+
+proto_library(
+  name = "bar_proto",
+  srcs = ["bar.proto"],
+)
+
+cc_proto_library(
+  name = "bar_proto_lib",
+  deps = [":bar_proto"],
+)
+
+proto_library(
+  name = "baz_proto",
+  deps = [":bar_proto"],
+)
+
+cc_proto_library(
+  name = "baz_proto_lib",
+  srcs = [":baz_proto"],
+)
+
+proto_library(
+  name = "just_myproto_proto",
+  srcs = ["myproto.proto"],  # Here, we have a source
+  deps = [
+    ":foo_proto",            # ... so these are just considered private deps
+    ":baz_proto",            # ... and are not forwarded
+  ]
+)
+
+cc_proto_library(
+  name = "just_myproto_proto_lib",
+  deps = [":just_myproto_proto"],
+)
+
+cc_library(
+  name = "bar",
+  srcs = ["bar.cc"],
+  deps = [
+     # since we're not using myproto.pb.h, this library needs to be removed.
+    ":just_myproto_proto_lib"
+  ],
+)
+)");
+
+  DWYUTestFixture tester(pp.project());
+  tester.AddSource("some/path/bar.cc", R"(
+#include "some/path/foo.pb.h"
+#include "some/path/bar.pb.h"
+)");
+  // We don't exepct :just_myproto_proto_lib to be added, which was correct inc
+  // Add_ProtoLibraryForProtoIncludeThatActsAsDependencyForwarder.
+  // But since :just_myproto_proto is not a forwarding lib (it has its own
+  // srcs=[]), we have to actually expet the indivitual foo and bar proto lib
+  tester.ExpectAdd(":foo_proto_lib");
+  tester.ExpectAdd(":bar_proto_lib");
+  tester.ExpectRemove(":just_myproto_proto_lib");
   tester.RunForTarget("//some/path:bar");
 }
 

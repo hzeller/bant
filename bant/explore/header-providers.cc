@@ -305,7 +305,11 @@ static void AppendProtoLibraryHeaders(const ParsedBuildFile &build_file,
         // Now, look through all *.proto files this proto_library() gets,
         // assemble the header filename from it and record in our result.
         auto proto_srcs = query::ExtractStringList(proto_lib.srcs_list);
-        query::AppendStringList(proto_lib.deps_list, proto_srcs);
+        if (proto_srcs.empty()) {
+          // Special case: a proto library that has no sources, just acts
+          // as a filegroup for all the sources in deps.
+          query::AppendStringList(proto_lib.deps_list, proto_srcs);
+        }
         int max_roudnds = 2;
         while (ExpandFilegroupsInList(package, idx.filegroups, &proto_srcs) &&
                --max_roudnds > 0) {
@@ -485,8 +489,11 @@ TargetProvidedFiles ExtractTargetProvidingFiles(const ParsedProject &project) {
         query::AppendStringList(params.outs_list, file_list);
 
         // proto library deps just point to other proto files,
-        // so this also behaves like a filegroup.
-        query::AppendStringList(params.deps_list, file_list);
+        // but otherwise has no srcs, behaves like a filegroup
+        if (params.rule == "proto_library" &&
+            (!params.srcs_list || params.srcs_list->empty())) {
+          query::AppendStringList(params.deps_list, file_list);
+        }
 
         auto &file_collect = result[*target];
         for (const std::string_view file : file_list) {
