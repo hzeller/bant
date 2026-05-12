@@ -40,7 +40,10 @@ namespace bant {
 // and retrieve files there. If not, caching is disabled.
 // Filenames are based on arguments and the project directory.
 // If init finds an existing file, it attempts to warm the OS filesystem cache.
-void FilesystemPrewarmCacheInit(bant::Session &session, int argc, char *argv[]);
+//
+// The prewarm only happens if there is a ~/.cache/bant directory. The return
+// value indicated if prewarm caching was enabled.
+bool FilesystemPrewarmCacheInit(bant::Session &session, int argc, char *argv[]);
 
 // Tell prewarm cache of future invocations that we just accessed a file.
 bool FilesystemPrewarmCacheRememberFileWasAccessed(std::string_view file);

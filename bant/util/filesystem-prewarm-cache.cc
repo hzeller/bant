@@ -108,13 +108,15 @@ void FilesystemPrewarmCache::InitCacheFile(bant::Session &session,
 
 // -- Public interface
 
-void FilesystemPrewarmCacheInit(bant::Session &session, int argc,
+bool FilesystemPrewarmCacheInit(bant::Session &session, int argc,
                                 char *argv[]) {
   // If the user created a ~/.cache/bant directory, use that.
   const char *homedir = getenv("HOME");
-  if (!homedir) return;
+  if (!homedir) return false;
   const std::string cache_dir = absl::StrCat(homedir, "/.cache/bant");
-  if (!std::filesystem::is_directory(cache_dir)) return;  // no dir, no cache.
+  if (!std::filesystem::is_directory(cache_dir)) {
+    return false;  // no dir, no cache.
+  }
 
   // Make filename unique to match cwd and arguments.
   std::error_code err;
@@ -142,6 +144,7 @@ void FilesystemPrewarmCacheInit(bant::Session &session, int argc,
     "%s/fs-warm-%08x-%s", cache_dir, argument_dependent_hash & 0xffff'ffff,
     cwd.filename().c_str());
   FilesystemPrewarmCache::instance().InitCacheFile(session, cache_file);
+  return true;
 }
 
 bool FilesystemPrewarmCacheRememberFileWasAccessed(std::string_view file) {

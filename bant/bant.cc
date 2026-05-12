@@ -201,6 +201,8 @@ int main(int argc, char *argv[]) {
   std::ostream *primary_out = &std::cout;
   std::ostream *info_out = &std::cerr;
 
+  bool be_quiet = false;
+
   bant::CommandlineFlags flags;
   flags.do_color = isatty(STDOUT_FILENO);
 
@@ -231,6 +233,7 @@ int main(int argc, char *argv[]) {
 
     case 'G': /* reseved */ break;
     case 'q':  //
+      be_quiet = true;
       user_info_out.reset(new std::ostream(nullptr));
       info_out = user_info_out.get();
       break;
@@ -301,12 +304,13 @@ int main(int argc, char *argv[]) {
 
   bant::Session session(primary_out, info_out, flags);
   absl::Duration runtime;
+  bool did_prewarm;
   bant::CliStatus result;
 
   {
     const bant::ScopedTimer timer(&runtime);
     // Prepare filesystem
-    bant::FilesystemPrewarmCacheInit(session, argc, argv);
+    did_prewarm = bant::FilesystemPrewarmCacheInit(session, argc, argv);
     bant::Filesystem &fs = bant::Filesystem::instance();
     PossiblyApplyBazelIgnore(fs);
 
@@ -322,9 +326,22 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  if (flags.verbose) {
+  const bool unusually_long_runtime = (runtime > absl::Seconds(30));
+  if (flags.verbose || (unusually_long_runtime && !be_quiet)) {
     // If verbose explicitly chosen, we want to print this even if -q.
-    // So not to info_out, but std::cerr
+    // So not to info_out (which is null-stream then), but std::cerr
+
+    if (unusually_long_runtime) {
+      if (flags.do_color) std::cerr << "\033[35m";  // magenta
+      std::cerr
+        << "This took unusually long. Here is a breakdown (also with -v):\n";
+      if (!did_prewarm) {
+        std::cerr << "Consider filesystem prewarm cache enabling with\n\n" <<
+          "mkdir ~/.cache/bant\n\n";
+      }
+      if (flags.do_color) std::cerr << "\033[0m";
+    }
+
     for (const std::string_view subsystem : session.stat_keys()) {
       std::cerr << absl::StrFormat(
         "%-32s %s\n", subsystem,
