@@ -448,8 +448,10 @@ DWYUGenerator::DependenciesNeededBySources(
   const std::vector<std::string_view> &sources,
   const std::vector<std::string_view> &inc_paths,
   bool *all_headers_accounted_for) {
-  Stat &source_read_stats = session_.GetStatsFor("read(C++ source)", "sources");
-  Stat &source_grep_stats = session_.GetStatsFor("Grep'ed for #inc", "sources");
+  Stat &source_read_stats =
+    session_.GetStatsFor("  - read(C++ source)", "sources");
+  Stat &source_grep_stats =
+    session_.GetStatsFor("  - Grep'ed for #inc", "sources");
 
   size_t total_size = 0;
 
@@ -661,9 +663,9 @@ DWYUGenerator::DependenciesNeededByProtoSources(
   const std::vector<std::string_view> &sources,
   bool *all_imports_accounted_for) {
   Stat &source_read_stats =
-    session_.GetStatsFor("read(proto source)", "sources");
+    session_.GetStatsFor("  - read(proto source)", "sources");
   Stat &source_grep_stats =
-    session_.GetStatsFor("Grep'ed for import", "sources");
+    session_.GetStatsFor("  - Grep'ed for import", "sources");
 
   size_t total_size = 0;
 
@@ -960,7 +962,7 @@ DWYUGenerator::DWYUGenerator(Session &session, const ParsedProject &project,
     : session_(session),
       project_(project),
       emit_deps_edit_(std::move(emit_deps_edit)) {
-  Stat &stats = session_.GetStatsFor("DWYU preparation", "indexed targets");
+  Stat &stats = session_.GetStatsFor("  - DWYU preparation", "indexed targets");
   const ScopedTimer timer(&stats.duration);
 
   // TODO: we create this filegroups multiple times: here, but then the
@@ -1016,6 +1018,9 @@ void DWYUGenerator::PrintGenruleTargetsToRun(std::ostream &out) {
 size_t CreateDependencyEdits(Session &session, const ParsedProject &project,
                              const BazelTargetMatcher &pattern,
                              const EditCallback &emit_deps_edit) {
+  Stat &dwyu_stats = session.GetStatsFor("DWYU Operation", "targets");
+  const ScopedTimer timer(&dwyu_stats.duration);
+
   size_t edits_emitted = 0;
   const EditCallback edit_counting_forwarder =
     [&](EditRequest op, const BazelTarget &target,  //
@@ -1025,6 +1030,7 @@ size_t CreateDependencyEdits(Session &session, const ParsedProject &project,
     };
   DWYUGenerator gen(session, project, edit_counting_forwarder);
   const size_t target_count = gen.CreateEditsForPattern(pattern);
+  dwyu_stats.count += target_count;
   session.info() << "Checked DWYU on " << target_count << " targets.";
   if (target_count == 0 && pattern.HasFilter()) {
     session.info()
