@@ -48,7 +48,9 @@ TEST(FilesystemTest, DirectoryListing) {
   EXPECT_EQ(fs.cache_size(), 1u);
 
   EXPECT_TRUE(fs.Exists("bar"));
+  EXPECT_TRUE(fs.ExistsInDir("", "bar"));
   EXPECT_TRUE(fs.Exists("./bar"));
+  EXPECT_TRUE(fs.ExistsInDir(".", "bar"));
   EXPECT_TRUE(fs.Exists("baz"));
   EXPECT_TRUE(fs.Exists("./baz"));
 
@@ -62,6 +64,7 @@ TEST(FilesystemTest, DirectoryListing) {
   // Requesting the existence of an item in a subdirectory will read and cache
   // that subdirectory.
   EXPECT_TRUE(fs.Exists("bar/abc"));
+  EXPECT_TRUE(fs.ExistsInDir("bar", "abc"));
   EXPECT_TRUE(fs.Exists("./bar/abc"));
   EXPECT_FALSE(fs.Exists("./bar/xyz"));
 

@@ -64,9 +64,14 @@ class Filesystem {
   // The directory entries are sorted by name.
   const std::vector<DirectoryEntry> &ReadDir(std::string_view dirpath);
 
-  // Check if a path exists. This is reading the directory and checks if the
-  // filename is in there. If the directory was read before, chances are,
+  // Check if file in directory exists.
+  // This is reading the directory and checks if the filename is in there.
+  // If the directory was read before, chances are,
   // we don't even have to hit the physical filesystem.
+  bool ExistsInDir(std::string_view dir, std::string_view filename);
+
+  // Similar to ExistsInDir(), but convenience function if we have an entire
+  // path that is the dir / filename.
   bool Exists(std::string_view path);
 
   // Read file at given path and return as string. If file could not be read,

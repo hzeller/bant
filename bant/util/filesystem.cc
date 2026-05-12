@@ -125,6 +125,16 @@ const std::vector<DirectoryEntry> &Filesystem::ReadDir(
   return inserted.first->second;
 }
 
+bool Filesystem::ExistsInDir(std::string_view dir, std::string_view filename) {
+  if (dir.empty()) dir = ".";
+  DirectoryEntry compare_entry;
+  compare_entry.name = filename;
+
+  const auto &dir_content = ReadDir(dir);
+  return std::binary_search(dir_content.begin(), dir_content.end(),
+                            compare_entry);
+}
+
 bool Filesystem::Exists(std::string_view path) {
   static const std::string_view kCurrentDir(".");
   const auto last_slash = path.find_last_of('/');
@@ -133,13 +143,7 @@ bool Filesystem::Exists(std::string_view path) {
                                  : path.substr(0, last_slash);
   const std::string_view filename =
     (last_slash == std::string::npos) ? path : path.substr(last_slash + 1);
-
-  DirectoryEntry compare_entry;
-  compare_entry.name = filename;
-
-  const auto &dir_content = ReadDir(dir);
-  return std::binary_search(dir_content.begin(), dir_content.end(),
-                            compare_entry);
+  return ExistsInDir(dir, filename);
 }
 
 std::optional<std::string> Filesystem::ReadFileToString(std::string_view path) {

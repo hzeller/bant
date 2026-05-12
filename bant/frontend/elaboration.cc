@@ -47,6 +47,7 @@
 #include "bant/session.h"
 #include "bant/types-bazel.h"
 #include "bant/util/file-utils.h"
+#include "bant/util/filesystem.h"
 #include "bant/util/glob-match-builder.h"
 #include "bant/util/stat.h"
 #include "re2/re2.h"
@@ -1188,6 +1189,8 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     const std::vector<std::string_view> &include,
     const std::vector<std::string_view> &exclude) {
     CHECK(!start_dir.empty());
+    bant::Filesystem &fs = bant::Filesystem::instance();
+
     bant::Stat &glob_stats = session_.GetStatsFor("  - glob() walk ", "files");
     const ScopedTimer timer(&glob_stats.duration);
 
@@ -1211,6 +1214,16 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     auto result = CollectFilesRecursive(
       FilesystemPath(start_dir, match_builder.CommonDirectoryPrefix()),
       [&](const FilesystemPath &dir) {
+        if (dir.path().starts_with("./bazel-") && dir.is_symlink()) {
+          // TODO: figure out if we should not follow symlinks at all ?
+          // It looks like in practice, there are symlinks, e.g.
+          // bazel-out/../../../external/llvm-project/llvm/include/llvm/
+          return false;  // e.g. all the bazel-{out,bin}/
+        }
+        if (fs.ExistsInDir(dir.path(), "BUILD") ||
+            fs.ExistsInDir(dir.path(), "BUILD.bazel")) {
+          return false;  // Don't pass package boundaries.
+        }
         return dir_matcher(std::string_view(dir.path()).substr(skip_prefix));
       },
       [&](const FilesystemPath &file) {

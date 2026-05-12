@@ -336,8 +336,8 @@ int main(int argc, char *argv[]) {
       std::cerr
         << "This took unusually long. Here is a breakdown (also with -v):\n";
       if (!did_prewarm) {
-        std::cerr << "Consider filesystem prewarm cache enabling with\n\n" <<
-          "mkdir ~/.cache/bant\n\n";
+        std::cerr << "Consider filesystem prewarm cache enabling with\n\n"
+                  << "mkdir ~/.cache/bant\n\n";
       }
       if (flags.do_color) std::cerr << "\033[0m";
     }
