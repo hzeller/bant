@@ -410,24 +410,26 @@ ProvidedFromTargetSet ExtractComponentToTargetMapping(
   for (const auto &[_, build_file] : project.ParsedFiles()) {
     if (!build_file->ast) continue;
 
-    query::FindTargets(build_file->ast, {}, [&](const query::Result &cc_lib) {
-      auto cc_library = build_file->package.QualifiedTarget(cc_lib.name);
-      if (!cc_library.has_value()) return;
+    query::FindTargets(
+      build_file->ast, {"cc_library", "cc_binary"},
+      [&](const query::Result &cc_lib) {
+        auto cc_library = build_file->package.QualifiedTarget(cc_lib.name);
+        if (!cc_library.has_value()) return;
 
-      List *search_list = nullptr;
-      switch (which) {
-      case ExtractComponent::kHdrs: search_list = cc_lib.hdrs_list; break;
-      case ExtractComponent::kSrcs: search_list = cc_lib.srcs_list; break;
-      case ExtractComponent::kData: search_list = cc_lib.data_list; break;
-      }
-      auto srcs = query::ExtractStringList(search_list);
-      for (const std::string_view src : srcs) {
-        const std::string src_fqn = build_file->package.QualifiedFile(src);
-        if (!only_physical_files || fs.Exists(src_fqn)) {
-          result[src_fqn].emplace(*cc_library);
+        List *search_list = nullptr;
+        switch (which) {
+        case ExtractComponent::kHdrs: search_list = cc_lib.hdrs_list; break;
+        case ExtractComponent::kSrcs: search_list = cc_lib.srcs_list; break;
+        case ExtractComponent::kData: search_list = cc_lib.data_list; break;
         }
-      }
-    });
+        auto srcs = query::ExtractStringList(search_list);
+        for (const std::string_view src : srcs) {
+          const std::string src_fqn = build_file->package.QualifiedFile(src);
+          if (!only_physical_files || fs.Exists(src_fqn)) {
+            result[src_fqn].emplace(*cc_library);
+          }
+        }
+      });
   }
 
   return result;
