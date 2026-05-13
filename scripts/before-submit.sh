@@ -12,8 +12,14 @@ BAZEL=${BAZEL:-bazel}
 set -e
 
 # Making sure things are still compatible with c++20 and c++23
+echo "========== c++20 ==========="
 "$BAZEL" test --cxxopt=-std=c++20 --host_cxxopt=-std=c++20 ...
+
+echo "========== c++23 ==========="
 "$BAZEL" test --cxxopt=-std=c++23 --host_cxxopt=-std=c++23 ...
+
+echo "========== ASAN ==========="
+"$BAZEL" test --config=asan ...
 
 ./scripts/run-format.sh
 ./scripts/make-compilation-db.sh > /dev/null 2>&1

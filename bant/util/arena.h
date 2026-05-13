@@ -21,8 +21,8 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdio>
+#include <cstdlib>
 #include <deque>
-#include <memory>
 #include <utility>
 
 namespace bant {
@@ -31,25 +31,32 @@ namespace bant {
 class Arena {
   static constexpr int kAlignment = 8;
 
+  // With kDoBulkAllocations
+  //   - true:  do a classical 'arena' allocation with large consecutive
+  //            blocks with small elements inside.
+  //   - false: Do one malloc() per request allocation. This is slightly
+  //            slower, but allows to meaningfully use address sanitizer.
+  static constexpr bool kDoBulkAllocations =
+#ifdef ADDRESS_SANITIZER
+    false;
+#else
+    true;
+#endif
+
  public:
   explicit Arena(int block_size) : block_size_(block_size) {}
   Arena(Arena &&) noexcept = default;
   Arena(const Arena &) = delete;
 
   void *Alloc(size_t size) {
-    // Round up size to next alignment value so that subsequent allocations
-    // are also aligned.
+    // Round up size to next alignment value
     // TODO: instead of a fixed alignment, take alignof() of type to allocate
     // into account.
     size += kAlignment - (size % kAlignment);
-    if (pos_ == nullptr || std::cmp_greater(size, (end_ - pos_))) {
-      NewBlock(std::max(size, block_size_));  // max: allow oversized allocs
-    }
     total_allocations_++;
     total_bytes_ += size;
-    void *const start = pos_;
-    pos_ += size;
-    return start;
+
+    return kDoBulkAllocations ? NextBlockAlloc(size) : LowLevelAlloc(size);
   }
 
   // Convenience allocation calling T constructor in place
@@ -59,6 +66,10 @@ class Arena {
   }
 
   ~Arena() {
+    for (void *p : blocks_) {
+      std::free(p);
+    }
+
     if (!verbose_ || blocks_.empty()) return;
 
     fprintf(stderr, "Arena: %6zu allocations in %zu blocks; ",
@@ -73,15 +84,28 @@ class Arena {
   void SetVerbose(bool verbose) { verbose_ = verbose; }
 
  private:
+  void *LowLevelAlloc(size_t size) {
+    return blocks_.emplace_back(std::aligned_alloc(kAlignment, size));
+  }
+
+  void *NextBlockAlloc(size_t size) {
+    if (pos_ == nullptr || std::cmp_greater(size, (end_ - pos_))) {
+      NewBlock(std::max(size, block_size_));  // max: allow oversized allocs
+    }
+    void *const start = pos_;
+    pos_ += size;
+    return start;
+  }
+
   // Allocate new block, updates current block.
   void NewBlock(size_t request) {
-    char *buffer = blocks_.emplace_back(new char[request]).get();
+    char *buffer = static_cast<char *>(LowLevelAlloc(request));
     end_ = buffer + request;
     pos_ = buffer;
   }
 
   const size_t block_size_;
-  std::deque<std::unique_ptr<char[]>> blocks_;
+  std::deque<void *> blocks_;
 
   const char *end_ = nullptr;
   char *pos_ = nullptr;
