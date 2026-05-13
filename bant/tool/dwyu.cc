@@ -359,8 +359,9 @@ std::optional<DWYUGenerator::SourceFile> DWYUGenerator::ReadSourceForDWYU(
   source_content = TryOpenFile(source_file, read_stats);
   if (!source_content.has_value()) {
     std::ostream &info_out = session_.info();
-    Loc(project_, src_name)
-      << " Can not read source '" << source_file << "' for target " << target;
+    Loc(project_, src_name) << " Can not read source '" << Magenta(session_)
+                            << source_file << Norm(session_) << "' for target "
+                            << Bold(session_) << target << Norm(session_);
     const auto from_genrule = files_from_genrules_.find(source_file);
     if (from_genrule != files_from_genrules_.end()) {
       info_out << "; Run generating `bazel build " << from_genrule->second
@@ -811,10 +812,12 @@ void DWYUGenerator::CreateEditsForTarget(const BazelTarget &target,
         Loc(project_, dependency_target)
           << " in target " << target << ": dependency " << dependency_target
           << " same dependency mentioned multiple times. Run buildifier\n";
-      } else {
+      } else if (session_.MinVerbosity(1)) {
         Loc(project_, dependency_target)
-          << " in target " << target << ": dependency " << dependency_target
-          << " provides headers already provided by " << previously
+          << " in target " << target << ": dependency " << Bold(session_)
+          << dependency_target << Norm(session_)
+          << " provides headers already provided by " << Bold(session_)
+          << previously << Norm(session_)
           << " before. Multiple libraries providing the same headers ?\n";
       }
       continue;
