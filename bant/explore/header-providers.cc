@@ -64,9 +64,6 @@
 //    We need to look at both, as we only can derive the name of the header
 //    file from the proto buffer file, but need to get the user-chosen name
 //    of the libary from cc_proto_iibrary().
-//  - grpc_cc_library() : project specific hack for complicated rules in the
-//    grpc project. This is like a cc_library(), but also defines
-//    headers in a public_hdrs = [] kwarg
 //  - cc_grpc_library() : This is the proto library version of grpc.
 //    (with a confusing name). It creates another proto header, based on
 //    the original name of the *.proto file.
@@ -119,13 +116,8 @@ using FindHeaderCallback =
 static void IterateCCLibraryHeaders(const ParsedBuildFile &build_file,
                                     const TargetProvidedFiles &filegroups,
                                     const FindHeaderCallback &callback) {
-  // Unfortunately, grpc does not simply have a cc_library(), but its own
-  // rule or macro, making it invisible if we just look at cc_library.
-  // Hacking it up here to look also for the grpc version.
-  // TODO: this might be doable with macros these days ?
   static const std::initializer_list<std::string_view> kInterestingLibRules{
     "cc_library",
-    "grpc_cc_library",  // TODO: this should be doable with macros these days.
   };
 
   const BazelPackage &package = build_file.package;
@@ -156,7 +148,6 @@ static void IterateCCLibraryHeaders(const ParsedBuildFile &build_file,
       }
 
       hdrs.insert(hdrs.end(), textual_hdrs.begin(), textual_hdrs.end());
-      query::AppendStringList(cc_lib.public_hdrs, hdrs);  // grpc hack.
 
       // If there are references to filegroups, exand these to files first.
       int max_roudnds = 2;

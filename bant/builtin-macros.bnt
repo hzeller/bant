@@ -85,6 +85,24 @@ bssl_cc_library = bant_forward_args(
     cc_library(),
 )
 
+### Grpc
+grpc_cc_library = cc_library(
+    name = name,
+    srcs = srcs,
+    hdrs = hdrs + public_hdrs,
+    deps = deps,
+    includes = [
+        "include",
+        "src/core/ext/upb-gen",
+        "src/core/ext/upbdefs-gen",
+    ],
+    visibility = visibility,
+    alwayslink = alwayslink,
+    data = data,
+    tags = tags,
+    linkstatic = linkstatic,
+)
+
 ### Found in XLS.
 xls_dslx_ir = genrule(
     name = name,
