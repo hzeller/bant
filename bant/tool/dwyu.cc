@@ -443,11 +443,16 @@ void DWYUGenerator::AddVisibleAlternativesWithStratum(
   }
 }
 
+// TODO: the following does a bunch per source file. This should probably
+// be encasulated in a struct or class PerSourceFileDWYU that captures
+// all the context and has methods such as HeaderMentionedInOwnSources()
+// HeaderIsMentionedInOwnSourceWithIncludePath() etc.
+// That way we avoid the various unnamed blocks in a huge loop.
 std::vector<absl::btree_set<BazelTarget>>
 DWYUGenerator::DependenciesNeededBySources(
   const BazelTarget &target, const ParsedBuildFile &build_file,
-  const std::vector<std::string_view> &sources,
-  const std::vector<std::string_view> &inc_paths,
+  const std::vector<std::string_view> &sources,            // srcs, hdrs
+  const std::vector<std::string_view> &includes_dir_list,  // includes = []
   bool *all_headers_accounted_for) {
   Stat &source_read_stats =
     session_.GetStatsFor("  - read(C++ source)", "sources");
@@ -505,6 +510,8 @@ DWYUGenerator::DependenciesNeededBySources(
 
     ++source_grep_stats.count;
     total_size += source_content->content.size();
+
+    // Here we should create a struct PerSourceFileDWYU getting source_content
     NamedLineIndexedContent source(source_content->path,
                                    source_content->content);
     std::vector<std::string_view> pound_includes;
@@ -514,14 +521,16 @@ DWYUGenerator::DependenciesNeededBySources(
     }
     // Now for all includes, we need to make sure we can account for it.
     for (const std::string_view inc_file : pound_includes) {
+      // Possible refactor-name HeaderMentionedInOwnSources()
       if (IsHeaderInList(inc_file, sources, target.package.path)) {
         continue;  // Cool, our own list srcs=[...], hdrs=[...]
       }
 
+      // Possible refactor-name HeaderIsMentionedInOwnSourceWithIncludePath()
       // Check for all include prefices found in includes = [], effectively
       // making includes visible under shorter paths.
       bool found_local_inc = false;
-      for (std::string_view src_prefix : inc_paths) {
+      for (std::string_view src_prefix : includes_dir_list) {
         if (IsHeaderInList(inc_file, sources, src_prefix)) {
           // Only complain if actionable
           if (!source_content->is_generated && session_.MinVerbosity(2)) {
@@ -538,6 +547,7 @@ DWYUGenerator::DependenciesNeededBySources(
       }
       if (found_local_inc) continue;
 
+      // Possible refactor-name HeaderIsMentionedInOwnSourcesViaDotInclude()
       // mmh, maybe we included it without the proper prefix, but somewhat
       // assuming it is local ? Some code assumes `-I.`
       std::string_view src_prefix;
@@ -557,6 +567,7 @@ DWYUGenerator::DependenciesNeededBySources(
         continue;  // But, anyway, found it in our own sources; accounted for.
       }
 
+      // Possible refactor-name FindDependencyFromHeaderName()
       if (const auto &found = FindBySuffix(headers_from_libs_, inc_file);
           found.has_value()) {
         const auto &found_result = found.value();
@@ -587,6 +598,7 @@ DWYUGenerator::DependenciesNeededBySources(
         continue;
       }
 
+      // Possible refactor-name FindDependencyFromHeaderNameFuzzyDirMatch()
       // Maybe include is not provided with path relative to project root ?
       const std::string abs_header = build_file.package.QualifiedFile(inc_file);
       if (const auto &found = FindBySuffix(headers_from_libs_, abs_header);
@@ -609,6 +621,7 @@ DWYUGenerator::DependenciesNeededBySources(
         continue;
       }
 
+      // Possible refactor-name MaybeIgnoreUnnacountedHeaderIfLooksLikeSystem()
       // Hack: seen in swig-generated files: they include "assert.h", but
       // clearly mean the system header.
       // So after we've checked all other possible providers, let's just waive
@@ -761,14 +774,14 @@ void DWYUGenerator::CreateEditsForTarget(const BazelTarget &target,
   }
 
   // all implicit -I with includes = ["include"] elements.
-  auto inc_dirs = query::ExtractStringList(details.includes_list);
+  auto includes_list = query::ExtractStringList(details.includes_list);
 
   // Grep for all includes/imports they use to determine which deps we need
   auto deps_needed =
     is_proto_library
       ? DependenciesNeededByProtoSources(target, build_file, sources,
                                          &all_header_deps_known)
-      : DependenciesNeededBySources(target, build_file, sources, inc_dirs,
+      : DependenciesNeededBySources(target, build_file, sources, includes_list,
                                     &all_header_deps_known);
   deps_needed = MinimizeDependencySet(deps_needed);
   OneToOne<BazelTarget, BazelTarget> checked_off_by;
