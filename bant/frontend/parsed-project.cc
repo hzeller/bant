@@ -191,8 +191,13 @@ ParsedBuildFile *ParsedProject::AddBuildFileContent(Session &session,
   Stat &parse_stat = session.GetStatsFor("Parse & build AST", "BUILD files");
   const ScopedTimer timer(&parse_stat.duration);
 
+  std::string_view build_file_path = file.path();
+  if (build_file_path.starts_with("./")) {
+    build_file_path.remove_prefix(2);  // typical prefix from **/BUILD globbing.
+  }
+
   auto inserted = package_to_parsed_.emplace(
-    package, new ParsedBuildFile(file.path(), std::move(content)));
+    package, new ParsedBuildFile(build_file_path, std::move(content)));
 
   if (!inserted.second) {
     ParsedBuildFile *const existing = inserted.first->second.get();
