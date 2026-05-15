@@ -35,6 +35,7 @@
 #include "bant/session.h"
 #include "bant/tool/edit-callback.h"
 #include "bant/types-bazel.h"
+#include "bant/types.h"
 #include "bant/util/stat.h"
 
 namespace bant {
@@ -53,6 +54,9 @@ class DWYUGenerator {
   // Print some summary of targets that should be run to get more insight
   // in generated code.
   void PrintGenruleTargetsToRun(std::ostream &out);
+
+  // Print summary of all the sources that could not be found.
+  void PrintSourcesNotFound(std::ostream &out);
 
  protected:
   // Extracted source file.
@@ -125,7 +129,8 @@ class DWYUGenerator {
   void LogUnknownProvider(const NamedLineIndexedContent &source,
                           std::string_view ref_file,
                           std::string_view ref_keyword,
-                          std::string_view extra_info);
+                          std::string_view extra_info,
+                          bool remmber_for_summary);
 
   // Filter alternatives to only visible targets and append to result.
   void AddVisibleAlternatives(
@@ -148,7 +153,10 @@ class DWYUGenerator {
   ProvidedFromTargetSet protos_from_libs_;
   ProvidedFromTarget files_from_genrules_;
   absl::btree_map<BazelTarget, query::Result> known_libs_;
+
+  // Collected information that is later emitted as summary
   absl::btree_set<BazelTarget> suggested_genrules_to_run_;
+  OneToNSet<std::string, std::string> header_without_provider_;
 };
 }  // namespace bant
 

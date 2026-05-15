@@ -381,8 +381,12 @@ std::optional<DWYUGenerator::SourceFile> DWYUGenerator::ReadSourceForDWYU(
 void DWYUGenerator::LogUnknownProvider(const NamedLineIndexedContent &source,
                                        std::string_view ref_file,
                                        std::string_view ref_keyword,
-                                       std::string_view extra_info) {
+                                       std::string_view extra_info,
+                                       bool remember_for_summary = true) {
   if (!session_.MinVerbosity(1)) return;
+  if (remember_for_summary) {
+    header_without_provider_[ref_file].insert(source.Loc(ref_file));
+  }
   Loc(source, ref_file) << " " << ref_keyword << " \"" << ref_file << "\"\n";
   Loc(source, ref_file) << Red(session_) << "    ?      ^ unknown provider"
                         << Norm(session_) << extra_info << "\n";
@@ -632,7 +636,7 @@ DWYUGenerator::DependenciesNeededBySources(
         if (session_.MinVerbosity(2)) {  // quasi-benign. Only on high verbose
           maybe_log_source_headline(src_name, source_content->path, target);
           LogUnknownProvider(source, inc_file, "#include",
-                             " (assuming system header and moving on.)");
+                             " (assuming system header and moving on.)", false);
         }
         continue;
       }
@@ -1027,10 +1031,28 @@ void DWYUGenerator::PrintGenruleTargetsToRun(std::ostream &out) {
       << "Run the following rules for bant dwyu to see generated files."
       << Norm(session_) << "\n";
   out << "bazel build --remote_download_outputs=all";
-  for (const BazelTarget &target : suggested_genrules_to_run_) {
-    out << " " << target;
-  }
+  out << absl::StrJoin(suggested_genrules_to_run_, " ");
   out << "\n";
+}
+
+void DWYUGenerator::PrintSourcesNotFound(std::ostream &out) {
+  if (header_without_provider_.empty()) return;
+  out << "\n"
+      << Bold(session_)
+      << "Summary of includes that were seen in sources but no known "
+      << "libraries providing them." << Norm(session_) << "\n";
+
+  for (const auto &[header, srcs] : header_without_provider_) {
+    out << Magenta(session_) << header << Norm(session_);
+    if (header.find_first_of('/') == std::string::npos) {
+      out << Red(session_) << "   (empty path up to that file)"
+          << Norm(session_);
+    }
+    out << "\n";
+    for (const std::string &src_loc : srcs) {
+      out << "\t" << src_loc << "\n";
+    }
+  }
 }
 
 size_t CreateDependencyEdits(Session &session, const ParsedProject &project,
@@ -1062,6 +1084,9 @@ size_t CreateDependencyEdits(Session &session, const ParsedProject &project,
   }
   session.info() << "\n";
   gen.PrintGenruleTargetsToRun(session.info());
+  if (session.MinVerbosity(2)) {
+    gen.PrintSourcesNotFound(session.info());
+  }
   return edits_emitted;
 }
 }  // namespace bant
