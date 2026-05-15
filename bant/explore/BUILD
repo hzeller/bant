@@ -67,6 +67,7 @@ cc_library(
         "//bant:session",
         "//bant:types",
         "//bant:types-bazel",
+        "//bant:workspace",
         "//bant/frontend:parsed-project",
         "//bant/frontend:parser",
         "//bant/util:file-utils",

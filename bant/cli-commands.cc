@@ -393,7 +393,7 @@ CliStatus RunCommand(Session &session, Command cmd,
   }
 
   case Command::kListFilegroups:
-    bant::PrintTargetFileSet(session, print_pattern,
+    bant::PrintTargetFileSet(session, project.workspace(), print_pattern,
                              ExtractFilegroupTargets(project));
     break;
 

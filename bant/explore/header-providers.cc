@@ -40,6 +40,7 @@
 #include "bant/util/filesystem.h"
 #include "bant/util/grep-highlighter.h"
 #include "bant/util/table-printer.h"
+#include "bant/workspace.h"
 
 // The header providers maps header filenames to all the libraries that
 // provide these, including all the alises pointing to these libraries.
@@ -641,7 +642,8 @@ void PrintProvidedSources(Session &session, const std::string &table_header,
   printer->Finish();
 }
 
-void PrintTargetFileSet(Session &session, const BazelTargetMatcher &pattern,
+void PrintTargetFileSet(Session &session, const BazelWorkspace &workspace,
+                        const BazelTargetMatcher &pattern,
                         const TargetProvidedFiles &target_to_files) {
   auto highlighter = CreateGrepHighlighterFromFlags(session);
   if (!highlighter) return;
@@ -652,7 +654,8 @@ void PrintTargetFileSet(Session &session, const BazelTargetMatcher &pattern,
     if (!pattern.Match(target)) continue;
     std::vector<std::string> list;
     for (const std::string_view package_relative_file : files) {
-      list.emplace_back(target.package.QualifiedFile(package_relative_file));
+      list.emplace_back(
+        target.package.FullyQualifiedFile(workspace, package_relative_file));
     }
     printer->AddRowWithRepeatedLastColumn({target.ToString()}, list);
   }

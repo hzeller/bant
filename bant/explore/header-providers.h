@@ -30,6 +30,7 @@
 #include "bant/session.h"
 #include "bant/types-bazel.h"
 #include "bant/types.h"
+#include "bant/workspace.h"
 
 // TODO: Given that this not only provides HeaderToLibMapping but also
 // from Genrule, the name of this file is somewhat a misnomer.
@@ -123,7 +124,8 @@ void PrintProvidedSources(Session &session, const std::string &table_header,
 
 // Print filegroup-like set, mapping BazelTarget -> filestheyprovide*
 // Makes files fully qualified
-void PrintTargetFileSet(Session &session, const BazelTargetMatcher &pattern,
+void PrintTargetFileSet(Session &session, const BazelWorkspace &workspace,
+                        const BazelTargetMatcher &pattern,
                         const TargetProvidedFiles &target_to_files);
 
 }  // namespace bant
