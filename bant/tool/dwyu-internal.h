@@ -130,7 +130,7 @@ class DWYUGenerator {
                           std::string_view ref_file,
                           std::string_view ref_keyword,
                           std::string_view extra_info,
-                          bool remmber_for_summary);
+                          bool remember_for_summary);
 
   // Filter alternatives to only visible targets and append to result.
   void AddVisibleAlternatives(

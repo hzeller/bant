@@ -1028,9 +1028,9 @@ void DWYUGenerator::PrintGenruleTargetsToRun(std::ostream &out) {
   if (suggested_genrules_to_run_.empty()) return;
   out << "\n"
       << Bold(session_)
-      << "Run the following rules for bant dwyu to see generated files."
+      << "[ Run the following rules for bant dwyu to see generated files. ]"
       << Norm(session_) << "\n";
-  out << "bazel build --remote_download_outputs=all";
+  out << "bazel build --remote_download_outputs=all ";
   out << absl::StrJoin(suggested_genrules_to_run_, " ");
   out << "\n";
 }
@@ -1039,13 +1039,18 @@ void DWYUGenerator::PrintSourcesNotFound(std::ostream &out) {
   if (header_without_provider_.empty()) return;
   out << "\n"
       << Bold(session_)
-      << "Summary of includes that were seen in sources but no known "
-      << "libraries providing them." << Norm(session_) << "\n";
-
+      << "[ Summary of includes that were seen in sources but no known "
+      << "libraries providing them. ]" << Norm(session_) << "\n\n";
+  out << Bold(session_)
+      << "Debugging tip to narrow (Also note, some might be benign, e.g. "
+         "behind #ifdefs)"
+      << Norm(session_);
+  out << "\n\n\t$ bant print -m ... -g <include>  # prints any rule mentioning "
+         "header\n\n";
   for (const auto &[header, srcs] : header_without_provider_) {
     out << Magenta(session_) << header << Norm(session_);
     if (header.find_first_of('/') == std::string::npos) {
-      out << Red(session_) << "   (empty path up to that file)"
+      out << Red(session_) << " (file without path will not be fuzzy-matched)"
           << Norm(session_);
     }
     out << "\n";
@@ -1053,6 +1058,7 @@ void DWYUGenerator::PrintSourcesNotFound(std::ostream &out) {
       out << "\t" << src_loc << "\n";
     }
   }
+  out << "\n";
 }
 
 size_t CreateDependencyEdits(Session &session, const ParsedProject &project,
