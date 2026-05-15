@@ -139,8 +139,9 @@ Commands (unique prefix sufficient):
     has-dependent  : List cc library targets and the libraries that depend on it
                      → 2 column table: (target, dependent*)
     target-hdrs,   : Print either hdrs, srcs or data mentioned in targets.
-    target-srcs,     -P: only if these are physical files; -d only duplicates
-    target-data      → 2 column table: (filename, target*)
+    target-srcs,     -P: only if these are non-generated physical files
+    target-data      -d duplicates: files mentioned by multiple targets
+                     → 2 column table: (filename, target*)
     lib-headers    : Like target-hdrs, but all reachable paths expanded with all
                      combinations of includes = [], include_prefix, etc.
                      So same header can show up multiple times with different

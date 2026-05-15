@@ -85,7 +85,7 @@ ProvidedFromTarget ExtractGeneratedFromGenrule(const ParsedProject &project,
 // Returns a map from targets to all the files they provide. Looks
 // at filegroups and genrules. The returned mapping are string_view that
 // point to the original locaion in the project, so can be location extracted.
-TargetProvidedFiles ExtractTargetProvidingFiles(const ParsedProject &project);
+TargetProvidedFiles ExtractFilegroupTargets(const ParsedProject &project);
 
 // Expand every element in the list that is a filegroup with the content
 // of that filegroup; leave other elements as-is.

@@ -286,7 +286,7 @@ filegroup(
    name = "some_group",
    outs = [ "hello.h", "world.h"],
 )");
-  auto target_to_file = ExtractTargetProvidingFiles(pp.project());
+  auto target_to_file = ExtractFilegroupTargets(pp.project());
   using Fs = TargetProvidedFiles::mapped_type;
 
   // Note, we don't get the fully expanded files (some/package/foo.h), but

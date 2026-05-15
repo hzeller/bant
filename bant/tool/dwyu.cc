@@ -982,9 +982,9 @@ DWYUGenerator::DWYUGenerator(Session &session, const ParsedProject &project,
   const ScopedTimer timer(&stats.duration);
 
   // TODO: we create this filegroups multiple times: here, but then the
-  // ExctractExpandedHaderToLibMapping() also internally does the same thing.
+  // ExtractExpandedHeaderToLibMapping() also internally does the same thing.
   // We should just pass this through.
-  filegroups_ = ExtractTargetProvidingFiles(project);
+  filegroups_ = ExtractFilegroupTargets(project);
 
   headers_from_libs_ =
     ExtractExpandedHeaderToLibMapping(project, session.info(),

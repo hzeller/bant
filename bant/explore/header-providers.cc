@@ -342,7 +342,7 @@ ProvidedFromTargetSet ExtractExpandedHeaderToLibMapping(
 
   const HelperIndex idx{
     .alias_index = ExtractAliasedBy(project),
-    .filegroups = ExtractTargetProvidingFiles(project),
+    .filegroups = ExtractFilegroupTargets(project),
   };
 
   for (const auto &[_, build_file] : project.ParsedFiles()) {
@@ -395,6 +395,7 @@ ProvidedFromTargetSet ExtractProtoToProtoLibMapping(
 ProvidedFromTargetSet ExtractComponentToTargetMapping(
   const ParsedProject &project, ExtractComponent which,
   bool only_physical_files, std::ostream &info_out) {
+  const auto filegroups = ExtractFilegroupTargets(project);
   auto &fs = Filesystem::instance();
   ProvidedFromTargetSet result;
 
@@ -404,7 +405,8 @@ ProvidedFromTargetSet ExtractComponentToTargetMapping(
     query::FindTargets(
       build_file->ast, {"cc_library", "cc_binary"},
       [&](const query::Result &cc_lib) {
-        auto cc_library = build_file->package.QualifiedTarget(cc_lib.name);
+        const BazelPackage &package = build_file->package;
+        auto cc_library = package.QualifiedTarget(cc_lib.name);
         if (!cc_library.has_value()) return;
 
         List *search_list = nullptr;
@@ -414,8 +416,12 @@ ProvidedFromTargetSet ExtractComponentToTargetMapping(
         case ExtractComponent::kData: search_list = cc_lib.data_list; break;
         }
         auto srcs = query::ExtractStringList(search_list);
+        int max_roudnds = 2;
+        while (ExpandFilegroupsInList(package, filegroups, &srcs) &&
+               --max_roudnds > 0) {
+        }
         for (const std::string_view src : srcs) {
-          const std::string src_fqn = build_file->package.QualifiedFile(src);
+          const std::string src_fqn = package.QualifiedFile(src);
           if (!only_physical_files || fs.Exists(src_fqn)) {
             result[src_fqn].emplace(*cc_library);
           }
@@ -463,7 +469,7 @@ ProvidedFromTarget ExtractGeneratedFromGenrule(const ParsedProject &project,
   return result;
 }
 
-TargetProvidedFiles ExtractTargetProvidingFiles(const ParsedProject &project) {
+TargetProvidedFiles ExtractFilegroupTargets(const ParsedProject &project) {
   TargetProvidedFiles result;
   for (const auto &[_, file_content] : project.ParsedFiles()) {
     if (!file_content->ast) continue;
