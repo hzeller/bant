@@ -143,6 +143,10 @@ class ParsedProject : public SourceLocator {
   FileLocation GetLocation(std::string_view text) const final;
   std::string_view GetSurroundingLine(std::string_view text) const final;
 
+  // TODO: mapping string view to location back to bazel package.
+  // e.g. mapping back filegroup string-views to package.
+  // BazelPackage GetPackageFor(std::string_view text) const;
+
  private:
   friend class ParsedProjectTestUtil;
 

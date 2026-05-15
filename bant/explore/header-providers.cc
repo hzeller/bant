@@ -421,6 +421,8 @@ ProvidedFromTargetSet ExtractComponentToTargetMapping(
                --max_roudnds > 0) {
         }
         for (const std::string_view src : srcs) {
+          // TODO: ParsedProject::GetPackageFor() as we might have mixed
+          // packages due to filegroups.
           const std::string src_fqn = package.QualifiedFile(src);
           if (!only_physical_files || fs.Exists(src_fqn)) {
             result[src_fqn].emplace(*cc_library);

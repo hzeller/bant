@@ -353,6 +353,8 @@ int DWYUGenerator::GetStratum(const BazelTarget &target) const {
 std::optional<DWYUGenerator::SourceFile> DWYUGenerator::ReadSourceForDWYU(
   std::string_view src_name, const BazelTarget &target,
   const ParsedBuildFile &build_file, Stat &read_stats, bool *all_accounted) {
+  // TODO: ParsedProject::GetPackageFor() as we might have filenames coming
+  // from different packages due to filegroups.
   const std::string source_file =
     build_file.package.FullyQualifiedFile(project_.workspace(), src_name);
   std::optional<SourceFile> source_content;
