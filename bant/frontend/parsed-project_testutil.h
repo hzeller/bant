@@ -35,15 +35,18 @@ class ParsedProjectTestUtil {
  public:
   // Add a file with the given bazel package path and content to the
   // ParsedProject. Returns the parsed build file.
+  // Will check-fail if fed with unparseable content to prevent typos in text.
   const ParsedBuildFile *Add(std::string_view package_str,
                              std::string_view content) {
     auto package_or = BazelPackage::ParseFrom(package_str);
-    if (!package_or.has_value()) return nullptr;
+    CHECK(package_or.has_value()) << package_str;
     Session session(&std::cerr, &std::cerr, {});
     const Stat empty_stat;
     const FilesystemPath fake_filename(package_str, "BUILD");
-    return project_.AddBuildFileContent(session, *package_or, fake_filename,
-                                        std::string(content), empty_stat);
+    auto *result = project_.AddBuildFileContent(
+      session, *package_or, fake_filename, std::string(content), empty_stat);
+    CHECK(result && result->errors.empty()) << content;
+    return result;
   }
 
   // The project.

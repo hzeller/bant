@@ -387,6 +387,7 @@ cc_binary(
   name = "baz",
   srcs = ["baz.cc"],
   deps = [":allthethings"],  # should be sufficient
+)
 )");
 
   {
@@ -806,7 +807,7 @@ cc_library(
   name = "baz",
   srcs = ["baz.cc"],
   deps = [
-    ":foo"
+    ":foo",
     ":bar"  # random text dwyu that needs to contain: keep
   ],
 )

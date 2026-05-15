@@ -62,7 +62,7 @@ cc_library(
   name = "bar",
   hdrs = ["bar.h"]
 )
-")");
+)");
   pp.Add("//prefix/dir", R"(
 cc_library(
   name = "foo",
@@ -81,7 +81,6 @@ cc_library(
      "subdir",
      ".",
   ]
-],
 )
 )");
   std::stringstream log_absorb;
@@ -264,6 +263,7 @@ genrule(
     "hallucination.txt",
     "lucy-🌈-💎.txt",         # jeez, that escalated quickly.
   ],
+)
 )");
   std::stringstream log_absorb;
   auto gen_map = ExtractGeneratedFromGenrule(pp.project(), log_absorb);
@@ -280,11 +280,13 @@ TEST(HeaderToLibMapping, FileExtraction) {
 genrule(
    name = "generated_file",
    outs = [ "foo.h", "bar.h"],
+)
 )");
   pp.Add("//some/files", R"(
 filegroup(
    name = "some_group",
-   outs = [ "hello.h", "world.h"],
+   srcs = [ "hello.h", "world.h"],
+)
 )");
   auto target_to_file = ExtractFilegroupTargets(pp.project());
   using Fs = TargetProvidedFiles::mapped_type;
