@@ -496,6 +496,8 @@ TargetProvidedFiles ExtractFilegroupTargets(const ParsedProject &project) {
 
         auto &file_collect = result[*target];
         for (const std::string_view file : file_list) {
+          // Note, we don't do fully qualification here, so that we preserve
+          // the original string_view that points to the original BUILD file.
           file_collect.insert(file);
         }
       });
@@ -508,6 +510,10 @@ bool ExpandFilegroupsInList(const BazelPackage &context_package,
                             std::vector<std::string_view> *list) {
   // TODO: currently users of this function recursively expand filegroups if
   // the result contained filegroups. Put this loop in here.
+  // TODO: we only copy the the string-views from the filegroup (thus preserving
+  // the SourceLocator-able property), so it can be wrong if interpreted in
+  // context_package. Maybe we need a fully qualified version just knowing
+  // the project ? (that already has a mapping string-view->build-file(=package)
   bool any_expansion = false;
   absl::btree_set<std::string_view> collected_files;
   for (const std::string_view element : *list) {
