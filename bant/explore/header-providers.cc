@@ -610,12 +610,14 @@ void PrintProvidedSources(Session &session, const std::string &table_header,
 void PrintProvidedSources(Session &session, const std::string &table_header,
                           const BazelTargetMatcher &pattern,
                           const ProvidedFromTargetSet &provided_from_lib) {
+  const bool only_duplicates = session.flags().print_list_only_duplicates;
   auto highlighter = CreateGrepHighlighterFromFlags(session);
   if (!highlighter) return;
   auto printer =
     TablePrinter::Create(session.out(), session.flags().output_format,
                          *highlighter, {table_header, "providing-rule"});
   for (const auto &[provided, libs] : provided_from_lib) {
+    if (only_duplicates && libs.size() == 1) continue;
     std::vector<std::string> list;
     for (const BazelTarget &target : libs) {
       if (pattern.Match(target)) list.push_back(target.ToString());

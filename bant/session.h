@@ -53,6 +53,7 @@ struct CommandlineFlags {
   int verbose = 0;
   bool print_ast = false;  // Print ast instead of just rules.
   bool print_only_errors = false;
+  bool print_list_only_duplicates = false;
   bool elaborate = false;
   bool bant_macro_expand = false;
   bool ignore_keep_comment = false;

@@ -139,14 +139,15 @@ Commands (unique prefix sufficient):
     has-dependent  : List cc library targets and the libraries that depend on it
                      → 2 column table: (target, dependent*)
     target-hdrs,   : Print either hdrs, srcs or data mentioned in targets.
-    target-srcs,     -P: only if these are physical files
-    target-data      → 2 column table: (header-filename, target)
+    target-srcs,     -P: only if these are physical files; -d only duplicates
+    target-data      → 2 column table: (filename, target*)
     lib-headers    : Like target-hdrs, but all reachable paths expanded with all
                      combinations of includes = [], include_prefix, etc.
                      So same header can show up multiple times with different
                      paths. This is the relevant list used by dwyu.
-                     Use -r to recurse into dependencies beyond match pattern.
-                     → 2 column table: (header-filename, cc-library-target)
+                     -r to recurse into dependencies beyond match pattern.
+                     -d duplicates: headers provided by multiple targets
+                     → 2 column table: (header-filename, cc-library-target*)
     genrule-outputs: Print generated files by genrule()s matching pattern.
                      → 2 column table: (filename, genrule-target)
 
@@ -219,7 +220,7 @@ int main(int argc, char *argv[]) {
     {"json", OutputFormat::kJSON},     {"graphviz", OutputFormat::kGraphviz},
   };
   int opt;
-  while ((opt = getopt(argc, argv, "C:qo:vhaEF:ecbmf:r::Vkg:iT:PO")) != -1) {
+  while ((opt = getopt(argc, argv, "C:qo:vhaEF:ecbmf:r::Vkg:iT:POd")) != -1) {
     switch (opt) {
     case 'C': {
       std::error_code err;
@@ -262,6 +263,7 @@ int main(int argc, char *argv[]) {
       break;
 
     case 'k': flags.ignore_keep_comment = true; break;
+    case 'd': flags.print_list_only_duplicates = true; break;
 
     case 'g': flags.grep_expressions.emplace_back(optarg); break;
     case 'O': flags.grep_or_semantics = true; break;
