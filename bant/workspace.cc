@@ -19,11 +19,13 @@
 
 #include <array>
 #include <cstddef>
+#include <filesystem>
 #include <optional>
 #include <ostream>
 #include <sstream>
 #include <string>
 #include <string_view>
+#include <system_error>
 #include <vector>
 
 #include "absl/strings/str_cat.h"
@@ -43,9 +45,6 @@
 // there is a documentation for bazel paths, we should consult that.
 
 namespace bant {
-
-static constexpr std::string_view kExternalBaseDir =
-  "bazel-out/../../../external";
 
 /*static*/ std::optional<VersionedProject> VersionedProject::ParseFromDir(
   std::string_view dir) {
@@ -91,7 +90,7 @@ bool BestEffortAugmentFromExternalDir(Session &session,
   const ScopedTimer timer(&workspace_stats.duration);
 
   int found_count = 0;
-  const std::string pattern = absl::StrCat(kExternalBaseDir, "/*");
+  const std::string pattern = absl::StrCat(workspace.external_dir, "/*");
   for (const FilesystemPath &project_dir : Glob(pattern)) {
     if (!project_dir.is_directory()) continue;  // Projects are in directories.
 
@@ -184,7 +183,7 @@ static std::optional<int> LoadWorkspaceFromFile(Session &session,
       FilesystemPath path;
       bool project_dir_found = false;
       for (const std::string_view dir : search_dirs) {
-        path = FilesystemPath(kExternalBaseDir, dir);
+        path = FilesystemPath(workspace->external_dir, dir);
         if (!path.is_directory()) continue;
         project_dir_found = true;
         break;
@@ -193,7 +192,7 @@ static std::optional<int> LoadWorkspaceFromFile(Session &session,
       if (!project_dir_found) {
         // Maybe we got a different version ?
         auto maybe_match =
-          Glob(absl::StrCat(kExternalBaseDir, "/", result.name, "~*"));
+          Glob(absl::StrCat(workspace->external_dir, "/", result.name, "~*"));
         if (!maybe_match.empty()) {
           path = maybe_match.front();
           project_dir_found = path.is_directory();
@@ -220,6 +219,43 @@ static std::optional<int> LoadWorkspaceFromFile(Session &session,
   return count_added;
 }
 
+// Resolve all the links
+static std::optional<std::string> CanonicalizePath(std::string_view path) {
+  std::error_code ec;
+  auto cpath = std::filesystem::canonical(path, ec);
+  if (!ec) return cpath.string();
+  return std::nullopt;
+}
+
+static void DetermineExternalBaseDirMaybeSymlinked(BazelWorkspace *workspace) {
+  static constexpr std::string_view kExternalBaseDir =
+    "bazel-out/../../../external";
+  workspace->external_dir = kExternalBaseDir;  // the default.
+
+  //  $(bazel info output_base)/external resolving without calling bazel.
+  auto infobase_external = CanonicalizePath(kExternalBaseDir);
+  if (!infobase_external) return;
+
+  // Let's see if the user created one of bazel-external/ or external/ symlink
+  // to the infobase external dir for easier navivation, then use that.
+  //
+  // Not only does it improve navigation, it also avoids the clangd issue
+  // where it actually can't resolve ../-ed filenames with symbolic links
+  // in-between (todo: file bug with clangd)
+  //
+  // The compilation-db will also automatically be smaller as we don't have to
+  // emit the fully qualified names anymore.
+  for (const std::string_view symlink : {"external", "bazel-external"}) {
+    if (!FilesystemPath(symlink).is_symlink()) continue;
+    auto link_canonical = CanonicalizePath(symlink);
+    if (!link_canonical) continue;
+    if (*link_canonical == *infobase_external) {  // actually points there ?
+      workspace->external_dir = symlink;
+      break;
+    }
+  }
+}
+
 std::optional<BazelWorkspace> LoadWorkspace(Session &session) {
   bant::Stat &workspace_stats =
     session.GetStatsFor("Load workspace from file       ", "modules");
@@ -227,6 +263,7 @@ std::optional<BazelWorkspace> LoadWorkspace(Session &session) {
 
   int workspace_found = 0;
   BazelWorkspace workspace;
+  DetermineExternalBaseDirMaybeSymlinked(&workspace);
 
   constexpr std::array<std::string_view, 4> ws_files = {
     "WORKSPACE", "WORKSPACE.bazel",  //
