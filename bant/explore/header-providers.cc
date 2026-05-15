@@ -484,11 +484,15 @@ TargetProvidedFiles ExtractFilegroupTargets(const ParsedProject &project) {
 
         std::vector<std::string_view> file_list;
         // filegroups and proto_library have sources.
-        query::AppendStringList(params.srcs_list, file_list);
+        if (params.rule == "filegroup" || params.rule == "proto_library") {
+          query::AppendStringList(params.srcs_list, file_list);
+        }
 
         // Genrule outputs are used in other context as if
         // they were a filegroup.
-        query::AppendStringList(params.outs_list, file_list);
+        if (params.rule == "genrule") {
+          query::AppendStringList(params.outs_list, file_list);
+        }
 
         // proto library deps just point to other proto files,
         // but otherwise has no srcs, behaves like a filegroup
