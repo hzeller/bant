@@ -121,6 +121,8 @@ void PrintProvidedSources(Session &session, const std::string &table_header,
                           const BazelTargetMatcher &pattern,
                           const ProvidedFromTargetSet &provided_from_lib);
 
+// Print filegroup-like set, mapping BazelTarget -> filestheyprovide*
+// Makes files fully qualified
 void PrintTargetFileSet(Session &session, const BazelTargetMatcher &pattern,
                         const TargetProvidedFiles &target_to_files);
 

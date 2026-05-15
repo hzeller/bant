@@ -651,7 +651,9 @@ void PrintTargetFileSet(Session &session, const BazelTargetMatcher &pattern,
   for (const auto &[target, files] : target_to_files) {
     if (!pattern.Match(target)) continue;
     std::vector<std::string> list;
-    list.insert(list.begin(), files.begin(), files.end());
+    for (const std::string_view package_relative_file : files) {
+      list.emplace_back(target.package.QualifiedFile(package_relative_file));
+    }
     printer->AddRowWithRepeatedLastColumn({target.ToString()}, list);
   }
   printer->Finish();
