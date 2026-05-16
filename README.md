@@ -146,17 +146,16 @@ very specific, e.g.
 ```
 
 There is a simple work-around you can do: by creating a toplevel symbolic
-link 'external/` yourself
+link `external/` yourself:
 
 ```
 ln -s bazel-out/../../../external .
 ```
-(also ln -s bazel-out/../../../external bazel-external` works if you prefer
+(also `ln -s bazel-out/../../../external bazel-external` works if you prefer
 a `bazel-` prefix).
 
-`bant` then recognizes if this symlink exists (and points to the right external
-directory) and now if you create a compilation db, it uses that instead
-of the multi-`../` one.
+`bant` then recognizes this symlink and if you create a compilation db
+afterwards, it uses that short path instead of the multi-`../` one.
 
 ```
 -Iexternal/abseil-cpp+
@@ -164,7 +163,7 @@ of the multi-`../` one.
 
 This makes the compilation db more compact, and also has the added benefit
 that it is easier for you to manually navigate into the external projects as
-you can use the same link (`bant` [workspace`](#workspace) will also output
+you can use the same link (`bant` [`workspace`](#workspace) will also show
 the shorter paths then).
 
 ### Print
@@ -381,7 +380,7 @@ This outputs all the sources and headers mentioned in the project.
 The ouput is two columns: the 'short name' and the canonical fully qualified
 name.
 
-What is a short name ? Say you have a project with
+What is a short name ? Say you have a project using `includes = [...]`
 
 ```starlark
 # package //my/project/path
@@ -404,14 +403,16 @@ my/project/path/foo/bar.h my/project/path/foo/bar.h
 
 #### Options
 
-  * `-s` suppresses lines that have the same in the first and
-   second column, so only the line with the short `bar.h` would remain.
+The options help to narrow the output to your needs.
+
+  * `-s` suppresses lines where the first column equals the second column,
+    so only the line with the short `bar.h` would remain.
   * `-d` shows duplicates in the first column with different
     canonical names: these are files that are in danger of being ambiguous if
    you just include the short name and depend on two different libraries
    providing it. This can happen if you happend to use the same filename
    for headers in different directories and they can be reached via the
-   same short name. Use this to find all the paths to clean up.
+   same short name. Use this information to find all the paths to clean up.
   * `-u` unique option shows all the lines with exactly one mapping from a
     short name to their canonical name. These are safe to automatically
     clean up.
@@ -424,6 +425,7 @@ names, and getting then rid of the `includes = [...]` attributes.
 ```
 # This would give a list that are unambiguous (-u only gives the unique first
 # columns), and don't mention the names that are already canonical (-s)
+# (In a project that does not use includes = [], this list should be empty)
 bant srcs-canonical -u -s
 ```
 Now, let's use that to create a bunch of `sed` scripts to replace short
@@ -441,7 +443,7 @@ That is now a script that we can execute; you can put it in a file or wrap in
 . <(bant srcs-canonical -u -s | awk ... script from above)
 ```
 
-Voila, the whole project now uses canonical headers. Now you can remove the
+Voilà, the whole project now uses canonical headers. Now you can remove the
 `includes = []` in your BUILD files.
 
 ## Use
