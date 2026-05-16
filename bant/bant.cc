@@ -139,26 +139,26 @@ Commands (unique prefix sufficient):
     has-dependent  : List cc library targets and the libraries that depend on it
                      → 2 column table: (target, dependent*)
     target-hdrs,   : Print either hdrs, srcs or data mentioned in targets.
-    target-srcs,     -P: only if these are non-generated physical files
-    target-data      -d duplicates: only files mentioned by multiple targets
-                     -u unique:     only files mentioned exactly once.
+    target-srcs,      -P: only if these are non-generated physical files
+    target-data       -d duplicates : only files mentioned by multiple targets
+                      -u unique     : only files mentioned exactly once.
                      → 2 column table: (filename, target*)
     lib-headers    : Like target-hdrs, but all reachable paths expanded with all
                      combinations of includes = [], include_prefix, etc.
                      So same header can show up multiple times with different
                      paths. This is the relevant list used by dwyu.
-                     -r to recurse into dependencies beyond match pattern.
-                     -d duplicates: headers provided by multiple targets
-                     -u unique:     only headers mentioned exactly once.
+                      -r to recurse into dependencies beyond match pattern.
+                      -d duplicates: headers provided by multiple targets
+                      -u unique:     only headers mentioned exactly once.
                      → 2 column table: (header-filename, cc-library-target*)
-    srcs-canonical  : Outputs a mapping of all short names to canonical
-                      names in projects. There can be multiple short names
-                      to a canonical name if project uses `includes = []`
-                      constructs.
+    srcs-canonical : Outputs a mapping of all short names to canonical
+                     names in projects. There can be multiple short names
+                     to a canonical name if project uses `includes = []`
+                     constructs.
                       -d duplicates : print only ambiguous mappings.
                       -u unique     : print unambiuous short->canonical
                       -s suppress same: if (left col)==(right col), don't print.
-                      → 2 column table: (source, canonical-source*)
+                     → 2 column table: (source, canonical-source*)
     genrule-outputs: Print generated files by genrule()s matching pattern.
                      → 2 column table: (filename, genrule-target)
 
