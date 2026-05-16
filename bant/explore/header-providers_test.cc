@@ -100,6 +100,51 @@ cc_library(
               Contains(Pair("subdir/baz.h", Ts("//prefix/dir:baz"))));
   EXPECT_THAT(header_map, Contains(Pair("prefix/dir/subdir/baz.h",
                                         Ts("//prefix/dir:baz"))));
+
+  auto canon_map = CanonicalHeaderMapping(pp.project(), log_absorb);
+  using Hs = HeaderToCanonicalHeader::mapped_type;
+  EXPECT_THAT(canon_map,
+              Contains(Pair("baz.h", Hs{"prefix/dir/subdir/baz.h"})));
+  EXPECT_THAT(canon_map, Contains(Pair("dir/bar.h", Hs{"prefix/dir/bar.h"})));
+  EXPECT_THAT(canon_map,
+              Contains(Pair("other/path/bar.h", Hs{"other/path/bar.h"})));
+  EXPECT_THAT(canon_map, Contains(Pair("prefix/dir/subdir/baz.h",
+                                       Hs{"prefix/dir/subdir/baz.h"})));
+  EXPECT_THAT(canon_map,
+              Contains(Pair("some/path/foo.h", Hs{"some/path/foo.h"})));
+}
+
+TEST(HeaderToLibMapping, NonCanonicalHeaders) {
+  ParsedProjectTestUtil pp;
+  pp.Add("//some/path", R"(
+cc_library(
+  name = "foo",
+  srcs = ["foo.cc"],
+  hdrs = ["inc/foo.h"],  # header with same name as ..
+  includes = [
+    "inc",
+  ],
+)
+)");
+  pp.Add("//other/path", R"(
+cc_library(
+  name = "bar",
+  hdrs = ["inc/foo.h"],  # this one in different path
+  includes = [
+    "inc",
+  ],
+)
+)");
+  std::stringstream log_absorb;
+  auto canon_map = CanonicalHeaderMapping(pp.project(), log_absorb);
+  using Hs = HeaderToCanonicalHeader::mapped_type;
+  EXPECT_THAT(canon_map,
+              Contains(Pair("some/path/inc/foo.h", Hs{"some/path/inc/foo.h"})));
+  EXPECT_THAT(canon_map, Contains(Pair("other/path/inc/foo.h",
+                                       Hs{"other/path/inc/foo.h"})));
+  EXPECT_THAT(
+    canon_map,
+    Contains(Pair("foo.h", Hs{"some/path/inc/foo.h", "other/path/inc/foo.h"})));
 }
 
 TEST(SourceToLibMapping, LibHeaderMapIncludesWithAllPossiblePrefices) {
@@ -231,6 +276,11 @@ cc_library(
   const ProvidedFromTargetSet::mapped_type expected_set{T("//some/path:foo"),
                                                         T("//some/path:bar")};
   EXPECT_THAT(header_map, Contains(Pair("some/path/foo.h", expected_set)));
+
+  // Only canonical headers used.
+  auto canon_map = CanonicalHeaderMapping(pp.project(), log_absorb);
+  const HeaderToCanonicalHeader::mapped_type expected_hdrs{"some/path/foo.h"};
+  EXPECT_THAT(canon_map, Contains(Pair("some/path/foo.h", expected_hdrs)));
 }
 
 TEST(HeaderToLibMapping, ProtoLibraryExtraction) {

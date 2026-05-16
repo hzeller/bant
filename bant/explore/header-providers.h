@@ -47,11 +47,14 @@ using ProvidedFromTargetSet = OneToNSet<std::string, BazelTarget>;
 // {genrule,filegroup} -> file. The string-view points to original source.
 using TargetProvidedFiles = OneToNSet<BazelTarget, std::string_view>;
 
+// Header to canonical header.
+using HeaderToCanonicalHeader = OneToNSet<std::string, std::string>;
+
 // Givent the "project", creates a mapping of all headers that are exported by
 // cc_library() targets to their respective targets. If a header can be reached
 // multiple ways (e.g. due to include = [] directives), they are also part
 // of the keys.
-// If "suffix_index" is set, output is compatible with FinxBySuffix()
+// If "suffix_index" is set, output is compatible with FindBySuffix()
 ProvidedFromTargetSet ExtractExpandedHeaderToLibMapping(
   const ParsedProject &project, std::ostream &info_out,
   bool suffix_index = false);
@@ -63,6 +66,14 @@ ProvidedFromTargetSet ExtractExpandedHeaderToLibMapping(
 ProvidedFromTargetSet ExtractProtoToProtoLibMapping(
   const ParsedProject &project, std::ostream &info_out,
   bool suffix_index = false);
+
+// Provides a mapping of short forms of headers (due to `includes = []`)
+// and maps them to their canonical form.
+// In well-defined projects that stay away from `includes = []` there are only
+// canonical start-from-project-root headers that are identical to thier
+// canonical ones.
+HeaderToCanonicalHeader CanonicalHeaderMapping(const ParsedProject &project,
+                                               std::ostream &info_out);
 
 // Unlike the Expanded*, this is much simpler, as we don't deal with multiple
 // search paths. Just extract the mentioned component. If "only_physical_files"

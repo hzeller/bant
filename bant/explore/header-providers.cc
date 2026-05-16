@@ -71,6 +71,7 @@
 namespace bant {
 namespace {
 
+// TODO: is this something we should WeaklyCanonicalizePath() use for ?
 static std::string_view LightCanonicalizePath(std::string_view path) {
   while (path.starts_with("./")) {
     path.remove_prefix(2);
@@ -112,8 +113,10 @@ struct HelperIndex {
 
 // Go through cc_library()s and call callback for each header file it exports.
 using FindHeaderCallback =
-  std::function<void(const BazelTarget &library, std::string_view hdr_loc,
-                     std::string_view header_fqn)>;
+  std::function<void(const BazelTarget &library,      // Lbrary defining
+                     std::string_view lib_hdrs_name,  // name in hdrs = []
+                     std::string_view reachable_name  // reachable name
+                     )>;
 static void IterateCCLibraryHeaders(const ParsedBuildFile &build_file,
                                     const TargetProvidedFiles &filegroups,
                                     const FindHeaderCallback &callback) {
@@ -213,9 +216,9 @@ static void AppendCCLibraryHeaders(const ParsedBuildFile &build_file,
                                    ProvidedFromTargetSet &result) {
   IterateCCLibraryHeaders(
     build_file, idx.filegroups,
-    [&](const BazelTarget &cc_library, std::string_view hdr_loc,
-        std::string_view header_fqn) {
-      const std::string_view canonicalized = LightCanonicalizePath(header_fqn);
+    [&](const BazelTarget &cc_library, std::string_view lib_hdrs_name,
+        std::string_view reachable_name) {
+      const auto canonicalized = LightCanonicalizePath(reachable_name);
       const std::string key = KeyTransform(canonicalized, suffix_index);
       InsertLibAndAliasesToTargetSet(key, cc_library, idx.alias_index, result);
     });
@@ -355,6 +358,27 @@ ProvidedFromTargetSet ExtractExpandedHeaderToLibMapping(
                            info_out, suffix_index, result);
     AppendProtoLibraryHeaders(*build_file, idx,  //
                               suffix_index, result);
+  }
+
+  return result;
+}
+
+HeaderToCanonicalHeader CanonicalHeaderMapping(const ParsedProject &project,
+                                               std::ostream &info_out) {
+  auto filegroups = ExtractFilegroupTargets(project);
+  HeaderToCanonicalHeader result;
+  for (const auto &[_, build_file] : project.ParsedFiles()) {
+    if (!build_file->ast) continue;
+
+    const BazelPackage &package = build_file->package;
+    IterateCCLibraryHeaders(
+      *build_file, filegroups,
+      [&](const BazelTarget &cc_library, std::string_view lib_hdrs_name,
+          std::string_view reachable_name) {
+        const auto canonicalized = LightCanonicalizePath(reachable_name);
+        const std::string header_fqn = package.QualifiedFile(lib_hdrs_name);
+        result[canonicalized].insert(header_fqn);
+      });
   }
 
   return result;
