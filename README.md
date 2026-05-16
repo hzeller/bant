@@ -133,11 +133,17 @@ intermediate symbolic links.
 #### clangd
 Alas, `clangd` only chooses to syntactically contract the `../` parts and
 ends up in a wrong directory. There is a workaround that `bant` is doing,
-and another that you can choose yourself
+and another that you can do yourself.
 
-To mitigate the `clangd` problem, the compilation-db command _also_ a fully
-qualified path via `$(bazel info output_base)/external`. This of course
-bloats the file and makes these paths very specific.
+To mitigate the `clangd` problem, the compilation-db command _also_ emits
+a fully qualified path via `$(bazel info output_base)/external`. This two fairly
+long lines per project of course bloats the file and makes one of the paths
+very specific, e.g.
+
+```
+-Ibazel-out/../../../external/abseil-cpp+
+-I/home/thatsme/.cache/bazel/_bazel_thatsme/d8e5873f4b04d39dda1961c00487a963/external/abseil-cpp+
+```
 
 There is a simple work-around you can do: by creating a toplevel symbolic
 link 'external/` yourself
@@ -149,10 +155,17 @@ ln -s bazel-out/../../../external .
 a `bazel-` prefix).
 
 `bant` then recognizes if this symlink exists (and points to the right external
-directory) and uses that instead of the multi-`../` one. This makes
-the compilation db more compact, and also has the added benefit that it is
-easier for you to manually navigate into the external projects.
-(`bant workspace` will also output the shorter paths then).
+directory) and now if you create a compilation db, it uses that instead
+of the multi-`../` one.
+
+```
+-Iexternal/abseil-cpp+
+```
+
+This makes the compilation db more compact, and also has the added benefit
+that it is easier for you to manually navigate into the external projects as
+you can use the same link (`bant` [workspace`](#workspace) will also output
+the shorter paths then).
 
 ### Print
 
@@ -288,8 +301,7 @@ bant workspace @re2//...  # Print projects referenced by re2
 
 The output are three columns, the last one with the physical path to the
 projecct. This typically is a `bazel-out/../../../` path, but if you created
-a symbolic link `external/` or `bazel-external/` to it (see [#srcs-canonical]),
-then the shortened form is shown.
+a symbolic link `external/` or `bazel-external/` to it (see the [srcs-canonical](#srcs-canonical)) then the shortened form is shown.
 
 ### list-targets, list-leafs
 
