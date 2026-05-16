@@ -697,4 +697,27 @@ void PrintTargetFileSet(Session &session, const BazelWorkspace &workspace,
   printer->Finish();
 }
 
+void PrintFileToFileSet(Session &session,
+                        const HeaderToCanonicalHeader &header_to_headers) {
+  const auto dup_handling = session.flags().duplicate_handling;
+  auto highlighter = CreateGrepHighlighterFromFlags(session);
+  if (!highlighter) return;
+  auto printer =
+    TablePrinter::Create(session.out(), session.flags().output_format,
+                         *highlighter, {"header", "canonical-header"});
+  for (const auto &[header, files] : header_to_headers) {
+    if (dup_handling == DuplicateHandling::kOutputOnlyDuplicates &&
+        files.size() == 1) {
+      continue;
+    }
+    if (dup_handling == DuplicateHandling::kOutputOnlyUnique &&
+        files.size() != 1) {
+      continue;
+    }
+
+    std::vector<std::string> list(files.begin(), files.end());
+    printer->AddRowWithRepeatedLastColumn({std::string{header}}, list);
+  }
+  printer->Finish();
+}
 }  // namespace bant

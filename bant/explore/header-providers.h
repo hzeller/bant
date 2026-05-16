@@ -139,6 +139,9 @@ void PrintTargetFileSet(Session &session, const BazelWorkspace &workspace,
                         const BazelTargetMatcher &pattern,
                         const TargetProvidedFiles &target_to_files);
 
+void PrintFileToFileSet(Session &session,
+                        const HeaderToCanonicalHeader &header_to_headers);
+
 }  // namespace bant
 
 #endif  // BANT_TOOL_HEADER_PROVIDER_
