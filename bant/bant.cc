@@ -140,7 +140,8 @@ Commands (unique prefix sufficient):
                      → 2 column table: (target, dependent*)
     target-hdrs,   : Print either hdrs, srcs or data mentioned in targets.
     target-srcs,     -P: only if these are non-generated physical files
-    target-data      -d duplicates: files mentioned by multiple targets
+    target-data      -d duplicates: only files mentioned by multiple targets
+                     -u unique:     only files mentioned exactly once.
                      → 2 column table: (filename, target*)
     lib-headers    : Like target-hdrs, but all reachable paths expanded with all
                      combinations of includes = [], include_prefix, etc.
@@ -148,6 +149,7 @@ Commands (unique prefix sufficient):
                      paths. This is the relevant list used by dwyu.
                      -r to recurse into dependencies beyond match pattern.
                      -d duplicates: headers provided by multiple targets
+                     -u unique:     only headers mentioned exactly once.
                      → 2 column table: (header-filename, cc-library-target*)
     genrule-outputs: Print generated files by genrule()s matching pattern.
                      → 2 column table: (filename, genrule-target)
@@ -221,7 +223,7 @@ int main(int argc, char *argv[]) {
     {"json", OutputFormat::kJSON},     {"graphviz", OutputFormat::kGraphviz},
   };
   int opt;
-  while ((opt = getopt(argc, argv, "C:qo:vhaEF:ecbmf:r::Vkg:iT:POd")) != -1) {
+  while ((opt = getopt(argc, argv, "C:qo:vhaEF:ecbmf:r::Vkg:iT:POdu")) != -1) {
     switch (opt) {
     case 'C': {
       std::error_code err;
@@ -264,7 +266,12 @@ int main(int argc, char *argv[]) {
       break;
 
     case 'k': flags.ignore_keep_comment = true; break;
-    case 'd': flags.print_list_only_duplicates = true; break;
+    case 'd':
+      flags.duplicate_handling = bant::DuplicateHandling::kOutputOnlyDuplicates;
+      break;
+    case 'u':
+      flags.duplicate_handling = bant::DuplicateHandling::kOutputOnlyUnique;
+      break;
 
     case 'g': flags.grep_expressions.emplace_back(optarg); break;
     case 'O': flags.grep_or_semantics = true; break;

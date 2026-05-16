@@ -47,13 +47,21 @@ class SessionStreams {
   std::ostream *info_;
 };
 
+// Printing tables with duplicate values per first column: how to handle.
+// In flags `-d` print duplicates `-u` only print unique
+enum class DuplicateHandling {
+  kOutputAll,
+  kOutputOnlyDuplicates,
+  kOutputOnlyUnique,
+};
+
 // Command line flags filled in main(), used by tools (some only needed
 // in some commands)
 struct CommandlineFlags {
   int verbose = 0;
   bool print_ast = false;  // Print ast instead of just rules.
   bool print_only_errors = false;
-  bool print_list_only_duplicates = false;
+  DuplicateHandling duplicate_handling = DuplicateHandling::kOutputAll;
   bool elaborate = false;
   bool bant_macro_expand = false;
   bool ignore_keep_comment = false;
