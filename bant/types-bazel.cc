@@ -29,6 +29,7 @@
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_split.h"
+#include "bant/util/file-utils.h"
 #include "bant/workspace.h"
 #include "re2/re2.h"
 
@@ -70,8 +71,8 @@ std::string BazelPackage::QualifiedFile(std::string_view relative_file) const {
       file_part = buffer;
     }
   }
-  if (path.empty()) return std::string(file_part);
-  return absl::StrCat(path, "/", file_part);
+  if (path.empty()) return std::string{file_part};
+  return WeaklyCanonicalizePath(absl::StrCat(path, "/", file_part));
 }
 
 std::string BazelPackage::FullyQualifiedFile(

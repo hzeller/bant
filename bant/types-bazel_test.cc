@@ -197,10 +197,17 @@ TEST(TypesBazel, ParseTarget) {
 TEST(TypesBazel, QualifiedFile) {
   const BazelPackage p("", "bar/baz");
   EXPECT_EQ(p.QualifiedFile("quux.cc"), "bar/baz/quux.cc");
+  EXPECT_EQ(p.QualifiedFile("./quux.cc"), "bar/baz/quux.cc");
+  EXPECT_EQ(p.QualifiedFile("../quux.cc"), "bar/quux.cc");
+
   EXPECT_EQ(p.QualifiedFile(":quux.cc"), "bar/baz/quux.cc");
 
   // Relative path starting from package.
   EXPECT_EQ(p.QualifiedFile("foo:quux.cc"), "bar/baz/foo/quux.cc");
+
+  // Just getting the package itself.
+  EXPECT_EQ(p.QualifiedFile(""), "bar/baz");
+  EXPECT_EQ(p.QualifiedFile("."), "bar/baz");
 
   // Absolute path stays as-is
   EXPECT_EQ(p.QualifiedFile("//abs/path:quux.cc"), "abs/path/quux.cc");

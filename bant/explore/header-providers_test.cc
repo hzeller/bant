@@ -118,6 +118,22 @@ cc_library(
   EXPECT_THAT(hdrs_map, Contains(Pair("baz.h", Ts("//some/path:foo"))));
 }
 
+TEST(SourceToLibMapping, LibHeaderMapIncludesWithBackwardFacingPath) {
+  ParsedProjectTestUtil pp;
+  pp.Add("//some/path/src", R"(
+cc_library(
+  name = "foo",
+  hdrs = ["//some/path:include/baz.h"],
+  includes = ["../include"],
+)
+)");
+  std::stringstream log_absorb;
+  auto hdrs_map = ExtractExpandedHeaderToLibMapping(pp.project(), log_absorb);
+  EXPECT_THAT(hdrs_map, Contains(Pair("some/path/include/baz.h",
+                                      Ts("//some/path/src:foo"))));
+  EXPECT_THAT(hdrs_map, Contains(Pair("baz.h", Ts("//some/path/src:foo"))));
+}
+
 TEST(SourceToLibMapping, LibHeaderMapExpandsFilegroups) {
   ParsedProjectTestUtil pp;
   pp.Add("//some/path", R"(

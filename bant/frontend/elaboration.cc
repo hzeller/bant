@@ -1134,13 +1134,12 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     }
 
     // Find directory to start the glob()-ing.
-    const std::string root_dir_assembled =
+    std::string root_dir =
       package_.FullyQualifiedFile(project_->workspace(), ".");
 
-    // Remove trailing dot. If current dir, make sure it does end with slash.
-    std::string_view root_dir = root_dir_assembled;
-    if (root_dir.ends_with("/.")) root_dir.remove_suffix(1);
-    if (root_dir == ".") root_dir = "./";
+    // Remove trailing dot. Also make sure it does end with slash.
+    if (root_dir.ends_with("/.")) root_dir.resize(root_dir.size() - 1);
+    if (!root_dir.ends_with("/")) root_dir.append("/");
 
     const std::vector<FilesystemPath> glob_result =
       MultiGlob(root_dir, query::ExtractStringList(include_list),

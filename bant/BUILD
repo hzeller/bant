@@ -80,6 +80,7 @@ cc_library(
     ],
     deps = [
         ":workspace",
+        "//bant/util:file-utils",
         "@abseil-cpp//absl/strings",
         "@re2",
     ],
