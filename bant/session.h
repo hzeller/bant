@@ -62,6 +62,7 @@ struct CommandlineFlags {
   bool print_ast = false;  // Print ast instead of just rules.
   bool print_only_errors = false;
   DuplicateHandling duplicate_handling = DuplicateHandling::kOutputAll;
+  bool suppress_same = false;  // Don't print if col1==col2
   bool elaborate = false;
   bool bant_macro_expand = false;
   bool ignore_keep_comment = false;

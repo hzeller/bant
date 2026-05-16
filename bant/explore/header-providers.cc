@@ -119,6 +119,7 @@ using FindHeaderCallback =
                      )>;
 static void IterateCCLibraryHeaders(const ParsedBuildFile &build_file,
                                     const TargetProvidedFiles &filegroups,
+                                    bool include_sources,
                                     const FindHeaderCallback &callback) {
   static const std::initializer_list<std::string_view> kInterestingLibRules{
     "cc_library",
@@ -152,6 +153,10 @@ static void IterateCCLibraryHeaders(const ParsedBuildFile &build_file,
       }
 
       hdrs.insert(hdrs.end(), textual_hdrs.begin(), textual_hdrs.end());
+
+      if (include_sources) {  // for hdrs-canonical we want a global view
+        query::AppendStringList(cc_lib.srcs_list, hdrs);
+      }
 
       // If there are references to filegroups, exand these to files first.
       int max_roudnds = 2;
@@ -215,7 +220,7 @@ static void AppendCCLibraryHeaders(const ParsedBuildFile &build_file,
                                    std::ostream &info_out, bool suffix_index,
                                    ProvidedFromTargetSet &result) {
   IterateCCLibraryHeaders(
-    build_file, idx.filegroups,
+    build_file, idx.filegroups, false,
     [&](const BazelTarget &cc_library, std::string_view lib_hdrs_name,
         std::string_view reachable_name) {
       const auto canonicalized = LightCanonicalizePath(reachable_name);
@@ -372,7 +377,7 @@ HeaderToCanonicalHeader CanonicalHeaderMapping(const ParsedProject &project,
 
     const BazelPackage &package = build_file->package;
     IterateCCLibraryHeaders(
-      *build_file, filegroups,
+      *build_file, filegroups, true,
       [&](const BazelTarget &cc_library, std::string_view lib_hdrs_name,
           std::string_view reachable_name) {
         const auto canonicalized = LightCanonicalizePath(reachable_name);
@@ -700,22 +705,29 @@ void PrintTargetFileSet(Session &session, const BazelWorkspace &workspace,
 void PrintFileToFileSet(Session &session,
                         const HeaderToCanonicalHeader &header_to_headers) {
   const auto dup_handling = session.flags().duplicate_handling;
+  const bool suppress_same = session.flags().suppress_same;
   auto highlighter = CreateGrepHighlighterFromFlags(session);
   if (!highlighter) return;
   auto printer =
     TablePrinter::Create(session.out(), session.flags().output_format,
-                         *highlighter, {"header", "canonical-header"});
+                         *highlighter, {"source", "canonical-source"});
   for (const auto &[header, files] : header_to_headers) {
+    std::vector<std::string> list;
+    for (const std::string &s : files) {
+      if (suppress_same && header == s) continue;
+      list.emplace_back(s);
+    }
+    if (list.empty()) continue;
+
     if (dup_handling == DuplicateHandling::kOutputOnlyDuplicates &&
-        files.size() == 1) {
+        list.size() == 1) {
       continue;
     }
     if (dup_handling == DuplicateHandling::kOutputOnlyUnique &&
-        files.size() != 1) {
+        list.size() != 1) {
       continue;
     }
 
-    std::vector<std::string> list(files.begin(), files.end());
     printer->AddRowWithRepeatedLastColumn({std::string{header}}, list);
   }
   printer->Finish();

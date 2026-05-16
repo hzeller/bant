@@ -74,7 +74,7 @@ enum class Command {
   kTargetSrcs,
   kTargetData,
   kExpandedLibraryHeaders,
-  kCanonicalHeaders,
+  kCanonicalSources,
   kAliasedBy,
   kGenruleOutputs,
   kDWYU,
@@ -232,7 +232,7 @@ CliStatus RunCommand(Session &session, Command cmd,
   case Command::kTargetHdrs:
   case Command::kTargetData:
   case Command::kExpandedLibraryHeaders:
-  case Command::kCanonicalHeaders:
+  case Command::kCanonicalSources:
   case Command::kTargetSrcs:
   case Command::kGenruleOutputs:
   case Command::kListTargets:
@@ -300,7 +300,7 @@ CliStatus RunCommand(Session &session, Command cmd,
       ExtractExpandedHeaderToLibMapping(project, session.info()));
     break;
 
-  case Command::kCanonicalHeaders:  //
+  case Command::kCanonicalSources:  //
     bant::PrintFileToFileSet(session,
                              CanonicalHeaderMapping(project, session.info()));
     break;
@@ -456,7 +456,7 @@ CliStatus RunCliCommand(Session &session, std::span<std::string_view> args) {
     {"target-data", Command::kTargetData},
     {"target-srcs", Command::kTargetSrcs},
     {"lib-headers", Command::kExpandedLibraryHeaders},
-    {"hdrs-canonicalized", Command::kCanonicalHeaders},
+    {"srcs-canonical", Command::kCanonicalSources},
     {"aliased-by", Command::kAliasedBy},
     {"depends-on", Command::kDependsOn},
     {"has-dependents", Command::kHasDependents},

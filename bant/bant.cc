@@ -151,6 +151,14 @@ Commands (unique prefix sufficient):
                      -d duplicates: headers provided by multiple targets
                      -u unique:     only headers mentioned exactly once.
                      → 2 column table: (header-filename, cc-library-target*)
+    srcs-canonical  : Outputs a mapping of all short names to canonical
+                      names in projects. There can be multiple short names
+                      to a canonical name if project uses `includes = []`
+                      constructs.
+                      -d duplicates : print only ambiguous mappings.
+                      -u unique     : print unambiuous short->canonical
+                      -s suppress same: if (left col)==(right col), don't print.
+                      → 2 column table: (source, canonical-source*)
     genrule-outputs: Print generated files by genrule()s matching pattern.
                      → 2 column table: (filename, genrule-target)
 
@@ -223,7 +231,7 @@ int main(int argc, char *argv[]) {
     {"json", OutputFormat::kJSON},     {"graphviz", OutputFormat::kGraphviz},
   };
   int opt;
-  while ((opt = getopt(argc, argv, "C:qo:vhaEF:ecbmf:r::Vkg:iT:POdu")) != -1) {
+  while ((opt = getopt(argc, argv, "C:qo:vhaEF:ecbmf:r::Vkg:iT:POdus")) != -1) {
     switch (opt) {
     case 'C': {
       std::error_code err;
@@ -272,6 +280,7 @@ int main(int argc, char *argv[]) {
     case 'u':
       flags.duplicate_handling = bant::DuplicateHandling::kOutputOnlyUnique;
       break;
+    case 's': flags.suppress_same = true; break;
 
     case 'g': flags.grep_expressions.emplace_back(optarg); break;
     case 'O': flags.grep_or_semantics = true; break;
