@@ -370,7 +370,8 @@ The ouput is two columns: the 'short name' and the canonical fully qualified
 name.
 
 What is a short name ? Say you have a project with
-```
+
+```starlark
 # package //my/project/path
 cc_library(
    name = "xyz",
@@ -389,16 +390,21 @@ my/project/path/bar.cc    my/project/path/bar.cc
 my/project/path/foo/bar.h my/project/path/foo/bar.h
 ```
 
-With the option `-s`, it suppresses lines that have the same in the first and
-second column, so only the line with the short `bar.h` would remain.
+#### Options
 
-The option `-d` shows duplicates in the first column with different
-canonical names: these are files that are in danger of being ambiguous if
-you just include the short name and depend on two different libraries providing
-it. This can happen if you happend to use the same filename for headers in
-different directories and they can be reached via the same short name.
+  * `-s` suppresses lines that have the same in the first and
+   second column, so only the line with the short `bar.h` would remain.
+  * `-d` shows duplicates in the first column with different
+    canonical names: these are files that are in danger of being ambiguous if
+   you just include the short name and depend on two different libraries
+   providing it. This can happen if you happend to use the same filename
+   for headers in different directories and they can be reached via the
+   same short name. Use this to find all the paths to clean up.
+  * `-u` unique option shows all the lines with exactly one mapping from a
+    short name to their canonical name. These are safe to automatically
+    clean up.
 
-The `-u` option shows all the unique ones.
+#### How to use srcs-canonical to canonicalize all your includes
 
 This command can help you cleaning up your project to use fully qualified
 names, and getting then rid of the `includes = [...]` attributes.
@@ -420,7 +426,7 @@ That is now a script that we can execute; you can put it in a file or wrap in
 `<(...)` and directly source the output:
 
 ```
-. <(bant srcs-canonical ... script from above)
+. <(bant srcs-canonical -u -s | awk ... script from above)
 ```
 
 Voila, the whole project now uses canonical headers. Now you can remove the
