@@ -20,7 +20,10 @@ Bant
     [headers provided by which libraries](#lib-headers) etc., and presents
     them for easy post-processing (outputs simple tables for `grep` or `awk`,
     but as well CSV, JSON and S-Expressions).
-  * [Canonicalizes](#canonicalize) targets.
+  * Shows (non-)ambiguous [header paths and their fully qualified
+    form](#srcs-canonical) to identify ambiguity problems or fix
+    the project to use only fully qualified project-relative paths.
+  * [Canonicalizes](#canonicalize) bazel labels.
   * Is available in the [Bazel Central Registry][on-bcr] for easy
     [integration in projects](#in-projects) to provide build-cleaner
     or compilation db features.
@@ -422,7 +425,7 @@ The options help to narrow the output to your needs.
 This command can help you cleaning up your project to use fully qualified
 names, and getting then rid of the `includes = [...]` attributes.
 
-```
+```bash
 # This would give a list that are unambiguous (-u only gives the unique first
 # columns), and don't mention the names that are already canonical (-s)
 # (In a project that does not use includes = [], this list should be empty)
@@ -433,13 +436,13 @@ names with canonical names and replace that in place. Use ripgrep `rg` to narrow
 the files we have to look through, just mentioning files that have the short
 include in use:
 
-```
+```bash
 bant srcs-canonical -u -s | awk '{ printf("sed \047s|#include \"%s\"|#include \"%s\"|\047 -i $(rg -l \047#include.*\"%s\"\047)\n", $1, $2, $1); }'
 ```
 That is now a script that we can execute; you can put it in a file or wrap in
 `<(...)` and directly source the output:
 
-```
+```bash
 . <(bant srcs-canonical -u -s | awk ... script from above)
 ```
 
