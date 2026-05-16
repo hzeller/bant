@@ -422,20 +422,59 @@ static void WriteCompilationDB(Session &session,
   out << "]\n";
 }
 
+// TODO: these variables should probably be expanded at evaluation time.
+static std::string ReplaceMakeVariables(const BazelWorkspace &ws,
+                                        const BazelPackage &package,
+                                        std::string_view text) {
+  std::string result{text};
+  if (!absl::StrContains(result, "$(")) return result;  // common case.
+
+  RE2::GlobalReplace(&result, R"(\$\(BINDIR\))", "bazel-bin");
+  RE2::GlobalReplace(&result, R"(\$\(GENDIR\))", "bazel-bin");
+  RE2::GlobalReplace(&result, R"(\$\(COMPILATION_MODE\))", "opt");
+
+  // Non-standard make variable, found in llvm (defined in
+  // @llvm_project/workspace_root.bzl )
+  if (absl::StrContains(result, "$(WORKSPACE_ROOT)")) {
+    // There WORKSPACE_ROOT is used in a few context:
+    //   * as toplevel -I$(WORKSPACE_ROOT)/foo
+    //   * as -I$(GENDIR)/$(WORKSPACE_ROOT)/foo
+    // The toplevel part will probably only really work if user has an
+    // external/ symlink. Best effort.  ¯\_(ツ)_/¯
+    if (package.project.empty()) {
+      RE2::GlobalReplace(&result, R"(\$\(WORKSPACE_ROOT\))", "");
+    } else {
+      std::string assembled_path;
+      auto project_dir = ws.FindPathByProject(package.project);
+      if (project_dir.has_value()) {
+        assembled_path = absl::StrCat("external/", project_dir->filename());
+      }
+      RE2::GlobalReplace(&result, R"(\$\(WORKSPACE_ROOT\))", assembled_path);
+    }
+  }
+
+  return result;
+}
+
 // Extract all -Ifoobar elements found in all of the copts of cc_binary() and
 // cc_library() for compile_flags.txt, where we just combine everything.
 static std::set<std::string> GetAllIncCOpts(Session &session,
                                             const BazelTargetMatcher &pattern,
                                             ParsedProject *project) {
+  const BazelWorkspace &ws = project->workspace();
   std::set<std::string> result;
-  for (const auto &[_, parsed_package] : project->ParsedFiles()) {
+  for (const auto &[_, parsed_build] : project->ParsedFiles()) {
+    const BazelPackage &package = parsed_build->package;
     query::FindTargets(
-      parsed_package->ast, {"cc_library", "cc_binary", "cc_test"},
+      parsed_build->ast, {"cc_library", "cc_binary", "cc_test"},
       [&](const query::Result &target) {
         if (!target.copts) return;
         for (const auto flag : query::ExtractStringList(target.copts)) {
-          if (absl::StartsWith(flag, "-I")) result.emplace(flag);
-          // Not collecting -D as it would be used for all targets.
+          if (absl::StartsWith(flag, "-I")) {
+            result.emplace(ReplaceMakeVariables(ws, package, flag));
+          }
+          // Not collecting -D as it would be used for all targets and might
+          // mess with thigns. We should do this for compile_commands.json
         }
       });
   }
