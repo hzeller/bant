@@ -69,6 +69,10 @@ The following auto-fixes all dependencies of the project:
 . <(bant dwyu ...)   # source the buildozer calls in shell
 ```
 
+In case you want to see what is happening under the hood, or `bant` made
+an edit you didn't expect, use the various log-levels `-v`, `-vv`, or `-vvv`
+to get an incresaing amount of useful log information.
+
 #### Features
 
 If there is a dependency that `bant` would like to remove, but it is needed
@@ -113,10 +117,42 @@ would use, and is missing virtual includes (provided by `cc_library()` with
 but should work pretty well for a typical bazel project already.
 
 ```bash
-  bant compilation-db -o compile_commands.json
-  # or
   bant compile-flags -o compile_flags.txt
+  # or
+  bant compilation-db -o compile_commands.json
 ```
+
+If you inspect these files: the path to external includes in the compilation
+db are `-Ibazel-out/../../../external/whateverproject`; this relative
+path keeps it independent of any current compilation mode.
+
+#### clang-tidy
+These paths work well for `clang-tidy`, it nicely can follow these paths with
+intermediate symbolic links.
+
+#### clangd
+Alas, `clangd` only chooses to syntactically contract the `../` parts and
+ends up in a wrong directory. There is a workaround that `bant` is doing,
+and another that you can choose yourself
+
+To mitigate the `clangd` problem, the compilation-db command _also_ a fully
+qualified path via `$(bazel info output_base)/external`. This of course
+bloats the file and makes these paths very specific.
+
+There is a simple work-around you can do: by creating a toplevel symbolic
+link 'external/` yourself
+
+```
+ln -s bazel-out/../../../external .
+```
+(also ln -s bazel-out/../../../external bazel-external` works if you prefer
+a `bazel-` prefix).
+
+`bant` then recognizes if this symlink exists (and points to the right external
+directory) and uses that instead of the multi-`../` one. This makes
+the compilation db more compact, and also has the added benefit that it is
+easier for you to manually navigate into the external projects.
+(`bant workspace` will also output the shorter paths then).
 
 ### Print
 
@@ -157,14 +193,14 @@ implemented as need arises (That is why it's called elaboration not evaluation
 right now :)). Use `-e` to enable the elaboration in `print`.
 
 Expressions that can be const-evaluated are then replaced with a literal of
-the result. Supported are:
+the result. Supported are things typically found in BUILD files.
 
   * Variable substitution.
   * `glob()` expansion.
   * List comprehension. This expands list comprehensions used in BUILD files
     to programmatically create lists with a loop. This can be in lists for
     e.g. source files or even toplevel loops creating a bunch of target rules.
-  * Some common string methods (`"str".format()`, `"str".join()` and
+  * Various common string methods (`"str".format()`, `"str".join()` and
     `"str".rsplit()`). Also the modulo operator for formatting strings the
     classic way `"str %s %s" % (foo,bar)`.
   * Array accesses.
@@ -250,6 +286,11 @@ bant workspace ...        # Print projects referenced in your project
 bant workspace @re2//...  # Print projects referenced by re2
 ```
 
+The output are three columns, the last one with the physical path to the
+projecct. This typically is a `bazel-out/../../../` path, but if you created
+a symbolic link `external/` or `bazel-external/` to it (see [#srcs-canonical]),
+then the shortened form is shown.
+
 ### list-targets, list-leafs
 
 #### list-targets
@@ -320,6 +361,70 @@ to include (alternatively: use `dwyu` to do that automatically).
   * `//foo:foo` becomes `//foo`
   * `@foo//:foo` becomes `@foo`
   * `foo` without `:` prefix becomes `:foo`
+
+### srcs-canonical
+
+This outputs all the sources and headers mentioned in the project.
+
+The ouput is two columns: the 'short name' and the canonical fully qualified
+name.
+
+What is a short name ? Say you have a project with
+```
+# package //my/project/path
+cc_library(
+   name = "xyz",
+   srcs = ["bar.cc"],
+   hdrs = ["foo/bar.h"],
+   includes = [ "foo" ],
+)
+```
+
+`srcs-canonical` will list both paths the sources are reachable in the first
+column and the canonical name in the second.
+
+```
+bar.h                     my/project/path/foo/bar.h
+my/project/path/bar.cc    my/project/path/bar.cc
+my/project/path/foo/bar.h my/project/path/foo/bar.h
+```
+
+With the option `-s`, it suppresses lines that have the same in the first and
+second column, so only the line with the short `bar.h` would remain.
+
+The option `-d` shows duplicates in the first column with different
+canonical names: these are files that are in danger of being ambiguous if
+you just include the short name and depend on two different libraries providing
+it. This can happen if you happend to use the same filename for headers in
+different directories and they can be reached via the same short name.
+
+The `-u` option shows all the unique ones.
+
+This command can help you cleaning up your project to use fully qualified
+names, and getting then rid of the `includes = [...]` attributes.
+
+```
+# This would give a list that are unambiguous (-u only gives the unique first
+# columns), and don't mention the names that are already canonical (-s)
+bant srcs-canonical -u -s
+```
+Now, let's use that to create a bunch of `sed` scripts to replace short
+names with canonical names and replace that in place. Use ripgrep `rg` to narrow
+the files we have to look through, just mentioning files that have the short
+include in use:
+
+```
+bant srcs-canonical -u -s | awk '{ printf("sed \047s|#include \"%s\"|#include \"%s\"|\047 -i $(rg -l \047#include.*\"%s\"\047)\n", $1, $2, $1); }'
+```
+That is now a script that we can execute; you can put it in a file or wrap in
+`<(...)` and directly source the output:
+
+```
+. <(bant srcs-canonical ... script from above)
+```
+
+Voila, the whole project now uses canonical headers. Now you can remove the
+`includes = []` in your BUILD files.
 
 ## Use
 
