@@ -65,5 +65,30 @@ TEST(FileUtils, FilesystemPathCopy) {
   EXPECT_NE(&from_path.path(), &other.path());
   EXPECT_EQ(other.filename(), "baz");
 }
+
+TEST(FileUtils, WeaklyCanonicalizePath) {
+  EXPECT_EQ(WeaklyCanonicalizePath(""), "");
+  EXPECT_EQ(WeaklyCanonicalizePath("."), "");
+
+  EXPECT_EQ(WeaklyCanonicalizePath("foo/bar/baz"), "foo/bar/baz");
+
+  // Prefix slash preserved
+  EXPECT_EQ(WeaklyCanonicalizePath("/foo/bar/baz"), "/foo/bar/baz");
+  EXPECT_EQ(WeaklyCanonicalizePath("foo/bar/baz/"), "foo/bar/baz");
+
+  // Local-dir: remove
+  EXPECT_EQ(WeaklyCanonicalizePath("./foo/bar/baz"), "foo/bar/baz");
+  EXPECT_EQ(WeaklyCanonicalizePath("foo/bar/baz/."), "foo/bar/baz");
+  EXPECT_EQ(WeaklyCanonicalizePath("foo/./bar/baz"), "foo/bar/baz");
+  EXPECT_EQ(WeaklyCanonicalizePath("foo/././bar/baz"), "foo/bar/baz");
+
+  EXPECT_EQ(WeaklyCanonicalizePath("foo/../bar/baz"), "bar/baz");
+  EXPECT_EQ(WeaklyCanonicalizePath("foo/bar/../baz"), "foo/baz");
+  EXPECT_EQ(WeaklyCanonicalizePath("foo/bar/../../baz"), "baz");
+  EXPECT_EQ(WeaklyCanonicalizePath("foo/bar/../../../../../baz"),
+            "../../../baz");
+}
+
+// No test for StronglyCanonicalizePath as that hits the filesystem.
 }  // namespace
 }  // namespace bant

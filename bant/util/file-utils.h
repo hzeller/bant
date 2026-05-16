@@ -83,6 +83,14 @@ class FilesystemPath {
 // Given a shell-globbing pattern, return all the matching files and dirs.
 std::vector<FilesystemPath> Glob(std::string_view glob_pattern);
 
+// Syntactically canonicalize path, e.g. foo/bar/../baz -> foo/baz
+// Never hits the fileystem. Can not fail.
+std::string WeaklyCanonicalizePath(std::string_view path);
+
+// Does a realpath on the filesystem, resolves all links and relative path
+// elements. Returns optionsl as the resulting file might not exist.
+std::optional<std::string> StronglyCanonicalizePath(std::string_view path);
+
 // Same, but update read time and count of stat
 std::optional<std::string> ReadFileToStringUpdateStat(
   const FilesystemPath &filename, Stat &stat);

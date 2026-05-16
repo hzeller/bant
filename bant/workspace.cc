@@ -19,13 +19,11 @@
 
 #include <array>
 #include <cstddef>
-#include <filesystem>
 #include <optional>
 #include <ostream>
 #include <sstream>
 #include <string>
 #include <string_view>
-#include <system_error>
 #include <vector>
 
 #include "absl/strings/str_cat.h"
@@ -219,21 +217,13 @@ static std::optional<int> LoadWorkspaceFromFile(Session &session,
   return count_added;
 }
 
-// Resolve all the links
-static std::optional<std::string> CanonicalizePath(std::string_view path) {
-  std::error_code ec;
-  auto cpath = std::filesystem::canonical(path, ec);
-  if (!ec) return cpath.string();
-  return std::nullopt;
-}
-
 static void DetermineExternalBaseDirMaybeSymlinked(BazelWorkspace *workspace) {
   static constexpr std::string_view kExternalBaseDir =
     "bazel-out/../../../external";
   workspace->external_dir = kExternalBaseDir;  // the default.
 
   //  $(bazel info output_base)/external resolving without calling bazel.
-  auto infobase_external = CanonicalizePath(kExternalBaseDir);
+  auto infobase_external = StronglyCanonicalizePath(kExternalBaseDir);
   if (!infobase_external) return;
 
   // Let's see if the user created one of bazel-external/ or external/ symlink
@@ -247,7 +237,7 @@ static void DetermineExternalBaseDirMaybeSymlinked(BazelWorkspace *workspace) {
   // emit the fully qualified names anymore.
   for (const std::string_view symlink : {"external", "bazel-external"}) {
     if (!FilesystemPath(symlink).is_symlink()) continue;
-    auto link_canonical = CanonicalizePath(symlink);
+    auto link_canonical = StronglyCanonicalizePath(symlink);
     if (!link_canonical) continue;
     if (*link_canonical == *infobase_external) {  // actually points there ?
       workspace->external_dir = symlink;

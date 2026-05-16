@@ -21,14 +21,18 @@
 
 #include <cstdint>
 #include <deque>
+#include <filesystem>
 #include <functional>
 #include <optional>
 #include <string>
 #include <string_view>
+#include <system_error>
 #include <utility>
 #include <vector>
 
 #include "absl/container/flat_hash_set.h"
+#include "absl/strings/str_join.h"
+#include "absl/strings/str_split.h"
 #include "bant/util/filesystem.h"
 #include "bant/util/glob-match-builder.h"
 #include "bant/util/stat.h"
@@ -152,11 +156,7 @@ static bool LooksLikeValidInode(uint64_t inode) {
   return inode != 0 && (inode & 0xffff'ffff) != 0xffff'ffff;
 }
 
-// FYI: This was previously implemented recursively using
-// std::filesystem::directory_iterator() which was noticeably slower.
-//
-// Compared to using std::filesystem, this implementation is probably slightly
-// less portable, but I run my personal tools on Posix-Systems anyway.
+// ... using our own filesystem abstraction.
 std::vector<FilesystemPath> CollectFilesRecursive(
   const FilesystemPath &dir,
   const std::function<bool(const FilesystemPath &)> &enter_dir_p,
@@ -199,4 +199,44 @@ std::vector<FilesystemPath> CollectFilesRecursive(
   }
   return result_paths;
 }
+
+std::optional<std::string> StronglyCanonicalizePath(std::string_view path) {
+  std::error_code ec;
+  auto cpath = std::filesystem::canonical(path, ec);
+  if (!ec) return cpath.string();
+  return std::nullopt;
+}
+
+std::string WeaklyCanonicalizePath(std::string_view path) {
+  if (path.empty()) return "";
+
+  const bool is_absolute = (path[0] == '/');
+
+  const std::vector<std::string_view> segments =
+    absl::StrSplit(path, '/', absl::SkipEmpty());
+
+  std::vector<std::string_view> result_segments;
+  for (const std::string_view segment : segments) {
+    if (segment == ".") continue;  // Skip /./
+    if (segment == "..") {
+      if (!result_segments.empty() && result_segments.back() != "..") {
+        result_segments.pop_back();  // Pop the parent directory
+      } else if (!is_absolute) {
+        // If it's a relative path and we have no more parents to pop, Keep the
+        // ".."
+        result_segments.push_back(segment);
+      }
+      continue;
+    }
+    result_segments.push_back(segment);
+  }
+
+  std::string result = absl::StrJoin(result_segments, "/");
+
+  if (is_absolute) {
+    return "/" + result;
+  }
+  return result;
+}
+
 }  // namespace bant
