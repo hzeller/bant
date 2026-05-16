@@ -298,6 +298,28 @@ cc_library(
   }
 }
 
+TEST(DWYUTest, FilesWithColonsInsideThemAreProperlyRecognized) {
+  ParsedProjectTestUtil pp;
+  pp.Add("//some/path", R"(
+cc_library(
+  name = "foo",
+  srcs = [
+     "foo.cc",
+     ":foo.h",
+  ],
+)
+)");
+
+  {
+    DWYUTestFixture tester(pp.project(), /*verbose_level=*/2);
+    tester.AddSource("some/path/foo.h", "");
+    tester.AddSource("some/path/foo.cc", R"(
+#include "foo.h"
+)");
+    tester.RunForTarget("//some/path:foo");
+  }
+}
+
 TEST(DWYUTest, ToplevelIncludesWithoutPrefixSlashWork) {
   ParsedProjectTestUtil pp;
   pp.Add("//", R"(

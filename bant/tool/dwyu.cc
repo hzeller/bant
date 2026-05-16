@@ -136,7 +136,15 @@ static bool IsHeaderInList(std::string_view header,
                            std::string_view prefix_path) {
   // The list items are provided without the full path in the cc_library(),
   // so we always need to prepend that prefix_path.
-  for (const std::string_view list_item : list) {
+  for (std::string_view list_item : list) {
+    if (list_item.empty()) continue;  // should not happen.
+    // TODO: thid colon detection is half-assed and only works for one
+    // sub-case. What we actually want to do
+    // is to package QualifiedFile() the sources as well as the prefix path,
+    // then do the comparisons with the absolute from package path filenames.
+    // including all the prefix string comparisons.
+    if (list_item[0] == ':') list_item.remove_prefix(1);
+
     if ((list_item.ends_with(header) ||
          header.ends_with(list_item)) &&  // cheap first test before strcat
         (header == list_item ||
