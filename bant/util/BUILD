@@ -76,6 +76,12 @@ cc_test(
 )
 
 cc_library(
+    name = "term-color",
+    hdrs = ["term-color.h"],
+    deps = ["//bant:session"],
+)
+
+cc_library(
     name = "thread-pool",
     srcs = ["thread-pool.cc"],
     hdrs = ["thread-pool.h"],

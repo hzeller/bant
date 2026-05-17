@@ -47,6 +47,7 @@
 #include "bant/types.h"
 #include "bant/util/file-utils.h"
 #include "bant/util/stat.h"
+#include "bant/util/term-color.h"
 #include "bant/workspace.h"
 #include "re2/re2.h"
 
@@ -69,65 +70,6 @@ static constexpr std::string_view kSourceLocations[] = {
 #undef LINK_PREFIX
 
 namespace bant {
-
-namespace {
-// TODO: refine, and put somewhere else.
-class Colored {
- public:
-  friend std::ostream &operator<<(std::ostream &o, const Colored &c) {
-    // maybe also remember the stream to emit \033[0m when going out of scope,
-    // at the end of a print expression, but that feels possibly too clever.
-    if (c.do_color_) {
-      o << c.escape_code_;
-    }
-    return o;
-  }
-
- protected:
-  Colored(const Session &s, const char *escape_code)
-      : do_color_(s.flags().do_color), escape_code_(escape_code) {}
-
- private:
-  const bool do_color_;
-  const char *const escape_code_;
-};
-
-class Bold : public Colored {
- public:
-  explicit Bold(const Session &s) : Colored(s, "\033[1m") {}
-};
-
-class BoldOff : public Colored {
- public:
-  explicit BoldOff(const Session &s) : Colored(s, "\033[22m") {}
-};
-
-class Invert : public Colored {
- public:
-  explicit Invert(const Session &s) : Colored(s, "\033[7m") {}
-};
-
-class Red : public Colored {
- public:
-  explicit Red(const Session &s) : Colored(s, "\033[31m") {}
-};
-
-class Magenta : public Colored {
- public:
-  explicit Magenta(const Session &s) : Colored(s, "\033[35m") {}
-};
-
-class BlueBold : public Colored {
- public:
-  explicit BlueBold(const Session &s) : Colored(s, "\033[34;1m") {}
-};
-
-class Norm : public Colored {
- public:
-  explicit Norm(const Session &s) : Colored(s, "\033[0m") {}
-};
-
-}  // namespace
 
 // Given a header file, check if it is in the list. Take possible prefix
 // into account.

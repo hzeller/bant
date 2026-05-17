@@ -49,6 +49,7 @@ cc_library(
         "//bant/frontend:source-locator",
         "//bant/util:file-utils",
         "//bant/util:stat",
+        "//bant/util:term-color",
         "@abseil-cpp//absl/container:btree",
         "@abseil-cpp//absl/log:check",
         "@abseil-cpp//absl/strings",
