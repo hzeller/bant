@@ -148,6 +148,7 @@ very specific, e.g.
 -I/home/thatsme/.cache/bazel/_bazel_thatsme/d8e5873f4b04d39dda1961c00487a963/external/abseil-cpp+
 ```
 
+#### Using symbolic link external/
 There is a simple work-around you can do: by creating a toplevel symbolic
 link `external/` yourself:
 
@@ -303,7 +304,7 @@ bant workspace @re2//...  # Print projects referenced by re2
 
 The output are three columns, the last one with the physical path to the
 projecct. This typically is a `bazel-out/../../../` path, but if you created
-a symbolic link `external/` or `bazel-external/` to it (see the [srcs-canonical](#srcs-canonical)) then the shortened form is shown.
+a symbolic link `external/` or `bazel-external/` to it (see the [compilation db](#compilation-db)) then the shortened form is shown.
 
 ### list-targets, list-leafs
 
