@@ -68,7 +68,7 @@ genyacc = genrule(
 gentbl_cc_library = (
     # first approximation not sure if well reflected.
     genrule(
-        name = name,
+        name = name + "_filegroup",
         srcs = [td_file],
         # tbl_outs is a map filename -> flags; only interested in filename
         outs = tbl_outs.keys(),
