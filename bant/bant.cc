@@ -97,7 +97,7 @@ static int usage(const char *prog, const char *message, int exit_code) {
     -g <regex>,    : 'grep'-filter output with regular expression. Can be
     --grep <regex>   provided multiple times to narrow match ('and' semantics).
                      Matches are highlit with different colors (also see '-O').
-    -G <regex>     : Include records that do _not_ match regex (like grep -v)
+    -G <regex>     : Exclude records that match regex (like grep -v)
                      (Long form --invert-match <regex>)
     -i, --ignore-case  : (with `-g`, `-G`): Treat regex case insensitively.
     -O, --or        : (with `-g`): 'or' match smentics. Instead of requiring all
