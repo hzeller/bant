@@ -97,6 +97,7 @@ static int usage(const char *prog, const char *message, int exit_code) {
     -g <regex>     : 'grep'-filter output with regular expression. Can be
                      provided multiple times to narrow match ('and' semantics).
                      Matches are highlit with different colors (also see '-O').
+    -G <regex>     : Include records that do _not_ match regex (like grep -v)
     -i             : (with `-g`): Treat regex case insensitively.
     -O             : (with `-g`): 'or' match smentics. Instead of requiring all
                      regexs to match for a record, require at least one of them.
@@ -252,7 +253,7 @@ int main(int argc, char *argv[]) {
   int opt;
   int option_index = 0;
   // NOLINTNEXTLINE(misc-include-cleaner)  clang-tidy can't see getopt_long()
-  while ((opt = getopt_long(argc, argv, "C:qo:vhaEF:ecbmf:r::Vkg:iT:POdus",
+  while ((opt = getopt_long(argc, argv, "C:qo:vhaEF:ecbmf:r::Vkg:G:iT:POdus",
                             long_options, &option_index)) != -1) {
     switch (opt) {
     case 'C': {
@@ -265,7 +266,6 @@ int main(int argc, char *argv[]) {
       break;
     }
 
-    case 'G': /* reseved */ break;
     case 'q':  //
       be_quiet = true;
       user_info_out.reset(new std::ostream(nullptr));
@@ -304,7 +304,8 @@ int main(int argc, char *argv[]) {
       break;
     case 's': flags.suppress_same = true; break;
 
-    case 'g': flags.grep_expressions.emplace_back(optarg); break;
+    case 'g': flags.grep_include_expressions.emplace_back(optarg); break;
+    case 'G': flags.grep_exclude_expressions.emplace_back(optarg); break;
     case 'O': flags.grep_or_semantics = true; break;
     case 'i':
       flags.regex_case_insesitive = true;

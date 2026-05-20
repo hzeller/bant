@@ -79,13 +79,13 @@ static RE2 *BuildRegex(std::string_view regex_str, bool case_insensitive,
   return regex.release();
 }
 
-bool GrepHighlighter::AddExpressions(const std::vector<std::string> &regex_list,
-                                     bool case_insensitive,
-                                     std::ostream &error_out) {
+bool GrepHighlighter::AppendExpressions(
+  const std::vector<std::string> &regex_list, bool case_insensitive,
+  std::ostream &error_out, RegexList *list) {
   bool all_good = true;
   for (const std::string_view regex : regex_list) {
     if (RE2 *const expr = BuildRegex(regex, case_insensitive, error_out)) {
-      matchers_.emplace_back(expr);
+      list->emplace_back(expr);
     } else {
       all_good = false;
     }
@@ -93,9 +93,26 @@ bool GrepHighlighter::AddExpressions(const std::vector<std::string> &regex_list,
   return all_good;
 }
 
+bool GrepHighlighter::AddExpressions(const std::vector<std::string> &regex_list,
+                                     bool case_insensitive,
+                                     std::ostream &error_out) {
+  return AppendExpressions(regex_list, case_insensitive, error_out, &matchers_);
+}
+
+bool GrepHighlighter::AddExcludeExpressions(
+  const std::vector<std::string> &regex_list, bool case_insensitive,
+  std::ostream &error_out) {
+  return AppendExpressions(regex_list, case_insensitive, error_out,
+                           &exclude_matchers_);
+}
+
 bool GrepHighlighter::EmitMatch(std::string_view content, std::ostream &out,
                                 std::string_view prefix,
                                 std::string_view suffix) const {
+  for (const auto &exclude_re : exclude_matchers_) {
+    if (RE2::PartialMatch(content, *exclude_re)) return false;
+  }
+
   if (matchers_.empty()) {  // Short path
     out << prefix << content << suffix;
     return true;
@@ -172,10 +189,16 @@ std::unique_ptr<GrepHighlighter> CreateGrepHighlighterFromFlags(
   const auto &flags = session.flags();
   auto result =
     std::make_unique<GrepHighlighter>(flags.do_color, !flags.grep_or_semantics);
-  if (!result->AddExpressions(flags.grep_expressions,
+  if (!result->AddExpressions(flags.grep_include_expressions,
                               flags.regex_case_insesitive, session.error())) {
     result.reset();
   }
+  if (!result->AddExcludeExpressions(flags.grep_exclude_expressions,
+                                     flags.regex_case_insesitive,
+                                     session.error())) {
+    result.reset();
+  }
+
   return result;
 }
 }  // namespace bant

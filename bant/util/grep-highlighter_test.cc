@@ -33,6 +33,18 @@ TEST(GrepHighlighterTest, SimpleMatch) {
   EXPECT_EQ(sink.str(), "hello world");
 }
 
+TEST(GrepHighlighterTest, SimpleExludeMatch) {
+  // 'grep -v'
+  GrepHighlighter highligher(false, true);
+  std::stringstream sink;
+  EXPECT_TRUE(highligher.AddExcludeExpressions({"ello"}, false, sink));
+
+  EXPECT_FALSE(highligher.EmitMatch("hello world", sink));
+  EXPECT_TRUE(highligher.EmitMatch("nothing here", sink));
+
+  EXPECT_EQ(sink.str(), "nothing here");
+}
+
 TEST(GrepHighlighterTest, HighlightMatch) {
   GrepHighlighter highligher(true, true);
   std::stringstream sink;

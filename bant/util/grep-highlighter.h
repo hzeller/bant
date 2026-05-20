@@ -45,6 +45,10 @@ class GrepHighlighter {
   bool AddExpressions(const std::vector<std::string> &regex_list,
                       bool case_insensitive, std::ostream &error_out);
 
+  // Essentially "grep -v"
+  bool AddExcludeExpressions(const std::vector<std::string> &regex_list,
+                             bool case_insensitive, std::ostream &error_out);
+
   bool HasExpressions() const { return !matchers_.empty(); }
 
   // Set different hightlight start strings for each expressionn. If there are
@@ -72,11 +76,17 @@ class GrepHighlighter {
                  std::string_view suffix = "") const;
 
  private:
+  using RegexList = std::vector<std::unique_ptr<RE2>>;
+  static bool AppendExpressions(const std::vector<std::string> &regex_list,
+                                bool case_insensitive, std::ostream &error_out,
+                                RegexList *list);
+
   const bool do_highlight_;
   const bool and_semantics_;
   std::vector<std::string> color_highlight_;
   std::string end_highlight_;
-  std::vector<std::unique_ptr<RE2>> matchers_;
+  RegexList matchers_;
+  RegexList exclude_matchers_;
 };
 
 // Convenience factory: create a GrepHighlighter from the flags in the

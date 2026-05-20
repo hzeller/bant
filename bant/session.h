@@ -70,7 +70,8 @@ struct CommandlineFlags {
   int recurse_dependency_depth = 0;
   OutputFormat output_format = OutputFormat::kNative;
   int io_threads = 0;  // <= 0: synchronous operation.
-  std::vector<std::string> grep_expressions;
+  std::vector<std::string> grep_include_expressions;
+  std::vector<std::string> grep_exclude_expressions;
   bool regex_case_insesitive = false;
   bool grep_or_semantics = false;
   bool do_color = false;
