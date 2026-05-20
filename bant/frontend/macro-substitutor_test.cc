@@ -37,7 +37,7 @@ class MacroSubstituteTest : public ::testing::Test {
     const CommandlineFlags flags = CommandlineFlags{.verbose = 1};
     const auto &substitute_parsed = pp_.Add("//substitute", to_substitute);
 
-    Session session(&std::cerr, &std::cerr, flags);
+    Session session(&std::cerr, &std::cerr, &std::cerr, flags);
     const std::string sub_print = ToString(
       MacroSubstitute(session, &pp_.project(), substitute_parsed->ast));
 

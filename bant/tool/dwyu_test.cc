@@ -130,7 +130,7 @@ class TestableDWYUGenerator : public bant::DWYUGenerator {
 class DWYUTestFixture {
  public:
   explicit DWYUTestFixture(const ParsedProject &project, int verbose_level = 1)
-      : session_{&log_messages_, &log_messages_,
+      : session_{&log_messages_, &log_messages_, &log_messages_,
                  CommandlineFlags{.verbose = verbose_level}},
         dwyu_(session_, project, edit_expector_.checker()) {}
 

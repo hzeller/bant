@@ -35,16 +35,17 @@ namespace bant {
 // Tuple of all output streams to talk to the user.
 class SessionStreams {
  public:
-  SessionStreams(std::ostream *out, std::ostream *info)
-      : out_(out), info_(info) {}  // Currently no dedicated error stream.
+  SessionStreams(std::ostream *out, std::ostream *info, std::ostream *error)
+      : out_(out), info_(info), error_(error) {}
 
   std::ostream &out() { return *out_; }
   std::ostream &info() { return *info_; }
-  std::ostream &error() { return *info_; }
+  std::ostream &error() { return *error_; }
 
  private:
   std::ostream *out_;
   std::ostream *info_;
+  std::ostream *error_;
 };
 
 // Printing tables with duplicate values per first column: how to handle.
@@ -87,8 +88,9 @@ class Session {
  public:
   using StatMap = OneToOne<std::string_view, std::unique_ptr<bant::Stat>>;
 
-  Session(std::ostream *out, std::ostream *info, CommandlineFlags flags)
-      : streams_(out, info), flags_(std::move(flags)) {}
+  Session(std::ostream *out, std::ostream *info, std::ostream *error,
+          CommandlineFlags flags)
+      : streams_(out, info, error), flags_(std::move(flags)) {}
 
   SessionStreams &streams() { return streams_; }
 

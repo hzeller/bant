@@ -53,7 +53,7 @@ class ElaborationTest : public ::testing::Test {
 
     const ElaborationOptions elab_options{.builtin_macro_expansion =
                                             flags.bant_macro_expand};
-    Session session(&std::cerr, &std::cerr, flags);
+    Session session(&std::cerr, &std::cerr, &std::cerr, flags);
     const std::string elab_print =
       ToString(bant::Elaborate(session, &pp_.project(), elaborated_->package,
                                elab_options, elaborated_->ast));

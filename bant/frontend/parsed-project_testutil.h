@@ -40,7 +40,7 @@ class ParsedProjectTestUtil {
                              std::string_view content) {
     auto package_or = BazelPackage::ParseFrom(package_str);
     CHECK(package_or.has_value()) << package_str;
-    Session session(&std::cerr, &std::cerr, {});
+    Session session(&std::cerr, &std::cerr, &std::cerr, {});
     const Stat empty_stat;
     const FilesystemPath fake_filename(package_str, "BUILD");
     auto *result = project_.AddBuildFileContent(
@@ -57,7 +57,8 @@ class ParsedProjectTestUtil {
   }
 
   void ElaborateAll() {
-    Session session(&std::cerr, &std::cerr, CommandlineFlags{.verbose = 1});
+    Session session(&std::cerr, &std::cerr, &std::cerr,
+                    CommandlineFlags{.verbose = 1});
     const ElaborationOptions elab_options{.builtin_macro_expansion = true};
     Elaborate(session, &project_, elab_options);
   }

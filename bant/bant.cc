@@ -219,6 +219,7 @@ int main(int argc, char *argv[]) {
   // Default primary and info outputs.
   std::ostream *primary_out = &std::cout;
   std::ostream *info_out = &std::cerr;
+  std::ostream *const error_out = &std::cerr;  // Can not be -q'ed
 
   bool be_quiet = false;
 
@@ -359,7 +360,7 @@ int main(int argc, char *argv[]) {
   // TODO: the various scoped areas below look like they actually want
   // to be functions.
 
-  bant::Session session(primary_out, info_out, flags);
+  bant::Session session(primary_out, info_out, error_out, flags);
   absl::Duration runtime;
   bool did_prewarm;
   bant::CliStatus result;
