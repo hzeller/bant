@@ -99,7 +99,7 @@ static int usage(const char *prog, const char *message, int exit_code) {
                      Matches are highlit with different colors (also see '-O').
     -G <regex>     : Exclude records that match regex (like grep -v)
                      (Long form --invert-match <regex>)
-    -i, --ignore-case  : (with `-g`, `-G`): Treat regex case insensitively.
+    -i, --ignore-case  : (with `-g`, `-G`): Treat regex case-insensitively.
     -O, --or        : (with `-g`): 'or' match smentics. Instead of requiring all
                      regexs to match for a record, require at least one of them.
     -r             : Follow dependencies recursively starting from pattern.
