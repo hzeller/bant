@@ -88,5 +88,13 @@ TEST(GrepHighlighterTest, AlwaysResetFirstButtingUpMatch) {
   EXPECT_TRUE(highligher.EmitMatch("helloworld", sink));
   EXPECT_EQ(sink.str(), "_GREEN_hello_END__RED_world_END_");
 }
+
+TEST(GrepHighlighterTest, InvalidExpression) {
+  GrepHighlighter highligher(true, true);
+  std::stringstream sink;
+  EXPECT_FALSE(highligher.AddExpressions({"hello("}, false, sink));
+  EXPECT_EQ(sink.str(), "Grep pattern: missing ): (hello()\n");
+}
+
 }  // namespace
 }  // namespace bant
