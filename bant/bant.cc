@@ -89,23 +89,24 @@ static int usage(const char *prog, const char *message, int exit_code) {
           prog);
   fprintf(stderr, R"(Options
     -C <directory> : Change to this project directory first (default = '.')
-    -q             : Quiet: don't print info messages to stderr.
+    -q, --quit     : Quiet: don't print info messages to stderr.
     -o <filename>  : Instead of stdout, emit command primary output to file.
     -f <format>    : Output format, support depends on command. One of
                    : native (default), s-expr, plist, json, csv
                      Unique prefix ok, so -fs , -fp, -fj or -fc is sufficient.
-    -g <regex>     : 'grep'-filter output with regular expression. Can be
-                     provided multiple times to narrow match ('and' semantics).
+    -g <regex>,    : 'grep'-filter output with regular expression. Can be
+    --grep <regex>   provided multiple times to narrow match ('and' semantics).
                      Matches are highlit with different colors (also see '-O').
     -G <regex>     : Include records that do _not_ match regex (like grep -v)
-    -i             : (with `-g`): Treat regex case insensitively.
-    -O             : (with `-g`): 'or' match smentics. Instead of requiring all
+                     (Long form --invert-match <regex>)
+    -i, --ignore-case  : (with `-g`, `-G`): Treat regex case insensitively.
+    -O, --or        : (with `-g`): 'or' match smentics. Instead of requiring all
                      regexs to match for a record, require at least one of them.
     -r             : Follow dependencies recursively starting from pattern.
                      Without numeric parameter, follows dependencies to the end.
                      An optional parameter allows to limit the nesting depth,
                      e.g. -r2 just follows two levels after the toplevel
-                     pattern.
+                     pattern. Default for most commands is -r5
     -v             : Verbose; print some stats. Multiple times: more verbose.
     -h             : This help.
     --//<option>   : configurable flag attribute to be used in select() and
@@ -116,14 +117,16 @@ static int usage(const char *prog, const char *message, int exit_code) {
 Commands (unique prefix sufficient):
     %s== Parsing ==%s
     print          : Print rules matching pattern. (-E : only files w/ errors)
-                      -a : print all toplevel items in packages, not just rules.
-                      -e : elaborate; light eval: expand variables, concat etc.
-                      -m : elaborate including expansion of macros.
+                      -a, --all         : print all toplevel items in packages,
+                                          not just rules.
+                      -e, --elaborate   : elaborate; light eval: expand
+                                          variables, concat, some functions etc.
+                      -m, --macro-expand: elaborate and expand macros.
                       -g, -i, -O work here and print the whole item on match.
     parse          : Parse all BUILD files from pattern. Follow deps with -r
                      Emit parse errors. Silent otherwise: No news are good news.
                       -v : some stats.
-
+                      -e, -m: same as in print; -vv and -vvv print eval issues.
     %s== Extract facts ==%s (Use -f to choose output format) ==
     workspace      : Print external projects found in WORKSPACE/MODULE.bazel
                      Without pattern: All external projects.
@@ -246,8 +249,17 @@ int main(int argc, char *argv[]) {
   // clang-format off
   // NOLINTBEGIN
   static constexpr struct option long_options[] = {
-    { "color", required_argument, nullptr, OPT_COLOR    },
-    { nullptr, 0,                 nullptr, 0            }};
+    { "color",         required_argument, nullptr, OPT_COLOR    },
+    { "quiet",         no_argument,       nullptr, 'q'          },
+    { "grep",          required_argument, nullptr, 'g'          },
+    { "invert-match",  required_argument, nullptr, 'G'          },
+    { "ignore-case",   required_argument, nullptr, 'i'          },
+    { "or",            required_argument, nullptr, 'O'          },
+    { "macro-expand",  no_argument,       nullptr, 'm'          },
+    { "elaborate",     no_argument,       nullptr, 'e'          },
+    { "directory",     required_argument, nullptr, 'C'          },
+    //
+    { nullptr, 0,                 nullptr, 0                    }};
   // NOLINTEND
   // clang-format on
 
