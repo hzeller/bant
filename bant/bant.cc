@@ -98,7 +98,7 @@ static int usage(const char *prog, const char *message, int exit_code) {
     --grep <regex>   provided multiple times to narrow match ('and' semantics).
                      Matches are highlit with different colors (also see '-O').
     -G <regex>     : Exclude records that match regex (like grep -v)
-                     (Long form --invert-match <regex>)
+                     (Long form --exclude-match <regex>)
     -i, --ignore-case  : (with `-g`, `-G`): Treat regex case-insensitively.
     -O, --or        : (with `-g`): 'or' match smentics. Instead of requiring all
                      regexs to match for a record, require at least one of them.
@@ -252,7 +252,7 @@ int main(int argc, char *argv[]) {
     { "color",         required_argument, nullptr, OPT_COLOR    },
     { "quiet",         no_argument,       nullptr, 'q'          },
     { "grep",          required_argument, nullptr, 'g'          },
-    { "invert-match",  required_argument, nullptr, 'G'          },
+    { "exclude-match", required_argument, nullptr, 'G'          },
     { "ignore-case",   required_argument, nullptr, 'i'          },
     { "or",            required_argument, nullptr, 'O'          },
     { "macro-expand",  no_argument,       nullptr, 'm'          },
