@@ -15,15 +15,20 @@
 // with this program; if not, write to the Free Software Foundation, Inc.,
 // 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 
-// The following is to work around clang-tidy being confused and not
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
+
+// The following is to work around not very cleanly defined system headers
+// so that it is not clear to clang-tidy that unistd.h would provide optarg
+// and optind and getopt.h provides getopt_long().
 // understanding that unistd.h indeed provides getopt(). So let's include
-// unistd.h for correctness, and then soothe clang-tidy with decls.
-// TODO: how make it just work with including unistd.h ?
-#include <unistd.h>                            // NOLINT
-extern "C" {                                   //
-extern char *optarg;                           // NOLINT
-extern int optind;                             // NOLINT
-int getopt(int, char *const *, const char *);  // NOLINT
+// unistd.h and getopt.h for correctness, and then soothe clang-tidy with decls.
+#include <getopt.h>  // IWYU pragma: keep
+#include <unistd.h>  // IWYU pragma: keep
+extern "C" {
+extern char *optarg;  // NOLINT
+extern int optind;    // NOLINT
 }
 
 #include <cstdio>
@@ -105,6 +110,7 @@ static int usage(const char *prog, const char *message, int exit_code) {
     --//<option>   : configurable flag attribute to be used in select() and
                      picked up by elaboration (-e) (experimental; does not yet
                      read config_setting(), but flag value is used directly).
+    --color=<opt>  : enable colored output. One of "auto", "never", "always"
 
 Commands (unique prefix sufficient):
     %s== Parsing ==%s
@@ -230,8 +236,24 @@ int main(int argc, char *argv[]) {
     {"plist", OutputFormat::kPList},   {"csv", OutputFormat::kCSV},
     {"json", OutputFormat::kJSON},     {"graphviz", OutputFormat::kGraphviz},
   };
+
+  enum LongOptionIds {
+    OPT_COLOR = 1000,
+  };
+
+  // clang-format off
+  // NOLINTBEGIN
+  static constexpr struct option long_options[] = {
+    { "color", required_argument, nullptr, OPT_COLOR    },
+    { nullptr, 0,                 nullptr, 0            }};
+  // NOLINTEND
+  // clang-format on
+
   int opt;
-  while ((opt = getopt(argc, argv, "C:qo:vhaEF:ecbmf:r::Vkg:iT:POdus")) != -1) {
+  int option_index = 0;
+  // NOLINTNEXTLINE(misc-include-cleaner)  clang-tidy can't see getopt_long()
+  while ((opt = getopt_long(argc, argv, "C:qo:vhaEF:ecbmf:r::Vkg:iT:POdus",
+                            long_options, &option_index)) != -1) {
     switch (opt) {
     case 'C': {
       std::error_code err;
@@ -314,6 +336,21 @@ int main(int argc, char *argv[]) {
     case 'P': flags.only_physical_files = true; break;
     case 'v': flags.verbose++; break;  // More -v, more detail.
     case 'V': return print_version();
+    case OPT_COLOR: {
+      const std::string_view o(optarg);
+      if (o == "auto") {
+        flags.do_color = isatty(STDOUT_FILENO);
+      } else if (o == "never") {
+        flags.do_color = false;
+      } else if (o == "always") {
+        flags.do_color = true;
+      } else {
+        fprintf(stderr,
+                "--color should be one of 'auto', "
+                "'never', or 'always'\n");
+        return EXIT_FAILURE;
+      }
+    } break;
     default: return usage(argv[0], nullptr, EXIT_SUCCESS);
     }
   }
