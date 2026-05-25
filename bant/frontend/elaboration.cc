@@ -359,9 +359,9 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
 
     // TODO: implement. So far only implemention of ops observed in the
     // field. For that observation and choose priority: turn on this log :)
-    if (session_.MinVerbosity(2)) {
+    if (session_.MinVerbosity(3)) {
       auto &log = project_->Loc(session_.info(), bin_op->source_range());
-      if (session_.MinVerbosity(3)) {
+      if (session_.MinVerbosity(4)) {
         // Show a more noisy full operation that fails eval
         const bool col = session_.flags().do_color;
         const char *kHighlightOp = col ? "\033[1;33;41m" : "";
