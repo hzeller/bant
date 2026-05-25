@@ -64,8 +64,8 @@ TEST(DWYUTest, HeaderFilesAreExtracted) {
   constexpr std::string_view kTestContent = R"inctest(  // line 0
 /* some ignored text in line 1 */
 #include "CaSe-dash_underscore.h"
-#include <should_not_be_extracted>
-// #include "also-not-extracted.h"
+#include <a_bracket_include>
+// #include "not-extracted.h"
    #include "but-this.h"
 #include "with/suffix.hh"      // other ..
 #include "with/suffix.pb.h"
@@ -87,19 +87,21 @@ R"xyz(
 )inctest";
   NamedLineIndexedContent scanned_src("<text>", kTestContent);
   const auto includes = ExtractCCIncludes(&scanned_src);
-  EXPECT_THAT(includes, ElementsAre("CaSe-dash_underscore.h", "but-this.h",
-                                    "with/suffix.hh", "with/suffix.pb.h",
-                                    "with/suffix.inc", "../dotdot.h",
-                                    "more-special-c++.h", "w/space.h",
-                                    "should-be-seen.h", "this-as-well.h"));
+  EXPECT_THAT(
+    includes,
+    ElementsAre("\"CaSe-dash_underscore.h", "<a_bracket_include",
+                "\"but-this.h", "\"with/suffix.hh", "\"with/suffix.pb.h",
+                "\"with/suffix.inc", "\"../dotdot.h", "\"more-special-c++.h",
+                "\"w/space.h", "\"should-be-seen.h", "\"this-as-well.h"));
   // Let's check some locations.
-  EXPECT_EQ(PosOfPart(scanned_src, includes, 0), (LineColumn{2, 10}));
-  EXPECT_EQ(PosOfPart(scanned_src, includes, 1), (LineColumn{5, 13}));
+  EXPECT_EQ(PosOfPart(scanned_src, includes, 0), (LineColumn{2, 9}));
+  EXPECT_EQ(PosOfPart(scanned_src, includes, 1), (LineColumn{3, 9}));
+  EXPECT_EQ(PosOfPart(scanned_src, includes, 2), (LineColumn{5, 12}));
 
-  EXPECT_EQ(PosOfPart(scanned_src, includes, 2), (LineColumn{6, 10}));
-  EXPECT_EQ(PosOfPart(scanned_src, includes, 3), (LineColumn{7, 10}));
-  EXPECT_EQ(PosOfPart(scanned_src, includes, 4), (LineColumn{8, 10}));
-  EXPECT_EQ(PosOfPart(scanned_src, includes, 7), (LineColumn{18, 15}));
+  EXPECT_EQ(PosOfPart(scanned_src, includes, 3), (LineColumn{6, 9}));
+  EXPECT_EQ(PosOfPart(scanned_src, includes, 4), (LineColumn{7, 9}));
+  EXPECT_EQ(PosOfPart(scanned_src, includes, 5), (LineColumn{8, 9}));
+  EXPECT_EQ(PosOfPart(scanned_src, includes, 8), (LineColumn{18, 14}));
 }
 
 namespace {

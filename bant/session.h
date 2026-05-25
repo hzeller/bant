@@ -76,6 +76,7 @@ struct CommandlineFlags {
   bool regex_case_insesitive = false;
   bool grep_or_semantics = false;
   bool do_color = false;
+  bool allow_bracket_includes = false;  // dwyu only.
   // https://bazel.build/docs/configurable-attributes#custom-flags
   absl::flat_hash_set<std::string> custom_flags;
   std::string direct_filename;  // internal debugging feature: just parse file

@@ -421,29 +421,6 @@ DWYUGenerator::DependenciesNeededBySources(
 
   size_t total_size = 0;
 
-  // Log providers if super verbose -vvv
-  // This shows a after the include all the dependencies that can provide
-  // it.
-  auto maybe_log = [&](const NamedLineIndexedContent &source,
-                       std::string_view inc_file,
-                       const absl::btree_set<BazelTarget> &alternatives) {
-    if (!session_.MinVerbosity(3)) return;
-    Loc(source, inc_file) << Bold(session_) << " #include \"" << inc_file
-                          << Norm(session_) << "\"\n";
-    for (const BazelTarget &possible_provider : alternatives) {
-      std::stringstream msg;
-      std::string why;
-      if (!CanSee(target, possible_provider, &why)) {
-        msg << Red(session_) << " (" << why << ")" << Norm(session_);
-      } else if (auto reason = DeprecationReason(possible_provider)) {
-        msg << Red(session_) << " (deprecated: " << *reason << ")"
-            << Norm(session_);
-      }
-      Loc(source, inc_file)
-        << "    | " << possible_provider << msg.str() << "\n";
-    }
-  };
-
   // Whenever we encounter an issue in the processing of a source, we first
   // add a headline for easier visual navigation in the log.
   bool source_headline_logged_already = false;
@@ -459,8 +436,44 @@ DWYUGenerator::DependenciesNeededBySources(
     source_headline_logged_already = true;
   };
 
-  std::vector<absl::btree_set<BazelTarget>> result;
+  // Log providers if super verbose -vvv
+  // This shows a after the include all the dependencies that can provide
+  // it.
+  auto maybe_log = [&](const NamedLineIndexedContent &source,
+                       std::string_view inc_file, bool is_bracket_include,
+                       const absl::btree_set<BazelTarget> &alternatives) {
+    // Nasty code-smell thus always show, even without verbosity.
+    if (is_bracket_include) {
+      std::string see_also = !session_.MinVerbosity(3) ? " See with -vvv" : "";
+      Loc(source, inc_file)
+        << " source of " << Bold(session_) << target << Norm(session_)
+        << ": #include " << Magenta(session_) << "<" << inc_file << ">"
+        << Norm(session_) << " uses <>-bracketed include style. "
+        << Red(session_) << "Should use quote-style "
+        << "\"" << inc_file << "\" as this header is provided by "
+        << "project libraries." << see_also << Norm(session_) << "\n";
+    }
+    if (!session_.MinVerbosity(3)) return;
+    Loc(source, inc_file) << Bold(session_) << " #include "
+                          << (is_bracket_include ? '<' : '"') << inc_file
+                          << (is_bracket_include ? '>' : '"') << Norm(session_)
+                          << "\n";
+    for (const BazelTarget &possible_provider : alternatives) {
+      std::stringstream msg;
+      std::string why;
+      if (!CanSee(target, possible_provider, &why)) {
+        msg << Red(session_) << " (" << why << ")" << Norm(session_);
+      } else if (auto reason = DeprecationReason(possible_provider)) {
+        msg << Red(session_) << " (deprecated: " << *reason << ")"
+            << Norm(session_);
+      }
+      Loc(source, inc_file)
+        << "    | " << possible_provider << msg.str() << "\n";
+    }
+  };
 
+  std::vector<absl::btree_set<BazelTarget>> result;
+  const bool allow_bracket_includes = session_.flags().allow_bracket_includes;
   for (const std::string_view src_name : sources) {
     source_headline_logged_already = false;
     auto source_content =
@@ -480,7 +493,12 @@ DWYUGenerator::DependenciesNeededBySources(
       pound_includes = ExtractCCIncludes(&source);
     }
     // Now for all includes, we need to make sure we can account for it.
-    for (const std::string_view inc_file : pound_includes) {
+    for (std::string_view inc_file : pound_includes) {
+      const bool is_bracket_include = inc_file[0] == '<';
+      if (is_bracket_include && !allow_bracket_includes) continue;
+
+      inc_file = inc_file.substr(1);
+
       // Possible refactor-name HeaderMentionedInOwnSources()
       if (IsHeaderInList(inc_file, sources, target.package.path)) {
         continue;  // Cool, our own list srcs=[...], hdrs=[...]
@@ -552,8 +570,9 @@ DWYUGenerator::DependenciesNeededBySources(
         }
         if (session_.MinVerbosity(3)) {
           maybe_log_source_headline(src_name, source_content->path, target);
-          maybe_log(source, inc_file, *found_result.target_set);
         }
+        maybe_log(source, inc_file, is_bracket_include,
+                  *found_result.target_set);
         AddVisibleAlternativesWithStratum(target, header_providers, result);
         continue;
       }
@@ -575,8 +594,8 @@ DWYUGenerator::DependenciesNeededBySources(
         }
         if (session_.MinVerbosity(3)) {
           maybe_log_source_headline(src_name, source_content->path, target);
-          maybe_log(source, inc_file, *found->target_set);
         }
+        maybe_log(source, inc_file, is_bracket_include, *found->target_set);
         AddVisibleAlternativesWithStratum(target, *found->target_set, result);
         continue;
       }
@@ -592,6 +611,16 @@ DWYUGenerator::DependenciesNeededBySources(
           LogUnknownProvider(source, inc_file, target, "#include",
                              " (assuming system header and moving on.)", false);
         }
+        continue;
+      }
+
+      // If this is a bracket include, then this is some sort of system header,
+      // and it does not need to be accounted for.
+      // However, we already went through all of these and matched potential
+      // providers in case someone uses a vendored library but accidentally
+      // used bracket includes; so we won't remove these libs (common culprit:
+      // <zlib.h>)
+      if (is_bracket_include) {
         continue;
       }
 
@@ -876,7 +905,7 @@ std::ostream &DWYUGenerator::Loc(const SourceLocator &locator,
 std::vector<std::string_view> ExtractCCIncludes(NamedLineIndexedContent *src) {
   //          raw str      |comment|include...
   static const LazyRE2 kIncRe{
-    R"/((?m)(R"[0-9a-zA-Z_]*\(|\/\/.*$|^\s*#\s*include\s+"((\.\./)*[0-9a-zA-Z_/+-]+(\.[a-zA-Z]+)*)"))/"};
+    R"/((?m)(R"[0-9a-zA-Z_]*\(|\/\/.*$|^\s*#\s*include\s+(["<](\.\./)*[0-9a-zA-Z_/+-]+(\.[a-zA-Z]+)*)[">]))/"};
 
   std::vector<std::string_view> result;
   std::string_view run = src->content();

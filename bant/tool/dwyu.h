@@ -33,6 +33,12 @@ namespace bant {
 // Scan "src" and extract #include project headers (the ones with the quotes
 // not angle brackts) from given file. Best effort: may result empty vector.
 // Initialize the line index in src to be able to refer back to origainal.
+// The string_views include the start of the include bracket (so either '<',
+// or '"'), but not the end. So it is simple to
+// ```
+// is_bracket_include = inc[0] == '<'
+// inc = inc.substr(1);
+// ```
 std::vector<std::string_view> ExtractCCIncludes(NamedLineIndexedContent *src);
 
 // Scan a .proto file and extract import paths from "import" statements.
