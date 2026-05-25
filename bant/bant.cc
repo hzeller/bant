@@ -89,7 +89,7 @@ static int usage(const char *prog, const char *message, int exit_code) {
           prog);
   fprintf(stderr, R"(Options
     -C <directory> : Change to this project directory first (default = '.')
-    -q, --quit     : Quiet: don't print info messages to stderr.
+    -q, --quiet    : Quiet: don't print info messages to stderr.
     -o <filename>  : Instead of stdout, emit command primary output to file.
     -f <format>    : Output format, support depends on command. One of
                    : native (default), s-expr, plist, json, csv
