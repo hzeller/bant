@@ -249,6 +249,7 @@ int main(int argc, char *argv[]) {
   enum LongOptionIds {
     OPT_COLOR = 1000,
     OPT_ALLOW_BRACKET_INC = 1001,
+    OPT_DEPENDENCY_ROOT = 1002,
   };
 
   // clang-format off
@@ -264,6 +265,7 @@ int main(int argc, char *argv[]) {
     { "elaborate",     no_argument,       nullptr, 'e'          },
     { "directory",     required_argument, nullptr, 'C'          },
     { "allow-bracket-includes", no_argument, nullptr, OPT_ALLOW_BRACKET_INC },
+    { "dependency_root", required_argument, nullptr, OPT_DEPENDENCY_ROOT },
     //
     { nullptr, 0,                 nullptr, 0                    }};
   // NOLINTEND
@@ -372,6 +374,7 @@ int main(int argc, char *argv[]) {
       }
     } break;
     case OPT_ALLOW_BRACKET_INC: flags.allow_bracket_includes = true; break;
+    case OPT_DEPENDENCY_ROOT: flags.dependency_root = optarg; break;
     default: return usage(argv[0], nullptr, EXIT_SUCCESS);
     }
   }

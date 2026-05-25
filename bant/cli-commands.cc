@@ -243,8 +243,18 @@ CliStatus RunCommand(Session &session, Command cmd,
   case Command::kHasDependents:
     if (flags.recurse_dependency_depth >= 0) {
       const size_t before_build_files = project.ParsedFiles().size();
+      BazelPatternBundle build_graph_pattern;
+      for (const BazelPattern &p : dep_pattern.patterns()) {
+        build_graph_pattern.AddPattern(p);
+      }
+      const std::string &dep_root = session.flags().dependency_root;
+      if (!dep_root.empty()) {
+        if (auto p = BazelPattern::ParseFrom(dep_root); p.has_value()) {
+          build_graph_pattern.AddPattern(p.value());
+        }
+      }
       graph = bant::BuildDependencyGraph(
-        session, dep_pattern, flags.recurse_dependency_depth, &project);
+        session, build_graph_pattern, flags.recurse_dependency_depth, &project);
       const size_t after_build_files = project.ParsedFiles().size();
       if (session.MinVerbosity(1)) {
         session.info() << "Dependency graph expanded build file# from initial "
