@@ -121,7 +121,7 @@ Commands (unique prefix sufficient):
                                           not just rules.
                       -e, --elaborate   : elaborate; light eval: expand
                                           variables, concat, some functions etc.
-                      -m, --macro-expand: elaborate and expand macros.
+                      -m, --macro-expand: expand macros and elaborate.
                       -g, -i, -O work here and print the whole item on match.
     parse          : Parse all BUILD files from pattern. Follow deps with -r
                      Emit parse errors. Silent otherwise: No news are good news.

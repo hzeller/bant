@@ -330,12 +330,17 @@ std::optional<DWYUGenerator::SourceFile> DWYUGenerator::ReadSourceForDWYU(
 
 void DWYUGenerator::LogUnknownProvider(const NamedLineIndexedContent &source,
                                        std::string_view ref_file,
+                                       const BazelTarget &target,
                                        std::string_view ref_keyword,
                                        std::string_view extra_info,
                                        bool remember_for_summary = true) {
   if (!session_.MinVerbosity(1)) return;
   if (remember_for_summary) {
-    header_without_provider_[ref_file].insert(source.Loc(ref_file));
+    std::stringstream message;
+    message << Bold(session_) << target << Norm(session_)
+            << " in file: " << BlueBold(session_) << source.Loc(ref_file)
+            << Norm(session_);
+    header_without_provider_[ref_file].insert(message.str());
   }
   Loc(source, ref_file) << " " << ref_keyword << " \"" << ref_file << "\"\n";
   Loc(source, ref_file) << Red(session_) << "    ?      ^ unknown provider"
@@ -585,7 +590,7 @@ DWYUGenerator::DependenciesNeededBySources(
       if (inc_file == "assert.h") {
         if (session_.MinVerbosity(2)) {  // quasi-benign. Only on high verbose
           maybe_log_source_headline(src_name, source_content->path, target);
-          LogUnknownProvider(source, inc_file, "#include",
+          LogUnknownProvider(source, inc_file, target, "#include",
                              " (assuming system header and moving on.)", false);
         }
         continue;
@@ -618,7 +623,7 @@ DWYUGenerator::DependenciesNeededBySources(
       // No luck. Source includes it, but we don't know where it is.
       // Be careful with remove suggestion, so consider 'not accounted for'.
       maybe_log_source_headline(src_name, source_content->path, target);
-      LogUnknownProvider(source, inc_file, "#include",
+      LogUnknownProvider(source, inc_file, target, "#include",
                          " -- Missing or from non-standard bazel-rule ?");
     }
   }
@@ -693,7 +698,7 @@ DWYUGenerator::DependenciesNeededByProtoSources(
 
       if (session_.MinVerbosity(1)) {
         maybe_log_source_headline(src_name, source_content->path, target);
-        LogUnknownProvider(source, imp_file, "import",
+        LogUnknownProvider(source, imp_file, target, "import",
                            " -- Missing or from non-standard bazel-rule ?");
       }
     }

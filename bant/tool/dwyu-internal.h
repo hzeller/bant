@@ -127,7 +127,7 @@ class DWYUGenerator {
 
   // Log "unknown provider" warning for an unresolved include/import.
   void LogUnknownProvider(const NamedLineIndexedContent &source,
-                          std::string_view ref_file,
+                          std::string_view ref_file, const BazelTarget &target,
                           std::string_view ref_keyword,
                           std::string_view extra_info,
                           bool remember_for_summary);
