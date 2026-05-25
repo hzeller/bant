@@ -337,9 +337,8 @@ void DWYUGenerator::LogUnknownProvider(const NamedLineIndexedContent &source,
   if (!session_.MinVerbosity(1)) return;
   if (remember_for_summary) {
     std::stringstream message;
-    message << Bold(session_) << target << Norm(session_)
-            << " in file: " << BlueBold(session_) << source.Loc(ref_file)
-            << Norm(session_);
+    message << BlueBold(session_) << source.Loc(ref_file) << Norm(session_)
+            << " in " << Bold(session_) << target << Norm(session_);
     header_without_provider_[ref_file].insert(message.str());
   }
   Loc(source, ref_file) << " " << ref_keyword << " \"" << ref_file << "\"\n";
