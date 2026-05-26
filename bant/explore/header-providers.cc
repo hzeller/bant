@@ -167,17 +167,20 @@ static void IterateCCLibraryHeaders(const ParsedBuildFile &build_file,
       for (const std::string_view header : hdrs) {
         if (absl_string_view_skip && header == "string_view.h") continue;
 
+        // TODO: double-check that everything here is as it works in RL
+        const std::string_view stripped =
+          StripIfNeeded(header, cc_lib.strip_include_prefix);
+
         if (!cc_lib.include_prefix.empty()) {  // cc_library() dictates path.
           callback(*cc_library, header,
-                   absl::StrCat(cc_lib.include_prefix, "/", header));
+                   absl::StrCat(cc_lib.include_prefix, "/", stripped));
           continue;
         }
 
         // Assemble the header filename as it can be #include'ed in sources.
-        const std::string header_fqn = package.QualifiedFile(header);
+        const std::string header_fqn = package.QualifiedFile(stripped);
 
-        callback(*cc_library, header,
-                 StripIfNeeded(header_fqn, cc_lib.strip_include_prefix));
+        callback(*cc_library, header, header_fqn);
 
         // The same header could also show up with different prefixes, all of
         // them valid. e.g zlib.h and zlib/include/zlib.h. Emit all of these.

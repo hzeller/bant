@@ -48,6 +48,7 @@ static ProvidedFromTargetSet::mapped_type Ts(std::string_view s) {
   return {*target_or};
 }
 
+// TODO: this combines too many concepts. Break into separate tests.
 TEST(HeaderToLibMapping, CCRuleExtraction) {
   ParsedProjectTestUtil pp;
   pp.Add("//some/path", R"(
@@ -71,8 +72,8 @@ cc_library(
 )
 cc_library(
   name = "bar",
-  hdrs = ["bar.h"],
-  strip_include_prefix = "prefix",   # Remove prefix from current package
+  hdrs = ["barfix/bar.h"],
+  strip_include_prefix = "barfix",
 )
 cc_library(
   name = "baz",
@@ -85,14 +86,19 @@ cc_library(
 )");
   std::stringstream log_absorb;
   auto header_map = ExtractExpandedHeaderToLibMapping(pp.project(), log_absorb);
+  // includes with fully qualified names
   EXPECT_THAT(header_map,
               Contains(Pair("some/path/foo.h", Ts("//some/path:foo"))));
 
   EXPECT_THAT(header_map,
               Contains(Pair("other/path/bar.h", Ts("//other/path:bar"))));
 
+  // Library-mandated prefix
   EXPECT_THAT(header_map, Contains(Pair("yolo/foo.h", Ts("//prefix/dir:foo"))));
-  EXPECT_THAT(header_map, Contains(Pair("dir/bar.h", Ts("//prefix/dir:bar"))));
+
+  // strip a prefix: the barfix/ should be collapsed between dir/ and bar.h
+  EXPECT_THAT(header_map,
+              Contains(Pair("prefix/dir/bar.h", Ts("//prefix/dir:bar"))));
 
   // The header with includes = [...] is available via multiple possible paths.
   EXPECT_THAT(header_map, Contains(Pair("baz.h", Ts("//prefix/dir:baz"))));
@@ -105,7 +111,8 @@ cc_library(
   using Hs = HeaderToCanonicalHeader::mapped_type;
   EXPECT_THAT(canon_map,
               Contains(Pair("baz.h", Hs{"prefix/dir/subdir/baz.h"})));
-  EXPECT_THAT(canon_map, Contains(Pair("dir/bar.h", Hs{"prefix/dir/bar.h"})));
+  EXPECT_THAT(canon_map, Contains(Pair("prefix/dir/bar.h",
+                                       Hs{"prefix/dir/barfix/bar.h"})));
   EXPECT_THAT(canon_map,
               Contains(Pair("other/path/bar.h", Hs{"other/path/bar.h"})));
   EXPECT_THAT(canon_map, Contains(Pair("prefix/dir/subdir/baz.h",
@@ -113,6 +120,16 @@ cc_library(
   EXPECT_THAT(canon_map,
               Contains(Pair("some/path/foo.h", Hs{"some/path/foo.h"})));
 }
+
+/* TODO: test absolute path when referring to a different dir
+# Located in //some/other/package/BUILD
+cc_library(
+    name = "my_lib",
+    hdrs = ["//foo/bar/baz/include/header.h"],
+    # Strips from the workspace root
+    strip_include_prefix = "/foo/bar/baz/include",
+)
+*/
 
 TEST(HeaderToLibMapping, NonCanonicalHeaders) {
   ParsedProjectTestUtil pp;
