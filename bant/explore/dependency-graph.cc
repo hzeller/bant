@@ -266,6 +266,15 @@ DependencyGraph BuildDependencyGraph(Session &session,
       scan_package.insert(target.package);
     }
 
+    if (session.MinVerbosity(2) && !deps_to_resolve_todo.empty()) {
+      if (stat.count == 1) {
+        session.info() << "Dependency BFS graph expand round\n";
+      }
+      session.info() << "\t" << stat.count << ". resolve "
+                     << deps_to_resolve_todo.size() << " new deps in "
+                     << scan_package.size() << " packages\n";
+    }
+
     // Make sure that we have parsed all packages we're looking through.
     FindAndParseMissingPackages(&io_thread_pool, session, scan_package,
                                 &error_packages, project);
