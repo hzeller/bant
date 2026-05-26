@@ -248,11 +248,11 @@ static std::vector<std::string> CollectIncDirs(
         }
       }
 
-      // bazel generates virtual include dirs when "include_prefix" is set.
-      if (!details.include_prefix.empty()) {
-        // TODO: this might be different for external and not. Right now
-        // we're focused on external projects, such as protobuf that seems
-        // to use this feature.
+      // bazel generates virtual include dirs with a symlink-tree if any
+      // of "include_prefix" or "strip_include_prefix" is set.
+      if (!details.include_prefix.empty() ||
+          !details.strip_include_prefix.empty()) {
+        // External project
         const std::string_view external_project = target.package.project;
         const std::string_view target_path = target.package.path;
         auto ext_dir = workspace.FindPathByProject(external_project);
@@ -260,6 +260,13 @@ static std::vector<std::string> CollectIncDirs(
           const std::string virt_incdir = absl::StrCat(
             "bazel-bin/external/", ext_dir->filename(), "/", target_path,
             "/_virtual_includes/", target.target_name);
+          if (already_seen.insert(virt_incdir).second) {
+            result.emplace_back(virt_incdir);
+          }
+        } else {  // internal project
+          const std::string virt_incdir =
+            absl::StrCat("bazel-bin/", target_path, "/_virtual_includes/",
+                         target.target_name);
           if (already_seen.insert(virt_incdir).second) {
             result.emplace_back(virt_incdir);
           }
