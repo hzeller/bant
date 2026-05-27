@@ -17,6 +17,7 @@
 
 #include "bant/explore/header-providers.h"
 
+#include <initializer_list>
 #include <sstream>
 #include <string>
 #include <string_view>
@@ -31,6 +32,7 @@ using ::testing::Contains;
 using ::testing::ElementsAre;
 using ::testing::Not;
 using ::testing::Pair;
+using ::testing::SizeIs;
 
 namespace bant {
 namespace {
@@ -48,77 +50,218 @@ static ProvidedFromTargetSet::mapped_type Ts(std::string_view s) {
   return {*target_or};
 }
 
-// TODO: this combines too many concepts. Break into separate tests.
-TEST(HeaderToLibMapping, CCRuleExtraction) {
+using TestList = std::initializer_list<const char *>;
+
+TEST(HeaderToLibMapping, LibHeaders_Simple) {
   ParsedProjectTestUtil pp;
   pp.Add("//some/path", R"(
 cc_library(
   name = "foo",
   srcs = ["foo.cc"],
-  hdrs = ["foo.h"]
-)
-)");
-  pp.Add("//other/path", R"(
-cc_library(
-  name = "bar",
-  hdrs = ["bar.h"]
-)
-)");
-  pp.Add("//prefix/dir", R"(
-cc_library(
-  name = "foo",
-  hdrs = ["foo.h"],
-  include_prefix = "yolo"            # Lib says where header actually is
-)
-cc_library(
-  name = "bar",
-  hdrs = ["barfix/bar.h"],
-  strip_include_prefix = "barfix",
-)
-cc_library(
-  name = "baz",
-  hdrs = ["subdir/baz.h"],
-  includes =[                        # allow to -I without that subdir
-     "subdir",
-     ".",
+  hdrs = [
+     "foo.h",
+     "inc/bar.h",
   ]
 )
 )");
+  const auto all_hdrs = TestList{"some/path/foo.h", "some/path/inc/bar.h"};
+
   std::stringstream log_absorb;
   auto header_map = ExtractExpandedHeaderToLibMapping(pp.project(), log_absorb);
-  // includes with fully qualified names
-  EXPECT_THAT(header_map,
-              Contains(Pair("some/path/foo.h", Ts("//some/path:foo"))));
+  EXPECT_THAT(header_map, SizeIs(all_hdrs.size()));
 
-  EXPECT_THAT(header_map,
-              Contains(Pair("other/path/bar.h", Ts("//other/path:bar"))));
-
-  // Library-mandated prefix
-  EXPECT_THAT(header_map, Contains(Pair("yolo/foo.h", Ts("//prefix/dir:foo"))));
-
-  // strip a prefix: the barfix/ should be collapsed between dir/ and bar.h
-  EXPECT_THAT(header_map,
-              Contains(Pair("prefix/dir/bar.h", Ts("//prefix/dir:bar"))));
-
-  // The header with includes = [...] is available via multiple possible paths.
-  EXPECT_THAT(header_map, Contains(Pair("baz.h", Ts("//prefix/dir:baz"))));
-  EXPECT_THAT(header_map,
-              Contains(Pair("subdir/baz.h", Ts("//prefix/dir:baz"))));
-  EXPECT_THAT(header_map, Contains(Pair("prefix/dir/subdir/baz.h",
-                                        Ts("//prefix/dir:baz"))));
+  for (const std::string_view h : all_hdrs) {
+    EXPECT_THAT(header_map, Contains(Pair(h, Ts("//some/path:foo")))) << h;
+  }
 
   auto canon_map = CanonicalHeaderMapping(pp.project(), log_absorb);
-  using Hs = HeaderToCanonicalHeader::mapped_type;
+  EXPECT_THAT(canon_map, SizeIs(all_hdrs.size() + 1));  // hdrs + source
+  using K_t = HeaderToCanonicalHeader::key_type;
+  using V_t = HeaderToCanonicalHeader::mapped_type;
+
+  for (const auto &h : all_hdrs) {
+    EXPECT_THAT(canon_map, Contains(Pair(K_t{h}, V_t{h}))) << h;
+  }
+  const char *h = "some/path/foo.cc";
+  EXPECT_THAT(canon_map, Contains(Pair(K_t{h}, V_t{h}))) << h;
+}
+
+TEST(HeaderToLibMapping, LibHeaders_IncludePrefix) {
+  ParsedProjectTestUtil pp;
+  pp.Add("//some/path", R"(
+cc_library(
+  name = "foo",
+  srcs = ["foo.cc"],
+  hdrs = [
+     "foo.h",
+     "inc/bar.h",
+  ],
+  include_prefix = "yolo",   # Library decides that this is the new prefix
+)
+)");
+  const auto all_hdrs = TestList{"yolo/foo.h", "yolo/inc/bar.h"};
+
+  std::stringstream log_absorb;
+  auto header_map = ExtractExpandedHeaderToLibMapping(pp.project(), log_absorb);
+  EXPECT_THAT(header_map, SizeIs(all_hdrs.size()));
+
+  for (const std::string_view h : all_hdrs) {
+    EXPECT_THAT(header_map, Contains(Pair(h, Ts("//some/path:foo")))) << h;
+  }
+
+  auto canon_map = CanonicalHeaderMapping(pp.project(), log_absorb);
+  EXPECT_THAT(canon_map, SizeIs(all_hdrs.size() + 1));  // hdrs + source
+  using K_t = HeaderToCanonicalHeader::key_type;
+  using V_t = HeaderToCanonicalHeader::mapped_type;
+
   EXPECT_THAT(canon_map,
-              Contains(Pair("baz.h", Hs{"prefix/dir/subdir/baz.h"})));
-  EXPECT_THAT(canon_map, Contains(Pair("prefix/dir/bar.h",
-                                       Hs{"prefix/dir/barfix/bar.h"})));
+              Contains(Pair(K_t{"yolo/foo.h"}, V_t{"some/path/foo.h"})));
+  EXPECT_THAT(canon_map, Contains(Pair(K_t{"yolo/inc/bar.h"},
+                                       V_t{"some/path/inc/bar.h"})));
+}
+
+TEST(HeaderToLibMapping, LibHeaders_StripIncludePrefix) {
+  ParsedProjectTestUtil pp;
+  pp.Add("//some/path", R"(
+cc_library(
+  name = "foo",
+  srcs = ["foo.cc"],
+  hdrs = [
+     "foo.h",
+     "inc/bar.h",   # only this one has the right prefix to strip
+  ],
+  strip_include_prefix = "inc",
+)
+)");
+  const auto all_hdrs = TestList{"some/path/foo.h", "some/path/bar.h"};
+
+  std::stringstream log_absorb;
+  auto header_map = ExtractExpandedHeaderToLibMapping(pp.project(), log_absorb);
+  EXPECT_THAT(header_map, SizeIs(all_hdrs.size()));
+
+  for (const std::string_view h : all_hdrs) {
+    EXPECT_THAT(header_map, Contains(Pair(h, Ts("//some/path:foo")))) << h;
+  }
+
+  auto canon_map = CanonicalHeaderMapping(pp.project(), log_absorb);
+  EXPECT_THAT(canon_map, SizeIs(all_hdrs.size() + 1));  // hdrs + source
+  using K_t = HeaderToCanonicalHeader::key_type;
+  using V_t = HeaderToCanonicalHeader::mapped_type;
+
   EXPECT_THAT(canon_map,
-              Contains(Pair("other/path/bar.h", Hs{"other/path/bar.h"})));
-  EXPECT_THAT(canon_map, Contains(Pair("prefix/dir/subdir/baz.h",
-                                       Hs{"prefix/dir/subdir/baz.h"})));
+              Contains(Pair(K_t{"some/path/foo.h"}, V_t{"some/path/foo.h"})));
+  EXPECT_THAT(canon_map, Contains(Pair(K_t{"some/path/bar.h"},
+                                       V_t{"some/path/inc/bar.h"})));
+}
+
+TEST(HeaderToLibMapping, LibHeaders_StripIncludePrefix_plus_IncludePrefix) {
+  ParsedProjectTestUtil pp;
+  pp.Add("//some/path", R"(
+cc_library(
+  name = "foo",
+  srcs = ["foo.cc"],
+  hdrs = [
+     "foo.h",
+     "inc/bar.h",
+  ],
+  strip_include_prefix = "inc",
+  include_prefix = "yolo",
+)
+)");
+  const auto all_hdrs = TestList{"yolo/foo.h", "yolo/bar.h"};
+
+  std::stringstream log_absorb;
+  auto header_map = ExtractExpandedHeaderToLibMapping(pp.project(), log_absorb);
+  EXPECT_THAT(header_map, SizeIs(all_hdrs.size()));
+
+  for (const std::string_view h : all_hdrs) {
+    EXPECT_THAT(header_map, Contains(Pair(h, Ts("//some/path:foo")))) << h;
+  }
+
+  auto canon_map = CanonicalHeaderMapping(pp.project(), log_absorb);
+  EXPECT_THAT(canon_map, SizeIs(all_hdrs.size() + 1));  // hdrs + source
+  using K_t = HeaderToCanonicalHeader::key_type;
+  using V_t = HeaderToCanonicalHeader::mapped_type;
+
   EXPECT_THAT(canon_map,
-              Contains(Pair("some/path/foo.h", Hs{"some/path/foo.h"})));
+              Contains(Pair(K_t{"yolo/foo.h"}, V_t{"some/path/foo.h"})));
+  EXPECT_THAT(canon_map,
+              Contains(Pair(K_t{"yolo/bar.h"}, V_t{"some/path/inc/bar.h"})));
+}
+
+TEST(HeaderToLibMapping, LibHeaders_IncludesRelative) {
+  ParsedProjectTestUtil pp;
+  pp.Add("//some/path", R"(
+cc_library(
+  name = "foo",
+  srcs = ["foo.cc"],
+  hdrs = [
+     "foo.h",
+     "inc/bar.h",
+  ],
+  includes = [
+     "inc",  # this essentially adds a -Isome/path/inc
+  ]
+)
+)");
+  const auto all_hdrs =
+    TestList{"some/path/foo.h", "bar.h", "some/path/inc/bar.h"};
+
+  std::stringstream log_absorb;
+  auto header_map = ExtractExpandedHeaderToLibMapping(pp.project(), log_absorb);
+  EXPECT_THAT(header_map, SizeIs(all_hdrs.size()));
+
+  for (const std::string_view h : all_hdrs) {
+    EXPECT_THAT(header_map, Contains(Pair(h, Ts("//some/path:foo")))) << h;
+  }
+
+  auto canon_map = CanonicalHeaderMapping(pp.project(), log_absorb);
+  EXPECT_THAT(canon_map, SizeIs(all_hdrs.size() + 1));  // hdrs + source
+  using K_t = HeaderToCanonicalHeader::key_type;
+  using V_t = HeaderToCanonicalHeader::mapped_type;
+
+  EXPECT_THAT(canon_map,
+              Contains(Pair(K_t{"some/path/foo.h"}, V_t{"some/path/foo.h"})));
+  EXPECT_THAT(canon_map,
+              Contains(Pair(K_t{"bar.h"}, V_t{"some/path/inc/bar.h"})));
+}
+
+TEST(HeaderToLibMapping, LibHeaders_IncludesRelativeDotInclude) {
+  ParsedProjectTestUtil pp;
+  pp.Add("//some/path", R"(
+cc_library(
+  name = "foo",
+  srcs = ["foo.cc"],
+  hdrs = [
+     "foo.h",
+     "inc/bar.h",
+  ],
+  includes = [
+     ".",    # -Isome/path, essentially
+  ]
+)
+)");
+  const auto all_hdrs =
+    TestList{"foo.h", "inc/bar.h", "some/path/foo.h", "some/path/inc/bar.h"};
+
+  std::stringstream log_absorb;
+  auto header_map = ExtractExpandedHeaderToLibMapping(pp.project(), log_absorb);
+  EXPECT_THAT(header_map, SizeIs(all_hdrs.size()));
+
+  for (const std::string_view h : all_hdrs) {
+    EXPECT_THAT(header_map, Contains(Pair(h, Ts("//some/path:foo")))) << h;
+  }
+
+  auto canon_map = CanonicalHeaderMapping(pp.project(), log_absorb);
+  EXPECT_THAT(canon_map, SizeIs(all_hdrs.size() + 2));  // hdrs + 2*source
+  using K_t = HeaderToCanonicalHeader::key_type;
+  using V_t = HeaderToCanonicalHeader::mapped_type;
+
+  EXPECT_THAT(canon_map,
+              Contains(Pair(K_t{"some/path/foo.h"}, V_t{"some/path/foo.h"})));
+  EXPECT_THAT(canon_map, Contains(Pair(K_t{"foo.h"}, V_t{"some/path/foo.h"})));
+  EXPECT_THAT(canon_map,
+              Contains(Pair(K_t{"inc/bar.h"}, V_t{"some/path/inc/bar.h"})));
 }
 
 /* TODO: test absolute path when referring to a different dir
