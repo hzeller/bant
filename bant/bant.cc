@@ -229,7 +229,6 @@ int main(int argc, char *argv[]) {
   std::ostream *const error_out = &std::cerr;  // Can not be -q'ed
 
   bool be_quiet = false;
-  const char *context_deps_start_here = nullptr;
 
   bant::CommandlineFlags flags;
   flags.do_color = isatty(STDOUT_FILENO);
@@ -376,7 +375,6 @@ int main(int argc, char *argv[]) {
     } break;
     case OPT_ALLOW_BRACKET_INC: flags.allow_bracket_includes = true; break;
     case OPT_GRAPH_AUGMENT: {
-      context_deps_start_here = optarg;
       flags.graph_deps.emplace_back(optarg);
     } break;
     default: return usage(argv[0], nullptr, EXIT_SUCCESS);
@@ -400,15 +398,7 @@ int main(int argc, char *argv[]) {
 
     std::vector<std::string_view> positional_args;
     for (int i = optind; i < argc; ++i) {
-      const char *const arg = argv[i];
-      if (context_deps_start_here != nullptr && arg > context_deps_start_here) {
-        // after --graph-augment, regular positional args are finished and
-        // everything is just considred a graph augmentation pattern.
-        // Note, we assume that strings in argv are allocated consecutively.
-        flags.graph_deps.emplace_back(arg);
-      } else {
-        positional_args.emplace_back(arg);
-      }
+      positional_args.emplace_back(argv[i]);
     }
 
     result = RunCliCommand(session, positional_args);
