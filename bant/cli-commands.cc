@@ -247,9 +247,9 @@ CliStatus RunCommand(Session &session, Command cmd,
       for (const BazelPattern &p : dep_pattern.patterns()) {
         build_graph_pattern.AddPattern(p);
       }
-      const std::string &dep_root = session.flags().dependency_root;
-      if (!dep_root.empty()) {
-        if (auto p = BazelPattern::ParseFrom(dep_root); p.has_value()) {
+      // Additional patterns to add to fully build dependency graph.
+      for (const std::string_view graph_dep : session.flags().graph_deps) {
+        if (auto p = BazelPattern::ParseFrom(graph_dep); p.has_value()) {
           build_graph_pattern.AddPattern(p.value());
         }
       }

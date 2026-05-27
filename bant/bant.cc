@@ -229,6 +229,7 @@ int main(int argc, char *argv[]) {
   std::ostream *const error_out = &std::cerr;  // Can not be -q'ed
 
   bool be_quiet = false;
+  const char *context_deps_start_here = nullptr;
 
   bant::CommandlineFlags flags;
   flags.do_color = isatty(STDOUT_FILENO);
@@ -249,7 +250,7 @@ int main(int argc, char *argv[]) {
   enum LongOptionIds {
     OPT_COLOR = 1000,
     OPT_ALLOW_BRACKET_INC = 1001,
-    OPT_DEPENDENCY_ROOT = 1002,
+    OPT_GRAPH_AUGMENT = 1002,
   };
 
   // clang-format off
@@ -265,7 +266,7 @@ int main(int argc, char *argv[]) {
     { "elaborate",     no_argument,       nullptr, 'e'          },
     { "directory",     required_argument, nullptr, 'C'          },
     { "allow-bracket-includes", no_argument, nullptr, OPT_ALLOW_BRACKET_INC },
-    { "dependency_root", required_argument, nullptr, OPT_DEPENDENCY_ROOT },
+    { "graph-augment", required_argument, nullptr, OPT_GRAPH_AUGMENT },
     //
     { nullptr, 0,                 nullptr, 0                    }};
   // NOLINTEND
@@ -374,7 +375,10 @@ int main(int argc, char *argv[]) {
       }
     } break;
     case OPT_ALLOW_BRACKET_INC: flags.allow_bracket_includes = true; break;
-    case OPT_DEPENDENCY_ROOT: flags.dependency_root = optarg; break;
+    case OPT_GRAPH_AUGMENT: {
+      context_deps_start_here = optarg;
+      flags.graph_deps.emplace_back(optarg);
+    } break;
     default: return usage(argv[0], nullptr, EXIT_SUCCESS);
     }
   }
@@ -396,7 +400,15 @@ int main(int argc, char *argv[]) {
 
     std::vector<std::string_view> positional_args;
     for (int i = optind; i < argc; ++i) {
-      positional_args.emplace_back(argv[i]);
+      const char *const arg = argv[i];
+      if (context_deps_start_here != nullptr && arg > context_deps_start_here) {
+        // after --graph-augment, regular positional args are finished and
+        // everything is just considred a graph augmentation pattern.
+        // Note, we assume that strings in argv are allocated consecutively.
+        flags.graph_deps.emplace_back(arg);
+      } else {
+        positional_args.emplace_back(arg);
+      }
     }
 
     result = RunCliCommand(session, positional_args);
