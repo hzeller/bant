@@ -154,6 +154,40 @@ cc_library(
                                        V_t{"some/path/inc/bar.h"})));
 }
 
+TEST(HeaderToLibMapping, LibHeaders_StripIncludePrefixAbsolute) {
+  ParsedProjectTestUtil pp;
+  pp.Add("//some/path", R"(
+cc_library(
+  name = "foo",
+  srcs = ["foo.cc"],
+  hdrs = [
+     "foo.h",
+     "inc/bar.h",   # only this one has the right prefix to strip
+  ],
+  strip_include_prefix = "/some/",  # Starting with slash: abs path
+)
+)");
+  const auto all_hdrs = TestList{"path/foo.h", "path/inc/bar.h"};
+
+  std::stringstream log_absorb;
+  auto header_map = ExtractExpandedHeaderToLibMapping(pp.project(), log_absorb);
+  EXPECT_THAT(header_map, SizeIs(all_hdrs.size()));
+
+  for (const std::string_view h : all_hdrs) {
+    EXPECT_THAT(header_map, Contains(Pair(h, Ts("//some/path:foo")))) << h;
+  }
+
+  auto canon_map = CanonicalHeaderMapping(pp.project(), log_absorb);
+  EXPECT_THAT(canon_map, SizeIs(all_hdrs.size() + 1));  // hdrs + source
+  using K_t = HeaderToCanonicalHeader::key_type;
+  using V_t = HeaderToCanonicalHeader::mapped_type;
+
+  EXPECT_THAT(canon_map,
+              Contains(Pair(K_t{"path/foo.h"}, V_t{"some/path/foo.h"})));
+  EXPECT_THAT(canon_map, Contains(Pair(K_t{"path/inc/bar.h"},
+                                       V_t{"some/path/inc/bar.h"})));
+}
+
 TEST(HeaderToLibMapping, LibHeaders_StripIncludePrefix_plus_IncludePrefix) {
   ParsedProjectTestUtil pp;
   pp.Add("//some/path", R"(

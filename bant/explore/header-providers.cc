@@ -88,12 +88,24 @@ static std::string KeyTransform(std::string_view in, bool suffix_index) {
                       : std::string{in};
 }
 
+// special 'abs path' used in the proto buffer rules: they don't have tests
+// yet, so don't deal with absl paths yet. TODO: implement.
+constexpr std::string_view TODO_IMPL_FOR_PROTO = "(implproto)";
+
 // Strip a "file_path" if it starts with the optional "strip_prefix", otherwise
 // return as-is.
-static std::string_view StripIfNeeded(std::string_view file_path,
+static std::string_view StripIfNeeded(std::string_view rel_path,
+                                      std::string_view abs_path,
                                       std::string_view strip_prefix) {
-  // There can be an include prefix to be removed (typically: "").
-  // In protobuf, strip_include_prefix starts with '/' ???
+  if (strip_prefix.empty()) return rel_path;
+
+  // If the strip prefix starts with slash, we start stripping absolute.
+  // Currently special handling if there is an abs path (proto needs to be
+  // tested separately)
+  const auto file_path =
+    (strip_prefix[0] == '/' && abs_path != TODO_IMPL_FOR_PROTO) ? abs_path
+                                                                : rel_path;
+
   while (strip_prefix.starts_with('/')) strip_prefix.remove_prefix(1);
   while (strip_prefix.ends_with('/')) strip_prefix.remove_suffix(1);
 
@@ -167,10 +179,11 @@ static void IterateCCLibraryHeaders(const ParsedBuildFile &build_file,
       for (const std::string_view header : hdrs) {
         if (absl_string_view_skip && header == "string_view.h") continue;
 
-        // TODO: double-check that everything here is as it works in RL
+        const auto strip_include_prefix = cc_lib.strip_include_prefix;
+        const bool is_abs_inc_prefix = strip_include_prefix.starts_with('/');
+        const std::string header_abs = package.QualifiedFile(header);
         const std::string_view stripped =
-          StripIfNeeded(header, cc_lib.strip_include_prefix);
-
+          StripIfNeeded(header, header_abs, strip_include_prefix);
         if (!cc_lib.include_prefix.empty()) {  // cc_library() dictates path.
           callback(*cc_library, header,
                    absl::StrCat(cc_lib.include_prefix, "/", stripped));
@@ -179,8 +192,11 @@ static void IterateCCLibraryHeaders(const ParsedBuildFile &build_file,
 
         // Assemble the header filename as it can be #include'ed in sources.
         const std::string header_fqn = package.QualifiedFile(stripped);
-
-        callback(*cc_library, header, header_fqn);
+        if (!is_abs_inc_prefix) {
+          callback(*cc_library, header, header_fqn);
+        } else {
+          callback(*cc_library, header, stripped);
+        }
 
         // The same header could also show up with different prefixes, all of
         // them valid. e.g zlib.h and zlib/include/zlib.h. Emit all of these.
@@ -336,8 +352,8 @@ static void AppendProtoLibraryHeaders(const ParsedBuildFile &build_file,
             proto_header = package.QualifiedFile(proto_header);
             // What is strip_include_prefix is called strip_import_prefix
             // for proto_library().
-            const std::string_view maybe_stripped =
-              StripIfNeeded(proto_header, proto_lib.strip_import_prefix);
+            const std::string_view maybe_stripped = StripIfNeeded(
+              proto_header, TODO_IMPL_FOR_PROTO, proto_lib.strip_import_prefix);
             const std::string key = KeyTransform(maybe_stripped, reverse);
             InsertLibAndAliasesToTargetSet(key, cc_proto_lib, idx.alias_index,
                                            result);
@@ -413,8 +429,8 @@ ProvidedFromTargetSet ExtractProtoToProtoLibMapping(
 
           const std::string proto_fqn =
             build_file->package.QualifiedFile(proto);
-          const std::string_view maybe_stripped =
-            StripIfNeeded(proto_fqn, proto_lib.strip_import_prefix);
+          const std::string_view maybe_stripped = StripIfNeeded(
+            proto_fqn, TODO_IMPL_FOR_PROTO, proto_lib.strip_import_prefix);
           const std::string key = KeyTransform(maybe_stripped, suffix_index);
           InsertLibAndAliasesToTargetSet(key, *target, aliased_by_index,
                                          result);
