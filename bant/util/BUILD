@@ -204,3 +204,24 @@ cc_test(
         "@googletest//:gtest_main",
     ],
 )
+
+cc_library(
+    name = "text-template",
+    srcs = ["text-template.cc"],
+    hdrs = ["text-template.h"],
+    deps = [
+        "@abseil-cpp//absl/log:check",
+        "@re2",
+    ],
+)
+
+cc_test(
+    name = "text-template_test",
+    srcs = ["text-template_test.cc"],
+    deps = [
+        ":text-template",
+        "@abseil-cpp//absl/log:check",
+        "@googletest//:gtest",
+        "@googletest//:gtest_main",
+    ],
+)
