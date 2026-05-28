@@ -745,6 +745,12 @@ TAG = ["small"] if "foo" not in SMALL_TESTS else ["mod" + "erate"]
 FCALL = "hello".title() if False else "World"
 PLUS = "he" + ("lo" if False else "y")
 UNDEFINED = "foo" if variable else "bar"
+VAL = 2
+X = ("val-is-0" if VAL == 0 else
+     "val-is-1" if VAL == 1 else
+     "val-is-2" if VAL == 2 else
+     "val-is-3" if VAL == 3 else
+     "val-is-something-else")
 )",
     R"(
 POS = "foo"
@@ -760,6 +766,8 @@ TAG = ["moderate"]
 FCALL = "World"
 PLUS = "hey"
 UNDEFINED = "foo" if variable else "bar"
+VAL = 2
+X = "val-is-2"
 )");
 
   EXPECT_EQ(result.first, result.second);
