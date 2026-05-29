@@ -150,14 +150,16 @@ cc_library(
 
 genrule(
     name = "builtin-macros-gen",
-    srcs = ["builtin-macros.bnt"],
+    srcs = [
+        "builtin-macros.bnt",
+    ],
     outs = ["builtin-macros.h"],
     cmd = """
     (
       echo "#pragma once"
       echo "#include <string_view>"
       echo 'static inline constexpr std::string_view kBuiltinMacros = R"macros('
-      cat $<
+      cat $(SRCS)
       echo ')macros";'
     ) > $@
      """,
