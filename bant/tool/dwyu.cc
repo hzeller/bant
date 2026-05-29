@@ -940,7 +940,7 @@ std::vector<std::string_view> ExtractProtoImports(
   NamedLineIndexedContent *src) {
   //          comment  | import statement
   static const LazyRE2 kImportRe{
-    R"/((?m)(\/\/.*$|^\s*import\s+"([0-9a-zA-Z_/\-\.]+\.proto)"))/"};
+    R"/((?m)(\/\/.*$|^\s*import\s+(?:public\s+)?"([0-9a-zA-Z_/\-\.]+\.proto)"))/"};
 
   std::vector<std::string_view> result;
   std::string_view run = src->content();

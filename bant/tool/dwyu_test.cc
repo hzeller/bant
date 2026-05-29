@@ -1231,7 +1231,7 @@ TEST(DWYUTest, ProtoImportsAreExtracted) {
 package foo;
 
 // import "not/extracted.proto";
-import "path/to/dependency.proto";
+import public "path/to/dependency.proto";
 import "other/dep.proto";
 
 message Bar {
