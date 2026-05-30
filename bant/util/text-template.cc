@@ -59,4 +59,18 @@ void TextTemplate::Write(std::ostream &out,
   }
   out << *parts_it;
 }
+
+void TextTemplate::Write(std::ostream &out,
+                         const std::vector<ValueAccessor> &accessors,
+                         const void *data) const {
+  CHECK_EQ(accessors.size() + 1, parts_.size()) << "wrong #substitutions";
+  auto parts_it = parts_.begin();
+  auto subst_gen_it = accessors.begin();
+  while (subst_gen_it < accessors.end()) {
+    out << *parts_it++;
+    out << (*subst_gen_it++)(data);
+  }
+  out << *parts_it;
+}
+
 }  // namespace bant

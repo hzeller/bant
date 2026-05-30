@@ -15,9 +15,14 @@
 // with this program; if not, write to the Free Software Foundation, Inc.,
 // 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 
+#ifndef BANT_TEXT_TEMPLATE_H
+#define BANT_TEXT_TEMPLATE_H
+
+#include <functional>
 #include <ostream>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace bant {
@@ -25,8 +30,11 @@ namespace bant {
 // Text template that allows simple variable ${foo}-style substitutions.
 // Split into a preprocessing and expansion part to minimize the runtime of
 // the latter. Preprocess() only needs to be called once.
+class PreparedTextTemplate;
 class TextTemplate {
  public:
+  using Prepared = PreparedTextTemplate;
+
   // Parse and prepare template from given text to be expanded in Write().
   // Elements of `${VARIABLE}` are extracted. All these `VARIABLE`s are
   // returned in the same sequence they appear in the text.
@@ -46,7 +54,36 @@ class TextTemplate {
   void Write(std::ostream &out,
              const std::vector<std::string> &substitutions) const;
 
+  // Given type-erased user data, extract value from it and return as string.
+  using ValueAccessor = std::function<std::string(const void *)>;
+
+  // Write text to "out" stream, replace variable occurences with the
+  // strings provided by the "accessors", that are called with "data".
+  // The vector must contain exactly the number of elements the Preprocess()
+  // returned - each value is emitted at its corresponding position.
+  void Write(std::ostream &out, const std::vector<ValueAccessor> &accessors,
+             const void *data) const;
+
  private:
   std::vector<std::string> parts_;
 };
+
+// Combine everything that can be pre-computed for a particular userdata.
+// Provides a convenient Write() that only takes an instance of that data.
+class PreparedTextTemplate {
+ public:
+  PreparedTextTemplate(TextTemplate tpl,
+                       std::vector<TextTemplate::ValueAccessor> accessors)
+      : tpl_(std::move(tpl)), closures_(std::move(accessors)) {}
+
+  void Write(std::ostream &out, const void *data) const {
+    tpl_.Write(out, closures_, data);
+  }
+
+ private:
+  TextTemplate tpl_;
+  std::vector<TextTemplate::ValueAccessor> closures_;
+};
+
 }  // namespace bant
+#endif  // BANT_TEXT_TEMPLATE_H

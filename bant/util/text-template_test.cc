@@ -19,6 +19,7 @@
 
 #include <sstream>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "absl/log/check.h"
@@ -58,6 +59,40 @@ TEST(TextTemplate, VariableExpand) {
   EXPECT_EQ(ExpandToString("foo ${end}", {"hello"}), "foo hello");
   EXPECT_EQ(ExpandToString("a=${a}, b=${b}, c=${x}", {"42", "1", "8"}),
             "a=42, b=1, c=8");
+}
+
+TEST(TextTemplate, PreparedTemplate) {
+  TextTemplate t;
+  t.Preprocess("The value of ${text} is ${value}");
+
+  // The data that we want to interface with the prepared template.
+  struct SampleData {
+    int value;
+    std::string_view text;
+  };
+  std::vector<TextTemplate::ValueAccessor> accessors;
+  accessors.emplace_back([](const void *data) -> std::string {
+    return std::string(static_cast<const SampleData *>(data)->text);
+  });
+  accessors.emplace_back([](const void *data) -> std::string {
+    return std::to_string(static_cast<const SampleData *>(data)->value);
+  });
+
+  SampleData data;
+  TextTemplate::Prepared prepared(std::move(t), std::move(accessors));
+  std::stringstream out;
+
+  data.value = 42;
+  data.text = "answer";
+  prepared.Write(out, &data);
+
+  data.value = 1001;
+  data.text = "nights";
+  prepared.Write(out, &data);
+
+  EXPECT_EQ(out.str(),
+            "The value of answer is 42"
+            "The value of nights is 1001");
 }
 }  // namespace
 }  // namespace bant
