@@ -175,9 +175,13 @@ static TextTemplate::ValueAccessor AccessorForVariable(std::string_view v) {
   LOG(FATAL) << "Invalid variable - should've been caught before: " << v;
 }
 
-static TextTemplate::Prepared Prepare(std::string_view tpl) {
+static TextTemplate::Prepared Prepare(std::string_view tpl,
+                                      const HyperlinkBuilder::VarKV &constants,
+                                      std::string_view prefix,
+                                      std::string_view suffix) {
+  std::string flattened = ReplaceKnownValues(tpl, constants, prefix, suffix);
   TextTemplate t;
-  auto vars = t.Preprocess(tpl);
+  auto vars = t.Preprocess(flattened);
   std::vector<TextTemplate::ValueAccessor> accessors;
   accessors.reserve(vars.size());
   for (std::string_view v : vars) {
@@ -250,35 +254,29 @@ bool HyperlinkBuilder::Build(const VarKV &constants, std::string_view prefix,
     }
     if (!project_path_.has_value() &&
         AllElementsInSet(vars, available_for_in_project_no_loc)) {
-      project_path_ =
-        Prepare(ReplaceKnownValues(tpl, constants, prefix, suffix));
+      project_path_ = Prepare(tpl, constants, prefix, suffix);
     }
     if (!project_path_with_loc_.has_value() &&
         AllElementsInSet(vars, available_for_in_project_with_loc)) {
-      project_path_with_loc_ =
-        Prepare(ReplaceKnownValues(tpl, constants, prefix, suffix));
+      project_path_with_loc_ = Prepare(tpl, constants, prefix, suffix);
     }
 
     if (!external_path_.has_value() &&
         AllElementsInSet(vars, available_for_external_no_loc)) {
-      external_path_ =
-        Prepare(ReplaceKnownValues(tpl, constants, prefix, suffix));
+      external_path_ = Prepare(tpl, constants, prefix, suffix);
     }
     if (!external_path_with_loc_.has_value() &&
         AllElementsInSet(vars, available_for_external_with_loc)) {
-      external_path_with_loc_ =
-        Prepare(ReplaceKnownValues(tpl, constants, prefix, suffix));
+      external_path_with_loc_ = Prepare(tpl, constants, prefix, suffix);
     }
 
     if (!generated_path_.has_value() &&
         AllElementsInSet(vars, available_for_generated_no_loc)) {
-      generated_path_ =
-        Prepare(ReplaceKnownValues(tpl, constants, prefix, suffix));
+      generated_path_ = Prepare(tpl, constants, prefix, suffix);
     }
     if (!generated_path_with_loc_.has_value() &&
         AllElementsInSet(vars, available_for_generated_with_loc)) {
-      generated_path_with_loc_ =
-        Prepare(ReplaceKnownValues(tpl, constants, prefix, suffix));
+      generated_path_with_loc_ = Prepare(tpl, constants, prefix, suffix);
     }
   }
 
