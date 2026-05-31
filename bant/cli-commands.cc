@@ -40,6 +40,7 @@
 #include "bant/types.h"
 #include "bant/util/file-utils.h"
 #include "bant/util/grep-highlighter.h"
+#include "bant/util/hyperlink-builder.h"
 #include "bant/util/stat.h"
 #include "bant/util/table-printer.h"
 #include "bant/workspace.h"
@@ -174,6 +175,11 @@ CliStatus RunCommand(Session &session, Command cmd,
     BestEffortAugmentFromExternalDir(session, workspace_or.value());
   }
   const bant::BazelWorkspace &workspace = workspace_or.value();
+
+  // We keep ownership of the link builder to avoid circuclar dependencies.
+  // Handing the pointer to the session, as needed deep internally.
+  auto link_builder = MakeLinkBuilder(workspace, session.flags().do_links);
+  session.SetLinkBuilder(link_builder.get());
 
   // Matchall pattern bundle.
   BazelPatternBundle kMatchAllBundle;

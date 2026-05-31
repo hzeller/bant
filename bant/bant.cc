@@ -250,12 +250,14 @@ int main(int argc, char *argv[]) {
     OPT_COLOR = 1000,
     OPT_ALLOW_BRACKET_INC = 1001,
     OPT_GRAPH_AUGMENT = 1002,
+    OPT_HYPERLINKS = 1003,
   };
 
   // clang-format off
   // NOLINTBEGIN
   static constexpr struct option long_options[] = {
     { "color",         required_argument, nullptr, OPT_COLOR    },
+    { "links",         required_argument, nullptr, OPT_HYPERLINKS  },
     { "quiet",         no_argument,       nullptr, 'q'          },
     { "grep",          required_argument, nullptr, 'g'          },
     { "exclude-match", required_argument, nullptr, 'G'          },
@@ -369,6 +371,21 @@ int main(int argc, char *argv[]) {
       } else {
         fprintf(stderr,
                 "--color should be one of 'auto', "
+                "'never', or 'always'\n");
+        return EXIT_FAILURE;
+      }
+    } break;
+    case OPT_HYPERLINKS: {
+      const std::string_view o(optarg);
+      if (o == "auto") {
+        flags.do_links = isatty(STDOUT_FILENO);
+      } else if (o == "never") {
+        flags.do_links = false;
+      } else if (o == "always") {
+        flags.do_links = true;
+      } else {
+        fprintf(stderr,
+                "--links should be one of 'auto', "
                 "'never', or 'always'\n");
         return EXIT_FAILURE;
       }

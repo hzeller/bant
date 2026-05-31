@@ -46,6 +46,7 @@
 #include "bant/types-bazel.h"
 #include "bant/types.h"
 #include "bant/util/file-utils.h"
+#include "bant/util/hyperlink-builder.h"
 #include "bant/util/stat.h"
 #include "bant/util/term-color.h"
 #include "bant/workspace.h"
@@ -336,9 +337,11 @@ void DWYUGenerator::LogUnknownProvider(const NamedLineIndexedContent &source,
                                        bool remember_for_summary = true) {
   if (!session_.MinVerbosity(1)) return;
   if (remember_for_summary) {
+    const FileLocation loc = source.GetLocation(ref_file);
     std::stringstream message;
-    message << BlueBold(session_) << source.Loc(ref_file) << Norm(session_)
-            << " in " << Bold(session_) << target << Norm(session_);
+    message << BlueBold(session_) << HyperLinked{session_.linkgen(), loc}
+            << Norm(session_) << " in " << Bold(session_) << target
+            << Norm(session_);
     header_without_provider_[ref_file].insert(message.str());
   }
   Loc(source, ref_file) << " " << ref_keyword << " \"" << ref_file << "\"\n";
@@ -895,7 +898,8 @@ std::ostream &DWYUGenerator::Loc(const SourceLocator &locator,
                                  std::string_view where) const {
   std::ostream &out = session_.info();
   out << BlueBold(session_);
-  locator.Loc(out, where);
+  const FileLocation loc = locator.GetLocation(where);
+  out << HyperLinked{session_.linkgen(), loc};
   out << Norm(session_);
   return out;
 }

@@ -48,6 +48,7 @@ cc_library(
         "//bant/frontend:parser",
         "//bant/frontend:source-locator",
         "//bant/util:file-utils",
+        "//bant/util:hyperlink-builder",
         "//bant/util:stat",
         "//bant/util:term-color",
         "@abseil-cpp//absl/container:btree",
