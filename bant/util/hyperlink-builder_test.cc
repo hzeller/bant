@@ -33,7 +33,7 @@ static std::string PrintHyperlinked(const HyperlinkBuilder &h,
                                     const FileLocation &loc) {
   std::stringstream out;
   out << HyperLinked{
-    .link_builder = h, .location = loc, .anchor_close = "</a>"};
+    .link_builder = &h, .location = loc, .anchor_close = "</a>"};
   return out.str();
 }
 

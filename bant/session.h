@@ -32,6 +32,7 @@
 #include "bant/util/stat.h"
 
 namespace bant {
+class HyperlinkBuilder;
 // Tuple of all output streams to talk to the user.
 class SessionStreams {
  public:
@@ -76,6 +77,7 @@ struct CommandlineFlags {
   bool regex_case_insesitive = false;
   bool grep_or_semantics = false;
   bool do_color = false;
+  bool do_links = false;
   bool allow_bracket_includes = false;  // dwyu only.
   std::vector<std::string> graph_deps;  // augment dependency graph with these
   // https://bazel.build/docs/configurable-attributes#custom-flags
@@ -102,6 +104,9 @@ class Session {
   std::ostream &error() { return streams_.error(); }
 
   const CommandlineFlags &flags() const { return flags_; }
+
+  // Hyperlink builder; Note: must be initialized before use.
+  const HyperlinkBuilder *linkgen() const { return hyperlink_builder_; }
 
   // Get a stat object to fill/update. The "subsystem_name" describes who is
   // collecting stats, the "subject" is what (e.g. file-count etc).
@@ -153,11 +158,14 @@ class Session {
     return {this, value};
   }
 
+  void SetLinkBuilder(const HyperlinkBuilder *b) { hyperlink_builder_ = b; }
+
  private:
   StatMap stats_;
   std::vector<std::string_view> stat_init_key_order_;
   SessionStreams streams_;
   CommandlineFlags flags_;
+  const HyperlinkBuilder *hyperlink_builder_ = nullptr;
 };
 }  // namespace bant
 #endif  // BANT_SESSION_H
