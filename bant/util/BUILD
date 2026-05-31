@@ -225,3 +225,30 @@ cc_test(
         "@googletest//:gtest_main",
     ],
 )
+
+cc_library(
+    name = "hyperlink-builder",
+    srcs = ["hyperlink-builder.cc"],
+    hdrs = ["hyperlink-builder.h"],
+    deps = [
+        ":text-template",
+        "//bant:types-bazel",
+        "//bant:workspace",
+        "//bant/frontend:source-locator",
+        "@abseil-cpp//absl/container:flat_hash_map",
+        "@abseil-cpp//absl/log",
+        "@abseil-cpp//absl/strings",
+    ],
+)
+
+cc_test(
+    name = "hyperlink-builder_test",
+    srcs = ["hyperlink-builder_test.cc"],
+    deps = [
+        ":hyperlink-builder",
+        "//bant:workspace",
+        "//bant/frontend:source-locator",
+        "@googletest//:gtest",
+        "@googletest//:gtest_main",
+    ],
+)
