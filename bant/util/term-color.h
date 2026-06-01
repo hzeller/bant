@@ -79,6 +79,14 @@ class BlueBold : public Colored {
   explicit BlueBold(const Session &s) : BlueBold(s.flags().do_color) {}
 };
 
+class YellowOnRedBold : public Colored {
+ public:
+  explicit YellowOnRedBold(bool do_color)
+      : Colored(do_color, "\033[1;33;41m") {}
+  explicit YellowOnRedBold(const Session &s)
+      : YellowOnRedBold(s.flags().do_color) {}
+};
+
 class Norm : public Colored {
  public:
   explicit Norm(bool do_color) : Colored(do_color, "\033[0m") {}

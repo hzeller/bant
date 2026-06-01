@@ -24,6 +24,7 @@
 #include <cstring>
 #include <limits>
 #include <optional>
+#include <ostream>
 #include <ranges>
 #include <stack>
 #include <string>
@@ -49,7 +50,9 @@
 #include "bant/util/file-utils.h"
 #include "bant/util/filesystem.h"
 #include "bant/util/glob-match-builder.h"
+#include "bant/util/hyperlink-builder.h"
 #include "bant/util/stat.h"
+#include "bant/util/term-color.h"
 #include "re2/re2.h"
 
 namespace bant {
@@ -359,21 +362,8 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
 
     // TODO: implement. So far only implemention of ops observed in the
     // field. For that observation and choose priority: turn on this log :)
-    if (session_.MinVerbosity(3)) {
-      auto &log = project_->Loc(session_.info(), bin_op->source_range());
-      if (session_.MinVerbosity(4)) {
-        // Show a more noisy full operation that fails eval
-        const bool col = session_.flags().do_color;
-        const char *kHighlightOp = col ? "\033[1;33;41m" : "";
-        const char *kReset = col ? "\033[0m" : "";
-        log << " Not implemented Op: (" << bin_op->left() << ")" << kHighlightOp
-            << " " << bin_op->op() << " " << kReset << "(" << bin_op->right()
-            << ")";
-      } else {
-        log << " Op `" << bin_op->op() << "` for operands not implemented yet.";
-      }
-      log << "\n";
-    }
+    ReportUnimplementedNode(bin_op);
+
     // Return unimplemented nodes as-is.
     return bin_op;
   }
@@ -464,6 +454,38 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
   }
 
  private:
+  std::ostream &LogLocationWithLink(const SourceLocator &locator,
+                                    std::string_view where) const {
+    std::ostream &out = session_.info();
+    out << BlueBold(session_);
+    const FileLocation loc = locator.GetLocation(where);
+    out << HyperLinked{session_.linkgen(), loc};
+    out << Norm(session_);
+    return out;
+  }
+
+  void ReportUnimplementedNode(BinOpNode *bin_op) {
+    if (!bin_op || !session_.MinVerbosity(3)) return;
+    Node *const left = bin_op->left();
+    Node *const right = bin_op->right();
+    if (!left || !right) return;
+
+    // In a binop on two unresolved variables - the unresolvedness is the
+    // problem, so don't complain about the operation.
+    if (left->CastAsIdentifier() && right->CastAsIdentifier()) return;
+
+    auto &log = LogLocationWithLink(*project_, bin_op->source_range());
+    if (session_.MinVerbosity(4)) {
+      // Hi-verbose: show a more noisy full operation that fails eval
+      log << " Not implemented Op: (" << left << ")"
+          << YellowOnRedBold(session_) << " " << bin_op->op() << " "
+          << Norm(session_) << "(" << right << ")";
+    } else {
+      log << " Op `" << bin_op->op() << "` for operands not implemented yet.";
+    }
+    log << "\n";
+  }
+
   Node *ProcessIf(BinOpNode *if_node) {
     if (!current_comprehension_output_) {
       return if_node;  // safety wrapper if natively leaked
