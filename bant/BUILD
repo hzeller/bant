@@ -159,7 +159,7 @@ genrule(
     (
       echo "#pragma once"
       echo "#include <string_view>"
-      echo 'static inline constexpr std::string_view kBuiltinMacros = R"macros('
+      echo -n 'static inline constexpr std::string_view kBuiltinMacros = R"macros('
       cat $(SRCS)
       echo ')macros";'
     ) > $@
