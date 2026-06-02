@@ -110,6 +110,23 @@ some_macro_rule(
   EXPECT_EQ(result.first, result.second);
 }
 
+TEST_F(MacroSubstituteTest, UsePositionalArgs) {
+  SetMacroContent(R"(
+dict = {k : v for (k, v) in _arg_0}
+)");
+
+  const auto result = MacroSubstituteAndPrint(R"input(
+A = dict([ ("foo", 1), ("bar", 42) ])
+B = dict()
+)input",
+                                              R"expanded(
+A = {k : v for (k, v) in [ ("foo", 1), ("bar", 42) ]}
+B = {k : v for (k, v) in _arg_0}
+)expanded");
+
+  EXPECT_EQ(result.first, result.second);
+}
+
 TEST_F(MacroSubstituteTest, MacroBodyForwardKwArgsFunction) {
   SetMacroContent(R"(
 some_macro_rule = bant_forward_args(

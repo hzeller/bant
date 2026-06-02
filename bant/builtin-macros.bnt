@@ -1,8 +1,13 @@
 # -*- Python -*-
 # Bant built-in macros written in bant declarative language itself.
 #
-# Defining callable macros, expanded if its name is called like a function
-# Parameters to these macros can be used inside the macro body in two ways:
+# The expansions contain regular bazel rules that are used in place of the
+# original rule with that macro-name; this provides more information for bant
+# to see through the build-rules for commands such as `bant dwyu`.
+#
+# These callable macros are expanded if its name is called like a function.
+# Keyword arguments to these macros can be used inside the macro body in
+# two ways:
 #
 # * Here, the kwarg values are expanded inside the macro call like variables:
 #    foo = x                    # expands foo(x = 42) => 42
@@ -16,14 +21,18 @@
 #     foo(name = "x", deps = [])
 #     => bar(name = "x", deps = [], hello = "world")
 #
-# The expansions contain regular bazel rules that are used in place of the
-# original rule with that macro-name; this provides more information for bant
-# to see through the build-rules for commands such as `bant dwyu`.
+# In addition to Keyword arguments, positional arguments are also supported.
+# This allows to implement simple functions that can be broken down to
+# primitives, such as the `dict`-macro below. The positional arguments are named
+# _arg_${index}
 #
 # Note: Initial implementation, syntax mmight change any time.
 # This file is compiled into bant.
 
-## TODO simplify various protobuf hacks in bant by providing equivalent macros
+## TODO simplify various protobuf hacks in bant by providing equivalent macros ?
+
+# The bazel-builtin dict([ (key, value), (otherkey, othervalue)]) as macro
+dict = {k: v for (k, v) in _arg_0}
 
 ##
 # rules found in various projects. For now, this is build into bant,

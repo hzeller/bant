@@ -17,9 +17,13 @@
 
 #include "bant/frontend/macro-substitutor.h"
 
+#include <string>
 #include <string_view>
+#include <utility>
+#include <vector>
 
 #include "absl/log/check.h"
+#include "absl/strings/str_cat.h"
 #include "bant/explore/query-utils.h"
 #include "bant/frontend/ast.h"
 #include "bant/frontend/parsed-project.h"
@@ -88,7 +92,25 @@ class MacroSubstitutor : public BaseNodeReplacementVisitor {
 
     // Otherwise we take the kwargs as a set of variables that are resolved
     // inside.
-    const query::KwMap call_params = query::ExtractKwArgs(f);
+    query::KwMap call_params = query::ExtractKwArgs(f);
+
+    // -- Slightly ugly, but first implementation for now. --
+    // We add the positional args as _arg_0, ...
+    // The call_params keys are string-views, so we need to back them
+    // with strings.
+    // Need to fill vector first to avoid realloc of strings.
+    std::vector<std::pair<std::string, Node *>> pos_args;
+    if (f->argument()) {
+      int i = -1;
+      for (Node *arg : *f->argument()) {
+        ++i;
+        if (arg->CastAsAssignment()) continue;
+        pos_args.emplace_back(absl::StrCat("_arg_", i), arg);
+      }
+
+      for (auto &[k, v] : pos_args) call_params[k] = v;
+    }
+
     return VariableSubstituteCopy(macro, project_->arena(), call_params);
   }
 

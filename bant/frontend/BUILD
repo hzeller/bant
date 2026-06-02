@@ -254,6 +254,7 @@ cc_library(
         "//bant/util:memory",
         "//bant/util:stat",
         "@abseil-cpp//absl/log:check",
+        "@abseil-cpp//absl/strings",
     ],
 )
 
