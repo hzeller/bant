@@ -186,72 +186,28 @@ void FindTargetsAllowEmptyName(
   TargetFinder(rules_of_interest, true, cb).WalkNonNull(ast);
 }
 
-namespace {
-// TODO: instead of double dispatch, we should probably just go to through
-// the argument list and fish out Assignments.
-class KeywordMapExtractor : public BaseVoidVisitor {
- public:
-  explicit KeywordMapExtractor(KwMap *to_fill) : map_to_fill_(to_fill) {}
-
-  void VisitList(List *l) final {  // Like VisitList(), but with early exit.
-    if (l == nullptr) return;
-    for (Node *node : *l) {
-      WalkNonNull(node);
-    }
-  }
-
-  void VisitAssignment(Assignment *a) final {
-    if (!a->lhs_maybe_identifier() || !a->value()) return;
-    map_to_fill_->emplace(a->lhs_maybe_identifier()->id(), a->value());
-    // Not recursing deeper; only interested in fun-args assignment list.
-  }
-
- private:
-  KwMap *map_to_fill_;
-};
-
-class SingleKeywordExtractor : public BaseVoidVisitor {
- public:
-  explicit SingleKeywordExtractor(std::string_view looking_for_keyword)
-      : looking_for_keyword_(looking_for_keyword) {}
-
-  void VisitList(List *l) final {  // Like VisitList(), but with early exit.
-    if (l == nullptr) return;
-    for (Node *node : *l) {
-      WalkNonNull(node);
-      if (node_found_) {
-        return;  // Mission accomplished
-      }
-    }
-  }
-
-  void VisitAssignment(Assignment *a) final {
-    if (!a->lhs_maybe_identifier() || !a->value()) return;
-    if (a->lhs_maybe_identifier()->id() == looking_for_keyword_) {
-      node_found_ = a->value();
-    }
-    // Not recursing deeper; only interested in fun-args assignment list.
-  }
-
-  Node *node_found() const { return node_found_; }
-
- private:
-  const std::string_view looking_for_keyword_;
-  Node *node_found_ = nullptr;
-};
-}  // namespace
-
 KwMap ExtractKwArgs(FunCall *fun) {
   KwMap result;
-  KeywordMapExtractor extractor(&result);
-  extractor.VisitFunCall(fun);
+  if (!fun->argument()) return result;
+  for (Node *arg : *fun->argument()) {
+    if (Assignment *assign = arg->CastAsAssignment()) {
+      Identifier *id = assign->lhs_maybe_identifier();
+      if (!id || !assign->value()) continue;
+      result.emplace(id->id(), assign->value());
+    }
+  }
   return result;
 }
 
 Node *FindKWArg(FunCall *fun, std::string_view keyword) {
-  SingleKeywordExtractor extractor(keyword);
-  extractor.VisitFunCall(fun);
-  return extractor.node_found();
+  if (!fun->argument()) return nullptr;
+  for (Node *arg : *fun->argument()) {
+    if (Assignment *assign = arg->CastAsAssignment()) {
+      Identifier *id = assign->lhs_maybe_identifier();
+      if (id && id->id() == keyword) return assign->value();
+    }
+  }
+  return nullptr;
 }
 
 std::optional<std::string_view> FindKWArgAsStringView(
