@@ -22,6 +22,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <initializer_list>
 #include <limits>
 #include <optional>
 #include <ostream>
@@ -470,9 +471,23 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     Node *const right = bin_op->right();
     if (!left || !right) return;
 
-    // In a binop on two unresolved variables - the unresolvedness is the
-    // problem, so don't complain about the operation.
-    if (left->CastAsIdentifier() && right->CastAsIdentifier()) return;
+    // Various scenarios to ignore if we have an identifier on the left.
+    if (left->CastAsIdentifier()) {
+      // In a binop on two unresolved variables - the unresolvedness is the
+      // problem, so don't complain about the operation.
+      if (right->CastAsIdentifier()) return;
+
+      // Often seen inside *.bzl file, some attr.funcall() which we don't
+      // do. Don't report, unnecessary noise.
+      if (bin_op->op() == '.') {
+        const std::initializer_list<std::string_view> kIgnoreName{
+          "attr", "config", "toolchains", "config_common"};
+        using absl::c_linear_search;
+        if (c_linear_search(kIgnoreName, left->CastAsIdentifier()->id())) {
+          return;
+        }
+      }
+    }
 
     auto &log = LogLocationWithLink(*project_, bin_op->source_range());
     if (session_.MinVerbosity(4)) {
