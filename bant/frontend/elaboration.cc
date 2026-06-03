@@ -113,6 +113,9 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     if (fun_name == "range") {
       return HandleRange(f);
     }
+    if (fun_name == "str") {
+      return HandleStr(f);
+    }
     if (fun_name == "module_version") {
       auto loc = project_->GetLocation(fun_name);
       return f_.MakeNewStringScalarFrom(project_->workspace().module_version,
@@ -821,6 +824,17 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
       return scalar->AsSlice(project_->arena(), start, end);
     }
     return bin_op;
+  }
+
+  Node *HandleStr(FunCall *fun) {
+    if (fun->argument()->size() != 1) return fun;
+    Node *arg = fun->argument()->at(0);
+    if (!arg) return fun;
+    Scalar *scalar = arg->CastAsScalar();
+    if (!scalar) return fun;
+    if (scalar->type() == Scalar::ScalarType::kString) return scalar;
+    auto loc = project_->GetLocation(scalar->AsString());
+    return f_.MakeNewStringScalarFrom(scalar->AsString(), loc);
   }
 
   Node *HandleLen(FunCall *fun) {

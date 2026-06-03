@@ -346,7 +346,6 @@ cc_library(
   EXPECT_EQ(result.first, result.second);
 }
 
-// Note: arithmetic is really basic, as we don't implement precedence yet
 TEST_F(ElaborationTest, BasicArith) {
   auto result = ElabAndPrint(
     R"(
@@ -690,6 +689,22 @@ C = "h e l l o".title()
 A = "Hello World"
 B = "Hello   W0rld"
 C = "H E L L O"
+)");
+
+  EXPECT_EQ(result.first, result.second);
+}
+
+TEST_F(ElaborationTest, Str) {
+  auto result = ElabAndPrint(
+    R"(
+A = str("hello")
+B = str(42)
+C = str(2 * 7 + 22)
+)",
+    R"(
+A = "hello"
+B = "42"
+C = "36"
 )");
 
   EXPECT_EQ(result.first, result.second);
