@@ -17,13 +17,11 @@
 
 #include "bant/frontend/elaboration.h"
 
-#include <cctype>
 #include <compare>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <initializer_list>
-#include <limits>
 #include <optional>
 #include <ostream>
 #include <ranges>
@@ -38,13 +36,13 @@
 #include "absl/log/check.h"
 #include "absl/log/log.h"
 #include "absl/strings/match.h"
-#include "absl/strings/str_join.h"
 #include "bant/explore/query-utils.h"
 #include "bant/frontend/ast.h"
 #include "bant/frontend/macro-substitutor.h"
 #include "bant/frontend/parsed-project.h"
 #include "bant/frontend/scanner.h"
 #include "bant/frontend/source-locator.h"
+#include "bant/frontend/string-method-eval.h"
 #include "bant/frontend/substitute-copy.h"
 #include "bant/session.h"
 #include "bant/types-bazel.h"
@@ -54,27 +52,8 @@
 #include "bant/util/hyperlink-builder.h"
 #include "bant/util/stat.h"
 #include "bant/util/term-color.h"
-#include "re2/re2.h"
-
 namespace bant {
 namespace {
-// Given a list, extract all the posargs from it (or, if this is a kwargs
-// list, extract the values from the rhs), iff all of these values are
-// scalars
-std::optional<std::vector<std::string_view>> ExtractScalarPosArgs(List *list) {
-  std::vector<std::string_view> result;
-  if (list == nullptr) return std::nullopt;
-  for (Node *n : *list) {
-    if (!n) continue;  // Parse error of sorts.
-    if (BinOpNode *binop = n->CastAsBinOp(); binop && binop->op() == '=') {
-      n = binop->right();
-    }
-    const Scalar *const scalar = n->CastAsScalar();
-    if (!scalar) return std::nullopt;
-    result.emplace_back(scalar->AsString());
-  }
-  return result;
-}
 
 class NestCounter {
  public:
@@ -98,6 +77,8 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
         project_(project),
         options_(options),
         package_(package),
+        f_(project),
+        string_method_eval_(f_),
         variables_(*variable_storage) {}
 
   Node *VisitFunCall(FunCall *f) final {
@@ -134,11 +115,12 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     }
     if (fun_name == "module_version") {
       auto loc = project_->GetLocation(fun_name);
-      return MakeNewStringScalarFrom(project_->workspace().module_version, loc);
+      return f_.MakeNewStringScalarFrom(project_->workspace().module_version,
+                                        loc);
     }
     if (fun_name == "module_name") {
       auto loc = project_->GetLocation(fun_name);
-      return MakeNewStringScalarFrom(project_->workspace().module_name, loc);
+      return f_.MakeNewStringScalarFrom(project_->workspace().module_name, loc);
     }
     if (options_.expand_load_functions && fun_name == "load") {
       HandleLoad(f);
@@ -222,7 +204,8 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
             return ConcatStrings(location, lhs, rhs);
           }
           if (lhs->type() == Scalar::ScalarType::kInt) {
-            return MakeIntWithStringRep(location, lhs->AsInt() + rhs->AsInt());
+            return f_.MakeIntWithStringRep(location,
+                                           lhs->AsInt() + rhs->AsInt());
           }
         }
       }
@@ -235,7 +218,8 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
         if (lhs && rhs && lhs->type() == rhs->type()) {
           const auto &location = project_->GetLocation(bin_op->source_range());
           if (lhs->type() == Scalar::ScalarType::kInt) {
-            return MakeIntWithStringRep(location, lhs->AsInt() - rhs->AsInt());
+            return f_.MakeIntWithStringRep(location,
+                                           lhs->AsInt() - rhs->AsInt());
           }
         }
       }
@@ -248,7 +232,8 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
         if (lhs && rhs && lhs->type() == rhs->type()) {
           const auto &location = project_->GetLocation(bin_op->source_range());
           if (lhs->type() == Scalar::ScalarType::kInt) {
-            return MakeIntWithStringRep(location, lhs->AsInt() * rhs->AsInt());
+            return f_.MakeIntWithStringRep(location,
+                                           lhs->AsInt() * rhs->AsInt());
           }
         }
       }
@@ -263,9 +248,11 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
             lhs->type() == Scalar::ScalarType::kInt) {
           const auto &location = project_->GetLocation(bin_op->source_range());
           if (bin_op->op() == TokenType::kShiftLeft) {
-            return MakeIntWithStringRep(location, lhs->AsInt() << rhs->AsInt());
+            return f_.MakeIntWithStringRep(location, lhs->AsInt()
+                                                       << rhs->AsInt());
           }
-          return MakeIntWithStringRep(location, lhs->AsInt() >> rhs->AsInt());
+          return f_.MakeIntWithStringRep(location,
+                                         lhs->AsInt() >> rhs->AsInt());
         }
       }
       break;
@@ -275,7 +262,8 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
         const Scalar *const lhs = bin_op->left()->CastAsScalar();
         FunCall *method_call = bin_op->right()->CastAsFunCall();
         if (lhs && method_call && lhs->type() == Scalar::ScalarType::kString) {
-          return StringMethodCall(bin_op, lhs->AsString(), method_call);
+          return string_method_eval_.StringMethodCall(bin_op, lhs->AsString(),
+                                                      method_call);
         }
       }
       {
@@ -328,7 +316,7 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
                               ? lhs->AsInt() && rhs->AsInt()
                               : lhs->AsInt() || rhs->AsInt();
         const auto &location = project_->GetLocation(bin_op->source_range());
-        return MakeBoolWithStringRep(location, result);
+        return f_.MakeBoolWithStringRep(location, result);
       }
     } break;
 
@@ -395,7 +383,7 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
         break;
       default: return bin_op;  // Can't use other comparison operators with None
       }
-      return MakeBoolWithStringRep(
+      return f_.MakeBoolWithStringRep(
         project_->GetLocation(bin_op->source_range()), result);
     }
 
@@ -411,8 +399,8 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     case kNotEqual: result = std::is_neq(cmp); break;
     default: result = false; break;
     }
-    return MakeBoolWithStringRep(project_->GetLocation(bin_op->source_range()),
-                                 result);
+    return f_.MakeBoolWithStringRep(
+      project_->GetLocation(bin_op->source_range()), result);
   }
 
   Node *VisitTernary(Ternary *ternary) final {
@@ -430,17 +418,17 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     switch (unary->op()) {
     case '+': return scalar;
     case '-':
-      return MakeIntWithStringRep(project_->GetLocation(scalar->AsString()),
-                                  -scalar->AsInt());
+      return f_.MakeIntWithStringRep(project_->GetLocation(scalar->AsString()),
+                                     -scalar->AsInt());
     case kNot:
-      return MakeBoolWithStringRep(project_->GetLocation(scalar->AsString()),
-                                   !scalar->AsInt());
+      return f_.MakeBoolWithStringRep(project_->GetLocation(scalar->AsString()),
+                                      !scalar->AsInt());
     default: return unary;
     }
   }
 
   Node *VisitListComprehension(ListComprehension *lc) final {
-    List *result = Make<List>(lc->type());
+    List *result = f_.Make<List>(lc->type());
     List *saved = current_comprehension_output_;
     current_comprehension_output_ = result;
 
@@ -585,7 +573,7 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
   List *ConcatLists(List *left, List *right) {
     if (right->empty()) return left;
     if (left->empty()) return right;
-    List *result = Make<List>(left->type());
+    List *result = f_.Make<List>(left->type());
     for (List *list : {left, right}) {
       for (Node *n : *list) {
         result->Append(project_->arena(), n);
@@ -602,7 +590,7 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     if (right_str.empty()) return left;
 
     const size_t new_length = left_str.size() + right_str.size();
-    char *new_str = MakeStr(new_length);
+    char *new_str = f_.MakeStr(new_length);
     memcpy(new_str, left_str.data(), left_str.size());
     memcpy(new_str + left_str.size(), right_str.data(), right_str.size());
     const std::string_view assembled{new_str, new_length};
@@ -610,9 +598,9 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     // Whenever anyone is asking for where this string is coming from, tell
     // them the original location of the concat + operation.
     project_->RegisterLocationRange(assembled,
-                                    Make<FixedSourceLocator>(op_location));
+                                    f_.Make<FixedSourceLocator>(op_location));
 
-    return Make<StringScalar>(assembled, false, false);
+    return f_.Make<StringScalar>(assembled, false, false);
   }
 
   Node *MergeMaps(Node *fallback, List *lhs, List *rhs) {
@@ -628,7 +616,7 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
       }
     }
 
-    List *result = Make<List>(List::Type::kMap);
+    List *result = f_.Make<List>(List::Type::kMap);
     // We need to keep the original order, so walk through the og lists.
     for (List *list : {lhs, rhs}) {
       for (Node *element : *list) {
@@ -662,104 +650,18 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     if (!found_in_list && any_unknown) return binop;  // can't decide.
     const bool flip_result = (binop->op() == TokenType::kNotIn);
     const auto &location = project_->GetLocation(binop->source_range());
-    return MakeBoolWithStringRep(location, found_in_list ^ flip_result);
+    return f_.MakeBoolWithStringRep(location, found_in_list ^ flip_result);
   }
 
   Node *InStringExpression(BinOpNode *binop, Scalar *needle_scalar,
                            std::string_view haystack) {
     const std::string_view needle = needle_scalar->AsString();
     const bool flip_result = (binop->op() == TokenType::kNotIn);
-    return MakeBoolWithStringRep(
+    return f_.MakeBoolWithStringRep(
       project_->GetLocation(binop->source_range()),
       absl::StrContains(haystack, needle) ^ flip_result);
   }
 
-  IntScalar *MakeBoolWithStringRep(const FileLocation &loc, bool value) {
-    const std::string_view representation =
-      CopyToArenaString(value ? "True" : "False", loc);
-    return Make<IntScalar>(representation, value ? 1 : 0);
-  }
-
-  IntScalar *MakeIntWithStringRep(const FileLocation &loc, int64_t value) {
-    const std::string_view representation =
-      CopyToArenaString(std::to_string(value), loc);
-    return Make<IntScalar>(representation, value);
-  }
-
-  // calls on strings, of the form "foo".method()
-  Node *StringMethodCall(Node *orig, std::string_view str, FunCall *method) {
-    const std::string_view method_name = method->identifier()->id();
-    if (method_name == "format") {
-      return HandleStringFormat(orig, str, method);
-    }
-    if (method_name == "join") {
-      return HandleStringJoin(orig, str, method->argument());
-    }
-    if (method_name == "split") {
-      return HandleStringSplit(orig, str, method->argument());
-    }
-    if (method_name == "rsplit") {
-      return HandleStringRsplit(orig, str, method->argument());
-    }
-    if (method_name == "replace") {
-      return HandleStringReplace(orig, str, method->argument());
-    }
-    if (method_name == "startswith") {
-      return HandleStringStartsWith(orig, str, method->argument());
-    }
-    if (method_name == "title") {
-      return HandleStringTitle(orig, str, method->argument());
-    }
-    return orig;  // Not handled.
-  }
-
-  Node *HandleStringFormat(Node *orig, std::string_view fmt, FunCall *method) {
-    static const LazyRE2 kFmtExtract{
-      R"REGEX(({(?:([0-9]+)?|([a-zA-Z_][a-zA-Z0-9_]*))}))REGEX"};
-
-    std::string assembled;
-    const auto kwargs = query::ExtractKwArgs(method);
-    const auto posargs_or = ExtractScalarPosArgs(method->argument());
-    if (!posargs_or) {
-      return orig;
-    }
-    const auto &posargs = *posargs_or;
-
-    std::string_view match;
-    std::optional<int> num;
-    std::optional<std::string_view> str;
-
-    size_t specifier_count = 0;
-    std::string_view run = fmt;
-    size_t last_pos = 0;
-    while (RE2::FindAndConsume(&run, *kFmtExtract, &match, &num, &str)) {
-      const size_t new_pos = match.data() - fmt.data();
-      assembled.append(fmt.substr(last_pos, new_pos - last_pos));
-      last_pos = new_pos + match.size();
-      if (num.has_value()) {
-        if (*num >= 0 && std::cmp_less(*num, posargs.size())) {
-          assembled.append(posargs[*num]);
-        }
-      } else if (str.has_value()) {
-        if (const auto found = kwargs.find(*str); found != kwargs.end()) {
-          if (const Scalar *scalar = found->second->CastAsScalar(); scalar) {
-            assembled.append(scalar->AsString());
-          } else {
-            return orig;  // parameter that can not be converted to scalar.
-          }
-        }
-      } else if (specifier_count < posargs.size()) {
-        assembled.append(posargs[specifier_count]);
-      } else {
-        assembled.append(match);  // Nothing matches ? Keep specifier.
-      }
-      ++specifier_count;
-    }
-    assembled.append(fmt.substr(last_pos));
-    return MakeNewStringScalarFrom(assembled, project_->GetLocation(fmt));
-  }
-
-  // Very simplistic right now: only understands %s
   Node *HandlePercentFormat(Node *orig, std::string_view fmt, Node *what) {
     if (List *list = what->CastAsList(); list) {
       return HandlePercentFormatList(orig, fmt, list);
@@ -786,7 +688,7 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
       ++value_it;
     }
     assembled.append(fmt.substr(last_fmt_pos));
-    return MakeNewStringScalarFrom(assembled, project_->GetLocation(fmt));
+    return f_.MakeNewStringScalarFrom(assembled, project_->GetLocation(fmt));
   }
 
   Node *HandlePercentFormatValue(Node *orig, std::string_view fmt,
@@ -802,136 +704,12 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
       return orig;
     }
     assembled.append(fmt.substr(last_fmt_pos));
-    return MakeNewStringScalarFrom(assembled, project_->GetLocation(fmt));
-  }
-
-  Node *HandleStringJoin(Node *orig, std::string_view separator, List *args) {
-    if (args->empty()) return orig;
-    List *list_param = (*args->begin())->CastAsList();
-    if (!list_param) return orig;
-    std::vector<std::string_view> view_list;
-    view_list.reserve(list_param->size());
-    for (Node *element : *list_param) {
-      const Scalar *const scalar = element->CastAsScalar();
-      if (!scalar) return orig;  // Can only join if all values known constants.
-      view_list.push_back(scalar->AsString());
-    }
-    return MakeNewStringScalarFrom(absl::StrJoin(view_list, separator),
-                                   project_->GetLocation(separator));
-  }
-
-  struct SplitParams {
-    static std::optional<SplitParams> FromArgs(List *args) {
-      SplitParams result;
-      List::iterator arg_it = args->begin();
-      if (arg_it != args->end()) {
-        const Scalar *const split_by = (*arg_it)->CastAsScalar();
-        if (!split_by || split_by->type() != Scalar::ScalarType::kString) {
-          return std::nullopt;  // need a constant string here.
-        }
-        result.split_by = split_by->AsString();
-        ++arg_it;
-      }
-      if (arg_it != args->end()) {
-        const Scalar *const count = (*arg_it)->CastAsScalar();
-        if (!count || count->type() != Scalar::ScalarType::kInt) {
-          return std::nullopt;
-        }
-        result.max_split = count->AsInt();
-      }
-      if (result.split_by.empty()) result.split_by = " ";
-      return result;
-    }
-
-    std::string_view split_by = " ";
-    int64_t max_split = std::numeric_limits<int64_t>::max();
-  };
-
-  Node *HandleStringReplace(Node *orig, std::string_view str, List *args) {
-    auto replace_args = ExtractScalarPosArgs(args);
-    if (!replace_args.has_value() || replace_args->size() != 2) return orig;
-    const std::string_view from = replace_args->at(0);
-    const std::string_view to = replace_args->at(1);
-    std::string subject(str);
-    size_t start_pos = 0;
-    while ((start_pos = subject.find(from, start_pos)) != std::string::npos) {
-      subject.replace(start_pos, from.length(), to);
-      start_pos += to.length();
-    }
-    return MakeNewStringScalarFrom(subject, project_->GetLocation(str));
-  }
-
-  Node *HandleStringStartsWith(Node *orig, std::string_view str, List *args) {
-    auto start_args = ExtractScalarPosArgs(args);
-    if (!start_args.has_value() || start_args->size() != 1) return orig;
-    const std::string_view with = start_args->at(0);
-    std::string subject(str);
-    const auto &location = project_->GetLocation(str);
-    return MakeBoolWithStringRep(location, subject.starts_with(with));
-  }
-
-  Node *HandleStringTitle(Node *orig, std::string_view str, List *args) {
-    std::string result(str);
-    bool new_word = true;
-    for (char &c : result) {
-      if (new_word && std::isalpha(c)) c = toupper(c);
-      new_word = std::isspace(c);
-    }
-    return MakeNewStringScalarFrom(result, project_->GetLocation(str));
-  }
-
-  Node *HandleStringRsplit(Node *orig, std::string_view str, List *args) {
-    auto split_args = SplitParams::FromArgs(args);
-    if (!split_args.has_value()) return orig;
-    const std::string_view split_by = split_args->split_by;
-    const size_t split_len = split_by.length();
-    int pos = str.size() - 1;
-    std::vector<StringScalar *> elements;
-    for (int64_t count = split_args->max_split; pos > 0 && count; --count) {
-      const size_t start_of_split = str.rfind(split_by, pos);
-      if (start_of_split == std::string_view::npos) break;
-      const size_t after = start_of_split + split_len;
-      const std::string_view part = str.substr(after, pos - after + 1);
-      // The string_view is from the original file, so it already has location
-      elements.push_back(Make<StringScalar>(part, false, false));
-      pos = start_of_split - 1;
-    }
-    if (pos > 0) {
-      const std::string_view remaining = str.substr(0, pos + 1);
-      elements.push_back(Make<StringScalar>(remaining, false, false));
-    }
-    List *result = Make<List>(List::Type::kList);
-    for (StringScalar *substr : elements | std::views::reverse) {
-      result->Append(project_->arena(), substr);
-    }
-    return result;
-  }
-
-  Node *HandleStringSplit(Node *orig, std::string_view str, List *args) {
-    auto split_args = SplitParams::FromArgs(args);
-    if (!split_args.has_value()) return orig;
-    const std::string_view split_by = split_args->split_by;
-    const size_t split_len = split_by.length();
-    size_t pos = 0;
-    List *result = Make<List>(List::Type::kList);
-    for (int64_t count = split_args->max_split; count; --count) {
-      const size_t start_of_split = str.find(split_by, pos);
-      if (start_of_split == std::string_view::npos) break;
-      const std::string_view part = str.substr(pos, start_of_split - pos);
-      // The string_view is from the original file, so it already has location
-      result->Append(project_->arena(), Make<StringScalar>(part, false, false));
-      pos = start_of_split + split_len;
-    }
-    if (pos != std::string::npos) {
-      result->Append(project_->arena(),
-                     Make<StringScalar>(str.substr(pos), false, false));
-    }
-    return result;
+    return f_.MakeNewStringScalarFrom(assembled, project_->GetLocation(fmt));
   }
 
   enum class MapExtract { kKeys, kValues, kItems };
   List *ExtractMapItems(List *map_list, MapExtract what) {
-    List *result = Make<List>(List::Type::kList);
+    List *result = f_.Make<List>(List::Type::kList);
     for (Node *element : *map_list) {
       BinOpNode *const kv = element->CastAsBinOp();
       if (!kv || kv->op() != ':') continue;  // ¯\_(ツ)_/¯
@@ -940,7 +718,7 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
       case MapExtract::kKeys: n = kv->left(); break;
       case MapExtract::kValues: n = kv->right(); break;
       case MapExtract::kItems: {
-        List *tuple = Make<List>(List::Type::kTuple);
+        List *tuple = f_.Make<List>(List::Type::kTuple);
         tuple->Append(project_->arena(), kv->left());
         tuple->Append(project_->arena(), kv->right());
         n = tuple;
@@ -1049,10 +827,10 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     if (fun->argument()->size() != 1) return fun;
     const auto &location = project_->GetLocation(fun->identifier()->id());
     if (const Scalar *const s = fun->argument()->at(0)->CastAsScalar(); s) {
-      return MakeIntWithStringRep(location, s->AsString().length());
+      return f_.MakeIntWithStringRep(location, s->AsString().length());
     }
     if (const List *const list = fun->argument()->at(0)->CastAsList(); list) {
-      return MakeIntWithStringRep(location, list->size());
+      return f_.MakeIntWithStringRep(location, list->size());
     }
     return fun;
   }
@@ -1075,7 +853,7 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
       step = 1;
     }
 
-    List *result = Make<List>(List::Type::kList);
+    List *result = f_.Make<List>(List::Type::kList);
     if (step.value() == 0) {
       return result;  // next best thing to an infinite range.
     }
@@ -1087,7 +865,7 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     const auto &location = project_->GetLocation(fun->identifier()->id());
     if (elements <= 0 || elements > 20'000) return result;  // prevent DoS
     for (int64_t i = *start; elements > 0; i += *step, elements--) {
-      result->Append(project_->arena(), MakeIntWithStringRep(location, i));
+      result->Append(project_->arena(), f_.MakeIntWithStringRep(location, i));
     }
     return result;
   }
@@ -1195,13 +973,14 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
 
     // Assemble result list, copying the filesystem paths to arena block and
     // collect in a list.
-    List *glob_result_list = Make<List>(List::Type::kList);
+    List *glob_result_list = f_.Make<List>(List::Type::kList);
     char *element_begin = glob_strings_blob;
     for (const auto &f : glob_result) {
       const size_t copy_len = f.path().length() - skip_offset;
       memcpy(element_begin, f.path().data() + skip_offset, copy_len);  // NOLINT
       const std::string_view permanent_string{element_begin, copy_len};
-      auto *string_scalar = Make<StringScalar>(permanent_string, false, false);
+      auto *string_scalar =
+        f_.Make<StringScalar>(permanent_string, false, false);
       glob_result_list->Append(project_->arena(), string_scalar);
       element_begin += permanent_string.length();
     }
@@ -1213,7 +992,7 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     const std::string_view glob_location_range{glob_strings_blob,
                                                glob_strings_size};
     project_->RegisterLocationRange(glob_location_range,
-                                    Make<FixedSourceLocator>(fun_location));
+                                    f_.Make<FixedSourceLocator>(fun_location));
 
     return glob_result_list;
   }
@@ -1271,40 +1050,12 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     return result;
   }
 
-  // Convenience method to allocate some object in our Arena.
-  template <typename T, class... U>
-  T *Make(U &&...args) {
-    return project_->arena()->New<T>(std::forward<U>(args)...);
-  }
-
-  char *MakeStr(size_t len) {
-    return static_cast<char *>(project_->arena()->Alloc(len));
-  }
-
-  // Create a new string in arena, copy the value and return the new,
-  // locatable string_view
-  std::string_view CopyToArenaString(std::string_view in_str,
-                                     const FileLocation &loc) {
-    // Copy into arena
-    const size_t result_size = in_str.size();
-    char *new_str = MakeStr(result_size);
-    memcpy(new_str, in_str.data(), result_size);  // NOLINT
-    const std::string_view arena_str(new_str, result_size);
-
-    // Make sure it can be resolved to a location
-    project_->RegisterLocationRange(arena_str, Make<FixedSourceLocator>(loc));
-    return arena_str;
-  }
-
-  StringScalar *MakeNewStringScalarFrom(std::string_view in_str,
-                                        const FileLocation &loc) {
-    return Make<StringScalar>(CopyToArenaString(in_str, loc), false, false);
-  }
-
   Session &session_;
   ParsedProject *const project_;
   const ElaborationOptions options_;
   const BazelPackage &package_;
+  ElaborationFactories f_;
+  StringMethodEval string_method_eval_;
   int nest_level_ = 0;
   // Stack is a meh-abstraction here; should be addressed when list
   // comprehension is fixed.

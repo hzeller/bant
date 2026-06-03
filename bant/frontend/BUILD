@@ -199,8 +199,15 @@ cc_test(
 
 cc_library(
     name = "elaboration",
-    srcs = ["elaboration.cc"],
-    hdrs = ["elaboration.h"],
+    srcs = [
+        "elaboration.cc",
+        "elaboration-factories.h",
+        "string-method-eval.cc",
+        "string-method-eval.h",
+    ],
+    hdrs = [
+        "elaboration.h",
+    ],
     deps = [
         ":macro-substitutor",
         ":parsed-project",
@@ -213,6 +220,7 @@ cc_library(
         "//bant/util:file-utils",
         "//bant/util:glob-match-builder",
         "//bant/util:hyperlink-builder",
+        "//bant/util:memory",
         "//bant/util:stat",
         "//bant/util:term-color",
         "@abseil-cpp//absl/container:flat_hash_map",
