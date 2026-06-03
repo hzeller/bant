@@ -43,6 +43,7 @@ class StringMethodEval {
   Node *Split(Node *orig, std::string_view str, List *args);
   Node *RemovePrefix(Node *orig, StringScalar *object, List *args);
   Node *RemoveSuffix(Node *orig, StringScalar *object, List *args);
+  Node *Strip(Node *orig, StringScalar *object, List *args);
 
   ElaborationFactories &f_;
 };

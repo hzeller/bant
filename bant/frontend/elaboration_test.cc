@@ -661,6 +661,24 @@ B = "/foo/bar/baz"
   EXPECT_EQ(result.first, result.second);
 }
 
+TEST_F(ElaborationTest, Strip) {
+  auto result = ElabAndPrint(
+    R"(
+A = "hello world".strip()
+B = "  hello world  ".strip()
+C = "hello world".strip("held")
+D = "    ".strip()
+)",
+    R"(
+A = "hello world"
+B = "hello world"
+C = "o wor"
+D = ""
+)");
+
+  EXPECT_EQ(result.first, result.second);
+}
+
 TEST_F(ElaborationTest, TitleString) {
   auto result = ElabAndPrint(
     R"(

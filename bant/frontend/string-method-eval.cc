@@ -84,6 +84,9 @@ Node *StringMethodEval::StringMethodCall(Node *orig, StringScalar *object,
   if (method_name == "removesuffix") {
     return RemoveSuffix(orig, object, method->argument());
   }
+  if (method_name == "strip") {
+    return Strip(orig, object, method->argument());
+  }
   return orig;  // Not handled.
 }
 
@@ -285,4 +288,26 @@ Node *StringMethodEval::RemoveSuffix(Node *orig, StringScalar *object,
   return f_.Make<StringScalar>(str.substr(0, str.length() - suffix.length()),
                                object->is_triple_quoted(), object->is_raw());
 }
+
+static std::string_view strip_view(std::string_view str,
+                                   std::string_view strip_chars) {
+  const size_t start = str.find_first_not_of(strip_chars);
+  if (start == std::string_view::npos) return str.substr(str.length());
+  const size_t end = str.find_last_not_of(strip_chars);
+  return str.substr(start, end - start + 1);
+}
+
+Node *StringMethodEval::Strip(Node *orig, StringScalar *object, List *args) {
+  std::string_view strip_chars = " \n\r\t";
+  auto start_args = ExtractScalarPosArgs(args);
+  if (start_args.has_value() && !start_args->empty()) {
+    strip_chars = start_args->at(0);
+  }
+  const std::string_view str = object->AsString();
+  const std::string_view result = strip_view(str, strip_chars);
+  if (result.length() == str.length()) return object;
+  return f_.Make<StringScalar>(result, object->is_triple_quoted(),
+                               object->is_raw());
+}
+
 }  // namespace bant
