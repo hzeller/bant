@@ -54,29 +54,35 @@ static std::optional<std::vector<std::string_view>> ExtractScalarPosArgs(
   return result;
 }
 
-Node *StringMethodEval::StringMethodCall(Node *orig, std::string_view str,
+Node *StringMethodEval::StringMethodCall(Node *orig, StringScalar *object,
                                          FunCall *method) {
   const std::string_view method_name = method->identifier()->id();
   if (method_name == "format") {
-    return Format(orig, str, method);
+    return Format(orig, object->AsString(), method);
   }
   if (method_name == "join") {
-    return Join(orig, str, method->argument());
+    return Join(orig, object->AsString(), method->argument());
   }
   if (method_name == "split") {
-    return Split(orig, str, method->argument());
+    return Split(orig, object->AsString(), method->argument());
   }
   if (method_name == "rsplit") {
-    return Rsplit(orig, str, method->argument());
+    return Rsplit(orig, object->AsString(), method->argument());
   }
   if (method_name == "replace") {
-    return Replace(orig, str, method->argument());
+    return Replace(orig, object->AsString(), method->argument());
   }
   if (method_name == "startswith") {
-    return StartsWith(orig, str, method->argument());
+    return StartsWith(orig, object->AsString(), method->argument());
   }
   if (method_name == "title") {
-    return Title(orig, str, method->argument());
+    return Title(orig, object->AsString(), method->argument());
+  }
+  if (method_name == "removeprefix") {
+    return RemovePrefix(orig, object, method->argument());
+  }
+  if (method_name == "removesuffix") {
+    return RemoveSuffix(orig, object, method->argument());
   }
   return orig;  // Not handled.
 }
@@ -144,33 +150,6 @@ Node *StringMethodEval::Join(Node *orig, std::string_view separator,
                                     f_.project()->GetLocation(separator));
 }
 
-struct SplitParams {
-  static std::optional<SplitParams> FromArgs(List *args) {
-    SplitParams result;
-    List::iterator arg_it = args->begin();
-    if (arg_it != args->end()) {
-      const Scalar *const split_by = (*arg_it)->CastAsScalar();
-      if (!split_by || split_by->type() != Scalar::ScalarType::kString) {
-        return std::nullopt;  // need a constant string here.
-      }
-      result.split_by = split_by->AsString();
-      ++arg_it;
-    }
-    if (arg_it != args->end()) {
-      const Scalar *const count = (*arg_it)->CastAsScalar();
-      if (!count || count->type() != Scalar::ScalarType::kInt) {
-        return std::nullopt;
-      }
-      result.max_split = count->AsInt();
-    }
-    if (result.split_by.empty()) result.split_by = " ";
-    return result;
-  }
-
-  std::string_view split_by = " ";
-  int64_t max_split = std::numeric_limits<int64_t>::max();
-};
-
 Node *StringMethodEval::Replace(Node *orig, std::string_view str, List *args) {
   auto replace_args = ExtractScalarPosArgs(args);
   if (!replace_args.has_value() || replace_args->size() != 2) return orig;
@@ -204,6 +183,35 @@ Node *StringMethodEval::Title(Node *orig, std::string_view str, List *args) {
   }
   return f_.MakeNewStringScalarFrom(result, f_.project()->GetLocation(str));
 }
+
+namespace {
+struct SplitParams {
+  static std::optional<SplitParams> FromArgs(List *args) {
+    SplitParams result;
+    List::iterator arg_it = args->begin();
+    if (arg_it != args->end()) {
+      const Scalar *const split_by = (*arg_it)->CastAsScalar();
+      if (!split_by || split_by->type() != Scalar::ScalarType::kString) {
+        return std::nullopt;  // need a constant string here.
+      }
+      result.split_by = split_by->AsString();
+      ++arg_it;
+    }
+    if (arg_it != args->end()) {
+      const Scalar *const count = (*arg_it)->CastAsScalar();
+      if (!count || count->type() != Scalar::ScalarType::kInt) {
+        return std::nullopt;
+      }
+      result.max_split = count->AsInt();
+    }
+    if (result.split_by.empty()) result.split_by = " ";
+    return result;
+  }
+
+  std::string_view split_by = " ";
+  int64_t max_split = std::numeric_limits<int64_t>::max();
+};
+}  // namespace
 
 Node *StringMethodEval::Rsplit(Node *orig, std::string_view str, List *args) {
   auto split_args = SplitParams::FromArgs(args);
@@ -252,5 +260,29 @@ Node *StringMethodEval::Split(Node *orig, std::string_view str, List *args) {
                    f_.Make<StringScalar>(str.substr(pos), false, false));
   }
   return result;
+}
+
+Node *StringMethodEval::RemovePrefix(Node *orig, StringScalar *object,
+                                     List *args) {
+  auto start_args = ExtractScalarPosArgs(args);
+  if (!start_args.has_value() || start_args->size() != 1) return orig;
+  const std::string_view prefix = start_args->at(0);
+
+  std::string_view str = object->AsString();
+  if (!str.starts_with(prefix)) return object;
+  return f_.Make<StringScalar>(str.substr(prefix.length()),
+                               object->is_triple_quoted(), object->is_raw());
+}
+
+Node *StringMethodEval::RemoveSuffix(Node *orig, StringScalar *object,
+                                     List *args) {
+  auto start_args = ExtractScalarPosArgs(args);
+  if (!start_args.has_value() || start_args->size() != 1) return orig;
+  const std::string_view suffix = start_args->at(0);
+
+  std::string_view str = object->AsString();
+  if (!str.ends_with(suffix)) return object;
+  return f_.Make<StringScalar>(str.substr(0, str.length() - suffix.length()),
+                               object->is_triple_quoted(), object->is_raw());
 }
 }  // namespace bant

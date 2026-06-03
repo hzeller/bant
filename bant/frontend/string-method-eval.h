@@ -31,7 +31,7 @@ class StringMethodEval {
 
   // calls on strings, of the form "foo".method(). Best effort: if not possible
   // don't fail, but return the "orig"inal node.
-  Node *StringMethodCall(Node *orig, std::string_view str, FunCall *method);
+  Node *StringMethodCall(Node *orig, StringScalar *object, FunCall *method);
 
  private:
   Node *Format(Node *orig, std::string_view fmt, FunCall *method);
@@ -41,6 +41,8 @@ class StringMethodEval {
   Node *Title(Node *orig, std::string_view str, List *args);
   Node *Rsplit(Node *orig, std::string_view str, List *args);
   Node *Split(Node *orig, std::string_view str, List *args);
+  Node *RemovePrefix(Node *orig, StringScalar *object, List *args);
+  Node *RemoveSuffix(Node *orig, StringScalar *object, List *args);
 
   ElaborationFactories &f_;
 };

@@ -259,11 +259,11 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     }
     case '.': {
       {
-        const Scalar *const lhs = bin_op->left()->CastAsScalar();
+        Scalar *const lhs = bin_op->left()->CastAsScalar();
         FunCall *method_call = bin_op->right()->CastAsFunCall();
         if (lhs && method_call && lhs->type() == Scalar::ScalarType::kString) {
-          return string_method_eval_.StringMethodCall(bin_op, lhs->AsString(),
-                                                      method_call);
+          return string_method_eval_.StringMethodCall(
+            bin_op, static_cast<StringScalar *>(lhs), method_call);
         }
       }
       {

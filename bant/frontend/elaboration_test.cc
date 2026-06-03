@@ -633,6 +633,34 @@ C = "foo/bar/baz".startswith()
   EXPECT_EQ(result.first, result.second);
 }
 
+TEST_F(ElaborationTest, RemovePrefix) {
+  auto result = ElabAndPrint(
+    R"(
+A = "/foo/bar/baz".removeprefix("/foo/bar/")
+B = "/foo/bar/baz".removeprefix("not-a-prefix")
+)",
+    R"(
+A = "baz"
+B = "/foo/bar/baz"
+)");
+
+  EXPECT_EQ(result.first, result.second);
+}
+
+TEST_F(ElaborationTest, RemoveSuffix) {
+  auto result = ElabAndPrint(
+    R"(
+A = "/foo/bar/baz".removesuffix("/baz")
+B = "/foo/bar/baz".removesuffix("not-a-suffix")
+)",
+    R"(
+A = "/foo/bar"
+B = "/foo/bar/baz"
+)");
+
+  EXPECT_EQ(result.first, result.second);
+}
+
 TEST_F(ElaborationTest, TitleString) {
   auto result = ElabAndPrint(
     R"(
