@@ -240,6 +240,7 @@ cc_test(
         ":parsed-project",
         ":parsed-project_testutil",
         ":parser",
+        ":source-locator",
         "//bant:session",
         "//bant/explore:query-utils",
         "//bant/util:file-test-util",

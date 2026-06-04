@@ -27,12 +27,43 @@
 #include "bant/frontend/ast.h"
 #include "bant/frontend/parsed-project.h"
 #include "bant/frontend/parsed-project_testutil.h"
+#include "bant/frontend/source-locator.h"
 #include "bant/session.h"
 #include "bant/util/file-test-util.h"
 #include "gtest/gtest.h"
 
 namespace bant {
 namespace {
+// All string-views in the AST, including newly genrated ones as result from
+// evaluation, must always be traceable back to a location.
+class CheckAllStringsLocatableVisitor : public BaseVoidVisitor {
+  const bool kDebugPrint = false;  // Enable printing while debugging.
+
+ public:
+  explicit CheckAllStringsLocatableVisitor(const SourceLocator &locator)
+      : locator_(locator) {}
+
+  void VisitFunCall(FunCall *f) final {
+    TryLocate(f->identifier()->id());
+    WalkNonNull(f->right());
+  }
+
+  void VisitIdentifier(Identifier *identifier) final {
+    TryLocate(identifier->id());
+  }
+  void VisitScalar(Scalar *scalar) final { TryLocate(scalar->AsString()); }
+
+ private:
+  void TryLocate(std::string_view str) {
+    if (kDebugPrint) std::cerr << "str: '" << str << "'";
+    // The following will CHECK-fail if string is not locatable.
+    auto loc = locator_.GetLocation(str);
+    if (kDebugPrint) std::cerr << " " << loc << "\n";
+  }
+
+  const SourceLocator &locator_;
+};
+
 class ElaborationTest : public ::testing::Test {
  public:
   // Put "to_elaborate" into "package" and elaborate.
@@ -54,12 +85,15 @@ class ElaborationTest : public ::testing::Test {
     const ElaborationOptions elab_options{.builtin_macro_expansion =
                                             flags.bant_macro_expand};
     Session session(&std::cerr, &std::cerr, &std::cerr, flags);
-    const std::string elab_print =
-      ToString(bant::Elaborate(session, &pp_.project(), elaborated_->package,
-                               elab_options, elaborated_->ast));
+    Node *const after_elaboration =
+      bant::Elaborate(session, &pp_.project(), elaborated_->package,
+                      elab_options, elaborated_->ast);
+    EXPECT_EQ(elaborated_->ast, after_elaboration)
+      << "Toplevel AST got replaced, which it shouldn't.";
 
-    const std::string expect_print = ToString(expected_parsed->ast);
-    return {elab_print, expect_print};
+    CheckAllStringsLocatableVisitor(pp_.project())
+      .WalkNonNull(elaborated_->ast);
+    return {ToString(after_elaboration), ToString(expected_parsed->ast)};
   }
 
   // Like ElabInPackageAndPrint(), but default package to //elab.
