@@ -43,6 +43,7 @@
 #include "bant/session.h"
 #include "bant/tool/dwyu-internal.h"
 #include "bant/tool/edit-callback.h"
+#include "bant/tool/preprocess-utils.h"
 #include "bant/types-bazel.h"
 #include "bant/types.h"
 #include "bant/util/file-utils.h"
@@ -905,66 +906,6 @@ std::ostream &DWYUGenerator::Loc(const SourceLocator &locator,
 }
 
 // -- Publically visible interface
-
-std::vector<std::string_view> ExtractCCIncludes(NamedLineIndexedContent *src) {
-  //          raw str      |comment|include...
-  static const LazyRE2 kIncRe{
-    R"/((?m)(R"[0-9a-zA-Z_]*\(|\/\/.*$|^\s*#\s*include\s+(["<](\.\./)*[0-9a-zA-Z_/+-]+(\.[a-zA-Z]+)*)[">]))/"};
-
-  std::vector<std::string_view> result;
-  std::string_view run = src->content();
-  std::string_view header_path;
-  std::string_view outer;
-  while (RE2::FindAndConsume(&run, *kIncRe, &outer, &header_path)) {
-    if (outer.starts_with("R\"")) {
-      // If we start with R"foo( we need to skip forward to )foo"
-      const std::string endmatch =
-        absl::StrCat(")", outer.substr(2, outer.length() - 3), "\"");
-      auto skip = run.find(endmatch);
-      if (skip == std::string::npos) continue;  // eof ? ... skip.
-      run.remove_prefix(endmatch.size() + skip);
-    } else if (outer.starts_with("//")) {
-      // ignore comment.
-    } else if (!header_path.empty()) {
-      result.push_back(header_path);
-    }
-  }
-
-  if (!result.empty()) {
-    // We only need to fill the location_mapper up to the location the last
-    // element was found
-    const std::string_view range(src->content().begin(),
-                                 result.back().end() - src->content().begin());
-    src->mutable_line_index()->InitializeFromStringView(range);
-  }
-  return result;
-}
-
-std::vector<std::string_view> ExtractProtoImports(
-  NamedLineIndexedContent *src) {
-  //          comment  | import statement
-  static const LazyRE2 kImportRe{
-    R"/((?m)(\/\/.*$|^\s*import\s+(?:public\s+)?"([0-9a-zA-Z_/\-\.]+\.proto)"))/"};
-
-  std::vector<std::string_view> result;
-  std::string_view run = src->content();
-  std::string_view import_path;
-  std::string_view outer;
-  while (RE2::FindAndConsume(&run, *kImportRe, &outer, &import_path)) {
-    if (outer.starts_with("//")) {
-      // ignore comment.
-    } else if (!import_path.empty()) {
-      result.push_back(import_path);
-    }
-  }
-
-  if (!result.empty()) {
-    const std::string_view range(src->content().begin(),
-                                 result.back().end() - src->content().begin());
-    src->mutable_line_index()->InitializeFromStringView(range);
-  }
-  return result;
-}
 
 DWYUGenerator::DWYUGenerator(Session &session, const ParsedProject &project,
                              EditCallback emit_deps_edit)

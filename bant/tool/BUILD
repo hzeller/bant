@@ -29,6 +29,30 @@ cc_library(
 )
 
 cc_library(
+    name = "preprocess-utils",
+    srcs = ["preprocess-utils.cc"],
+    hdrs = ["preprocess-utils.h"],
+    deps = [
+        "//bant/frontend:named-content",
+        "@abseil-cpp//absl/strings",
+        "@re2",
+    ],
+)
+
+cc_test(
+    name = "preprocess-utils_test",
+    srcs = ["preprocess-utils_test.cc"],
+    deps = [
+        ":preprocess-utils",
+        "//bant/frontend:named-content",
+        "//bant/frontend:source-locator",
+        "@abseil-cpp//absl/log:check",
+        "@googletest//:gtest",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_library(
     name = "dwyu",
     srcs = ["dwyu.cc"],
     hdrs = [
@@ -37,6 +61,7 @@ cc_library(
     ],
     deps = [
         ":edit-callback",
+        ":preprocess-utils",
         "//bant:session",
         "//bant:types",
         "//bant:types-bazel",
@@ -96,10 +121,8 @@ cc_test(
         ":edit-callback_testutil",
         "//bant:session",
         "//bant:types-bazel",
-        "//bant/frontend:named-content",
         "//bant/frontend:parsed-project",
         "//bant/frontend:parsed-project_testutil",
-        "//bant/frontend:source-locator",
         "//bant/util:stat",
         "@abseil-cpp//absl/container:flat_hash_map",
         "@abseil-cpp//absl/log:check",

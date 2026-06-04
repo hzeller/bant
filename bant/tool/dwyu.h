@@ -19,32 +19,13 @@
 #define BANT_TOOL_DWYU_
 
 #include <cstddef>
-#include <string_view>
-#include <vector>
 
-#include "bant/frontend/named-content.h"
 #include "bant/frontend/parsed-project.h"
 #include "bant/session.h"
 #include "bant/tool/edit-callback.h"
 #include "bant/types-bazel.h"
 
 namespace bant {
-
-// Scan "src" and extract #include project headers (the ones with the quotes
-// not angle brackts) from given file. Best effort: may result empty vector.
-// Initialize the line index in src to be able to refer back to origainal.
-// The string_views include the start of the include bracket (so either '<',
-// or '"'), but not the end. So it is simple to
-// ```
-// is_bracket_include = inc[0] == '<'
-// inc = inc.substr(1);
-// ```
-std::vector<std::string_view> ExtractCCIncludes(NamedLineIndexedContent *src);
-
-// Scan a .proto file and extract import paths from "import" statements.
-// Returns the import paths (e.g. "foo/bar.proto") from lines like:
-//   import "foo/bar.proto";
-std::vector<std::string_view> ExtractProtoImports(NamedLineIndexedContent *src);
 
 // Look through the sources mentioned in the file, check what they include
 // and determine what dependencies need to be added/removed.

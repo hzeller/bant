@@ -15,22 +15,16 @@
 // with this program; if not, write to the Free Software Foundation, Inc.,
 // 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 
-#include "bant/tool/dwyu.h"
-
-#include <cstddef>
 #include <optional>
 #include <sstream>
 #include <string>
 #include <string_view>
-#include <vector>
 
 #include "absl/container/flat_hash_map.h"
 #include "absl/log/check.h"
 #include "absl/strings/str_format.h"
-#include "bant/frontend/named-content.h"
 #include "bant/frontend/parsed-project.h"
 #include "bant/frontend/parsed-project_testutil.h"
-#include "bant/frontend/source-locator.h"
 #include "bant/session.h"
 #include "bant/tool/dwyu-internal.h"
 #include "bant/tool/edit-callback_testutil.h"
@@ -39,71 +33,9 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
-using ::testing::ElementsAre;
 using ::testing::HasSubstr;
 
 namespace bant {
-namespace {
-static LineColumn PosOfPart(const NamedLineIndexedContent &src,
-                            const std::vector<std::string_view> &parts,
-                            size_t i) {
-  CHECK(i <= parts.size());
-  return src.GetLocation(parts[i]).line_column_range.start;
-}
-
-// Inception deception:
-// Well, the following with a string in a string will create a warning if
-// running bant on bant becaue the include in string is seen as toplevel inc.
-// So, to avoid that, the include is actually an legitimate bant include which
-// makes bant happy (until we start warning that the same header is included
-// twice).
-TEST(DWYUTest, HeaderFilesAreExtracted) {
-  // Note, clang-format is seriously confused about the next lines and
-  // it will also not work with switching it off ?
-  // So we give up and have the order in which clang-format likes it.
-  constexpr std::string_view kTestContent = R"inctest(  // line 0
-/* some ignored text in line 1 */
-#include "CaSe-dash_underscore.h"
-#include <a_bracket_include>
-// #include "not-extracted.h"
-   #include "but-this.h"
-#include "with/suffix.hh"      // other ..
-#include "with/suffix.pb.h"
-#include "with/suffix.inc"     // .. common suffices
-R"(
-#include "bant/tool/dwyu.h"   // include embedded in string ignored.
-)"
-R"xyz(
-#include "absl/log/check.h"   // include embedded in string ignored.
-)xyz"
-#include "../dotdot.h"         // mmh, who is doing this ?
-#include "more-special-c++.h"  // other characters used.
-#include /* foo */ "this-is-silly.h"  // Some things are too far :)
-#  include    "w/space.h"        // even strange spacing should work
-// #include "not-seen.h"
-// Here is a single quote-char (") which should not mess up the next include
-#include "should-be-seen.h"  // another one (")
-#include "this-as-well.h"
-)inctest";
-  NamedLineIndexedContent scanned_src("<text>", kTestContent);
-  const auto includes = ExtractCCIncludes(&scanned_src);
-  EXPECT_THAT(
-    includes,
-    ElementsAre("\"CaSe-dash_underscore.h", "<a_bracket_include",
-                "\"but-this.h", "\"with/suffix.hh", "\"with/suffix.pb.h",
-                "\"with/suffix.inc", "\"../dotdot.h", "\"more-special-c++.h",
-                "\"w/space.h", "\"should-be-seen.h", "\"this-as-well.h"));
-  // Let's check some locations.
-  EXPECT_EQ(PosOfPart(scanned_src, includes, 0), (LineColumn{2, 9}));
-  EXPECT_EQ(PosOfPart(scanned_src, includes, 1), (LineColumn{3, 9}));
-  EXPECT_EQ(PosOfPart(scanned_src, includes, 2), (LineColumn{5, 12}));
-
-  EXPECT_EQ(PosOfPart(scanned_src, includes, 3), (LineColumn{6, 9}));
-  EXPECT_EQ(PosOfPart(scanned_src, includes, 4), (LineColumn{7, 9}));
-  EXPECT_EQ(PosOfPart(scanned_src, includes, 5), (LineColumn{8, 9}));
-  EXPECT_EQ(PosOfPart(scanned_src, includes, 8), (LineColumn{18, 14}));
-}
-
 namespace {
 
 // A DWYUGenerator with a mocked-out way to extract the sources.
@@ -173,7 +105,6 @@ class DWYUTestFixture {
   TestableDWYUGenerator dwyu_;
   bool log_content_requested_{false};
 };
-}  // namespace
 
 TEST(DWYUTest, Add_MissingDependency) {
   ParsedProjectTestUtil pp;
@@ -1221,27 +1152,6 @@ cc_binary(
 )");
     tester.RunForTarget("//foo/absl/strings:string-user");
   }
-}
-
-TEST(DWYUTest, ProtoImportsAreExtracted) {
-  constexpr std::string_view kTestProto = R"pb(
-    syntax = "proto3"
-    ;
-
-package foo;
-
-// import "not/extracted.proto";
-import public "path/to/dependency.proto";
-import "other/dep.proto";
-
-message Bar {
-  string name = 1;
-}
-)pb";
-  NamedLineIndexedContent scanned_src("<proto>", kTestProto);
-  const auto imports = ExtractProtoImports(&scanned_src);
-  EXPECT_THAT(imports,
-              ElementsAre("path/to/dependency.proto", "other/dep.proto"));
 }
 
 TEST(DWYUTest, Remove_SuperfluousProtoLibraryDependency) {
