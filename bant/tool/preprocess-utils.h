@@ -21,6 +21,7 @@
 #include <string_view>
 #include <vector>
 
+#include "bant/explore/query-utils.h"
 #include "bant/frontend/named-content.h"
 #include "bant/types.h"
 
@@ -36,6 +37,10 @@ namespace bant {
 using DefineMap = OneToOne<std::string_view, bool>;
 std::vector<std::string_view> ExtractActiveCCIfdefRanges(
   std::string_view source, DefineMap &define_values);
+
+// Given a target, look at copt =[] and define = [] and return. To be used
+// as input to ExtractActiveCCIfdefRanges()
+DefineMap GetDefinesFromTarget(const query::Result &target);
 
 // Scan "src" and extract #include project headers (the ones with the quotes
 // not angle brackts) from given file. Best effort: may result empty vector.

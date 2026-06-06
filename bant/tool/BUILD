@@ -34,6 +34,7 @@ cc_library(
     hdrs = ["preprocess-utils.h"],
     deps = [
         "//bant:types",
+        "//bant/explore:query-utils",
         "//bant/frontend:named-content",
         "@abseil-cpp//absl/strings",
         "@re2",
@@ -45,7 +46,10 @@ cc_test(
     srcs = ["preprocess-utils_test.cc"],
     deps = [
         ":preprocess-utils",
+        "//bant/explore:query-utils",
         "//bant/frontend:named-content",
+        "//bant/frontend:parsed-project",
+        "//bant/frontend:parsed-project_testutil",
         "//bant/frontend:source-locator",
         "@abseil-cpp//absl/log:check",
         "@googletest//:gtest",

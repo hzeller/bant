@@ -24,6 +24,8 @@
 
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_split.h"
+#include "bant/explore/query-utils.h"
 #include "bant/frontend/named-content.h"
 #include "re2/re2.h"
 
@@ -90,6 +92,26 @@ std::vector<std::string_view> ExtractActiveCCIfdefRanges(
     }
 
     last_end = run.data();
+  }
+  return result;
+}
+
+DefineMap GetDefinesFromTarget(const query::Result &target) {
+  DefineMap result;
+  auto insert_define = [&result](std::string_view d) {
+    std::vector<std::string_view> elements = absl::StrSplit(d, '=');
+    if (elements.size() == 2) {
+      result[elements[0]] = ParsePreprocessValue(elements[1], result);
+    } else {
+      result[elements[0]] = true;
+    }
+  };
+  for (std::string_view opt : query::ExtractStringList(target.copts)) {
+    if (!opt.starts_with("-D")) continue;
+    insert_define(opt.substr(2));
+  }
+  for (std::string_view opt : query::ExtractStringList(target.defines)) {
+    insert_define(opt);
   }
   return result;
 }

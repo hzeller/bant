@@ -131,6 +131,8 @@ class TargetFinder : public BaseVoidVisitor {
         current_.public_hdrs = list;
       } else if (lhs == "copts") {
         current_.copts = list;
+      } else if (lhs == "defines") {
+        current_.defines = list;
       }
     }
   }
