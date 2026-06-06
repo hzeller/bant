@@ -30,6 +30,83 @@
 using ::testing::ElementsAre;
 
 namespace bant {
+TEST(PreprocessUtils, PreprocessRangeIf_0_1) {
+  constexpr std::string_view kTestContent = R"deftest(
+#if 0
+A_TEXT
+#endif
+#if 1
+B_TEXT
+#endif
+#if 0
+#  define A_PRIME_DEF 0
+#else
+#  define A_PRIME_DEF 1
+#endif
+#if A_PRIME_DEF
+C_TEXT
+#endif
+)deftest";
+
+  {
+    DefineMap defs;
+    auto ranges = ExtractActiveCCIfdefRanges(kTestContent, defs);
+    EXPECT_THAT(ranges, ElementsAre("\n", "B_TEXT\n", "C_TEXT\n"));
+    EXPECT_TRUE(defs.contains("A_PRIME_DEF"));
+  }
+}
+
+TEST(PreprocessUtils, PreprocessRange) {
+  constexpr std::string_view kTestContent = R"deftest(
+A_TEXT
+#ifndef FOO
+#define FOO
+#if A_DEF
+#  define A_PRIME_DEF 1
+#  undef A_DEF
+#else
+#  define A_PRIME_DEF 0
+#endif
+B_TEXT
+#if A_PRIME_DEF
+C_TEXT
+#endif
+D_TEXT
+#ifdef B_DEF
+E_TEXT
+#else
+F_TEXT
+#endif
+#ifndef C_DEF
+G_TEXT
+#else
+H_TEXT
+#endif
+#endif
+)deftest";
+
+  {
+    DefineMap defs;
+    defs["A_DEF"] = true;
+    auto ranges = ExtractActiveCCIfdefRanges(kTestContent, defs);
+    EXPECT_THAT(ranges, ElementsAre("\nA_TEXT\n", "B_TEXT\n", "C_TEXT\n",
+                                    "D_TEXT\n", "F_TEXT\n", "G_TEXT\n"));
+    EXPECT_TRUE(defs.contains("FOO"));
+    EXPECT_TRUE(!defs.contains("A_DEF"));
+    EXPECT_TRUE(defs.contains("A_PRIME_DEF") && defs["A_PRIME_DEF"] == true);
+  }
+  {
+    DefineMap defs;
+    defs["A_DEF"] = false;
+    defs["C_DEF"] = false;
+    auto ranges = ExtractActiveCCIfdefRanges(kTestContent, defs);
+    EXPECT_THAT(ranges, ElementsAre("\nA_TEXT\n", "B_TEXT\n", "D_TEXT\n",
+                                    "F_TEXT\n", "H_TEXT\n"));
+    EXPECT_TRUE(defs.contains("A_DEF"));
+    EXPECT_TRUE(defs.contains("A_PRIME_DEF") && defs["A_PRIME_DEF"] == false);
+  }
+}
+
 static LineColumn PosOfPart(const NamedLineIndexedContent &src,
                             const std::vector<std::string_view> &parts,
                             size_t i) {

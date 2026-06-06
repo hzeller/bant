@@ -22,8 +22,21 @@
 #include <vector>
 
 #include "bant/frontend/named-content.h"
+#include "bant/types.h"
 
 namespace bant {
+// Simplified preprocessing: Determine all the active ranges that are visible.
+// Given a CC source code and some known defines, return all the ranges
+// that are 'active'. The returned string views point to the original source
+// and are returned in order.
+// For now, only existence define (true/false), no expressions, are evaluated.
+//
+// The "define_values" map should contain pre-existing macros at call time
+// and will be updated if defines/undefs are processed inside the source.
+using DefineMap = OneToOne<std::string_view, bool>;
+std::vector<std::string_view> ExtractActiveCCIfdefRanges(
+  std::string_view source, DefineMap &define_values);
+
 // Scan "src" and extract #include project headers (the ones with the quotes
 // not angle brackts) from given file. Best effort: may result empty vector.
 // Initialize the line index in src to be able to refer back to origainal

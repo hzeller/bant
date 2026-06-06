@@ -33,6 +33,7 @@ cc_library(
     srcs = ["preprocess-utils.cc"],
     hdrs = ["preprocess-utils.h"],
     deps = [
+        "//bant:types",
         "//bant/frontend:named-content",
         "@abseil-cpp//absl/strings",
         "@re2",

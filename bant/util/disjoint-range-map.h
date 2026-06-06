@@ -14,7 +14,8 @@
 // You should have received a copy of the GNU General Public License along
 // with this program; if not, write to the Free Software Foundation, Inc.,
 // 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
-
+#ifndef BANT_DISJOINT_RANGE_MAP_H
+#define BANT_DISJOINT_RANGE_MAP_H
 #include <optional>
 #include <utility>
 
@@ -50,3 +51,4 @@ class DisjointRangeMap {
     container_;
 };
 }  // namespace bant
+#endif  // BANT_DISJOINT_RANGE_MAP_H
