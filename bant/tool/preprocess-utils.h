@@ -52,7 +52,8 @@ DefineMap GetDefinesFromTarget(const query::Result &target);
 // is_bracket_include = inc[0] == '<'
 // inc = inc.substr(1);
 // ```
-std::vector<std::string_view> ExtractCCIncludes(NamedLineIndexedContent *src);
+std::vector<std::string_view> ExtractCCIncludes(NamedLineIndexedContent *src,
+                                                const DefineMap &defines);
 
 // Scan a .proto file and extract import paths from "import" statements.
 // Returns the import paths (e.g. "foo/bar.proto") from lines like:

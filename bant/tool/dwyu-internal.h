@@ -34,6 +34,7 @@
 #include "bant/frontend/source-locator.h"
 #include "bant/session.h"
 #include "bant/tool/edit-callback.h"
+#include "bant/tool/preprocess-utils.h"
 #include "bant/types-bazel.h"
 #include "bant/types.h"
 #include "bant/util/stat.h"
@@ -103,7 +104,7 @@ class DWYUGenerator {
     const BazelTarget &target, const ParsedBuildFile &build_file,
     const std::vector<std::string_view> &sources,
     const std::vector<std::string_view> &includes_dir_list,
-    bool *all_headers_accounted_for);
+    const DefineMap &defines, bool *all_headers_accounted_for);
 
   // Similar to DependenciesNeededBySources but for proto_library targets.
   // Reads .proto source files and extracts import statements to determine

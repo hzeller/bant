@@ -417,7 +417,7 @@ DWYUGenerator::DependenciesNeededBySources(
   const BazelTarget &target, const ParsedBuildFile &build_file,
   const std::vector<std::string_view> &sources,            // srcs, hdrs
   const std::vector<std::string_view> &includes_dir_list,  // includes = []
-  bool *all_headers_accounted_for) {
+  const DefineMap &defines, bool *all_headers_accounted_for) {
   Stat &source_read_stats =
     session_.GetStatsFor("  - read(C++ source)", "sources");
   Stat &source_grep_stats =
@@ -494,7 +494,7 @@ DWYUGenerator::DependenciesNeededBySources(
     std::vector<std::string_view> pound_includes;
     {
       const ScopedTimer timer(&source_grep_stats.duration);
-      pound_includes = ExtractCCIncludes(&source);
+      pound_includes = ExtractCCIncludes(&source, defines);
     }
     // Now for all includes, we need to make sure we can account for it.
     for (std::string_view inc_file : pound_includes) {
@@ -769,13 +769,15 @@ void DWYUGenerator::CreateEditsForTarget(const BazelTarget &target,
   // all implicit -I with includes = ["include"] elements.
   auto includes_list = query::ExtractStringList(details.includes_list);
 
+  DefineMap defines = GetDefinesFromTarget(details);
+
   // Grep for all includes/imports they use to determine which deps we need
   auto deps_needed =
     is_proto_library
       ? DependenciesNeededByProtoSources(target, build_file, sources,
                                          &all_header_deps_known)
       : DependenciesNeededBySources(target, build_file, sources, includes_list,
-                                    &all_header_deps_known);
+                                    defines, &all_header_deps_known);
   deps_needed = MinimizeDependencySet(deps_needed);
   OneToOne<BazelTarget, BazelTarget> checked_off_by;
   auto IsNeededInSourcesAndCheckOff = [&](const BazelTarget &target) -> bool {

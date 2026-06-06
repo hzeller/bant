@@ -93,6 +93,7 @@ std::vector<std::string_view> ExtractActiveCCIfdefRanges(
 
     last_end = run.data();
   }
+  if (!run.empty()) result.push_back(run);
   return result;
 }
 
@@ -116,27 +117,31 @@ DefineMap GetDefinesFromTarget(const query::Result &target) {
   return result;
 }
 
-std::vector<std::string_view> ExtractCCIncludes(NamedLineIndexedContent *src) {
+std::vector<std::string_view> ExtractCCIncludes(NamedLineIndexedContent *src,
+                                                const DefineMap &defines) {
   //          raw str      |comment|include...
   static const LazyRE2 kIncRe{
     R"/((?m)(R"[0-9a-zA-Z_]*\(|\/\/.*$|^\s*#\s*include\s+(["<](\.\./)*[0-9a-zA-Z_/+-]+(\.[a-zA-Z]+)*)[">]))/"};
 
   std::vector<std::string_view> result;
-  std::string_view run = src->content();
-  std::string_view header_path;
-  std::string_view outer;
-  while (RE2::FindAndConsume(&run, *kIncRe, &outer, &header_path)) {
-    if (outer.starts_with("R\"")) {
-      // If we start with R"foo( we need to skip forward to )foo"
-      const std::string endmatch =
-        absl::StrCat(")", outer.substr(2, outer.length() - 3), "\"");
-      auto skip = run.find(endmatch);
-      if (skip == std::string::npos) continue;  // eof ? ... skip.
-      run.remove_prefix(endmatch.size() + skip);
-    } else if (outer.starts_with("//")) {
-      // ignore comment.
-    } else if (!header_path.empty()) {
-      result.push_back(header_path);
+  DefineMap mutable_defines = defines;
+  for (std::string_view run :
+       ExtractActiveCCIfdefRanges(src->content(), mutable_defines)) {
+    std::string_view header_path;
+    std::string_view outer;
+    while (RE2::FindAndConsume(&run, *kIncRe, &outer, &header_path)) {
+      if (outer.starts_with("R\"")) {
+        // If we start with R"foo( we need to skip forward to )foo"
+        const std::string endmatch =
+          absl::StrCat(")", outer.substr(2, outer.length() - 3), "\"");
+        auto skip = run.find(endmatch);
+        if (skip == std::string::npos) continue;  // eof ? ... skip.
+        run.remove_prefix(endmatch.size() + skip);
+      } else if (outer.starts_with("//")) {
+        // ignore comment.
+      } else if (!header_path.empty()) {
+        result.push_back(header_path);
+      }
     }
   }
 

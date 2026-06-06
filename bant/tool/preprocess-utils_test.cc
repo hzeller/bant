@@ -154,7 +154,7 @@ R"xyz(
 #include "this-as-well.h"
 )inctest";
   NamedLineIndexedContent scanned_src("<text>", kTestContent);
-  const auto includes = ExtractCCIncludes(&scanned_src);
+  const auto includes = ExtractCCIncludes(&scanned_src, DefineMap());
   EXPECT_THAT(
     includes,
     ElementsAre("\"CaSe-dash_underscore.h", "<a_bracket_include",
