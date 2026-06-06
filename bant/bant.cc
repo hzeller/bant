@@ -39,6 +39,7 @@ extern int optind;    // NOLINT
 #include <limits>
 #include <map>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <system_error>
@@ -194,6 +195,26 @@ Commands (unique prefix sufficient):
   return exit_code;
 }
 
+static std::optional<bool> ParseTerminalColor(const char *value) {
+  if (!value) return std::nullopt;
+  const std::string_view o(value);
+  if (o == "auto") {
+    return isatty(STDOUT_FILENO);
+  }
+  if (o == "never") {
+    return false;
+  }
+  if (o == "always") {
+    return true;
+  }
+  return std::nullopt;
+}
+
+template <typename T>
+static T GetWithFallback(std::optional<T> v, T fallback) {
+  return v.has_value() ? v.value() : fallback;
+}
+
 // Bazel custom flag extraction, such as --//foo:bar to be used in selectors.
 static void ExtractCustomFlags(int *argc, char *argv[],
                                absl::flat_hash_set<std::string> *result) {
@@ -231,8 +252,10 @@ int main(int argc, char *argv[]) {
   bool be_quiet = false;
 
   bant::CommandlineFlags flags;
-  flags.do_color = isatty(STDOUT_FILENO);
-
+  flags.do_color = GetWithFallback(ParseTerminalColor(getenv("BANT_COLOR")),
+                                   (bool)isatty(STDOUT_FILENO));
+  flags.do_links =
+    GetWithFallback(ParseTerminalColor(getenv("BANT_LINKS")), false);
   // Since we're using basic getopt() currently, we've to fish out all the
   // double-dash bazel configs, otherwise getopt() gets confused about unknown
   // options.
@@ -361,13 +384,9 @@ int main(int argc, char *argv[]) {
     case 'v': flags.verbose++; break;  // More -v, more detail.
     case 'V': return print_version();
     case OPT_COLOR: {
-      const std::string_view o(optarg);
-      if (o == "auto") {
-        flags.do_color = isatty(STDOUT_FILENO);
-      } else if (o == "never") {
-        flags.do_color = false;
-      } else if (o == "always") {
-        flags.do_color = true;
+      auto color_choice = ParseTerminalColor(optarg);
+      if (color_choice.has_value()) {
+        flags.do_color = *color_choice;
       } else {
         fprintf(stderr,
                 "--color should be one of 'auto', "
@@ -376,13 +395,9 @@ int main(int argc, char *argv[]) {
       }
     } break;
     case OPT_HYPERLINKS: {
-      const std::string_view o(optarg);
-      if (o == "auto") {
-        flags.do_links = isatty(STDOUT_FILENO);
-      } else if (o == "never") {
-        flags.do_links = false;
-      } else if (o == "always") {
-        flags.do_links = true;
+      auto link_choice = ParseTerminalColor(optarg);
+      if (link_choice.has_value()) {
+        flags.do_links = *link_choice;
       } else {
         fprintf(stderr,
                 "--links should be one of 'auto', "
