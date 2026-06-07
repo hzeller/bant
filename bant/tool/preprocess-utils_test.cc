@@ -47,6 +47,9 @@ static void PrintTo(const TaggedRange &r, std::ostream *out) {
 TEST(PreprocessUtils, PreprocessRangeIf_0_1) {
   constexpr std::string_view kTestContent = R"deftest(
 #if 0
+NO_TEXT  // Will be excluded due unmistaken situation, not BUILD influenced
+#endif
+#if A_NOT_DEFINED_MACRO
 A_TEXT
 #endif
 #if 1
@@ -170,7 +173,7 @@ TEST(PreprocessUtils, HeaderFilesAreExtracted) {
 #include "with/suffix.hh"      // other ..
 #include "with/suffix.pb.h"
 #include "with/suffix.inc"     // .. common suffices
-#if 0
+#if THIS_IS_NOT_DEFINED
 #  include "ifdefed-out.h"
 #endif
 R"(

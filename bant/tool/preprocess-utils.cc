@@ -22,7 +22,6 @@
 #include <string_view>
 #include <vector>
 
-#include "absl/strings/numbers.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_split.h"
 #include "bant/explore/query-utils.h"
@@ -30,17 +29,27 @@
 #include "re2/re2.h"
 
 namespace bant {
-static bool ParsePreprocessValue(std::string_view value,
-                                 const DefineMap &symbols) {
-  if (value == "true") return true;
-  if (value == "false") return false;
+struct PreprocessValueResult {
+  enum {
+    FROM_CONSTANT,
+    FROM_DEFINE,
+  } how;
+  bool is_def;
+};
+
+static PreprocessValueResult ParsePreprocessValue(std::string_view value,
+                                                  const DefineMap &symbols) {
+  if (value == "true" || value == "1") {
+    return {PreprocessValueResult::FROM_CONSTANT, true};
+  }
+  if (value == "false" || value == "0") {
+    return {PreprocessValueResult::FROM_CONSTANT, false};
+  }
   // Maybe another macro ?
   if (auto found = symbols.find(value); found != symbols.end()) {
-    return found->second;
+    return {PreprocessValueResult::FROM_DEFINE, found->second};
   }
-  // Interpret as number.
-  int parsed_val;
-  return absl::SimpleAtoi(value, &parsed_val) && parsed_val != 0;
+  return {PreprocessValueResult::FROM_DEFINE, false};
 }
 
 std::vector<TaggedRange> ExtractActiveCCIfdefRanges(std::string_view source,
@@ -57,15 +66,21 @@ std::vector<TaggedRange> ExtractActiveCCIfdefRanges(std::string_view source,
   std::string_view var;
   std::string_view value;
   int nested_skip = 0;
+  bool skip_due_to_hard_constant = false;             // like #if 0
   while (RE2::FindAndConsume(&run, *kPreprocessLine,  //
                              &start_line, &keyword, &var, &value)) {
     const size_t len = start_line.data() - last_end;
     std::string_view range{last_end, len};
-    if (len) result.emplace_back(range, nested_skip == 0);
+
+    // if we skip due to hard constant, we don't even want to include it.
+    // If ever interesting downstream, return some enum of sorts in the Tag.
+    if (!(nested_skip && skip_due_to_hard_constant)) {
+      if (len) result.emplace_back(range, nested_skip == 0);
+    }
 
     if (nested_skip == 0) {
       if (keyword == "define") {
-        define_values[var] = ParsePreprocessValue(value, define_values);
+        define_values[var] = ParsePreprocessValue(value, define_values).is_def;
       } else if (keyword == "undef") {
         define_values.erase(var);
       }
@@ -75,9 +90,16 @@ std::vector<TaggedRange> ExtractActiveCCIfdefRanges(std::string_view source,
     if (nested_skip == 0) {
       if ((keyword == "ifdef" && !define_values.contains(var)) ||
           (keyword == "ifndef" && define_values.contains(var)) ||
-          (keyword == "if" && !ParsePreprocessValue(var, define_values)) ||
           (keyword == "else")) {
         nested_skip = 1;
+      } else {
+        // If we have an '#if 0' situation, we don't want to report
+        if (auto val = ParsePreprocessValue(var, define_values);
+            (keyword == "if" && !val.is_def)) {
+          nested_skip = 1;
+          skip_due_to_hard_constant =
+            (val.how == PreprocessValueResult::FROM_CONSTANT);
+        }
       }
     } else {  // skip_nest > 0
       if (keyword == "if" || keyword == "ifdef" || keyword == "ifndef") {
@@ -88,13 +110,18 @@ std::vector<TaggedRange> ExtractActiveCCIfdefRanges(std::string_view source,
       }
       if (nested_skip == 1 && keyword == "else") {
         nested_skip = 0;
+        skip_due_to_hard_constant = false;
       }
     }
 
     last_end = run.data();
   }
 
-  if (!run.empty()) result.emplace_back(run, nested_skip == 0);
+  if (!run.empty()) {
+    if (!(nested_skip && skip_due_to_hard_constant)) {
+      result.emplace_back(run, nested_skip == 0);
+    }
+  }
   return result;
 }
 
@@ -103,7 +130,7 @@ DefineMap GetDefinesFromTarget(const query::Result &target) {
   auto insert_define = [&result](std::string_view d) {
     std::vector<std::string_view> elements = absl::StrSplit(d, '=');
     if (elements.size() == 2) {
-      result[elements[0]] = ParsePreprocessValue(elements[1], result);
+      result[elements[0]] = ParsePreprocessValue(elements[1], result).is_def;
     } else {
       result[elements[0]] = true;
     }
