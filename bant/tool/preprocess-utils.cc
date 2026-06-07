@@ -18,7 +18,6 @@
 #include "bant/tool/preprocess-utils.h"
 
 #include <cstddef>
-#include <ostream>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -119,14 +118,13 @@ DefineMap GetDefinesFromTarget(const query::Result &target) {
   return result;
 }
 
-std::vector<std::string_view> ExtractCCIncludes(NamedLineIndexedContent *src,
-                                                const DefineMap &defines,
-                                                std::ostream &exclude_info) {
+std::vector<TaggedInclude> ExtractCCIncludes(NamedLineIndexedContent *src,
+                                             const DefineMap &defines) {
   //          raw str      |comment|include...
   static const LazyRE2 kIncRe{
     R"/((?m)(R"[0-9a-zA-Z_]*\(|\/\/.*$|^\s*#\s*include\s+(["<](\.\./)*[0-9a-zA-Z_/+-]+(\.[a-zA-Z]+)*)[">]))/"};
 
-  std::vector<std::string_view> result;
+  std::vector<TaggedInclude> result;
   DefineMap mutable_defines = defines;
   for (auto r : ExtractActiveCCIfdefRanges(src->content(), mutable_defines)) {
     std::string_view run = r.range;
@@ -143,20 +141,19 @@ std::vector<std::string_view> ExtractCCIncludes(NamedLineIndexedContent *src,
       } else if (outer.starts_with("//")) {
         // ignore comment.
       } else if (!header_path.empty()) {
-        if (r.is_included) {
-          result.push_back(header_path);
-        } else {
-          exclude_info << "#ifdef-skipped " << header_path << "\n";
-        }
+        result.emplace_back(header_path.substr(1),  // inc
+                            header_path[0] == '<',  // is_angled_bracket
+                            !r.is_included);        // is_ifdefed_out
       }
     }
   }
 
   if (!result.empty()) {
     // We only need to fill the location_mapper up to the location the last
-    // element was found
-    const std::string_view range(src->content().begin(),
-                                 result.back().end() - src->content().begin());
+    // element was found.
+    const std::string_view range(
+      src->content().begin(),
+      result.back().include.end() - src->content().begin());
     src->mutable_line_index()->InitializeFromStringView(range);
   }
   return result;

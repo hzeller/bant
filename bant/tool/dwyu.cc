@@ -491,18 +491,31 @@ DWYUGenerator::DependenciesNeededBySources(
     // Here we should create a struct PerSourceFileDWYU getting source_content
     NamedLineIndexedContent source(source_content->path,
                                    source_content->content);
-    std::stringstream incs_not_considered;
-    std::vector<std::string_view> pound_includes;
+    std::vector<TaggedInclude> pound_includes;
     {
       const ScopedTimer timer(&source_grep_stats.duration);
-      pound_includes = ExtractCCIncludes(&source, defines, incs_not_considered);
+      pound_includes = ExtractCCIncludes(&source, defines);
     }
     // Now for all includes, we need to make sure we can account for it.
-    for (std::string_view inc_file : pound_includes) {
-      const bool is_bracket_include = inc_file[0] == '<';
-      if (is_bracket_include && !allow_bracket_includes) continue;
+    for (const TaggedInclude inc : pound_includes) {
+      const std::string_view inc_file = inc.include;
+      if (inc.is_angle_bracket && !allow_bracket_includes) continue;
 
-      inc_file = inc_file.substr(1);
+      if (inc.is_ifdefed_out) {
+        if (session_.MinVerbosity(1)) {
+          // TODO: the following should really only be reported if this results
+          // in a removal, otherwise a higher verbosity level might be ok.
+          maybe_log_source_headline(src_name, source_content->path, target);
+          Loc(source, inc_file)
+            << " " << Bold(session_) << inc_file << Norm(session_)
+            << " not considered due to ifdef; " << Red(session_)
+            << "if not intended, make sure to set "
+               "defines=[] or copts=[] in "
+            << Norm(session_) << Bold(session_) << target << Norm(session_)
+            << "\n";
+        }
+        continue;
+      }
 
       // Possible refactor-name HeaderMentionedInOwnSources()
       if (IsHeaderInList(inc_file, sources, target.package.path)) {
@@ -576,7 +589,7 @@ DWYUGenerator::DependenciesNeededBySources(
         if (session_.MinVerbosity(3)) {
           maybe_log_source_headline(src_name, source_content->path, target);
         }
-        maybe_log(source, inc_file, is_bracket_include,
+        maybe_log(source, inc_file, inc.is_angle_bracket,
                   *found_result.target_set);
         AddVisibleAlternativesWithStratum(target, header_providers, result);
         continue;
@@ -600,7 +613,7 @@ DWYUGenerator::DependenciesNeededBySources(
         if (session_.MinVerbosity(3)) {
           maybe_log_source_headline(src_name, source_content->path, target);
         }
-        maybe_log(source, inc_file, is_bracket_include, *found->target_set);
+        maybe_log(source, inc_file, inc.is_angle_bracket, *found->target_set);
         AddVisibleAlternativesWithStratum(target, *found->target_set, result);
         continue;
       }
@@ -625,7 +638,7 @@ DWYUGenerator::DependenciesNeededBySources(
       // providers in case someone uses a vendored library but accidentally
       // used bracket includes; so we won't remove these libs (common culprit:
       // <zlib.h>)
-      if (is_bracket_include) {
+      if (inc.is_angle_bracket) {
         continue;
       }
 
@@ -658,12 +671,6 @@ DWYUGenerator::DependenciesNeededBySources(
       maybe_log_source_headline(src_name, source_content->path, target);
       LogUnknownProvider(source, inc_file, target, "#include",
                          " -- Missing or from non-standard bazel-rule ?");
-    }
-    if (auto s = incs_not_considered.str();
-        !s.empty() && session_.MinVerbosity(1)) {
-      // TODO: this should happen at per soure at the place it happens after
-      // tagged includes are emitted.
-      session_.info() << "Note: " << Red(session_) << s << Norm(session_);
     }
   }
 

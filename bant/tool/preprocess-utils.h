@@ -18,7 +18,6 @@
 #ifndef BANT_PREPROCESS_UTILS_H
 #define BANT_PREPROCESS_UTILS_H
 
-#include <ostream>
 #include <string_view>
 #include <vector>
 
@@ -50,22 +49,18 @@ std::vector<TaggedRange> ExtractActiveCCIfdefRanges(std::string_view source,
 // as input to ExtractActiveCCIfdefRanges()
 DefineMap GetDefinesFromTarget(const query::Result &target);
 
-// Scan "src" and extract #include project headers (the ones with the quotes
-// not angle brackts) from given file. Best effort: may result empty vector.
-// Initialize the line index in src to be able to refer back to origainal
-// (the index is only updated up to the last relevant output)
-// The string_views include the start of the include bracket (so either '<',
-// or '"'), but not the end. So it is simple to
-// ```
-// is_bracket_include = inc[0] == '<'
-// inc = inc.substr(1);
-// ```
-//  "exclude_info" collects FYI messages about includes that have not been
-//  collected.
-// (TODO: return a tagged include with bracket/no-bracket ifdefed/not)
-std::vector<std::string_view> ExtractCCIncludes(NamedLineIndexedContent *src,
-                                                const DefineMap &defines,
-                                                std::ostream &exclude_info);
+// Scan "src" and extract #include project headers.
+// Returns a vector of TaggedIncludes that contain the include name and
+// if it was included with angled bracket and if it is excluded due to
+// preprocessing.
+struct TaggedInclude {
+  std::string_view include;  // path of the include file.
+  bool is_angle_bracket;     // if true, included via <>, otherwise ""
+  bool is_ifdefed_out;       // if not considered due to macros in defines.
+  bool operator==(const TaggedInclude &) const = default;
+};
+std::vector<TaggedInclude> ExtractCCIncludes(NamedLineIndexedContent *src,
+                                             const DefineMap &defines);
 
 // Scan a .proto file and extract import paths from "import" statements.
 // Returns the import paths (e.g. "foo/bar.proto") from lines like:

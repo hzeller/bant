@@ -18,7 +18,6 @@
 #include "bant/tool/preprocess-utils.h"
 
 #include <cstddef>
-#include <sstream>
 #include <string_view>
 #include <vector>
 
@@ -140,10 +139,16 @@ H_TEXT
 }
 
 static LineColumn PosOfPart(const NamedLineIndexedContent &src,
-                            const std::vector<std::string_view> &parts,
-                            size_t i) {
+                            const std::vector<TaggedInclude> &parts, size_t i) {
   CHECK(i <= parts.size());
-  return src.GetLocation(parts[i]).line_column_range.start;
+  return src.GetLocation(parts[i].include).line_column_range.start;
+}
+
+// NOLINTNEXTLINE appears unused, but is used by gmock printing
+static void PrintTo(const TaggedInclude &i, std::ostream *out) {
+  *out << (i.is_ifdefed_out ? "EXCLUDED: " : " ")
+       << (i.is_angle_bracket ? "<" : "") << i.include
+       << (i.is_angle_bracket ? ">" : "");
 }
 
 // Inception deception:
@@ -165,6 +170,9 @@ TEST(PreprocessUtils, HeaderFilesAreExtracted) {
 #include "with/suffix.hh"      // other ..
 #include "with/suffix.pb.h"
 #include "with/suffix.inc"     // .. common suffices
+#if 0
+#  include "ifdefed-out.h"
+#endif
 R"(
 #include "bant/tool/dwyu.h"   // include embedded in string ignored.
 )"
@@ -181,23 +189,32 @@ R"xyz(
 #include "this-as-well.h"
 )inctest";
   NamedLineIndexedContent scanned_src("<text>", kTestContent);
-  std::stringstream excl_out;
-  const auto includes = ExtractCCIncludes(&scanned_src, DefineMap(), excl_out);
-  EXPECT_THAT(
-    includes,
-    ElementsAre("\"CaSe-dash_underscore.h", "<a_bracket_include",
-                "\"but-this.h", "\"with/suffix.hh", "\"with/suffix.pb.h",
-                "\"with/suffix.inc", "\"../dotdot.h", "\"more-special-c++.h",
-                "\"w/space.h", "\"should-be-seen.h", "\"this-as-well.h"));
+  const auto includes = ExtractCCIncludes(&scanned_src, DefineMap());
+  using TI = TaggedInclude;
+  EXPECT_THAT(includes,
+              ElementsAre(/* 0*/ TI{"CaSe-dash_underscore.h", false, false},
+                          /* 1*/ TI{"a_bracket_include", true, false},
+                          /* 2*/ TI{"but-this.h", false, false},
+                          /* 3*/ TI{"with/suffix.hh", false, false},
+                          /* 4*/ TI{"with/suffix.pb.h", false, false},
+                          /* 5*/ TI{"with/suffix.inc", false, false},
+                          /* 6*/ TI{"ifdefed-out.h", false, true},
+                          /* 7*/ TI{"../dotdot.h", false, false},
+                          /* 8*/ TI{"more-special-c++.h", false, false},
+                          /* 9*/ TI{"w/space.h", false, false},
+                          /*10*/ TI{"should-be-seen.h", false, false},
+                          /*11*/ TI{"this-as-well.h", false, false}));
   // Let's check some locations.
-  EXPECT_EQ(PosOfPart(scanned_src, includes, 0), (LineColumn{2, 9}));
-  EXPECT_EQ(PosOfPart(scanned_src, includes, 1), (LineColumn{3, 9}));
-  EXPECT_EQ(PosOfPart(scanned_src, includes, 2), (LineColumn{5, 12}));
+  EXPECT_EQ(PosOfPart(scanned_src, includes, 0), (LineColumn{2, 10}));
+  EXPECT_EQ(PosOfPart(scanned_src, includes, 1), (LineColumn{3, 10}));
+  EXPECT_EQ(PosOfPart(scanned_src, includes, 2), (LineColumn{5, 13}));
 
-  EXPECT_EQ(PosOfPart(scanned_src, includes, 3), (LineColumn{6, 9}));
-  EXPECT_EQ(PosOfPart(scanned_src, includes, 4), (LineColumn{7, 9}));
-  EXPECT_EQ(PosOfPart(scanned_src, includes, 5), (LineColumn{8, 9}));
-  EXPECT_EQ(PosOfPart(scanned_src, includes, 8), (LineColumn{18, 14}));
+  EXPECT_EQ(PosOfPart(scanned_src, includes, 3), (LineColumn{6, 10}));
+  EXPECT_EQ(PosOfPart(scanned_src, includes, 4), (LineColumn{7, 10}));
+  EXPECT_EQ(PosOfPart(scanned_src, includes, 5), (LineColumn{8, 10}));
+  EXPECT_EQ(PosOfPart(scanned_src, includes, 6), (LineColumn{10, 12}));
+  EXPECT_EQ(PosOfPart(scanned_src, includes, 8), (LineColumn{19, 10}));
+  EXPECT_EQ(PosOfPart(scanned_src, includes, 9), (LineColumn{21, 15}));
 }
 
 TEST(PreprocessUtils, ProtoImportsAreExtracted) {
