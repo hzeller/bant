@@ -18,6 +18,7 @@
 #include "bant/tool/preprocess-utils.h"
 
 #include <cstddef>
+#include <ostream>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -119,7 +120,8 @@ DefineMap GetDefinesFromTarget(const query::Result &target) {
 }
 
 std::vector<std::string_view> ExtractCCIncludes(NamedLineIndexedContent *src,
-                                                const DefineMap &defines) {
+                                                const DefineMap &defines,
+                                                std::ostream &exclude_info) {
   //          raw str      |comment|include...
   static const LazyRE2 kIncRe{
     R"/((?m)(R"[0-9a-zA-Z_]*\(|\/\/.*$|^\s*#\s*include\s+(["<](\.\./)*[0-9a-zA-Z_/+-]+(\.[a-zA-Z]+)*)[">]))/"};
@@ -127,7 +129,6 @@ std::vector<std::string_view> ExtractCCIncludes(NamedLineIndexedContent *src,
   std::vector<std::string_view> result;
   DefineMap mutable_defines = defines;
   for (auto r : ExtractActiveCCIfdefRanges(src->content(), mutable_defines)) {
-    if (!r.is_included) continue;
     std::string_view run = r.range;
     std::string_view header_path;
     std::string_view outer;
@@ -142,7 +143,11 @@ std::vector<std::string_view> ExtractCCIncludes(NamedLineIndexedContent *src,
       } else if (outer.starts_with("//")) {
         // ignore comment.
       } else if (!header_path.empty()) {
-        result.push_back(header_path);
+        if (r.is_included) {
+          result.push_back(header_path);
+        } else {
+          exclude_info << "#ifdef-skipped " << header_path << "\n";
+        }
       }
     }
   }

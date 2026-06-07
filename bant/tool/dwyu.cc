@@ -491,10 +491,11 @@ DWYUGenerator::DependenciesNeededBySources(
     // Here we should create a struct PerSourceFileDWYU getting source_content
     NamedLineIndexedContent source(source_content->path,
                                    source_content->content);
+    std::stringstream incs_not_considered;
     std::vector<std::string_view> pound_includes;
     {
       const ScopedTimer timer(&source_grep_stats.duration);
-      pound_includes = ExtractCCIncludes(&source, defines);
+      pound_includes = ExtractCCIncludes(&source, defines, incs_not_considered);
     }
     // Now for all includes, we need to make sure we can account for it.
     for (std::string_view inc_file : pound_includes) {
@@ -657,6 +658,12 @@ DWYUGenerator::DependenciesNeededBySources(
       maybe_log_source_headline(src_name, source_content->path, target);
       LogUnknownProvider(source, inc_file, target, "#include",
                          " -- Missing or from non-standard bazel-rule ?");
+    }
+    if (auto s = incs_not_considered.str();
+        !s.empty() && session_.MinVerbosity(1)) {
+      // TODO: this should happen at per soure at the place it happens after
+      // tagged includes are emitted.
+      session_.info() << "Note: " << Red(session_) << s << Norm(session_);
     }
   }
 

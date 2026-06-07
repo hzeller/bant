@@ -18,6 +18,7 @@
 #include "bant/tool/preprocess-utils.h"
 
 #include <cstddef>
+#include <sstream>
 #include <string_view>
 #include <vector>
 
@@ -180,7 +181,8 @@ R"xyz(
 #include "this-as-well.h"
 )inctest";
   NamedLineIndexedContent scanned_src("<text>", kTestContent);
-  const auto includes = ExtractCCIncludes(&scanned_src, DefineMap());
+  std::stringstream excl_out;
+  const auto includes = ExtractCCIncludes(&scanned_src, DefineMap(), excl_out);
   EXPECT_THAT(
     includes,
     ElementsAre("\"CaSe-dash_underscore.h", "<a_bracket_include",

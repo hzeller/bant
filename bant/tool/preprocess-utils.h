@@ -18,6 +18,7 @@
 #ifndef BANT_PREPROCESS_UTILS_H
 #define BANT_PREPROCESS_UTILS_H
 
+#include <ostream>
 #include <string_view>
 #include <vector>
 
@@ -59,8 +60,12 @@ DefineMap GetDefinesFromTarget(const query::Result &target);
 // is_bracket_include = inc[0] == '<'
 // inc = inc.substr(1);
 // ```
+//  "exclude_info" collects FYI messages about includes that have not been
+//  collected.
+// (TODO: return a tagged include with bracket/no-bracket ifdefed/not)
 std::vector<std::string_view> ExtractCCIncludes(NamedLineIndexedContent *src,
-                                                const DefineMap &defines);
+                                                const DefineMap &defines,
+                                                std::ostream &exclude_info);
 
 // Scan a .proto file and extract import paths from "import" statements.
 // Returns the import paths (e.g. "foo/bar.proto") from lines like:
