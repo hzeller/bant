@@ -112,6 +112,8 @@ H_TEXT
     DefineMap defs;
     defs["A_DEF"] = true;
     auto ranges = ExtractActiveCCIfdefRanges(kTestContent, defs);
+    // Values that could be influenced by users -D choices (e.g. E_TEXT) are
+    // included, even if disabled. They could be relevant.
     EXPECT_THAT(ranges, ElementsAre(R{"\nA_TEXT\n", true},  //
                                     R{"B_TEXT\n", true},    //
                                     R{"C_TEXT\n", true},    //
@@ -128,13 +130,14 @@ H_TEXT
     defs["A_DEF"] = false;
     defs["C_DEF"] = false;
     auto ranges = ExtractActiveCCIfdefRanges(kTestContent, defs);
+    // If define outcomes are definitely known, don't include in output.
     EXPECT_THAT(ranges, ElementsAre(R{"\nA_TEXT\n", true},  //
                                     R{"B_TEXT\n", true},    //
-                                    R{"C_TEXT\n", false},   //
-                                    R{"D_TEXT\n", true},    //
-                                    R{"E_TEXT\n", false},   //
-                                    R{"F_TEXT\n", true},    //
-                                    R{"G_TEXT\n", false},   //
+                                    // "C_TEXT\n" -- exclusion definitely known.
+                                    R{"D_TEXT\n", true},   //
+                                    R{"E_TEXT\n", false},  //
+                                    R{"F_TEXT\n", true},   //
+                                    // "G_TEXT\n" -- exclusion definitely known
                                     R{"H_TEXT\n", true}));
     EXPECT_TRUE(defs.contains("A_DEF"));
     EXPECT_TRUE(defs.contains("A_PRIME_DEF") && defs["A_PRIME_DEF"] == false);

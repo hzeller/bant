@@ -31,25 +31,25 @@
 namespace bant {
 struct PreprocessValueResult {
   enum {
-    FROM_CONSTANT,
-    FROM_DEFINE,
+    UNKNOWN,  // Not a macro known and also not a constant value.
+    IS_KNOWN,
   } how;
-  bool is_def;
+  bool is_on;
 };
 
 static PreprocessValueResult ParsePreprocessValue(std::string_view value,
                                                   const DefineMap &symbols) {
   if (value == "true" || value == "1") {
-    return {PreprocessValueResult::FROM_CONSTANT, true};
+    return {PreprocessValueResult::IS_KNOWN, true};
   }
   if (value == "false" || value == "0") {
-    return {PreprocessValueResult::FROM_CONSTANT, false};
+    return {PreprocessValueResult::IS_KNOWN, false};
   }
   // Maybe another macro ?
   if (auto found = symbols.find(value); found != symbols.end()) {
-    return {PreprocessValueResult::FROM_DEFINE, found->second};
+    return {PreprocessValueResult::IS_KNOWN, found->second};
   }
-  return {PreprocessValueResult::FROM_DEFINE, false};
+  return {PreprocessValueResult::UNKNOWN, false};
 }
 
 std::vector<TaggedRange> ExtractActiveCCIfdefRanges(std::string_view source,
@@ -66,21 +66,24 @@ std::vector<TaggedRange> ExtractActiveCCIfdefRanges(std::string_view source,
   std::string_view var;
   std::string_view value;
   int nested_skip = 0;
-  bool skip_due_to_hard_constant = false;             // like #if 0
+  bool skip_due_to_known_value = false;  // such as #if 0 or explicitly set -D
   while (RE2::FindAndConsume(&run, *kPreprocessLine,  //
                              &start_line, &keyword, &var, &value)) {
     const size_t len = start_line.data() - last_end;
     std::string_view range{last_end, len};
 
     // if we skip due to hard constant, we don't even want to include it.
-    // If ever interesting downstream, return some enum of sorts in the Tag.
-    if (!(nested_skip && skip_due_to_hard_constant)) {
+    // But, if it is unknown if this could be included, e.g. due to some changes
+    // in the BUILD file, we want to report it for downstream to make decisions
+    // on it.
+    // If info eve interesting downstream, return some enum of sorts in the Tag.
+    if (!(nested_skip && skip_due_to_known_value)) {
       if (len) result.emplace_back(range, nested_skip == 0);
     }
 
     if (nested_skip == 0) {
       if (keyword == "define") {
-        define_values[var] = ParsePreprocessValue(value, define_values).is_def;
+        define_values[var] = ParsePreprocessValue(value, define_values).is_on;
       } else if (keyword == "undef") {
         define_values.erase(var);
       }
@@ -88,17 +91,19 @@ std::vector<TaggedRange> ExtractActiveCCIfdefRanges(std::string_view source,
 
     // State machine; After entering skipping, keep track of nested ifdefs.
     if (nested_skip == 0) {
-      if ((keyword == "ifdef" && !define_values.contains(var)) ||
-          (keyword == "ifndef" && define_values.contains(var)) ||
-          (keyword == "else")) {
+      if (keyword == "else") {
         nested_skip = 1;
+      } else if ((keyword == "ifdef" && !define_values.contains(var)) ||
+                 (keyword == "ifndef" && define_values.contains(var))) {
+        nested_skip = 1;
+        skip_due_to_known_value = define_values.contains(var);
       } else {
         // If we have an '#if 0' situation, we don't want to report
         if (auto val = ParsePreprocessValue(var, define_values);
-            (keyword == "if" && !val.is_def)) {
+            (keyword == "if" && !val.is_on)) {
           nested_skip = 1;
-          skip_due_to_hard_constant =
-            (val.how == PreprocessValueResult::FROM_CONSTANT);
+          skip_due_to_known_value =
+            (val.how == PreprocessValueResult::IS_KNOWN);
         }
       }
     } else {  // skip_nest > 0
@@ -110,7 +115,7 @@ std::vector<TaggedRange> ExtractActiveCCIfdefRanges(std::string_view source,
       }
       if (nested_skip == 1 && keyword == "else") {
         nested_skip = 0;
-        skip_due_to_hard_constant = false;
+        skip_due_to_known_value = false;
       }
     }
 
@@ -118,7 +123,7 @@ std::vector<TaggedRange> ExtractActiveCCIfdefRanges(std::string_view source,
   }
 
   if (!run.empty()) {
-    if (!(nested_skip && skip_due_to_hard_constant)) {
+    if (!(nested_skip && skip_due_to_known_value)) {
       result.emplace_back(run, nested_skip == 0);
     }
   }
@@ -130,7 +135,7 @@ DefineMap GetDefinesFromTarget(const query::Result &target) {
   auto insert_define = [&result](std::string_view d) {
     std::vector<std::string_view> elements = absl::StrSplit(d, '=');
     if (elements.size() == 2) {
-      result[elements[0]] = ParsePreprocessValue(elements[1], result).is_def;
+      result[elements[0]] = ParsePreprocessValue(elements[1], result).is_on;
     } else {
       result[elements[0]] = true;
     }
