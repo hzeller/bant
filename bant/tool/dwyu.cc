@@ -476,6 +476,7 @@ DWYUGenerator::DependenciesNeededBySources(
     }
   };
 
+  bool any_maybe_not_intended_ifdef_out = false;
   std::vector<absl::btree_set<BazelTarget>> result;
   const bool allow_bracket_includes = session_.flags().allow_bracket_includes;
   for (const std::string_view src_name : sources) {
@@ -514,6 +515,7 @@ DWYUGenerator::DependenciesNeededBySources(
             << Norm(session_) << Bold(session_) << target << Norm(session_)
             << "\n";
         }
+        any_maybe_not_intended_ifdef_out = true;
         continue;
       }
 
@@ -671,6 +673,15 @@ DWYUGenerator::DependenciesNeededBySources(
       maybe_log_source_headline(src_name, source_content->path, target);
       LogUnknownProvider(source, inc_file, target, "#include",
                          " -- Missing or from non-standard bazel-rule ?");
+    }
+  }
+
+  if (any_maybe_not_intended_ifdef_out && session_.MinVerbosity(2)) {
+    for (const auto &[key, _] : defines) {
+      Loc(project_, key) << " FYI, macro " << Magenta(session_)
+                         << Bold(session_) << key << Norm(session_)
+                         << " defined in " << Bold(session_) << target
+                         << Norm(session_) << "\n";
     }
   }
 
