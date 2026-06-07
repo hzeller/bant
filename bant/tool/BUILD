@@ -52,6 +52,7 @@ cc_test(
         "//bant/frontend:parsed-project_testutil",
         "//bant/frontend:source-locator",
         "@abseil-cpp//absl/log:check",
+        "@abseil-cpp//absl/strings",
         "@googletest//:gtest",
         "@googletest//:gtest_main",
     ],

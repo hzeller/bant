@@ -22,6 +22,7 @@
 #include <vector>
 
 #include "absl/log/check.h"
+#include "absl/strings/escaping.h"
 #include "bant/explore/query-utils.h"
 #include "bant/frontend/named-content.h"
 #include "bant/frontend/parsed-project.h"
@@ -35,6 +36,14 @@ using ::testing::ElementsAre;
 using ::testing::Pair;
 
 namespace bant {
+
+// For gmock to properly print
+// NOLINTNEXTLINE appears unused, but is used by gmock printing
+static void PrintTo(const TaggedRange &r, std::ostream *out) {
+  *out << "SourceRange{" << absl::CEscape(r.range)
+       << ", is_included=" << r.is_included << "}";
+}
+
 TEST(PreprocessUtils, PreprocessRangeIf_0_1) {
   constexpr std::string_view kTestContent = R"deftest(
 #if 0
@@ -56,7 +65,12 @@ C_TEXT
   {
     DefineMap defs;
     auto ranges = ExtractActiveCCIfdefRanges(kTestContent, defs);
-    EXPECT_THAT(ranges, ElementsAre("\n", "B_TEXT\n", "C_TEXT\n"));
+    using R = TaggedRange;
+    EXPECT_THAT(ranges, ElementsAre(R{"\n", true},         //
+                                    R{"A_TEXT\n", false},  //
+                                    R{"B_TEXT\n", true},   //
+                                    R{"C_TEXT\n", true}    //
+                                    ));
     EXPECT_TRUE(defs.contains("A_PRIME_DEF"));
   }
 }
@@ -90,12 +104,18 @@ H_TEXT
 #endif
 )deftest";
 
+  using R = TaggedRange;
   {
     DefineMap defs;
     defs["A_DEF"] = true;
     auto ranges = ExtractActiveCCIfdefRanges(kTestContent, defs);
-    EXPECT_THAT(ranges, ElementsAre("\nA_TEXT\n", "B_TEXT\n", "C_TEXT\n",
-                                    "D_TEXT\n", "F_TEXT\n", "G_TEXT\n"));
+    EXPECT_THAT(ranges, ElementsAre(R{"\nA_TEXT\n", true},  //
+                                    R{"B_TEXT\n", true},    //
+                                    R{"C_TEXT\n", true},    //
+                                    R{"D_TEXT\n", true},    //
+                                    R{"E_TEXT\n", false},   //
+                                    R{"F_TEXT\n", true},    //
+                                    R{"G_TEXT\n", true}, R{"H_TEXT\n", false}));
     EXPECT_TRUE(defs.contains("FOO"));
     EXPECT_TRUE(!defs.contains("A_DEF"));
     EXPECT_TRUE(defs.contains("A_PRIME_DEF") && defs["A_PRIME_DEF"] == true);
@@ -105,8 +125,14 @@ H_TEXT
     defs["A_DEF"] = false;
     defs["C_DEF"] = false;
     auto ranges = ExtractActiveCCIfdefRanges(kTestContent, defs);
-    EXPECT_THAT(ranges, ElementsAre("\nA_TEXT\n", "B_TEXT\n", "D_TEXT\n",
-                                    "F_TEXT\n", "H_TEXT\n"));
+    EXPECT_THAT(ranges, ElementsAre(R{"\nA_TEXT\n", true},  //
+                                    R{"B_TEXT\n", true},    //
+                                    R{"C_TEXT\n", false},   //
+                                    R{"D_TEXT\n", true},    //
+                                    R{"E_TEXT\n", false},   //
+                                    R{"F_TEXT\n", true},    //
+                                    R{"G_TEXT\n", false},   //
+                                    R{"H_TEXT\n", true}));
     EXPECT_TRUE(defs.contains("A_DEF"));
     EXPECT_TRUE(defs.contains("A_PRIME_DEF") && defs["A_PRIME_DEF"] == false);
   }

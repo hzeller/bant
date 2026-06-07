@@ -43,12 +43,12 @@ static bool ParsePreprocessValue(std::string_view value,
   return absl::SimpleAtoi(value, &parsed_val) && parsed_val != 0;
 }
 
-std::vector<std::string_view> ExtractActiveCCIfdefRanges(
-  std::string_view source, DefineMap &define_values) {
+std::vector<TaggedRange> ExtractActiveCCIfdefRanges(std::string_view source,
+                                                    DefineMap &define_values) {
   static const LazyRE2 kPreprocessLine{
     R"/((?m)(^[ \t]*#[ \t]*)(define|undef|else|endif|if(?:def|ndef)?)(?:[ \t]+(\w+)(?:[ \t]+([0-9A-Za-z_]+))?)?.*\n)/"};
 
-  std::vector<std::string_view> result;
+  std::vector<TaggedRange> result;
   std::string_view run = source;
   const char *last_end = run.data();
 
@@ -59,11 +59,11 @@ std::vector<std::string_view> ExtractActiveCCIfdefRanges(
   int nested_skip = 0;
   while (RE2::FindAndConsume(&run, *kPreprocessLine,  //
                              &start_line, &keyword, &var, &value)) {
-    // if we're not skipping, emit text and possibly execute define/undef
-    if (nested_skip == 0) {
-      const size_t len = start_line.data() - last_end;
-      if (len) result.emplace_back(last_end, len);
+    const size_t len = start_line.data() - last_end;
+    std::string_view range{last_end, len};
+    if (len) result.emplace_back(range, nested_skip == 0);
 
+    if (nested_skip == 0) {
       if (keyword == "define") {
         define_values[var] = ParsePreprocessValue(value, define_values);
       } else if (keyword == "undef") {
@@ -93,7 +93,8 @@ std::vector<std::string_view> ExtractActiveCCIfdefRanges(
 
     last_end = run.data();
   }
-  if (!run.empty()) result.push_back(run);
+
+  if (!run.empty()) result.emplace_back(run, nested_skip == 0);
   return result;
 }
 
@@ -125,8 +126,9 @@ std::vector<std::string_view> ExtractCCIncludes(NamedLineIndexedContent *src,
 
   std::vector<std::string_view> result;
   DefineMap mutable_defines = defines;
-  for (std::string_view run :
-       ExtractActiveCCIfdefRanges(src->content(), mutable_defines)) {
+  for (auto r : ExtractActiveCCIfdefRanges(src->content(), mutable_defines)) {
+    if (!r.is_included) continue;
+    std::string_view run = r.range;
     std::string_view header_path;
     std::string_view outer;
     while (RE2::FindAndConsume(&run, *kIncRe, &outer, &header_path)) {
