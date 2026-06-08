@@ -53,7 +53,7 @@ A_PRIME_TEXT
 #endif
 #if 1
 B_TEXT
-#else  // TODO: ideally, this should not be included as this is unambiguous
+#else  // The following is unambiguously not included
 B_PRIME_TEXT
 #endif
 )deftest";
@@ -64,8 +64,7 @@ B_PRIME_TEXT
     using R = TaggedRange;
     EXPECT_THAT(ranges, ElementsAre(R{"\n", true},              //
                                     R{"A_PRIME_TEXT\n", true},  //
-                                    R{"B_TEXT\n", true},        //
-                                    R{"B_PRIME_TEXT\n", false}  //
+                                    R{"B_TEXT\n", true}         //
                                     ));
   }
 }
@@ -84,7 +83,7 @@ B_PRIME_TEXT
 #endif
 #if BAZ  // unambiguously included
 C_TEXT
-#else    // TODO: ideally, should not show up as it is also unambiguous
+#else    // the following is unambiguously _not_ included.
 C_PRIME_TEXT
 #endif
 )deftest";
@@ -100,8 +99,7 @@ C_PRIME_TEXT
                                     R{"A_PRIME_TEXT\n", true},  //
                                     R{"B_TEXT\n", false},       //
                                     R{"B_PRIME_TEXT\n", true},  //
-                                    R{"C_TEXT\n", true},        //
-                                    R{"C_PRIME_TEXT\n", false}  //
+                                    R{"C_TEXT\n", true}         //
                                     ));
   }
 }
@@ -110,7 +108,7 @@ TEST(PreprocessUtils, PreprocessRangeUnambiguousExistenceMacro) {
   constexpr std::string_view kTestContent = R"deftest(
 #ifdef FOO
 A_TEXT
-#else   // TODO: ideally, the following should not show up as also unambiguous
+#else   // unambiguously not included
 A_PRIME_TEXT
 #endif
 #ifndef BAR  // not defined macro, so ambiguous.
@@ -126,11 +124,10 @@ B_PRIME_TEXT
     // BAR not defined
     auto ranges = ExtractActiveCCIfdefRanges(kTestContent, defs);
     using R = TaggedRange;
-    EXPECT_THAT(ranges, ElementsAre(R{"\n", true},               //
-                                    R{"A_TEXT\n", true},         //
-                                    R{"A_PRIME_TEXT\n", false},  //
-                                    R{"B_TEXT\n", true},         //
-                                    R{"B_PRIME_TEXT\n", false}   //
+    EXPECT_THAT(ranges, ElementsAre(R{"\n", true},              //
+                                    R{"A_TEXT\n", true},        //
+                                    R{"B_TEXT\n", true},        //
+                                    R{"B_PRIME_TEXT\n", false}  //
                                     ));
   }
 }
@@ -153,9 +150,8 @@ B_TEXT
     DefineMap defs;
     auto ranges = ExtractActiveCCIfdefRanges(kTestContent, defs);
     using R = TaggedRange;
-    EXPECT_THAT(ranges, ElementsAre(R{"\n", true},        //
-                                    R{"A_TEXT\n", true},  //
-                                    R{"B_TEXT\n", false}  //
+    EXPECT_THAT(ranges, ElementsAre(R{"\n", true},       //
+                                    R{"A_TEXT\n", true}  //
                                     ));
     EXPECT_TRUE(defs.contains("A_PRIME_DEF"));
   }

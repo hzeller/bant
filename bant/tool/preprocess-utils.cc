@@ -66,7 +66,7 @@ std::vector<TaggedRange> ExtractActiveCCIfdefRanges(std::string_view source,
   std::string_view var;
   std::string_view value;
   int nested_skip = 0;
-  bool skip_due_to_known_value = false;  // such as #if 0 or explicitly set -D
+  bool unambiguous_condition = false;  // such as #if 0 or explicitly set -D
   while (RE2::FindAndConsume(&run, *kPreprocessLine,  //
                              &start_line, &keyword, &var, &value)) {
     const size_t len = start_line.data() - last_end;
@@ -77,7 +77,7 @@ std::vector<TaggedRange> ExtractActiveCCIfdefRanges(std::string_view source,
     // in the BUILD file, we want to report it for downstream to make decisions
     // on it.
     // If info eve interesting downstream, return some enum of sorts in the Tag.
-    if (!(nested_skip && skip_due_to_known_value)) {
+    if (!(nested_skip && unambiguous_condition)) {
       if (len) result.emplace_back(range, nested_skip == 0);
     }
 
@@ -93,18 +93,18 @@ std::vector<TaggedRange> ExtractActiveCCIfdefRanges(std::string_view source,
     if (nested_skip == 0) {
       if (keyword == "else") {
         nested_skip = 1;
-      } else if ((keyword == "ifdef" && !define_values.contains(var)) ||
-                 (keyword == "ifndef" && define_values.contains(var))) {
-        nested_skip = 1;
-        skip_due_to_known_value = define_values.contains(var);
-      } else {
-        // If we have an '#if 0' situation, we don't want to report
-        if (auto val = ParsePreprocessValue(var, define_values);
-            (keyword == "if" && !val.is_on)) {
-          nested_skip = 1;
-          skip_due_to_known_value =
-            (val.how == PreprocessValueResult::IS_KNOWN);
-        }
+      } else if (keyword == "ifdef") {
+        const bool contained = define_values.contains(var);
+        nested_skip = !contained;
+        unambiguous_condition = contained;
+      } else if (keyword == "ifndef") {
+        const bool contained = define_values.contains(var);
+        nested_skip = contained;
+        unambiguous_condition = contained;
+      } else if (keyword == "if") {
+        auto val = ParsePreprocessValue(var, define_values);
+        nested_skip = !val.is_on;
+        unambiguous_condition = (val.how == PreprocessValueResult::IS_KNOWN);
       }
     } else {  // skip_nest > 0
       if (keyword == "if" || keyword == "ifdef" || keyword == "ifndef") {
@@ -115,7 +115,6 @@ std::vector<TaggedRange> ExtractActiveCCIfdefRanges(std::string_view source,
       }
       if (nested_skip == 1 && keyword == "else") {
         nested_skip = 0;
-        skip_due_to_known_value = false;
       }
     }
 
@@ -123,7 +122,7 @@ std::vector<TaggedRange> ExtractActiveCCIfdefRanges(std::string_view source,
   }
 
   if (!run.empty()) {
-    if (!(nested_skip && skip_due_to_known_value)) {
+    if (!(nested_skip && unambiguous_condition)) {
       result.emplace_back(run, nested_skip == 0);
     }
   }
