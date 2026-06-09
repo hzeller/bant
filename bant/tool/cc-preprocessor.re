@@ -47,120 +47,122 @@ std::vector<TaggedInclude> PreprocessInternal(std::string_view source,
     token_start = YYCURSOR;
 
     /*!re2c
-        re2c:define:YYCTYPE = char;
-        re2c:yyfill:enable  = 0;
-        re2c:define:YYLESSTHAN = "YYLIMIT - YYCURSOR < @@";
+    re2c:define:YYCTYPE = char;
+    re2c:yyfill:enable  = 0;
+    re2c:define:YYLESSTHAN = "YYLIMIT - YYCURSOR < @@";
 
-        // Match preprocessor directives
-        [ \t]* "#" [ \t]* "if" [ \t]+(@v_start[a-zA-Z0-9_]+@v_end)
-        {
-          const std::string_view value(v_start, v_end - v_start);
-          auto parsed = ParsePreprocessValue(value, defines);
-          bool is_active = current_emitting && parsed.is_on;
-          condition_stack.emplace_back(is_active, parsed.is_ambiguous);
-          update_emitting_state();
+    // Match preprocessor directives
+    [ \t]* "#" [ \t]* "if" [ \t]+(@v_start[a-zA-Z0-9_]+@v_end)
+    {
+      const std::string_view value(v_start, v_end - v_start);
+      auto parsed = ParsePreprocessValue(value, defines);
+      bool is_active = current_emitting && parsed.is_on;
+      condition_stack.emplace_back(is_active, parsed.is_ambiguous);
+      update_emitting_state();
 
-          continue;
+      continue;
+    }
+
+    [ \t]* "#" [ \t]* (@k_start("ifdef"|"ifndef")@k_end) [ \t]+(@v_start[a-zA-Z0-9_]+@v_end)
+    {
+      const std::string_view keyword(k_start, k_end - k_start);
+      const std::string_view macro(v_start, v_end - v_start);
+
+      const bool is_ifndef = (keyword == "ifndef");
+      const bool macro_known = defines.contains(macro);
+      bool is_active = current_emitting && (is_ifndef ^ macro_known);
+      condition_stack.emplace_back(is_active, !macro_known);
+      update_emitting_state();
+
+      continue;
+    }
+
+    [ \t]* "#" [ \t]* "else"
+    {
+      if (!condition_stack.empty()) {
+        condition_stack.back().is_active ^= true;
+        update_emitting_state();
+      }
+      continue;
+    }
+
+    [ \t]* "#" [ \t]* "endif"
+    {
+      if (!condition_stack.empty()) {
+        condition_stack.pop_back();
+        update_emitting_state();
+      }
+      continue;
+    }
+
+    [ \t]* "#" [ \t]* "define" [ \t]+ (@k_start[a-zA-Z0-9_]+@k_end) [ \t]+ (@v_start[a-zA-Z0-9_]+@v_end)
+    {
+      const std::string_view macro(k_start, k_end - k_start);
+      const std::string_view value(v_start, v_end - v_start);
+      if (current_emitting) {
+        defines[macro] = ParsePreprocessValue(value, defines).is_on;
+      }
+      continue;
+    }
+
+    // Match include.
+    [ \t]* "#" [ \t]* "include" [ \t]* (@b_start[<"]@b_end)(@i_start[^>"]*@i_end)[">]
+    {
+      const std::string_view bracket(b_start, b_end - b_start);
+      const std::string_view inc(i_start, i_end - i_start);
+      if (current_emitting || is_ambiguous()) {
+         result.emplace_back(inc, bracket[0] == '<', !current_emitting);
+      }
+      continue;
+    }
+
+    // Skip EOL comments.
+    "//"
+    {
+      while (YYCURSOR < YYLIMIT && *YYCURSOR != '\n') { YYCURSOR++; }
+      continue;
+    }
+
+    // skip block comments
+    "/*"
+    {
+      // Fast-forward until end of block comment
+      while (YYCURSOR < YYLIMIT) {
+        if (*YYCURSOR == '*' && (YYCURSOR + 1 < YYLIMIT) && *(YYCURSOR + 1) == '/') {
+          YYCURSOR += 2;
+          break;
         }
+        YYCURSOR++;
+      }
+      continue;
+    }
 
-        [ \t]* "#" [ \t]* (@k_start("ifdef"|"ifndef")@k_end) [ \t]+(@v_start[a-zA-Z0-9_]+@v_end)
-        {
-          const std::string_view keyword(k_start, k_end - k_start);
-          const std::string_view macro(v_start, v_end - v_start);
+    // skip raw string literals
+    "R\"" [a-zA-Z0-9_\-.?*+^$()\[\]{}|]* "("
+    {
+      std::string_view opening_match(token_start, YYCURSOR - token_start);
+      std::string_view delim = opening_match.substr(2, opening_match.size() - 3);
 
-          const bool is_ifndef = (keyword == "ifndef");
-          const bool macro_known = defines.contains(macro);
-          bool is_active = current_emitting && (is_ifndef ^ macro_known);
-          condition_stack.emplace_back(is_active, !macro_known);
-          update_emitting_state();
+      std::string close_seq = absl::StrCat(")", delim, "\"");
+      std::string_view remainder(YYCURSOR, YYLIMIT - YYCURSOR);
 
-          continue;
-        }
+      size_t close_pos = remainder.find(close_seq);
+      if (close_pos != std::string_view::npos) {
+        YYCURSOR += close_pos + close_seq.size();
+      } else {
+        YYCURSOR = YYLIMIT;
+      }
+      continue;
+    }
 
-        [ \t]* "#" [ \t]* "else"
-        {
-          if (!condition_stack.empty()) {
-            condition_stack.back().is_active ^= true;
-            update_emitting_state();
-          }
-          continue;
-        }
-
-        [ \t]* "#" [ \t]* "endif"
-        {
-          if (!condition_stack.empty()) {
-            condition_stack.pop_back();
-            update_emitting_state();
-          }
-          continue;
-        }
-
-        [ \t]* "#" [ \t]* "define" [ \t]+ (@k_start[a-zA-Z0-9_]+@k_end) [ \t]+ (@v_start[a-zA-Z0-9_]+@v_end)
-        {
-          const std::string_view macro(k_start, k_end - k_start);
-          const std::string_view value(v_start, v_end - v_start);
-          if (current_emitting) {
-            defines[macro] = ParsePreprocessValue(value, defines).is_on;
-          }
-          continue;
-        }
-
-        // Match include.
-        [ \t]* "#" [ \t]* "include" [ \t]* (@b_start[<"]@b_end)(@i_start[^>"]*@i_end)[">]
-        {
-          const std::string_view bracket(b_start, b_end - b_start);
-          const std::string_view inc(i_start, i_end - i_start);
-          if (current_emitting || is_ambiguous()) {
-             result.emplace_back(inc, bracket[0] == '<', !current_emitting);
-          }
-          continue;
-        }
-
-        // Skip EOL comments.
-        "//"
-	{
-            while (YYCURSOR < YYLIMIT && *YYCURSOR != '\n') { YYCURSOR++; }
-            continue;
-        }
-
-        // skip block comments
-        "/*"
-	{
-          // Fast-forward until end of block comment
-          while (YYCURSOR < YYLIMIT) {
-            if (*YYCURSOR == '*' && (YYCURSOR + 1 < YYLIMIT) && *(YYCURSOR + 1) == '/') {
-              YYCURSOR += 2;
-              break;
-            }
-            YYCURSOR++;
-          }
-          continue;
-        }
-
-        // skip raw string literals
-        "R\"" [a-zA-Z0-9_\-.?*+^$()\[\]{}|]* "("
-	{
-            std::string_view opening_match(token_start, YYCURSOR - token_start);
-            std::string_view delim = opening_match.substr(2, opening_match.size() - 3);
-
-            std::string close_seq = absl::StrCat(")", delim, "\"");
-            std::string_view remainder(YYCURSOR, YYLIMIT - YYCURSOR);
-
-            size_t close_pos = remainder.find(close_seq);
-            if (close_pos != std::string_view::npos) {
-                YYCURSOR += close_pos + close_seq.size();
-            } else {
-                YYCURSOR = YYLIMIT;
-            }
-            continue;
-        }
-
-        // fallback any other
-        . | '\n' {
-            continue;
-        }
+    // fallback any other
+    . | '\n'
+    {
+      continue;
+    }
     */
   }
+
   return result;
 }
 }  // namespace bant
