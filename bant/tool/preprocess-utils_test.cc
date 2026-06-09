@@ -55,6 +55,9 @@ TEST(PreprocessUtils, PreprocessRangeIf_0_1) {
 #else  // The following is unambiguously not included
 #include "B_PRIME_TEXT.h"
 #endif
+/*
+#include "commented.h"
+*/
 )deftest";
 
   {

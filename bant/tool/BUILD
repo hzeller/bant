@@ -30,7 +30,10 @@ cc_library(
 
 cc_library(
     name = "preprocess-utils",
-    srcs = ["preprocess-utils.cc"],
+    srcs = [
+        "cc-preprocessor.cc",
+        "preprocess-utils.cc",
+    ],
     hdrs = ["preprocess-utils.h"],
     deps = [
         "//bant:types",
@@ -52,7 +55,6 @@ cc_test(
         "//bant/frontend:parsed-project_testutil",
         "//bant/frontend:source-locator",
         "@abseil-cpp//absl/log:check",
-        "@abseil-cpp//absl/strings",
         "@googletest//:gtest",
         "@googletest//:gtest_main",
     ],

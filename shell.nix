@@ -9,6 +9,7 @@ bant_used_stdenv.mkDerivation {
     [
       bazel_7
       jdk11
+      re2c
 
       llvmPackages_20.clang-tools
       bazel-buildtools  # buildifier, buildozer

@@ -122,6 +122,7 @@ struct ConfigValues {
 static constexpr ConfigValues kConfig = {
   .cache_prefix = "bant_",
   .start_dir = "bant",
+  .file_exclude_re = "cc-preprocessor.cc",
   .toplevel_build_file = "MODULE.bazel",
   .is_bazel_project = true,
 };

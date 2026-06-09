@@ -17,134 +17,28 @@
 
 #include "bant/tool/preprocess-utils.h"
 
-#include <cstddef>
-#include <string>
 #include <string_view>
 #include <vector>
 
-#include "absl/strings/str_cat.h"
 #include "absl/strings/str_split.h"
 #include "bant/explore/query-utils.h"
 #include "bant/frontend/named-content.h"
 #include "re2/re2.h"
 
 namespace bant {
-// Simplified preprocessing: Classify ranges in the source file if included
-// or excluded due to #ifdefs.
-// Given a CC source code and some known defines, return all the ranges
-// with classification bit.
-// The returned string views point to the original source
-// and are returned in order.
-// For now, only existence define (true/false), no expressions, are evaluated.
-//
-// The "define_values" map should contain pre-existing macros at call time
-// and will be updated if defines/undefs are processed inside the source.
-struct TaggedRange {
-  std::string_view range;  // Affected range in the source file.
-  bool is_included;        // if this is included or #ifdef'ed out.
-  bool operator==(const TaggedRange &) const = default;
-};
-static std::vector<TaggedRange> ExtractActiveCCIfdefRanges(
-  std::string_view source, DefineMap &define_values);
-
-struct PreprocessValueResult {
-  enum {
-    UNKNOWN,  // Not a macro known and also not a constant value.
-    IS_KNOWN,
-  } how;
-  bool is_on;
-};
-
-static PreprocessValueResult ParsePreprocessValue(std::string_view value,
-                                                  const DefineMap &symbols) {
+PreprocessValueResult ParsePreprocessValue(std::string_view value,
+                                           const DefineMap &symbols) {
   if (value == "true" || value == "1") {
-    return {PreprocessValueResult::IS_KNOWN, true};
+    return {true, false};
   }
   if (value == "false" || value == "0") {
-    return {PreprocessValueResult::IS_KNOWN, false};
+    return {false, false};
   }
   // Maybe another macro ?
   if (auto found = symbols.find(value); found != symbols.end()) {
-    return {PreprocessValueResult::IS_KNOWN, found->second};
+    return {found->second, false};
   }
-  return {PreprocessValueResult::UNKNOWN, false};
-}
-
-static std::vector<TaggedRange> ExtractActiveCCIfdefRanges(
-  std::string_view source, DefineMap &define_values) {
-  static const LazyRE2 kPreprocessLine{
-    R"/((?m)(^[ \t]*#[ \t]*)(define|undef|else|endif|if(?:def|ndef)?)(?:[ \t]+(\w+)(?:[ \t]+([0-9A-Za-z_]+))?)?.*\n)/"};
-
-  std::vector<TaggedRange> result;
-  std::string_view run = source;
-  const char *last_end = run.data();
-
-  std::string_view start_line;
-  std::string_view keyword;
-  std::string_view var;
-  std::string_view value;
-  int nested_skip = 0;
-  bool unambiguous_condition = false;  // such as #if 0 or explicitly set -D
-  while (RE2::FindAndConsume(&run, *kPreprocessLine,  //
-                             &start_line, &keyword, &var, &value)) {
-    const size_t len = start_line.data() - last_end;
-    std::string_view range{last_end, len};
-
-    // if we skip due to hard constant, we don't even want to include it.
-    // But, if it is unknown if this could be included, e.g. due to some changes
-    // in the BUILD file, we want to report it for downstream to make decisions
-    // on it.
-    // If info eve interesting downstream, return some enum of sorts in the Tag.
-    if (!(nested_skip && unambiguous_condition)) {
-      if (len) result.emplace_back(range, nested_skip == 0);
-    }
-
-    if (nested_skip == 0) {
-      if (keyword == "define") {
-        define_values[var] = ParsePreprocessValue(value, define_values).is_on;
-      } else if (keyword == "undef") {
-        define_values.erase(var);
-      }
-    }
-
-    // State machine; After entering skipping, keep track of nested ifdefs.
-    if (nested_skip == 0) {
-      if (keyword == "else") {
-        nested_skip = 1;
-      } else if (keyword == "ifdef") {
-        const bool contained = define_values.contains(var);
-        nested_skip = !contained;
-        unambiguous_condition = contained;
-      } else if (keyword == "ifndef") {
-        const bool contained = define_values.contains(var);
-        nested_skip = contained;
-        unambiguous_condition = contained;
-      } else if (keyword == "if") {
-        auto val = ParsePreprocessValue(var, define_values);
-        nested_skip = !val.is_on;
-        unambiguous_condition = (val.how == PreprocessValueResult::IS_KNOWN);
-      }
-    } else {  // skip_nest > 0
-      if (keyword == "if" || keyword == "ifdef" || keyword == "ifndef") {
-        ++nested_skip;
-      }
-      if (keyword == "endif") {
-        --nested_skip;
-      }
-      if (nested_skip == 1 && keyword == "else") {
-        nested_skip = 0;
-      }
-    }
-
-    last_end = run.data();
-  }
-
-  if (!run.empty()) {
-    if (!(nested_skip && unambiguous_condition)) {
-      result.emplace_back(run, nested_skip == 0);
-    }
-  }
-  return result;
+  return {false, true};
 }
 
 DefineMap GetDefinesFromTarget(const query::Result &target) {
@@ -174,34 +68,7 @@ DefineMap GetDefinesFromTarget(const query::Result &target) {
 
 std::vector<TaggedInclude> ExtractCCIncludes(NamedLineIndexedContent *src,
                                              const DefineMap &defines) {
-  //          raw str      |comment|include...
-  static const LazyRE2 kIncRe{
-    R"/((?m)(R"[0-9a-zA-Z_]*\(|\/\/.*$|^\s*#\s*include\s+(["<](\.\./)*[0-9a-zA-Z_/+-]+(\.[a-zA-Z]+)*)[">]))/"};
-
-  std::vector<TaggedInclude> result;
-  DefineMap mutable_defines = defines;
-  for (auto r : ExtractActiveCCIfdefRanges(src->content(), mutable_defines)) {
-    std::string_view run = r.range;
-    std::string_view header_path;
-    std::string_view outer;
-    while (RE2::FindAndConsume(&run, *kIncRe, &outer, &header_path)) {
-      if (outer.starts_with("R\"")) {
-        // If we start with R"foo( we need to skip forward to )foo"
-        const std::string endmatch =
-          absl::StrCat(")", outer.substr(2, outer.length() - 3), "\"");
-        auto skip = run.find(endmatch);
-        if (skip == std::string::npos) continue;  // eof ? ... skip.
-        run.remove_prefix(endmatch.size() + skip);
-      } else if (outer.starts_with("//")) {
-        // ignore comment.
-      } else if (!header_path.empty()) {
-        result.emplace_back(header_path.substr(1),  // inc
-                            header_path[0] == '<',  // is_angled_bracket
-                            !r.is_included);        // is_ifdefed_out
-      }
-    }
-  }
-
+  auto result = PreprocessInternal(src->content(), defines);
   if (!result.empty()) {
     // We only need to fill the location_mapper up to the location the last
     // element was found.

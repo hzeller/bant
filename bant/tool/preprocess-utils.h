@@ -27,6 +27,14 @@
 
 namespace bant {
 using DefineMap = OneToOne<std::string_view, bool>;
+
+struct PreprocessValueResult {
+  bool is_on;
+  bool is_ambiguous;
+};
+PreprocessValueResult ParsePreprocessValue(std::string_view value,
+                                           const DefineMap &symbols);
+
 // Given a target, look at copt =[] and define = [] and return. To be used
 // as input to ExtractActiveCCIfdefRanges()
 DefineMap GetDefinesFromTarget(const query::Result &target);
@@ -43,6 +51,9 @@ struct TaggedInclude {
 };
 std::vector<TaggedInclude> ExtractCCIncludes(NamedLineIndexedContent *src,
                                              const DefineMap &defines);
+
+std::vector<TaggedInclude> PreprocessInternal(std::string_view source,
+                                              const DefineMap &defines);
 
 // Scan a .proto file and extract import paths from "import" statements.
 // Returns the import paths (e.g. "foo/bar.proto") from lines like:
