@@ -156,7 +156,7 @@ std::vector<TaggedInclude> PreprocessInternal(std::string_view source,
         }
 
         // fallback any other
-        * {
+        . | '\n' {
             continue;
         }
     */
