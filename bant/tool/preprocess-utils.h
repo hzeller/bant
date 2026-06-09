@@ -26,25 +26,7 @@
 #include "bant/types.h"
 
 namespace bant {
-// Simplified preprocessing: Classify ranges in the source file if included
-// or excluded due to #ifdefs.
-// Given a CC source code and some known defines, return all the ranges
-// with classification bit.
-// The returned string views point to the original source
-// and are returned in order.
-// For now, only existence define (true/false), no expressions, are evaluated.
-//
-// The "define_values" map should contain pre-existing macros at call time
-// and will be updated if defines/undefs are processed inside the source.
-struct TaggedRange {
-  std::string_view range;  // Affected range in the source file.
-  bool is_included;        // if this is included or #ifdef'ed out.
-  bool operator==(const TaggedRange &) const = default;
-};
 using DefineMap = OneToOne<std::string_view, bool>;
-std::vector<TaggedRange> ExtractActiveCCIfdefRanges(std::string_view source,
-                                                    DefineMap &define_values);
-
 // Given a target, look at copt =[] and define = [] and return. To be used
 // as input to ExtractActiveCCIfdefRanges()
 DefineMap GetDefinesFromTarget(const query::Result &target);

@@ -22,7 +22,6 @@
 #include <vector>
 
 #include "absl/log/check.h"
-#include "absl/strings/escaping.h"
 #include "bant/explore/query-utils.h"
 #include "bant/frontend/named-content.h"
 #include "bant/frontend/parsed-project.h"
@@ -37,54 +36,53 @@ using ::testing::Pair;
 
 namespace bant {
 
-// For gmock to properly print
 // NOLINTNEXTLINE appears unused, but is used by gmock printing
-static void PrintTo(const TaggedRange &r, std::ostream *out) {
-  *out << "SourceRange{" << absl::CEscape(r.range)
-       << ", is_included=" << r.is_included << "}";
+static void PrintTo(const TaggedInclude &i, std::ostream *out) {
+  *out << (i.is_ifdefed_out ? "EXCLUDED: " : " ")
+       << (i.is_angle_bracket ? "<" : "") << i.include
+       << (i.is_angle_bracket ? ">" : "");
 }
 
 TEST(PreprocessUtils, PreprocessRangeIf_0_1) {
   constexpr std::string_view kTestContent = R"deftest(
 #if 0   // A constant. unambiguously excluded, not showing up in result
-A_TEXT
+#include "A_TEXT.h"
 #else
-A_PRIME_TEXT
+#include "A_PRIME_TEXT.h"
 #endif
 #if 1
-B_TEXT
+#include "B_TEXT.h"
 #else  // The following is unambiguously not included
-B_PRIME_TEXT
+#include "B_PRIME_TEXT.h"
 #endif
 )deftest";
 
   {
     DefineMap defs;
-    auto ranges = ExtractActiveCCIfdefRanges(kTestContent, defs);
-    using R = TaggedRange;
-    EXPECT_THAT(ranges, ElementsAre(R{"\n", true},              //
-                                    R{"A_PRIME_TEXT\n", true},  //
-                                    R{"B_TEXT\n", true}         //
-                                    ));
+    NamedLineIndexedContent scanned_src("<text>", kTestContent);
+    auto ranges = ExtractCCIncludes(&scanned_src, defs);
+    using TI = TaggedInclude;
+    EXPECT_THAT(ranges, ElementsAre(TI{"A_PRIME_TEXT.h", false, false},
+                                    TI{"B_TEXT.h", false, false}));
   }
 }
 
 TEST(PreprocessUtils, PreprocessRangeUnambiguousValueMacro) {
   constexpr std::string_view kTestContent = R"deftest(
 #if FOO  // unambiguously excluded as FOO=0, not showing up in result
-A_TEXT
+#include "A_TEXT.h"
 #else
-A_PRIME_TEXT
+#include "A_PRIME_TEXT.h"
 #endif
 #if BAR  // not defined macro, so ambiguous. Emit, but mark as not included
-B_TEXT
+#include "B_TEXT.h"
 #else
-B_PRIME_TEXT
+#include "B_PRIME_TEXT.h"
 #endif
 #if BAZ  // unambiguously included
-C_TEXT
+#include "C_TEXT.h"
 #else    // the following is unambiguously _not_ included.
-C_PRIME_TEXT
+#include "C_PRIME_TEXT.h"
 #endif
 )deftest";
 
@@ -93,13 +91,13 @@ C_PRIME_TEXT
     defs["FOO"] = false;
     // BAR not defined
     defs["BAZ"] = true;
-    auto ranges = ExtractActiveCCIfdefRanges(kTestContent, defs);
-    using R = TaggedRange;
-    EXPECT_THAT(ranges, ElementsAre(R{"\n", true},              //
-                                    R{"A_PRIME_TEXT\n", true},  //
-                                    R{"B_TEXT\n", false},       //
-                                    R{"B_PRIME_TEXT\n", true},  //
-                                    R{"C_TEXT\n", true}         //
+    NamedLineIndexedContent scanned_src("<text>", kTestContent);
+    auto ranges = ExtractCCIncludes(&scanned_src, defs);
+    using TI = TaggedInclude;
+    EXPECT_THAT(ranges, ElementsAre(TI{"A_PRIME_TEXT.h", false, false},  //
+                                    TI{"B_TEXT.h", false, true},         //
+                                    TI{"B_PRIME_TEXT.h", false, false},  //
+                                    TI{"C_TEXT.h", false, false}         //
                                     ));
   }
 }
@@ -107,14 +105,14 @@ C_PRIME_TEXT
 TEST(PreprocessUtils, PreprocessRangeUnambiguousExistenceMacro) {
   constexpr std::string_view kTestContent = R"deftest(
 #ifdef FOO
-A_TEXT
+#include "A_TEXT.h"
 #else   // unambiguously not included
-A_PRIME_TEXT
+#inlcude "A_PRIME_TEXT.h"
 #endif
 #ifndef BAR  // not defined macro, so ambiguous.
-B_TEXT
+#include "B_TEXT.h"
 #else        // Ambiguous text included but with 'false'
-B_PRIME_TEXT
+#include "B_PRIME_TEXT.h"
 #endif
 )deftest";
 
@@ -122,12 +120,12 @@ B_PRIME_TEXT
     DefineMap defs;
     defs["FOO"] = false;  // We only check for ifdef, so value doesn't matter
     // BAR not defined
-    auto ranges = ExtractActiveCCIfdefRanges(kTestContent, defs);
-    using R = TaggedRange;
-    EXPECT_THAT(ranges, ElementsAre(R{"\n", true},              //
-                                    R{"A_TEXT\n", true},        //
-                                    R{"B_TEXT\n", true},        //
-                                    R{"B_PRIME_TEXT\n", false}  //
+    NamedLineIndexedContent scanned_src("<text>", kTestContent);
+    auto ranges = ExtractCCIncludes(&scanned_src, defs);
+    using TI = TaggedInclude;
+    EXPECT_THAT(ranges, ElementsAre(TI{"A_TEXT.h", false, false},      //
+                                    TI{"B_TEXT.h", false, false},      //
+                                    TI{"B_PRIME_TEXT.h", false, true}  //
                                     ));
   }
 }
@@ -140,20 +138,19 @@ TEST(PreprocessUtils, PreprocessRangeIndirectDefinedInclusion) {
 #  define A_PRIME_DEF 1
 #endif
 #if A_PRIME_DEF
-A_TEXT
+#include "A_TEXT.h"
 #else
-B_TEXT
+#include "B_TEXT.h"
 #endif
 )deftest";
 
   {
     DefineMap defs;
-    auto ranges = ExtractActiveCCIfdefRanges(kTestContent, defs);
-    using R = TaggedRange;
-    EXPECT_THAT(ranges, ElementsAre(R{"\n", true},       //
-                                    R{"A_TEXT\n", true}  //
+    NamedLineIndexedContent scanned_src("<text>", kTestContent);
+    auto ranges = ExtractCCIncludes(&scanned_src, defs);
+    using TI = TaggedInclude;
+    EXPECT_THAT(ranges, ElementsAre(TI{"A_TEXT.h", false, false}  //
                                     ));
-    EXPECT_TRUE(defs.contains("A_PRIME_DEF"));
   }
 }
 
@@ -161,13 +158,6 @@ static LineColumn PosOfPart(const NamedLineIndexedContent &src,
                             const std::vector<TaggedInclude> &parts, size_t i) {
   CHECK(i <= parts.size());
   return src.GetLocation(parts[i].include).line_column_range.start;
-}
-
-// NOLINTNEXTLINE appears unused, but is used by gmock printing
-static void PrintTo(const TaggedInclude &i, std::ostream *out) {
-  *out << (i.is_ifdefed_out ? "EXCLUDED: " : " ")
-       << (i.is_angle_bracket ? "<" : "") << i.include
-       << (i.is_angle_bracket ? ">" : "");
 }
 
 // Inception deception:

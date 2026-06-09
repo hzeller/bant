@@ -29,6 +29,24 @@
 #include "re2/re2.h"
 
 namespace bant {
+// Simplified preprocessing: Classify ranges in the source file if included
+// or excluded due to #ifdefs.
+// Given a CC source code and some known defines, return all the ranges
+// with classification bit.
+// The returned string views point to the original source
+// and are returned in order.
+// For now, only existence define (true/false), no expressions, are evaluated.
+//
+// The "define_values" map should contain pre-existing macros at call time
+// and will be updated if defines/undefs are processed inside the source.
+struct TaggedRange {
+  std::string_view range;  // Affected range in the source file.
+  bool is_included;        // if this is included or #ifdef'ed out.
+  bool operator==(const TaggedRange &) const = default;
+};
+static std::vector<TaggedRange> ExtractActiveCCIfdefRanges(
+  std::string_view source, DefineMap &define_values);
+
 struct PreprocessValueResult {
   enum {
     UNKNOWN,  // Not a macro known and also not a constant value.
@@ -52,8 +70,8 @@ static PreprocessValueResult ParsePreprocessValue(std::string_view value,
   return {PreprocessValueResult::UNKNOWN, false};
 }
 
-std::vector<TaggedRange> ExtractActiveCCIfdefRanges(std::string_view source,
-                                                    DefineMap &define_values) {
+static std::vector<TaggedRange> ExtractActiveCCIfdefRanges(
+  std::string_view source, DefineMap &define_values) {
   static const LazyRE2 kPreprocessLine{
     R"/((?m)(^[ \t]*#[ \t]*)(define|undef|else|endif|if(?:def|ndef)?)(?:[ \t]+(\w+)(?:[ \t]+([0-9A-Za-z_]+))?)?.*\n)/"};
 
