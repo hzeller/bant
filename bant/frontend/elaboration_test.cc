@@ -493,17 +493,28 @@ TEST_F(ElaborationTest, PercentFormat) {
   auto result = ElabAndPrint(
     R"(
 FOO = "Hello %s" % "World"
+YAY = "Answer %d" % 42
 BAR = "Hello %s..." % ("World",)
-BAZ = "%s is %s." % ("Answer", 42)
+BAZ = "%s is %d." % ("Answer", 42)
+D = "Invalid fmt %g" % ("XYZ",)
+E = "special %s case %" % "this"
+F = "%d special case %" % 1
+G = "%d special %% %%% %s case" % (42, "hello")
 )",
     R"(
 FOO = "Hello World"
+YAY = "Answer 42"
 BAR = "Hello World..."
 BAZ = "Answer is 42."
+D = "Invalid fmt %g" % ("XYZ",)
+E = "special this case %"
+F = "1 special case %"
+G = "42 special %% %%% hello case"
 )");
 
   EXPECT_EQ(result.first, result.second);
 }
+
 TEST_F(ElaborationTest, FormatStringPositional) {
   auto result = ElabAndPrint(
     R"(

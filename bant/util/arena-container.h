@@ -23,6 +23,7 @@
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
+#include <iterator>
 
 #include "bant/util/arena.h"
 
@@ -92,6 +93,12 @@ class ArenaDeque {
 
   class iterator {
    public:
+    using iterator_category = std::forward_iterator_tag;
+    using value_type = T;
+    using difference_type = std::ptrdiff_t;
+    using pointer = T *;
+    using reference = T &;
+
     T &operator*() {
       assert(block_ != nullptr);
       return block_->at(pos_);

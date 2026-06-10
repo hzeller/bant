@@ -20,6 +20,7 @@
 
 #include <cstddef>
 #include <string_view>
+#include <vector>
 
 #include "bant/frontend/ast.h"
 #include "bant/frontend/elaboration-factories.h"
@@ -38,9 +39,8 @@ class StringMethodEval {
   Node *HandlePercentFormat(Node *orig, std::string_view fmt, Node *what);
 
  private:
-  Node *HandlePercentFormatList(Node *orig, std::string_view fmt, List *args);
-  Node *HandlePercentFormatValue(Node *orig, std::string_view fmt,
-                                 Scalar *value);
+  Node *HandlePercentFormatList(Node *orig, std::string_view fmt,
+                                const std::vector<Node *> &args);
   Node *Format(Node *orig, std::string_view fmt, FunCall *method);
   Node *Join(Node *orig, std::string_view separator, List *args);
   Node *Replace(Node *orig, std::string_view str, List *args);

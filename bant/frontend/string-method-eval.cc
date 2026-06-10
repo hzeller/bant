@@ -109,48 +109,42 @@ Node *StringMethodEval::StringMethodCall(Node *orig, StringScalar *object,
 Node *StringMethodEval::HandlePercentFormat(Node *orig, std::string_view fmt,
                                             Node *what) {
   if (List *list = what->CastAsList(); list) {
-    return HandlePercentFormatList(orig, fmt, list);
+    return HandlePercentFormatList(orig, fmt, {list->begin(), list->end()});
   }
   if (Scalar *value = what->CastAsScalar(); value) {
-    return HandlePercentFormatValue(orig, fmt, value);
+    return HandlePercentFormatList(orig, fmt, {value});
   }
   return orig;
 }
 
-// TODO: the following two methods are somewhat duplicated; combine.
-Node *StringMethodEval::HandlePercentFormatList(Node *orig,
-                                                std::string_view fmt,
-                                                List *args) {
+Node *StringMethodEval::HandlePercentFormatList(
+  Node *orig, std::string_view fmt, const std::vector<Node *> &args) {
   std::string assembled;
   size_t last_fmt_pos = 0;
   size_t fmt_pos;
-  List::iterator value_it = args->begin();
-  while (value_it != args->end() &&
-         (fmt_pos = fmt.find("%s", last_fmt_pos)) != std::string::npos) {
+  auto value_it = args.begin();
+  while (value_it != args.end() &&
+         (fmt_pos = fmt.find('%', last_fmt_pos)) != std::string::npos) {
+    if (fmt_pos > fmt.size() - 2) break;
     assembled.append(fmt.substr(last_fmt_pos, fmt_pos - last_fmt_pos));
+
+    const char format_char = fmt[fmt_pos + 1];
+    if (format_char != 's' && format_char != 'd') {
+      assembled.append("%");
+      last_fmt_pos = fmt_pos + 1;
+      continue;
+    }
     const Scalar *const value = (*value_it)->CastAsScalar();
     if (!value) return orig;  // Can only format if all args known.
-    assembled.append(value->AsString());
+    switch (format_char) {
+    case 's': assembled.append(value->AsString()); break;
+    case 'd': assembled.append(std::to_string(value->AsInt())); break;
+    default: break;
+    }
     last_fmt_pos = fmt_pos + 2;
     ++value_it;
   }
-  assembled.append(fmt.substr(last_fmt_pos));
-  return f_.MakeNewStringScalarFrom(assembled, f_.project()->GetLocation(fmt));
-}
-
-Node *StringMethodEval::HandlePercentFormatValue(Node *orig,
-                                                 std::string_view fmt,
-                                                 Scalar *value) {
-  std::string assembled;
-  size_t last_fmt_pos = 0;
-  if (const size_t fmt_pos = fmt.find("%s", last_fmt_pos);
-      fmt_pos != std::string::npos) {
-    assembled.append(fmt.substr(last_fmt_pos, fmt_pos - last_fmt_pos));
-    assembled.append(value->AsString());
-    last_fmt_pos = fmt_pos + 2;
-  } else {
-    return orig;
-  }
+  if (value_it != args.end()) return orig;  // not enough args
   assembled.append(fmt.substr(last_fmt_pos));
   return f_.MakeNewStringScalarFrom(assembled, f_.project()->GetLocation(fmt));
 }
