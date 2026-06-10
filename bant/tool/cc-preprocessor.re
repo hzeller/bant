@@ -1,4 +1,4 @@
-// -*- mode: c++; fill-column: 9999; -*-
+// -*- c++ -*-
 // bant - Bazel Navigation Tool
 // Copyright (C) 2026 Henner Zeller <h.zeller@acm.org>
 //
@@ -56,7 +56,7 @@ std::vector<TaggedInclude> PreprocessInternal(std::string_view source,
   const char *yyt1, *yyt2, *yyt3;
 
   // Variables remembering 'capture group' ranges.
-  const char *b_start, *b_end;
+  const char *b_start;
   const char *d_start, *d_end;
   const char *i_start, *i_end;
   const char *k_start, *k_end;
@@ -69,8 +69,11 @@ std::vector<TaggedInclude> PreprocessInternal(std::string_view source,
     re2c:yyfill:enable  = 0;
     re2c:define:YYLESSTHAN = "YYLIMIT - YYCURSOR < @@";
 
+    POUND = "#" [ \t]*;
+    IDNUM = [a-zA-Z0-9_]+;
+
     // Match preprocessor directives
-    [ \t]* "#" [ \t]* "if" [ \t]+(@v_start[a-zA-Z0-9_]+@v_end)
+    POUND "if" [ \t]+ (@v_start IDNUM @v_end)
     {
       const std::string_view value(v_start, v_end - v_start);
       const auto parsed = ParsePreprocessValue(value, defines);
@@ -81,7 +84,7 @@ std::vector<TaggedInclude> PreprocessInternal(std::string_view source,
       continue;
     }
 
-    [ \t]* "#" [ \t]* (@k_start("ifdef"|"ifndef")@k_end) [ \t]+(@v_start[a-zA-Z0-9_]+@v_end)
+    POUND (@k_start("ifdef"|"ifndef")) [ \t]+ (@v_start IDNUM @v_end)
     {
       const bool is_ifndef = (k_start[2] == 'n');
       const std::string_view macro(v_start, v_end - v_start);
@@ -94,7 +97,7 @@ std::vector<TaggedInclude> PreprocessInternal(std::string_view source,
       continue;
     }
 
-    [ \t]* "#" [ \t]* "else"
+    POUND "else"
     {
       if (!condition_stack.empty()) {
         condition_stack.back().is_active ^= true;
@@ -103,7 +106,7 @@ std::vector<TaggedInclude> PreprocessInternal(std::string_view source,
       continue;
     }
 
-    [ \t]* "#" [ \t]* "endif"
+    POUND "endif"
     {
       if (!condition_stack.empty()) {
         condition_stack.pop_back();
@@ -112,7 +115,7 @@ std::vector<TaggedInclude> PreprocessInternal(std::string_view source,
       continue;
     }
 
-    [ \t]* "#" [ \t]* "define" [ \t]+ (@k_start[a-zA-Z0-9_]+@k_end) [ \t]+ (@v_start[a-zA-Z0-9_]+@v_end)
+    POUND "define" [ \t]+ (@k_start IDNUM @k_end) [ \t]+ (@v_start IDNUM @v_end)
     {
       const std::string_view macro(k_start, k_end - k_start);
       const std::string_view value(v_start, v_end - v_start);
@@ -122,13 +125,11 @@ std::vector<TaggedInclude> PreprocessInternal(std::string_view source,
       continue;
     }
 
-    // Match include.
-    [ \t]* "#" [ \t]* "include" [ \t]* (@b_start[<"]@b_end)(@i_start[^>"]*@i_end)[">]
+    POUND "include" [ \t]* (@b_start[<"]) (@i_start [^>"]* @i_end) [">]
     {
-      const std::string_view bracket(b_start, b_end - b_start);
       const std::string_view inc(i_start, i_end - i_start);
       if (current_emitting || is_ambiguous()) {
-         result.emplace_back(inc, bracket[0] == '<', !current_emitting);
+         result.emplace_back(inc, b_start[0] == '<', !current_emitting);
       }
       continue;
     }
@@ -154,7 +155,7 @@ std::vector<TaggedInclude> PreprocessInternal(std::string_view source,
     }
 
     // skip raw string literals
-    "R\"" (@d_start[a-zA-Z0-9_\-.?*+^$()[\]{}|]*@d_end) "("
+    "R\"" (@d_start [a-zA-Z0-9_\-.?*+^$()[\]{}|]* @d_end) "("
     {
       const std::string_view delim(d_start, d_end - d_start);
       const std::string close_seq = absl::StrCat(")", delim, "\"");
