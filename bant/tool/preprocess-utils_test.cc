@@ -206,12 +206,9 @@ static LineColumn PosOfPart(const NamedLineIndexedContent &src,
   return src.GetLocation(parts[i].include).line_column_range.start;
 }
 
-// Inception deception:
-// Well, the following with a string in a string will create a warning if
-// running bant on bant becaue the include in string is seen as toplevel inc.
-// So, to avoid that, the include is actually an legitimate bant include which
-// makes bant happy (until we start warning that the same header is included
-// twice).
+// This is a somewhat older test with a mix of various expectations. The
+// tests above are much more to the point. Keeping it for now to make sure
+// things don't break.
 TEST(PreprocessUtils, HeaderFilesAreExtracted) {
   // Note, clang-format is seriously confused about the next lines and
   // it will also not work with switching it off ?
