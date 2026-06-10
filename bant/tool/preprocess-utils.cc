@@ -23,6 +23,7 @@
 #include "absl/strings/str_split.h"
 #include "bant/explore/query-utils.h"
 #include "bant/frontend/named-content.h"
+#include "bant/tool/cc-preprocessor.h"
 #include "re2/re2.h"
 
 namespace bant {
@@ -68,7 +69,8 @@ DefineMap GetDefinesFromTarget(const query::Result &target) {
 
 std::vector<TaggedInclude> ExtractCCIncludes(NamedLineIndexedContent *src,
                                              const DefineMap &defines) {
-  auto result = PreprocessInternal(src->content(), defines);
+  DefineMap defines_working_copy(defines);
+  auto result = PreprocessInternal(src->content(), defines_working_copy);
   if (!result.empty()) {
     // We only need to fill the location_mapper up to the location the last
     // element was found.

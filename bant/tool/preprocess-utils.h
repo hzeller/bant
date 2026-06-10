@@ -26,23 +26,30 @@
 #include "bant/types.h"
 
 namespace bant {
+// Right now, we only cosider true/false (#if) and existence (#ifdef/#ifndef)
+// of macros, no expressions are evaluated. So define maps macro names to bool.
 using DefineMap = OneToOne<std::string_view, bool>;
 
 struct PreprocessValueResult {
-  bool is_on;
-  bool is_ambiguous;
+  bool is_on;         // Value relevant in #if expressions
+  bool is_ambiguous;  // Ambiguous (e.g. inferred from non-existence)
 };
 PreprocessValueResult ParsePreprocessValue(std::string_view value,
                                            const DefineMap &symbols);
 
-// Given a target, look at copt =[] and define = [] and return. To be used
-// as input to ExtractActiveCCIfdefRanges()
+// Given a target, look at copt =[] and define = [] and return defined
+// values. To be used as input to ExtractActiveCCIfdefRanges()
 DefineMap GetDefinesFromTarget(const query::Result &target);
 
 // Scan "src" and extract #include project headers.
+// Returned string_views point to the original "src"; the index is updated to
+// be able extract SourceLocation.
+//
 // Returns a vector of TaggedIncludes that contain the include name and
-// if it was included with angled bracket and if it is excluded due to
-// preprocessing.
+// if it was included with angled bracket. The "is_ifdefed_out" tag identifies
+// include files that are _not_ included due to preprocessing conditions.
+// The "is_ifdefed_out" tag values are only returned if the result
+// is due to potentially report-worthy ambiguous input (e.g. non-defined macro).
 struct TaggedInclude {
   std::string_view include;  // path of the include file.
   bool is_angle_bracket;     // if true, included via <>, otherwise ""
@@ -51,9 +58,6 @@ struct TaggedInclude {
 };
 std::vector<TaggedInclude> ExtractCCIncludes(NamedLineIndexedContent *src,
                                              const DefineMap &defines);
-
-std::vector<TaggedInclude> PreprocessInternal(std::string_view source,
-                                              const DefineMap &defines);
 
 // Scan a .proto file and extract import paths from "import" statements.
 // Returns the import paths (e.g. "foo/bar.proto") from lines like:

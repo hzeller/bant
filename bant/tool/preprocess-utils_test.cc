@@ -58,6 +58,7 @@ TEST(PreprocessUtils, PreprocessRangeIf_0_1) {
 /*
 #include "commented.h"
 */
+#include "post-comment.h"
 )deftest";
 
   {
@@ -66,7 +67,8 @@ TEST(PreprocessUtils, PreprocessRangeIf_0_1) {
     auto ranges = ExtractCCIncludes(&scanned_src, defs);
     using TI = TaggedInclude;
     EXPECT_THAT(ranges, ElementsAre(TI{"A_PRIME_TEXT.h", false, false},
-                                    TI{"B_TEXT.h", false, false}));
+                                    TI{"B_TEXT.h", false, false},
+                                    TI{"post-comment.h", false, false}));
   }
 }
 

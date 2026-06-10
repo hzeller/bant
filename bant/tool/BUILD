@@ -32,6 +32,7 @@ cc_library(
     name = "preprocess-utils",
     srcs = [
         "cc-preprocessor.cc",
+        "cc-preprocessor.h",
         "preprocess-utils.cc",
     ],
     hdrs = ["preprocess-utils.h"],

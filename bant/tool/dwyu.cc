@@ -421,7 +421,7 @@ DWYUGenerator::DependenciesNeededBySources(
   Stat &source_read_stats =
     session_.GetStatsFor("  - read(C++ source)", "sources");
   Stat &source_grep_stats =
-    session_.GetStatsFor("  - Grep'ed for #inc", "sources");
+    session_.GetStatsFor("  - C++ preprocess; extract #inc", "sources");
 
   size_t total_size = 0;
 
@@ -697,7 +697,7 @@ DWYUGenerator::DependenciesNeededByProtoSources(
   Stat &source_read_stats =
     session_.GetStatsFor("  - read(proto source)", "sources");
   Stat &source_grep_stats =
-    session_.GetStatsFor("  - Grep'ed for import", "sources");
+    session_.GetStatsFor("  - Proto extract import", "sources");
 
   size_t total_size = 0;
 
