@@ -634,6 +634,38 @@ F = "1.2.3"
   EXPECT_EQ(result.first, result.second);
 }
 
+TEST_F(ElaborationTest, Partiion) {
+  auto result = ElabAndPrint(
+    R"(
+A = "foo.bar.baz".partition("x")
+B = "foo.bar.baz".partition(".")
+C = "foobarbarbaz".partition("bar")
+)",
+    R"(
+A = ("foo.bar.baz", "", "")
+B = ("foo", ".", "bar.baz")
+C = ("foo", "bar", "barbaz")
+)");
+
+  EXPECT_EQ(result.first, result.second);
+}
+
+TEST_F(ElaborationTest, RPartiion) {
+  auto result = ElabAndPrint(
+    R"(
+A = "foo.bar.baz".rpartition("x")
+B = "foo.bar.baz".rpartition(".")
+C = "foobarbarbaz".rpartition("bar")
+)",
+    R"(
+A = ("", "", "foo.bar.baz")
+B = ("foo.bar", ".", "baz")
+C = ("foobar", "bar", "baz")
+)");
+
+  EXPECT_EQ(result.first, result.second);
+}
+
 TEST_F(ElaborationTest, ReplaceString) {
   auto result = ElabAndPrint(
     R"(
@@ -648,19 +680,27 @@ B = "FOObarFOObaz"
   EXPECT_EQ(result.first, result.second);
 }
 
-TEST_F(ElaborationTest, StartsWithString) {
+TEST_F(ElaborationTest, StartsEndsWithString) {
   auto result = ElabAndPrint(
     R"(
 A = "foo/bar/baz".startswith("foo")
 B = "foo/bar/baz".startswith("baz")
 B1 = not "foo/bar/baz".startswith("baz")
 C = "foo/bar/baz".startswith()
+
+D = "foo/bar/baz".endswith("/baz")
+E = "foo/bar/baz".endswith("foo")
+F = "foo/bar/baz".endswith()
 )",
     R"(
 A = True
 B = False
 B1 = True
 C = "foo/bar/baz".startswith()
+
+D = True
+E = False
+F = "foo/bar/baz".endswith()
 )");
 
   EXPECT_EQ(result.first, result.second);
@@ -723,6 +763,24 @@ C = "h e l l o".title()
 A = "Hello World"
 B = "Hello   W0rld"
 C = "H E L L O"
+)");
+
+  EXPECT_EQ(result.first, result.second);
+}
+
+TEST_F(ElaborationTest, UpperLowerString) {
+  auto result = ElabAndPrint(
+    R"(
+A = "hello".lower()
+B = "heLLo".lower()
+C = "HELLO".upper()
+D = "HEllO".upper()
+)",
+    R"(
+A = "hello"
+B = "hello"
+C = "HELLO"
+D = "HELLO"
 )");
 
   EXPECT_EQ(result.first, result.second);

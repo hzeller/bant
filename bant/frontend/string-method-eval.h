@@ -18,6 +18,7 @@
 #ifndef BANT_ELABORATION_STRING_METHOD_EVAL_H
 #define BANT_ELABORATION_STRING_METHOD_EVAL_H
 
+#include <cstddef>
 #include <string_view>
 
 #include "bant/frontend/ast.h"
@@ -38,12 +39,19 @@ class StringMethodEval {
   Node *Join(Node *orig, std::string_view separator, List *args);
   Node *Replace(Node *orig, std::string_view str, List *args);
   Node *StartsWith(Node *orig, std::string_view str, List *args);
-  Node *Title(Node *orig, std::string_view str, List *args);
+  Node *EndsWith(Node *orig, std::string_view str, List *args);
+  Node *Title(Node *orig, std::string_view str);
   Node *Rsplit(Node *orig, std::string_view str, List *args);
   Node *Split(Node *orig, std::string_view str, List *args);
   Node *RemovePrefix(Node *orig, StringScalar *object, List *args);
   Node *RemoveSuffix(Node *orig, StringScalar *object, List *args);
   Node *Strip(Node *orig, StringScalar *object, List *args);
+  Node *Upper(Node *orig, StringScalar *object);
+  Node *Lower(Node *orig, StringScalar *object);
+  Node *MakePartitionTuple(std::string_view str, StringScalar *object,
+                           size_t offset, size_t sep_len, bool empty_front);
+  Node *RPartition(Node *orig, StringScalar *object, List *args);
+  Node *Partition(Node *orig, StringScalar *object, List *args);
 
   ElaborationFactories &f_;
 };

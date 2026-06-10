@@ -17,6 +17,7 @@
 
 #include "bant/frontend/string-method-eval.h"
 
+#include <algorithm>
 #include <cctype>
 #include <cstdint>
 #include <cstdlib>
@@ -75,8 +76,11 @@ Node *StringMethodEval::StringMethodCall(Node *orig, StringScalar *object,
   if (method_name == "startswith") {
     return StartsWith(orig, object->AsString(), method->argument());
   }
+  if (method_name == "endswith") {
+    return EndsWith(orig, object->AsString(), method->argument());
+  }
   if (method_name == "title") {
-    return Title(orig, object->AsString(), method->argument());
+    return Title(orig, object->AsString());
   }
   if (method_name == "removeprefix") {
     return RemovePrefix(orig, object, method->argument());
@@ -86,6 +90,18 @@ Node *StringMethodEval::StringMethodCall(Node *orig, StringScalar *object,
   }
   if (method_name == "strip") {
     return Strip(orig, object, method->argument());
+  }
+  if (method_name == "upper") {
+    return Upper(orig, object);
+  }
+  if (method_name == "lower") {
+    return Lower(orig, object);
+  }
+  if (method_name == "partition") {
+    return Partition(orig, object, method->argument());
+  }
+  if (method_name == "rpartition") {
+    return RPartition(orig, object, method->argument());
   }
   return orig;  // Not handled.
 }
@@ -172,12 +188,19 @@ Node *StringMethodEval::StartsWith(Node *orig, std::string_view str,
   auto start_args = ExtractScalarPosArgs(args);
   if (!start_args.has_value() || start_args->size() != 1) return orig;
   const std::string_view with = start_args->at(0);
-  std::string subject(str);
   const auto &location = f_.project()->GetLocation(str);
-  return f_.MakeBoolWithStringRep(location, subject.starts_with(with));
+  return f_.MakeBoolWithStringRep(location, str.starts_with(with));
 }
 
-Node *StringMethodEval::Title(Node *orig, std::string_view str, List *args) {
+Node *StringMethodEval::EndsWith(Node *orig, std::string_view str, List *args) {
+  auto ends_args = ExtractScalarPosArgs(args);
+  if (!ends_args.has_value() || ends_args->size() != 1) return orig;
+  const std::string_view with = ends_args->at(0);
+  const auto &location = f_.project()->GetLocation(str);
+  return f_.MakeBoolWithStringRep(location, str.ends_with(with));
+}
+
+Node *StringMethodEval::Title(Node *orig, std::string_view str) {
   std::string result(str);
   bool new_word = true;
   for (char &c : result) {
@@ -310,4 +333,59 @@ Node *StringMethodEval::Strip(Node *orig, StringScalar *object, List *args) {
                                object->is_raw());
 }
 
+Node *StringMethodEval::Upper(Node *orig, StringScalar *object) {
+  const std::string_view str = object->AsString();
+  std::string result(str);
+  std::transform(result.begin(), result.end(), result.begin(), ::toupper);
+  if (result == str) return object;
+  return f_.MakeNewStringScalarFrom(result, f_.project()->GetLocation(str));
+}
+
+Node *StringMethodEval::Lower(Node *orig, StringScalar *object) {
+  const std::string_view str = object->AsString();
+  std::string result(str);
+  std::transform(result.begin(), result.end(), result.begin(), ::tolower);
+  if (result == str) return object;
+  return f_.MakeNewStringScalarFrom(result, f_.project()->GetLocation(str));
+}
+
+Node *StringMethodEval::MakePartitionTuple(std::string_view str,
+                                           StringScalar *object, size_t offset,
+                                           size_t sep_len, bool empty_front) {
+  List *result = f_.Make<List>(List::Type::kTuple);
+  if (offset == std::string_view::npos) {
+    StringScalar *empty = f_.Make<StringScalar>(str.substr(0, 0), false, false);
+    result->Append(f_.arena(), empty_front ? empty : object);
+    result->Append(f_.arena(), empty);
+    result->Append(f_.arena(), empty_front ? object : empty);
+  } else {
+    std::string_view first = str.substr(0, offset);
+    std::string_view middle = str.substr(offset, sep_len);
+    std::string_view last = str.substr(offset + sep_len);
+    const bool triple = object->is_triple_quoted();
+    const bool raw = object->is_raw();
+    result->Append(f_.arena(), f_.Make<StringScalar>(first, triple, raw));
+    result->Append(f_.arena(), f_.Make<StringScalar>(middle, triple, raw));
+    result->Append(f_.arena(), f_.Make<StringScalar>(last, triple, raw));
+  }
+  return result;
+}
+
+Node *StringMethodEval::Partition(Node *orig, StringScalar *object,
+                                  List *args) {
+  auto p_args = ExtractScalarPosArgs(args);
+  if (!p_args.has_value() || p_args->size() != 1) return orig;
+  const std::string_view sep = p_args->at(0);
+  const std::string_view str = object->AsString();
+  return MakePartitionTuple(str, object, str.find(sep), sep.length(), false);
+}
+
+Node *StringMethodEval::RPartition(Node *orig, StringScalar *object,
+                                   List *args) {
+  auto p_args = ExtractScalarPosArgs(args);
+  if (!p_args.has_value() || p_args->size() != 1) return orig;
+  const std::string_view sep = p_args->at(0);
+  const std::string_view str = object->AsString();
+  return MakePartitionTuple(str, object, str.rfind(sep), sep.length(), true);
+}
 }  // namespace bant
