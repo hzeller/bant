@@ -29,6 +29,7 @@
 #include <vector>
 
 #include "absl/container/btree_set.h"
+#include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "bant/explore/aliased-by.h"
 #include "bant/explore/query-utils.h"
@@ -335,7 +336,13 @@ static void AppendProtoLibraryHeaders(const ParsedBuildFile &build_file,
         }
 
         for (std::string_view proto : proto_srcs) {
-          if (!proto.ends_with(".proto")) {
+          auto dot_pos = proto.find_last_of('.');
+          if (dot_pos == std::string_view::npos) continue;
+
+          const std::string_view stem = proto.substr(0, dot_pos);
+          const std::string_view suffix = proto.substr(dot_pos + 1);
+
+          if (!absl::StrContains(suffix, "proto")) {
             // possibly file list. Not handling that yet.
             continue;
           }
@@ -345,8 +352,6 @@ static void AppendProtoLibraryHeaders(const ParsedBuildFile &build_file,
 
           // Create a header file out of it. foo.proto becomes foo.pb.h or, in
           // some environments, foo.proto.h
-          auto dot_pos = proto.find_last_of('.');
-          const std::string_view stem = proto.substr(0, dot_pos);
           for (const std::string_view suffix : {".pb.h", ".proto.h"}) {
             std::string proto_header = absl::StrCat(stem, middle_name, suffix);
             proto_header = package.QualifiedFile(proto_header);
