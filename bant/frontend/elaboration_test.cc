@@ -393,6 +393,9 @@ FIX = 9 * (9 + 1)
 FUX = (1 + 9) * 9
 SFT = 1 << 10
 SFT = 512 >> 3
+DIV = 42 / 7
+DIV = 42 // 7
+DIV = 42 / 0   # can't calculate, will be kept as-is
 )",
     R"(
 FOO = 13
@@ -405,6 +408,9 @@ FIX = 90
 FUX = 90
 SFT = 1024
 SFT = 64
+DIV = 6
+DIV = 6
+DIV = 42 / 0
 )");
 
   EXPECT_EQ(result.first, result.second);

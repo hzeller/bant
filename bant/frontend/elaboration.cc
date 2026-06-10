@@ -344,9 +344,16 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
 
     // Document all the ones not yet implemented
     case kDivide:
-    case kFloorDivide:
-      // binops, known to not be handled (yet)
+    case kFloorDivide: {
+      const Scalar *const lhs = bin_op->left()->CastAsScalar();
+      const Scalar *const rhs = bin_op->right()->CastAsScalar();
+      if (lhs && rhs && lhs->type() == rhs->type() &&
+          lhs->type() == Scalar::ScalarType::kInt && rhs->AsInt() != 0) {
+        const auto &location = project_->GetLocation(bin_op->source_range());
+        return f_.MakeIntWithStringRep(location, lhs->AsInt() / rhs->AsInt());
+      }
       break;
+    }
 
     default:
       // These are tokens that should not be a bin-operator.
