@@ -140,6 +140,14 @@ std::vector<TaggedInclude> PreprocessInternal(std::string_view source,
       continue;
     }
 
+    POUND "undef" [ \t]+ (@k_start IDNUM @k_end)
+    {
+      if (!all_space(start_of_line, pound_start)) continue;
+      const std::string_view macro(k_start, k_end - k_start);
+      defines.erase(macro);
+      continue;
+    }
+
     POUND "include" [ \t]* (@b_start[<"]) (@i_start [^>"]* @i_end) [">]
     {
       if (!all_space(start_of_line, pound_start)) continue;

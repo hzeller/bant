@@ -55,11 +55,6 @@ TEST(PreprocessUtils, PreprocessRangeIf_0_1) {
 #else  // The following is unambiguously not included
 #include "B_PRIME_TEXT.h"
 #endif
-/*
-#include "commented.h"
-*/
-#include "post-comment.h"
-hello = "#include <includ-inside-string>"
 )deftest";
 
   {
@@ -68,27 +63,47 @@ hello = "#include <includ-inside-string>"
     auto ranges = ExtractCCIncludes(&scanned_src, defs);
     using TI = TaggedInclude;
     EXPECT_THAT(ranges, ElementsAre(TI{"A_PRIME_TEXT.h", false, false},
-                                    TI{"B_TEXT.h", false, false},
-                                    TI{"post-comment.h", false, false}));
+                                    TI{"B_TEXT.h", false, false}));
+  }
+}
+
+TEST(PreprocessUtils, PreprocessSkipCommentAndStrings) {
+  constexpr std::string_view kTestContent = R"deftest(
+/*
+#include "commented.h"
+*/
+R"(
+#include "in-raw-string.h"
+)"
+#include "only-one-visible.h"
+hello = "#include <include-inside-string>"
+)deftest";
+
+  {
+    DefineMap defs;
+    NamedLineIndexedContent scanned_src("<text>", kTestContent);
+    auto ranges = ExtractCCIncludes(&scanned_src, defs);
+    using TI = TaggedInclude;
+    EXPECT_THAT(ranges, ElementsAre(TI{"only-one-visible.h", false, false}));
   }
 }
 
 TEST(PreprocessUtils, PreprocessRangeUnambiguousValueMacro) {
   constexpr std::string_view kTestContent = R"deftest(
 #if FOO  // unambiguously excluded as FOO=0, not showing up in result
-#include "A_TEXT.h"
+#  include "A_TEXT.h"  // space after pound
 #else
-#include "A_PRIME_TEXT.h"
+#  include "A_PRIME_TEXT.h"
 #endif
 #if BAR  // not defined macro, so ambiguous. Emit, but mark as not included
-#include "B_TEXT.h"
+#  include "B_TEXT.h"
 #else
 #include "B_PRIME_TEXT.h"
 #endif
 #if BAZ  // unambiguously included
-#include "C_TEXT.h"
+  #include "C_TEXT.h"  // space before pount
 #else    // the following is unambiguously _not_ included.
-#include "C_PRIME_TEXT.h"
+  #include "C_PRIME_TEXT.h"
 #endif
 )deftest";
 
@@ -157,6 +172,31 @@ TEST(PreprocessUtils, PreprocessRangeIndirectDefinedInclusion) {
     using TI = TaggedInclude;
     EXPECT_THAT(ranges, ElementsAre(TI{"A_TEXT.h", false, false}  //
                                     ));
+  }
+}
+
+TEST(PreprocessUtils, PreprocessRangeIndirectUnDefinedInclusion) {
+  constexpr std::string_view kTestContent = R"deftest(
+#if 0
+#  define FOO 1
+#else
+#  undef BAR
+#endif
+#ifdef BAR
+# include "WITH_BAR.h"
+#else
+# include "NO_BAR.h"
+#endif
+)deftest";
+
+  {
+    DefineMap defs;
+    defs["BAR"] = true;
+    NamedLineIndexedContent scanned_src("<text>", kTestContent);
+    auto ranges = ExtractCCIncludes(&scanned_src, defs);
+    using TI = TaggedInclude;
+    EXPECT_THAT(ranges, ElementsAre(TI{"WITH_BAR.h", false, true},  //
+                                    TI{"NO_BAR.h", false, false}));
   }
 }
 
