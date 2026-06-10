@@ -59,6 +59,7 @@ TEST(PreprocessUtils, PreprocessRangeIf_0_1) {
 #include "commented.h"
 */
 #include "post-comment.h"
+hello = "#include <includ-inside-string>"
 )deftest";
 
   {

@@ -21,6 +21,7 @@
 
 #include "bant/tool/cc-preprocessor.h"
 
+#include <cctype>
 #include <cstddef>
 #include <string>
 #include <string_view>
@@ -30,6 +31,13 @@
 #include "bant/tool/preprocess-utils.h"
 
 namespace bant {
+inline bool all_space(const char *from, const char *to) {
+  while (from < to) {
+    if (!isblank(*from++)) return false;
+  }
+  return true;
+}
+
 std::vector<TaggedInclude> PreprocessInternal(std::string_view source,
                                               DefineMap &defines) {
   struct BranchState {
@@ -53,9 +61,11 @@ std::vector<TaggedInclude> PreprocessInternal(std::string_view source,
   const char *YYCURSOR = source.data();
   const char *const YYLIMIT = source.data() + source.size();
   const char *YYMARKER;
-  const char *yyt1, *yyt2, *yyt3;
+  const char *yyt1, *yyt2, *yyt3, *yyt4;
 
   // Variables remembering 'capture group' ranges.
+  const char *start_of_line = source.data();
+  const char *pound_start;
   const char *b_start;
   const char *d_start, *d_end;
   const char *i_start, *i_end;
@@ -69,12 +79,13 @@ std::vector<TaggedInclude> PreprocessInternal(std::string_view source,
     re2c:yyfill:enable  = 0;
     re2c:define:YYLESSTHAN = "YYLIMIT - YYCURSOR < @@";
 
-    POUND = "#" [ \t]*;
+    POUND = (@pound_start "#" [ \t]*);
     IDNUM = [a-zA-Z0-9_]+;
 
     // Match preprocessor directives
     POUND "if" [ \t]+ (@v_start IDNUM @v_end)
     {
+      if (!all_space(start_of_line, pound_start)) continue;
       const std::string_view value(v_start, v_end - v_start);
       const auto parsed = ParsePreprocessValue(value, defines);
       const bool is_active = current_emitting && parsed.is_on;
@@ -86,6 +97,7 @@ std::vector<TaggedInclude> PreprocessInternal(std::string_view source,
 
     POUND (@k_start("ifdef"|"ifndef")) [ \t]+ (@v_start IDNUM @v_end)
     {
+      if (!all_space(start_of_line, pound_start)) continue;
       const bool is_ifndef = (k_start[2] == 'n');
       const std::string_view macro(v_start, v_end - v_start);
 
@@ -99,6 +111,7 @@ std::vector<TaggedInclude> PreprocessInternal(std::string_view source,
 
     POUND "else"
     {
+      if (!all_space(start_of_line, pound_start)) continue;
       if (!condition_stack.empty()) {
         condition_stack.back().is_active ^= true;
         update_emitting_state();
@@ -108,6 +121,7 @@ std::vector<TaggedInclude> PreprocessInternal(std::string_view source,
 
     POUND "endif"
     {
+      if (!all_space(start_of_line, pound_start)) continue;
       if (!condition_stack.empty()) {
         condition_stack.pop_back();
         update_emitting_state();
@@ -117,6 +131,7 @@ std::vector<TaggedInclude> PreprocessInternal(std::string_view source,
 
     POUND "define" [ \t]+ (@k_start IDNUM @k_end) [ \t]+ (@v_start IDNUM @v_end)
     {
+      if (!all_space(start_of_line, pound_start)) continue;
       const std::string_view macro(k_start, k_end - k_start);
       const std::string_view value(v_start, v_end - v_start);
       if (current_emitting) {
@@ -127,6 +142,7 @@ std::vector<TaggedInclude> PreprocessInternal(std::string_view source,
 
     POUND "include" [ \t]* (@b_start[<"]) (@i_start [^>"]* @i_end) [">]
     {
+      if (!all_space(start_of_line, pound_start)) continue;
       const std::string_view inc(i_start, i_end - i_start);
       if (current_emitting || is_ambiguous()) {
          result.emplace_back(inc, b_start[0] == '<', !current_emitting);
@@ -170,8 +186,14 @@ std::vector<TaggedInclude> PreprocessInternal(std::string_view source,
       continue;
     }
 
+    '\n'
+    {
+      start_of_line = YYCURSOR;
+      continue;
+    }
+
     // fallback any other
-    . | '\n'
+    *
     {
       continue;
     }
