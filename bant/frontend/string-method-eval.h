@@ -34,7 +34,13 @@ class StringMethodEval {
   // don't fail, but return the "orig"inal node.
   Node *StringMethodCall(Node *orig, StringScalar *object, FunCall *method);
 
+  // Handle "foo %s" % "bar"
+  Node *HandlePercentFormat(Node *orig, std::string_view fmt, Node *what);
+
  private:
+  Node *HandlePercentFormatList(Node *orig, std::string_view fmt, List *args);
+  Node *HandlePercentFormatValue(Node *orig, std::string_view fmt,
+                                 Scalar *value);
   Node *Format(Node *orig, std::string_view fmt, FunCall *method);
   Node *Join(Node *orig, std::string_view separator, List *args);
   Node *Replace(Node *orig, std::string_view str, List *args);

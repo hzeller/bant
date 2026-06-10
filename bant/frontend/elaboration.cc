@@ -285,7 +285,8 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     case '%': {
       const Scalar *const lhs = bin_op->left()->CastAsScalar();
       if (lhs && lhs->type() == Scalar::ScalarType::kString) {
-        return HandlePercentFormat(bin_op, lhs->AsString(), bin_op->right());
+        return string_method_eval_.HandlePercentFormat(bin_op, lhs->AsString(),
+                                                       bin_op->right());
       }
       break;
     }
@@ -663,51 +664,6 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     return f_.MakeBoolWithStringRep(
       project_->GetLocation(binop->source_range()),
       absl::StrContains(haystack, needle) ^ flip_result);
-  }
-
-  Node *HandlePercentFormat(Node *orig, std::string_view fmt, Node *what) {
-    if (List *list = what->CastAsList(); list) {
-      return HandlePercentFormatList(orig, fmt, list);
-    }
-    if (Scalar *value = what->CastAsScalar(); value) {
-      return HandlePercentFormatValue(orig, fmt, value);
-    }
-    return orig;
-  }
-
-  // TODO: the following two methods are somewhat duplicated; combine.
-  Node *HandlePercentFormatList(Node *orig, std::string_view fmt, List *args) {
-    std::string assembled;
-    size_t last_fmt_pos = 0;
-    size_t fmt_pos;
-    List::iterator value_it = args->begin();
-    while (value_it != args->end() &&
-           (fmt_pos = fmt.find("%s", last_fmt_pos)) != std::string::npos) {
-      assembled.append(fmt.substr(last_fmt_pos, fmt_pos - last_fmt_pos));
-      const Scalar *const value = (*value_it)->CastAsScalar();
-      if (!value) return orig;  // Can only format if all args known.
-      assembled.append(value->AsString());
-      last_fmt_pos = fmt_pos + 2;
-      ++value_it;
-    }
-    assembled.append(fmt.substr(last_fmt_pos));
-    return f_.MakeNewStringScalarFrom(assembled, project_->GetLocation(fmt));
-  }
-
-  Node *HandlePercentFormatValue(Node *orig, std::string_view fmt,
-                                 Scalar *value) {
-    std::string assembled;
-    size_t last_fmt_pos = 0;
-    if (const size_t fmt_pos = fmt.find("%s", last_fmt_pos);
-        fmt_pos != std::string::npos) {
-      assembled.append(fmt.substr(last_fmt_pos, fmt_pos - last_fmt_pos));
-      assembled.append(value->AsString());
-      last_fmt_pos = fmt_pos + 2;
-    } else {
-      return orig;
-    }
-    assembled.append(fmt.substr(last_fmt_pos));
-    return f_.MakeNewStringScalarFrom(assembled, project_->GetLocation(fmt));
   }
 
   enum class MapExtract { kKeys, kValues, kItems };
