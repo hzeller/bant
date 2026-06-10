@@ -278,7 +278,7 @@ package foo;
 
 // import "not/extracted.proto";
 import public "path/to/dependency.proto";
-import "other/dep.proto";
+import "other/dep.protofoo";
 
 message Bar {
   string name = 1;
@@ -287,7 +287,7 @@ message Bar {
   NamedLineIndexedContent scanned_src("<proto>", kTestProto);
   const auto imports = ExtractProtoImports(&scanned_src);
   EXPECT_THAT(imports,
-              ElementsAre("path/to/dependency.proto", "other/dep.proto"));
+              ElementsAre("path/to/dependency.proto", "other/dep.protofoo"));
 }
 
 TEST(PreprocessUtils, DefinesFromTargets) {
