@@ -144,6 +144,18 @@ cc_library(
   EXPECT_EQ(result.first, result.second);
 }
 
+TEST_F(ElaborationTest, PackageName) {
+  auto result = ElabAndPrint(
+    R"(
+A = package_name()
+)",
+    R"(
+A = "elab"  # this is the package name the ElabAndPrint() uses
+)");
+
+  EXPECT_EQ(result.first, result.second);
+}
+
 TEST_F(ElaborationTest, DoNotReplaceFunctionName) {
   // Don't accidentally replace the LHS of a function that is expected
   // to always stay an identifier.
