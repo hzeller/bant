@@ -52,6 +52,7 @@
 #include "bant/util/hyperlink-builder.h"
 #include "bant/util/stat.h"
 #include "bant/util/term-color.h"
+
 namespace bant {
 namespace {
 
@@ -67,6 +68,16 @@ class NestCounter {
 using VariableBundle = ParsedProject::VariableBundle;
 
 // TODO: number of handled operations and functions gets big. Split up.
+
+// Elaboration does expression evaluation best-effort, i.e. if an expression
+// can not be evaluated (or is not implemented), elaboration will not fail but
+// leave the expression as-is. Every result of an expression has a locatable
+// result which means that their string representation can be traced back to
+// the original operator using the parsed project SourceLocator.
+//
+// All intermediate results are stored in the arena, even if not referenced
+// later. This keeps things simple albeit uses more memory than needed; this
+// is not really a problem in even huge projects.
 class SimpleElaborator : public BaseNodeReplacementVisitor {
  public:
   SimpleElaborator(Session &session, ParsedProject *project,
@@ -291,6 +302,13 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
       if (lhs && lhs->type() == Scalar::ScalarType::kString) {
         return string_method_eval_.HandlePercentFormat(bin_op, lhs->AsString(),
                                                        bin_op->right());
+      }
+      if (lhs && lhs->type() == Scalar::ScalarType::kInt) {
+        const Scalar *const rhs = bin_op->right()->CastAsScalar();
+        if (rhs && rhs->type() == lhs->type() && rhs->AsInt() != 0) {
+          const auto &location = project_->GetLocation(bin_op->source_range());
+          return f_.MakeIntWithStringRep(location, lhs->AsInt() % rhs->AsInt());
+        }
       }
       break;
     }

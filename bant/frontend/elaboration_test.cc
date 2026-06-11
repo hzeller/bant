@@ -408,6 +408,8 @@ SFT = 512 >> 3
 DIV = 42 / 7
 DIV = 42 // 7
 DIV = 42 / 0   # can't calculate, will be kept as-is
+MOD = 13 % 10
+MOD = 13 % 0
 )",
     R"(
 FOO = 13
@@ -423,6 +425,8 @@ SFT = 64
 DIV = 6
 DIV = 6
 DIV = 42 / 0
+MOD = 3
+MOD = 13 % 0
 )");
 
   EXPECT_EQ(result.first, result.second);
