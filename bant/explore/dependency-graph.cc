@@ -20,6 +20,7 @@
 #include <functional>
 #include <future>
 #include <initializer_list>
+#include <iomanip>
 #include <optional>
 #include <ostream>
 #include <set>
@@ -270,9 +271,10 @@ DependencyGraph BuildDependencyGraph(Session &session,
       if (stat.count == 1) {
         session.info() << "Dependency BFS graph expand round\n";
       }
-      session.info() << "\t" << stat.count << ". resolve "
-                     << deps_to_resolve_todo.size() << " new deps in "
-                     << scan_package.size() << " packages\n";
+      session.info() << "\t" << std::setw(2) << (stat.count - 1) << ". resolve "
+                     << std::setw(5) << deps_to_resolve_todo.size()
+                     << " new deps in " << std::setw(4) << scan_package.size()
+                     << " packages\n";
     }
 
     // Make sure that we have parsed all packages we're looking through.
