@@ -172,9 +172,9 @@ static void IterateCCLibraryHeaders(const ParsedBuildFile &build_file,
       }
 
       // If there are references to filegroups, exand these to files first.
-      int max_roudnds = 2;
+      int max_rounds = 2;
       while (ExpandFilegroupsInList(package, filegroups, &hdrs) &&
-             --max_roudnds > 0) {
+             --max_rounds > 0) {
       }
       const auto incdirs = query::ExtractStringList(cc_lib.includes_list);
       for (const std::string_view header : hdrs) {
@@ -330,9 +330,9 @@ static void AppendProtoLibraryHeaders(const ParsedBuildFile &build_file,
           // as a filegroup for all the sources in deps.
           query::AppendStringList(proto_lib.deps_list, proto_srcs);
         }
-        int max_roudnds = 2;
+        int max_rounds = 2;
         while (ExpandFilegroupsInList(package, idx.filegroups, &proto_srcs) &&
-               --max_roudnds > 0) {
+               --max_rounds > 0) {
         }
 
         for (std::string_view proto : proto_srcs) {
@@ -470,9 +470,9 @@ ProvidedFromTargetSet ExtractComponentToTargetMapping(
         case ExtractComponent::kData: search_list = cc_lib.data_list; break;
         }
         auto srcs = query::ExtractStringList(search_list);
-        int max_roudnds = 2;
+        int max_rounds = 2;
         while (ExpandFilegroupsInList(package, filegroups, &srcs) &&
-               --max_roudnds > 0) {
+               --max_rounds > 0) {
         }
         for (const std::string_view src : srcs) {
           // TODO: ParsedProject::GetPackageFor() as we might have mixed
