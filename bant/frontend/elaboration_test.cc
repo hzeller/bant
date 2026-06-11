@@ -522,6 +522,8 @@ D = "Invalid fmt %g" % ("XYZ",)
 E = "special %s case %" % "this"
 F = "%d special case %" % 1
 G = "%d special %% %%% %s case" % (42, "hello")
+H0 = "with scalar %d" % (42)
+H1 = "with tuple %d" % (42,)
 )",
     R"(
 FOO = "Hello World"
@@ -532,6 +534,8 @@ D = "Invalid fmt %g" % ("XYZ",)
 E = "special this case %"
 F = "1 special case %"
 G = "42 special %% %%% hello case"
+H0 = "with scalar 42"
+H1 = "with tuple 42"
 )");
 
   EXPECT_EQ(result.first, result.second);
