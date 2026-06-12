@@ -272,6 +272,7 @@ cc_test(
     srcs = ["macro-substitutor_test.cc"],
     deps = [
         ":macro-substitutor",
+        ":parsed-project",
         ":parsed-project_testutil",
         ":parser",
         "//bant:session",

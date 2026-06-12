@@ -23,6 +23,7 @@
 #include <utility>
 
 #include "bant/frontend/ast.h"
+#include "bant/frontend/parsed-project.h"
 #include "bant/frontend/parsed-project_testutil.h"
 #include "bant/session.h"
 #include "gtest/gtest.h"
@@ -276,6 +277,12 @@ cc_test(
 )
 )expanded");
   EXPECT_EQ(result.first, result.second);
+}
+
+TEST_F(MacroSubstituteTest, BuiltinMacrosAreWorking) {
+  // Just instantiating a project with builtins enabled to see if they
+  // parse properly.
+  ParsedProject project({}, false, /*with_builtin_macros =*/true);
 }
 }  // namespace
 }  // namespace bant
