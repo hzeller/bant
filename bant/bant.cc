@@ -177,9 +177,9 @@ Commands (unique prefix sufficient):
     dwyu           : DWYU: Depend on What You Use (emit buildozer edit script)
                      Default invocation uses -r4
                       -k strict: emit remove even if # keep comment in line.
-                      --allow-bracket-includes: also consider includes that
+                      --consider-bracket-includes: also consider includes that
                         are bracketed instead of quoted (e.g. <zlib.h>
-                        instead of "zlib.h")
+                        instead of "zlib.h") for adding dependencies.
                         (fix your project to use quotes if you need this)
     canonicalize   : Emit rename edits to canonicalize targets.
     compile-flags  : (experimental) Emit compile flags. Redirect or output with
@@ -270,7 +270,7 @@ int main(int argc, char *argv[]) {
 
   enum LongOptionIds {
     OPT_COLOR = 1000,
-    OPT_ALLOW_BRACKET_INC = 1001,
+    OPT_BRACKET_INC = 1001,
     OPT_GRAPH_AUGMENT = 1002,
     OPT_HYPERLINKS = 1003,
   };
@@ -288,7 +288,7 @@ int main(int argc, char *argv[]) {
     { "macro-expand",  no_argument,       nullptr, 'm'          },
     { "elaborate",     no_argument,       nullptr, 'e'          },
     { "directory",     required_argument, nullptr, 'C'          },
-    { "allow-bracket-includes", no_argument, nullptr, OPT_ALLOW_BRACKET_INC },
+    { "consider-bracket-includes", no_argument, nullptr, OPT_BRACKET_INC },
     { "graph-augment", required_argument, nullptr, OPT_GRAPH_AUGMENT },
     //
     { nullptr, 0,                 nullptr, 0                    }};
@@ -404,7 +404,7 @@ int main(int argc, char *argv[]) {
         return EXIT_FAILURE;
       }
     } break;
-    case OPT_ALLOW_BRACKET_INC: flags.allow_bracket_includes = true; break;
+    case OPT_BRACKET_INC: flags.dwyu_consider_bracket_includes = true; break;
     case OPT_GRAPH_AUGMENT: {
       flags.graph_deps.emplace_back(optarg);
     } break;

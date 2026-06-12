@@ -1403,8 +1403,8 @@ cc_library(
 )");
 
   {
-    DWYUTestFixture tester(pp.project(),
-                           {.verbose = 2, .allow_bracket_includes = false});
+    DWYUTestFixture tester(
+      pp.project(), {.verbose = 1, .dwyu_consider_bracket_includes = false});
     tester.AddSource("some/path/foo.h", "");
     tester.AddSource("some/path/bar.h", "");
     tester.AddSource("some/path/baz.cc", R"(
@@ -1412,17 +1412,15 @@ cc_library(
 #include <some/path/bar.h>
 )");
 
-    // TODO: we should not remove foo, as it is needed, just with the 'wrong'
-    // include quote. So if we recontize that, we should conservatively not
-    // remove.
-    tester.ExpectRemove(":foo");
-    // With this milde allo bracket, we also don't expect Add()
+    // We do NOT expect Remove() as we conservatively detect the situation.
+    // But we also do NOT Add(), as that would require full bracket includes.
     tester.RunForTarget("//some/path:baz");
+    // No log outpus expected either, we only complain when consider bracket on.
   }
 
   {
-    DWYUTestFixture tester(pp.project(),
-                           {.verbose = 2, .allow_bracket_includes = true});
+    DWYUTestFixture tester(
+      pp.project(), {.verbose = 1, .dwyu_consider_bracket_includes = true});
     tester.AddSource("some/path/foo.h", "");
     tester.AddSource("some/path/bar.h", "");
     tester.AddSource("some/path/baz.cc", R"(

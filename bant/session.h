@@ -78,7 +78,7 @@ struct CommandlineFlags {
   bool grep_or_semantics = false;
   bool do_color = false;
   bool do_links = false;
-  bool allow_bracket_includes = false;  // dwyu only.
+  bool dwyu_consider_bracket_includes = false;  // dwyu only.
   std::vector<std::string> graph_deps;  // augment dependency graph with these
   // https://bazel.build/docs/configurable-attributes#custom-flags
   absl::flat_hash_set<std::string> custom_flags;

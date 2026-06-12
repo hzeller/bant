@@ -417,11 +417,17 @@ DWYUGenerator::DependenciesNeededBySources(
   const BazelTarget &target, const ParsedBuildFile &build_file,
   const std::vector<std::string_view> &sources,            // srcs, hdrs
   const std::vector<std::string_view> &includes_dir_list,  // includes = []
-  const DefineMap &defines, bool *all_headers_accounted_for) {
+  const DefineMap &defines,
+  absl::btree_set<BazelTarget> *conservatively_no_remove,
+  bool *all_headers_accounted_for) {
   Stat &source_read_stats =
     session_.GetStatsFor("  - read(C++ source)", "sources");
   Stat &source_grep_stats =
     session_.GetStatsFor("  - C++ preprocess; extract #inc", "sources");
+
+  const bool full_consider_bracket_include =
+    session_.flags().dwyu_consider_bracket_includes;
+  const bool angle_only_prevent_removal = !full_consider_bracket_include;
 
   size_t total_size = 0;
 
@@ -446,8 +452,10 @@ DWYUGenerator::DependenciesNeededBySources(
   auto maybe_log = [&](const NamedLineIndexedContent &source,
                        std::string_view inc_file, bool is_bracket_include,
                        const absl::btree_set<BazelTarget> &alternatives) {
-    // Nasty code-smell thus always show, even without verbosity.
-    if (is_bracket_include) {
+    const bool log_bracket_code_smell = full_consider_bracket_include;
+    // Nasty code-smell thus always show early in verbosity.
+    if (is_bracket_include && log_bracket_code_smell &&
+        session_.MinVerbosity(1)) {
       std::string see_also = !session_.MinVerbosity(3) ? " See with -vvv" : "";
       Loc(source, inc_file)
         << " source of " << Bold(session_) << target << Norm(session_)
@@ -478,7 +486,6 @@ DWYUGenerator::DependenciesNeededBySources(
 
   bool any_maybe_not_intended_ifdef_out = false;
   std::vector<absl::btree_set<BazelTarget>> result;
-  const bool allow_bracket_includes = session_.flags().allow_bracket_includes;
   for (const std::string_view src_name : sources) {
     source_headline_logged_already = false;
     auto source_content =
@@ -500,10 +507,9 @@ DWYUGenerator::DependenciesNeededBySources(
     // Now for all includes, we need to make sure we can account for it.
     for (const TaggedInclude inc : pound_includes) {
       const std::string_view inc_file = inc.include;
-      if (inc.is_angle_bracket && !allow_bracket_includes) continue;
 
       if (inc.is_ifdefed_out) {
-        if (session_.MinVerbosity(1)) {
+        if (session_.MinVerbosity(1) && full_consider_bracket_include) {
           // TODO: the following should really only be reported if this results
           // in a removal, otherwise a higher verbosity level might be ok.
           maybe_log_source_headline(src_name, source_content->path, target);
@@ -593,7 +599,13 @@ DWYUGenerator::DependenciesNeededBySources(
         }
         maybe_log(source, inc_file, inc.is_angle_bracket,
                   *found_result.target_set);
-        AddVisibleAlternativesWithStratum(target, header_providers, result);
+        if (inc.is_angle_bracket && angle_only_prevent_removal) {
+          // only prevent removal: make sure it is not removed.
+          conservatively_no_remove->insert(header_providers.begin(),
+                                           header_providers.end());
+        } else {
+          AddVisibleAlternativesWithStratum(target, header_providers, result);
+        }
         continue;
       }
 
@@ -616,7 +628,13 @@ DWYUGenerator::DependenciesNeededBySources(
           maybe_log_source_headline(src_name, source_content->path, target);
         }
         maybe_log(source, inc_file, inc.is_angle_bracket, *found->target_set);
-        AddVisibleAlternativesWithStratum(target, *found->target_set, result);
+        if (inc.is_angle_bracket && angle_only_prevent_removal) {
+          // only prevent removal: make sure it is not removed.
+          conservatively_no_remove->insert(found->target_set->begin(),
+                                           found->target_set->end());
+        } else {
+          AddVisibleAlternativesWithStratum(target, *found->target_set, result);
+        }
         continue;
       }
 
@@ -796,13 +814,15 @@ void DWYUGenerator::CreateEditsForTarget(const BazelTarget &target,
 
   DefineMap defines = GetDefinesFromTarget(details);
 
+  absl::btree_set<BazelTarget> conservatively_keep;
   // Grep for all includes/imports they use to determine which deps we need
-  auto deps_needed =
-    is_proto_library
-      ? DependenciesNeededByProtoSources(target, build_file, sources,
-                                         &all_header_deps_known)
-      : DependenciesNeededBySources(target, build_file, sources, includes_list,
-                                    defines, &all_header_deps_known);
+  auto deps_needed = is_proto_library
+                       ? DependenciesNeededByProtoSources(
+                           target, build_file, sources, &all_header_deps_known)
+                       : DependenciesNeededBySources(
+                           target, build_file, sources, includes_list, defines,
+                           &conservatively_keep, &all_header_deps_known);
+
   deps_needed = MinimizeDependencySet(deps_needed);
   OneToOne<BazelTarget, BazelTarget> checked_off_by;
   auto IsNeededInSourcesAndCheckOff = [&](const BazelTarget &target) -> bool {
@@ -812,6 +832,8 @@ void DWYUGenerator::CreateEditsForTarget(const BazelTarget &target,
           checked_off_by.insert({check, target});  // remember what checked off.
         }
         deps_needed.erase(it);  // alternatives satisifed. Remove.
+        // TODO: we should keep going and find all alternatives that might
+        // also match (or: verify that we don't need that).
         return true;
       }
     }
@@ -870,6 +892,8 @@ void DWYUGenerator::CreateEditsForTarget(const BazelTarget &target,
       veto_removal = (!session_.flags().ignore_keep_comment &&
                       RE2::PartialMatch(line, *kExcludeVetoUserCommentRe));
     }
+    veto_removal =
+      veto_removal || conservatively_keep.contains(*requested_target);
 
     // Emit the edits.
     if (!veto_removal) {

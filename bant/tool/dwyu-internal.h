@@ -100,11 +100,14 @@ class DWYUGenerator {
   // a library for each of the headers we have seen.
   // This is important as only then we can confidently suggest removals in that
   // target.
+  // (this starts to be too many parameters)
   std::vector<absl::btree_set<BazelTarget>> DependenciesNeededBySources(
     const BazelTarget &target, const ParsedBuildFile &build_file,
     const std::vector<std::string_view> &sources,
     const std::vector<std::string_view> &includes_dir_list,
-    const DefineMap &defines, bool *all_headers_accounted_for);
+    const DefineMap &defines,
+    absl::btree_set<BazelTarget> *conservatively_no_remove,
+    bool *all_headers_accounted_for);
 
   // Similar to DependenciesNeededBySources but for proto_library targets.
   // Reads .proto source files and extracts import statements to determine
