@@ -615,9 +615,9 @@ Commands (unique prefix sufficient):
     dwyu           : DWYU: Depend on What You Use (emit buildozer edit script)
                      Default invocation uses -r4
                       -k strict: emit remove even if # keep comment in line.
-                      --allow-bracket-includes: also consider includes that
+                      --consider-bracket-includes: also consider includes that
                         are bracketed instead of quoted (e.g. <zlib.h>
-                        instead of "zlib.h")
+                        instead of "zlib.h") for adding dependencies.
                         (fix your project to use quotes if you need this)
     canonicalize   : Emit rename edits to canonicalize targets.
     compile-flags  : (experimental) Emit compile flags. Redirect or output with
