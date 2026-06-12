@@ -453,21 +453,75 @@ EXPECT_TRUE  = None == None
 EXPECT_FALSE = None != None
 )",
     R"(
+EXPECT_FALSE = False  # "foo" == "bar"
+EXPECT_TRUE  = True   # "foo" > "bar"
+EXPECT_TRUE  = True   # "foo" == "foo"
+EXPECT_TRUE  = True   # "foo" >= "foo"
+EXPECT_TRUE  = True   # 5 < 7
+EXPECT_FALSE = False  # 5 == 7
+EXPECT_FALSE = False  # 5 >= 7
+EXPECT_TRUE  = True   # 5 < 7 or "foo" == "bar"
+EXPECT_FALSE = False  # 5 < 7 and "foo" == "bar"
+EXPECT_FALSE = False  # not True
+EXPECT_FALSE = False  # "" == None
+EXPECT_FALSE = False  # 42 == None
+EXPECT_TRUE  = True   # "" != None
+EXPECT_TRUE  = True   # 42 != None
+EXPECT_TRUE  = True   # None == None
+EXPECT_FALSE = False  # None != None
+)");
+
+  EXPECT_EQ(result.first, result.second);
+}
+
+TEST_F(ElaborationTest, BuiltInBantIsDefined) {
+  auto result = ElabAndPrint(
+    R"(
+EXPECT_FALSE = bant_is_defined()
+EXPECT_FALSE = bant_is_defined(unknown_variable)
+EXPECT_TRUE  = bant_is_defined(unknown_variable) or True
+EXPECT_TRUE  = bant_is_defined(42)
+known_variable = "hello"
+EXPECT_TRUE  = bant_is_defined(known_variable)
+)",
+    R"(
+EXPECT_FALSE = False  # bant_is_defined()
+EXPECT_FALSE = False  # bant_is_defined(unknown_variable)
+EXPECT_TRUE  = True   # bant_is_defined(unknown_variable) or True
+EXPECT_TRUE  = True   # bant_is_defined(42)
+known_variable = "hello"
+EXPECT_TRUE  = True   # bant_is_defined(known_variable)
+)");
+
+  EXPECT_EQ(result.first, result.second);
+}
+
+TEST_F(ElaborationTest, ShortCutEval) {
+  auto result = ElabAndPrint(
+    R"(
+EXPECT_TRUE  = True or someundefinedvariable
+EXPECT_TRUE  = someundefinedvariable or True
+some_true_value = 5 < 42
+EXPECT_TRUE  = some_true_value or someundefinedvariable
+EXPECT_TRUE  = someundefinedvariable or some_true_value
+
+EXPECT_FALSE = False and someundefinedvariable
+EXPECT_FALSE = someundefinedvariable and False
+some_false_value = 5 > 42
+EXPECT_FALSE = some_false_value and someundefinedvariable
+EXPECT_FALSE = someundefinedvariable and some_false_value
+)",
+    R"(
+EXPECT_TRUE  = True
+EXPECT_TRUE  = True
+some_true_value = True
+EXPECT_TRUE  = True
+EXPECT_TRUE  = True
+
 EXPECT_FALSE = False
-EXPECT_TRUE  = True
-EXPECT_TRUE  = True
-EXPECT_TRUE  = True
-EXPECT_TRUE  = True
 EXPECT_FALSE = False
+some_false_value = False
 EXPECT_FALSE = False
-EXPECT_TRUE  = True
-EXPECT_FALSE = False
-EXPECT_FALSE = False
-EXPECT_FALSE = False
-EXPECT_FALSE = False
-EXPECT_TRUE  = True
-EXPECT_TRUE  = True
-EXPECT_TRUE  = True
 EXPECT_FALSE = False
 )");
 

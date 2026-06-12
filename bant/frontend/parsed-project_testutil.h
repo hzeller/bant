@@ -45,7 +45,7 @@ class ParsedProjectTestUtil {
     const FilesystemPath fake_filename(package_str, "BUILD");
     auto *result = project_.AddBuildFileContent(
       session, *package_or, fake_filename, std::string(content), empty_stat);
-    CHECK(result && result->errors.empty()) << content;
+    CHECK(result && result->errors.empty()) << "Invalid test input " << content;
     return result;
   }
 

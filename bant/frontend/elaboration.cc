@@ -106,6 +106,14 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     // Implementing a few common functions. Getting out of hand to do this
     // inline here. Think of breaking them out.
     const std::string_view fun_name = f->identifier()->id();
+    if (fun_name == "bant_is_defined") {
+      // At this point, the argument list is evaluated, so  if the arg is
+      // not a scalar, it is not defined (unevaluated expr or unknown ident)
+      const bool is_defined = f->argument() && !f->argument()->empty() &&
+                              f->argument()->at(0)->CastAsScalar();
+      auto loc = project_->GetLocation(fun_name);
+      return f_.MakeBoolWithStringRep(loc, is_defined);
+    }
     if (fun_name == "struct") {
       // fun-args: already a tagged tuple; relabel as struct.
       List *const tagged_tuple_to_be_struct = f->argument();
@@ -201,8 +209,8 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     switch (bin_op->op()) {
     case '+': {
       {
-        List *left = bin_op->left()->CastAsList();
-        List *right = bin_op->right()->CastAsList();
+        List *const left = bin_op->left()->CastAsList();
+        List *const right = bin_op->right()->CastAsList();
         // If there are undefined values on one side of the expression (e.g.
         // unknown variable), just return the part that is a list - it will
         // be better and more useful downstream.
@@ -214,8 +222,8 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
         }
       }
       {
-        Scalar *lhs = bin_op->left()->CastAsScalar();
-        Scalar *rhs = bin_op->right()->CastAsScalar();
+        Scalar *const lhs = bin_op->left()->CastAsScalar();
+        Scalar *const rhs = bin_op->right()->CastAsScalar();
         if (lhs && rhs && lhs->type() == rhs->type()) {
           const auto &location = project_->GetLocation(bin_op->source_range());
           if (lhs->type() == Scalar::ScalarType::kString) {
@@ -285,12 +293,12 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
         }
       }
       {
-        List *lhs = bin_op->left()->CastAsList();
-        FunCall *method_call = bin_op->right()->CastAsFunCall();
+        List *const lhs = bin_op->left()->CastAsList();
+        FunCall *const method_call = bin_op->right()->CastAsFunCall();
         if (lhs && method_call) {
           return ListMethodCall(bin_op, lhs, method_call);
         }
-        Identifier *field = bin_op->right()->CastAsIdentifier();
+        Identifier *const field = bin_op->right()->CastAsIdentifier();
         if (lhs && field) {
           return StructAccess(bin_op, lhs, field);
         }
@@ -334,8 +342,20 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
 
     case kAnd:
     case kOr: {
-      const Scalar *const lhs = bin_op->left()->CastAsScalar();
-      const Scalar *const rhs = bin_op->right()->CastAsScalar();
+      // First, try shortcut eval, this might also help skip a branch that
+      // can not be evaluated for other reasons
+      Scalar *const lhs = bin_op->left()->CastAsScalar();
+      if (lhs && lhs->type() == Scalar::ScalarType::kInt) {
+        const bool val = lhs->AsInt();
+        if (bin_op->op() == TokenType::kAnd && !val) return lhs;
+        if (bin_op->op() == TokenType::kOr && val) return lhs;
+      }
+      Scalar *const rhs = bin_op->right()->CastAsScalar();
+      if (rhs && rhs->type() == Scalar::ScalarType::kInt) {
+        const bool val = rhs->AsInt();
+        if (bin_op->op() == TokenType::kAnd && !val) return rhs;
+        if (bin_op->op() == TokenType::kOr && val) return rhs;
+      }
       if (lhs && rhs && lhs->type() == rhs->type() &&
           lhs->type() == Scalar::ScalarType::kInt) {
         const bool result = bin_op->op() == TokenType::kAnd
@@ -395,7 +415,7 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
   static bool IsNone(Node *node) {
     if (node == nullptr) return true;
     Identifier *const maybe_constant = node->CastAsIdentifier();
-    if (!maybe_constant) return false;
+    if (!maybe_constant) return false;  // So an expression or scalar
     return maybe_constant->id() == "None";
   }
 
