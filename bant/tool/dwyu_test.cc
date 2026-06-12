@@ -15,6 +15,7 @@
 // with this program; if not, write to the Free Software Foundation, Inc.,
 // 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 
+#include <algorithm>
 #include <optional>
 #include <sstream>
 #include <string>
@@ -63,9 +64,9 @@ class TestableDWYUGenerator : public bant::DWYUGenerator {
 // Putthing it all together
 class DWYUTestFixture {
  public:
-  explicit DWYUTestFixture(const ParsedProject &project, int verbose_level = 1)
+  DWYUTestFixture(const ParsedProject &project, const CommandlineFlags &flags)
       : session_{&log_messages_, &log_messages_, &log_messages_,
-                 CommandlineFlags{.verbose = verbose_level}},
+                 MakeAtLeastVerbosity(flags, 1)},
         dwyu_(session_, project, edit_expector_.checker()) {}
 
   ~DWYUTestFixture() {
@@ -90,7 +91,8 @@ class DWYUTestFixture {
   void RunForTarget(std::string_view target) {
     auto pattern_or = BazelPattern::ParseFrom(target);
     CHECK(pattern_or.has_value());
-    dwyu_.CreateEditsForPattern(*pattern_or);
+    EXPECT_EQ(dwyu_.CreateEditsForPattern(*pattern_or), 1)
+      << "Expected exactly one pattern matching. Typo calling RunForTarget() ?";
   }
 
   std::string LogContent() {
@@ -99,6 +101,12 @@ class DWYUTestFixture {
   }
 
  private:
+  static CommandlineFlags MakeAtLeastVerbosity(CommandlineFlags flags,
+                                               int verbosity) {
+    flags.verbose = std::max(flags.verbose, 1);
+    return flags;
+  }
+
   std::stringstream log_messages_;
   Session session_;
   EditExpector edit_expector_;
@@ -131,7 +139,7 @@ cc_library(
 )");
 
   {
-    DWYUTestFixture tester(pp.project());
+    DWYUTestFixture tester(pp.project(), {});
     tester.ExpectAdd(":foo");
     tester.AddSource("some/path/bar.h", "");
     tester.AddSource("some/path/bar.cc", R"(
@@ -142,7 +150,7 @@ cc_library(
   }
 
   {  // Files relative to current directory are properly handled.
-    DWYUTestFixture tester(pp.project(), /*verbose_level=*/2);
+    DWYUTestFixture tester(pp.project(), {.verbose = 2});
     tester.ExpectAdd(":foo");
     tester.AddSource("some/path/bar.h", "");
     tester.AddSource("some/path/bar.cc", R"(
@@ -153,7 +161,7 @@ cc_library(
   }
 
   {  // Files relative to current directory are properly handled.
-    DWYUTestFixture tester(pp.project(), /*verbose_level=*/2);
+    DWYUTestFixture tester(pp.project(), {.verbose = 2});
     tester.ExpectAdd(":foo");
     // Should not be added: :bar, as the bar header is meant to come from local
     tester.AddSource("some/path/src/baz.h", "");
@@ -170,7 +178,7 @@ cc_library(
   // Fuzzy matching. We match files from the suffix so as a fallback
   // we allow for matching that.
   {  // Files that match full path but are longer are guessed to belong
-    DWYUTestFixture tester(pp.project(), /*verbose_level=*/2);
+    DWYUTestFixture tester(pp.project(), {.verbose = 2});
     tester.ExpectAdd(":foo");  // fuzzyily can match header file, add library.
     tester.AddSource("some/path/bar.h", "");
     tester.AddSource("some/path/bar.cc", R"(
@@ -181,7 +189,7 @@ cc_library(
   }
 
   {  // Files that are somewhat shorter are also matched.
-    DWYUTestFixture tester(pp.project(), /*verbose_level=*/2);
+    DWYUTestFixture tester(pp.project(), {.verbose = 2});
     tester.ExpectAdd(":foo");  // fuzzyily can match header file, add library.
     tester.AddSource("some/path/bar.h", "");
     tester.AddSource("some/path/bar.cc", R"(
@@ -192,7 +200,7 @@ cc_library(
   }
 
   {  // .. but not too short. Here, only the last path element matches.
-    DWYUTestFixture tester(pp.project());
+    DWYUTestFixture tester(pp.project(), {});
     // no add expected: can't successfully match header file.
     tester.AddSource("some/path/bar.h", "");
     tester.AddSource("some/path/bar.cc", R"(
@@ -218,7 +226,7 @@ cc_library(
 )");
 
   {
-    DWYUTestFixture tester(pp.project(), /*verbose_level=*/2);
+    DWYUTestFixture tester(pp.project(), {.verbose = 2});
     tester.AddSource("some/path/include/bar.h", "");
     tester.AddSource("some/path/src/foo.h", "");
     tester.AddSource("some/path/src/subdir/foo.cc", R"(
@@ -244,7 +252,7 @@ cc_library(
 )");
 
   {
-    DWYUTestFixture tester(pp.project(), /*verbose_level=*/2);
+    DWYUTestFixture tester(pp.project(), {.verbose = 2});
     tester.AddSource("some/path/foo.h", "");
     tester.AddSource("some/path/foo.cc", R"(
 #include "foo.h"
@@ -264,7 +272,7 @@ cc_library(
 )");
 
   {
-    DWYUTestFixture tester(pp.project());
+    DWYUTestFixture tester(pp.project(), {});
     tester.AddSource("foo.h", "");
     tester.AddSource("foo.cc", R"(
 #include "foo.h"
@@ -283,7 +291,7 @@ cc_library(
 )
 )");
   {
-    DWYUTestFixture tester(pp.project());
+    DWYUTestFixture tester(pp.project(), {});
     tester.AddSource("path/foo.inc", "");
     tester.AddSource("path/foo.h", R"(
 #include "path/foo.inc"  // should be recognized to come from own target
@@ -315,7 +323,7 @@ cc_library(
 )
 )");
   {
-    DWYUTestFixture tester(pp.project());
+    DWYUTestFixture tester(pp.project(), {});
     tester.ExpectAdd(":foo");
     tester.AddSource("path/foo.h", "");
     tester.AddSource("path/quux.cc", R"(
@@ -346,7 +354,7 @@ cc_binary(
 )");
 
   {
-    DWYUTestFixture tester(pp.project());
+    DWYUTestFixture tester(pp.project(), {});
     tester.AddSource("path/baz.cc", R"(
 #include "path/bar.h"   // order dependent currently.
 #include "path/foo.h"
@@ -409,14 +417,14 @@ cc_library(
 )");
 
   {  // Uses one of the libraries providing foo.h header. Satisfied.
-    DWYUTestFixture tester(pp.project());
+    DWYUTestFixture tester(pp.project(), {});
     // No expects of add, as "foo-1" is used and it provides header.
     tester.AddSource("path/usefoo-1.cc", R"(#include "path/foo.h")");
     tester.RunForTarget("//path:usefoo-1");
   }
 
   {  // Uses the other of the libraries providing foo.h header. Satisfied.
-    DWYUTestFixture tester(pp.project());
+    DWYUTestFixture tester(pp.project(), {});
     // No expects of add, as "foo-2" is used and it provides header.
     tester.AddSource("path/usefoo-2.cc", R"(#include "path/foo.h")");
     tester.RunForTarget("//path:usefoo-2");
@@ -424,7 +432,7 @@ cc_library(
 
   {
     // Attempt to add same dependency twice.
-    DWYUTestFixture tester(pp.project());
+    DWYUTestFixture tester(pp.project(), {});
     tester.AddSource("path/usefoo-duplicate.cc", R"(#include "path/foo.h")");
     tester.RunForTarget("//path:usefoo-duplicate");
     EXPECT_THAT(tester.LogContent(), HasSubstr("mentioned multiple times"));
@@ -432,14 +440,14 @@ cc_library(
 
   {
     // Add _all_ dependencies that provide the same header. Maybe not intended ?
-    DWYUTestFixture tester(pp.project());
+    DWYUTestFixture tester(pp.project(), {});
     tester.AddSource("path/usefoo-all.cc", R"(#include "path/foo.h")");
     tester.RunForTarget("//path:usefoo-all");
     EXPECT_THAT(tester.LogContent(), HasSubstr("by //path:foo-1 before"));
   }
 
   {  // Known dependencies, but they are alternatives. Need to delegate to user.
-    DWYUTestFixture tester(pp.project());
+    DWYUTestFixture tester(pp.project(), {});
     // No expects of add, as it needs to be a user choice.
     tester.AddSource("path/usefoo-undecided.cc", R"(#include "path/foo.h")");
     tester.RunForTarget("//path:usefoo-undecided");
@@ -475,7 +483,7 @@ cc_binary(
 )");
 
   {
-    DWYUTestFixture tester(pp.project());
+    DWYUTestFixture tester(pp.project(), {});
     tester.ExpectAdd("//some/lib:new_foo");
     tester.ExpectRemove("//some/lib:deprecated_foo");
     tester.AddSource("user/hello.cc", R"(#include "some/lib/foo.h")");
@@ -501,7 +509,7 @@ cc_library(
 )
 )");
 
-  DWYUTestFixture tester(pp.project());
+  DWYUTestFixture tester(pp.project(), {});
   tester.ExpectAdd("//lib/path:foo");
   tester.AddSource("some/path/bar.cc", R"(
 #include "lib/path/foo.h"
@@ -528,7 +536,7 @@ cc_library(
 )
 )");
 
-  DWYUTestFixture tester(pp.project());
+  DWYUTestFixture tester(pp.project(), {});
   // No add expected.
   tester.AddSource("some/path/bar.cc", R"(
 #include "lib/path/foo.h"
@@ -556,7 +564,7 @@ cc_library(
 )
 )");
 
-  DWYUTestFixture tester(pp.project());
+  DWYUTestFixture tester(pp.project(), {});
   tester.ExpectAdd("//lib/path:foo");  // until we understand package groups
   tester.AddSource("some/path/bar.cc", R"(
 #include "lib/path/foo.h"
@@ -587,7 +595,7 @@ cc_library(
 )");
 
     pp.ElaborateAll();  // Expand variables
-    DWYUTestFixture tester(pp.project());
+    DWYUTestFixture tester(pp.project(), {});
     // Library is only added if now private
     if (!private_visibility) {
       tester.ExpectAdd("//lib/path:foo");
@@ -626,7 +634,7 @@ cc_binary(
 )");
 
   {
-    DWYUTestFixture tester(pp.project());
+    DWYUTestFixture tester(pp.project(), {});
     tester.ExpectAdd("//some/lib:visible_foo_alias");
     tester.AddSource("user/hello.cc", R"(#include "some/lib/foo.h")");
     tester.RunForTarget("//user:hello");
@@ -653,7 +661,7 @@ cc_library(
 )");
 
   pp.ElaborateAll();  // Expand variables, but UNKNOWN_VARIABLE will stay as-is
-  DWYUTestFixture tester(pp.project());
+  DWYUTestFixture tester(pp.project(), {});
   tester.ExpectAdd("//lib/path:foo");  // Added, because unknown means: public
   tester.AddSource("some/path/bar.cc", R"(
 #include "lib/path/foo.h"
@@ -677,7 +685,7 @@ cc_library(
 )
 )");
 
-  DWYUTestFixture tester(pp.project());
+  DWYUTestFixture tester(pp.project(), {});
   tester.ExpectAdd(":foo");
   tester.AddSource("lib/path/bar.cc", R"(
 #include "lib/path/foo.h"
@@ -707,7 +715,7 @@ cc_library(
 )
 )");
 
-  DWYUTestFixture tester(pp.project());
+  DWYUTestFixture tester(pp.project(), {});
   // No add expected.
   tester.AddSource("some/path/bar.cc", R"(
 #include "lib/path/foo.h"
@@ -734,7 +742,7 @@ cc_library(
 )
 )");
 
-  DWYUTestFixture tester(pp.project());
+  DWYUTestFixture tester(pp.project(), {});
   // No add expected.
   tester.AddSource("some/path/bar.cc", R"(
 #include "lib/path/foo.h"
@@ -768,7 +776,7 @@ cc_library(
 )
 )");
 
-  DWYUTestFixture tester(pp.project());
+  DWYUTestFixture tester(pp.project(), {});
   tester.ExpectRemove(":foo");
   // :bar should be removed, but is kept due to comment
   tester.AddSource("some/path/baz.cc", "/* no include */");
@@ -795,7 +803,7 @@ cc_library(
 )");
 
   {
-    DWYUTestFixture tester(pp.project(), /*verbose_level=*/2);
+    DWYUTestFixture tester(pp.project(), {.verbose = 2});
     // Explicitly not adding the source.
     // We don't know if we can remove :bar dependency.
     tester.RunForTarget("//some/path:foo");
@@ -835,7 +843,7 @@ cc_library(
 )
 )");
 
-  DWYUTestFixture tester(pp.project(), /*verbose_level=*/2);
+  DWYUTestFixture tester(pp.project(), {.verbose = 2});
   tester.AddSource("some/path/quux.cc", R"(
 #include "some/path/unaccounted-header.h"
 )");
@@ -869,7 +877,7 @@ cc_library(
 )
 )");
 
-  DWYUTestFixture tester(pp.project());
+  DWYUTestFixture tester(pp.project(), {});
   tester.AddSource("some/path/bar.cc", "/* no include */");
   tester.RunForTarget("//some/path:bar");
 }
@@ -906,7 +914,7 @@ cc_library(
 )
 )");
 
-  DWYUTestFixture tester(pp.project());
+  DWYUTestFixture tester(pp.project(), {});
   tester.AddSource("some/path/quux.cc", "/* no include */");
 
   tester.ExpectRemove(":baz");  // Only one expected to be removed.
@@ -932,7 +940,7 @@ cc_library(
 )
 )");
 
-  DWYUTestFixture tester(pp.project());
+  DWYUTestFixture tester(pp.project(), {});
   tester.AddSource("some/path/bar.cc", R"(
 #include "some/path/baz.pb.h"
 )");
@@ -977,7 +985,7 @@ cc_library(
 )
 )");
 
-  DWYUTestFixture tester(pp.project());
+  DWYUTestFixture tester(pp.project(), {});
   tester.AddSource("some/path/bar.cc", R"(
 #include "some/path/bar.pb.h"
 )");
@@ -1042,7 +1050,7 @@ cc_library(
 )
 )");
 
-  DWYUTestFixture tester(pp.project());
+  DWYUTestFixture tester(pp.project(), {});
   tester.AddSource("some/path/bar.cc", R"(
 #include "some/path/foo.pb.h"
 #include "some/path/bar.pb.h"
@@ -1076,7 +1084,7 @@ cc_library(
 )
 )");
 
-  DWYUTestFixture tester(pp.project());
+  DWYUTestFixture tester(pp.project(), {});
   tester.AddSource("some/path/bar.cc", R"(
 #include "some/path/baz.grpc.pb.h"
 )");
@@ -1104,7 +1112,7 @@ cc_library(
 )
 )");
 
-  DWYUTestFixture tester(pp.project());
+  DWYUTestFixture tester(pp.project(), {});
   tester.AddSource("some/path/bar.cc", "/* no include */");
   tester.ExpectRemove(":foo_proto_lib");
   tester.RunForTarget("//some/path:bar");
@@ -1143,7 +1151,7 @@ cc_binary(
 )");
 
   {
-    DWYUTestFixture tester(pp.project());
+    DWYUTestFixture tester(pp.project(), {});
     tester.ExpectAdd(":strings");
     tester.ExpectAdd(":string_view");
     tester.AddSource("foo/absl/strings/string-user.cc", R"(
@@ -1177,7 +1185,7 @@ proto_library(
 )
 )");
 
-  DWYUTestFixture tester(pp.project());
+  DWYUTestFixture tester(pp.project(), {});
   tester.ExpectRemove(":bar_proto");  // not imported
   tester.AddSource("some/path/baz.proto", R"(
 syntax = "proto3";
@@ -1201,7 +1209,7 @@ proto_library(
 )
 )");
 
-  DWYUTestFixture tester(pp.project());
+  DWYUTestFixture tester(pp.project(), {});
   tester.ExpectAdd(":foo_proto");
   tester.AddSource("some/path/baz.proto", R"(
 syntax = "proto3";
@@ -1235,7 +1243,7 @@ cc_binary(
 )
 )");
 
-  DWYUTestFixture tester(pp.project());
+  DWYUTestFixture tester(pp.project(), {});
   // Even though both provide 'some/path/foo.h', we expect the local one to be
   // preferred.
   tester.ExpectAdd("//some/path:foo");
@@ -1270,13 +1278,13 @@ cc_library(
 )");
 
   {
-    DWYUTestFixture tester(pp.project());
+    DWYUTestFixture tester(pp.project(), {});
     tester.ExpectAdd("//lib/path:foo");
     tester.AddSource("some/path/my_test.cc", R"(#include "lib/path/foo.h")");
     tester.RunForTarget("//some/path:my_test");
   }
   {
-    DWYUTestFixture tester(pp.project());
+    DWYUTestFixture tester(pp.project(), {});
     tester.ExpectAdd("//lib/path:foo");
     tester.AddSource("some/path/my_test_lib.cc",
                      R"(#include "lib/path/foo.h")");
@@ -1302,7 +1310,7 @@ cc_library(
 )
 )");
 
-  DWYUTestFixture tester(pp.project());
+  DWYUTestFixture tester(pp.project(), {});
   tester.AddSource("some/path/bar.cc", R"(
 #include "lib/path/foo.h"
 )");
@@ -1327,7 +1335,7 @@ cc_library(
 )
 )");
 
-  DWYUTestFixture tester(pp.project(), /*verbose_level=*/3);
+  DWYUTestFixture tester(pp.project(), {.verbose = 3});
   tester.ExpectAdd("//lib/path:foo");
   tester.AddSource("some/path/bar.cc", R"(
 #include "lib/path/foo.h"
@@ -1363,7 +1371,7 @@ cc_library(
 )
 )");
 
-  DWYUTestFixture tester(pp.project());
+  DWYUTestFixture tester(pp.project(), {});
   tester.ExpectRemove("//lib/path:deprecated_foo");
   tester.ExpectAdd("//lib/path:new_foo");
   tester.AddSource("some/path/bar.cc", R"(
@@ -1371,5 +1379,65 @@ cc_library(
 )");
   tester.RunForTarget("//some/path:bar");
 }
+
+TEST(DWYUTest, AngleBracketInclude_DefaultNotRemove) {
+  ParsedProjectTestUtil pp;
+  pp.Add("//some/path", R"(
+cc_library(
+  name = "foo",
+  hdrs = ["foo.h"],
+)
+
+cc_library(
+  name = "bar",
+  hdrs = ["bar.h"],
+)
+
+cc_library(
+  name = "baz",
+  srcs = ["baz.cc"],
+  deps = [
+    ":foo",    # we're using dep, but with angle brackets.
+  ],
+)
+)");
+
+  {
+    DWYUTestFixture tester(pp.project(),
+                           {.verbose = 2, .allow_bracket_includes = false});
+    tester.AddSource("some/path/foo.h", "");
+    tester.AddSource("some/path/bar.h", "");
+    tester.AddSource("some/path/baz.cc", R"(
+#include <some/path/foo.h>  // angle-bracketed reference to project header
+#include <some/path/bar.h>
+)");
+
+    // TODO: we should not remove foo, as it is needed, just with the 'wrong'
+    // include quote. So if we recontize that, we should conservatively not
+    // remove.
+    tester.ExpectRemove(":foo");
+    // With this milde allo bracket, we also don't expect Add()
+    tester.RunForTarget("//some/path:baz");
+  }
+
+  {
+    DWYUTestFixture tester(pp.project(),
+                           {.verbose = 2, .allow_bracket_includes = true});
+    tester.AddSource("some/path/foo.h", "");
+    tester.AddSource("some/path/bar.h", "");
+    tester.AddSource("some/path/baz.cc", R"(
+#include <some/path/foo.h>
+#include <some/path/bar.h>
+)");
+
+    tester.ExpectAdd(":bar");
+    tester.RunForTarget("//some/path:baz");
+
+    const std::string log = tester.LogContent();
+    EXPECT_THAT(log, HasSubstr("quote-style \"some/path/foo.h"));
+    EXPECT_THAT(log, HasSubstr("quote-style \"some/path/bar.h"));
+  }
+}
+
 }  // namespace
 }  // namespace bant
