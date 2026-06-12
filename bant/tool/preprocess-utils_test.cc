@@ -35,14 +35,13 @@ using ::testing::ElementsAre;
 using ::testing::Pair;
 
 namespace bant {
-
 // NOLINTNEXTLINE appears unused, but is used by gmock printing
 static void PrintTo(const TaggedInclude &i, std::ostream *out) {
   *out << (i.is_ifdefed_out ? "EXCLUDED: " : " ")
        << (i.is_angle_bracket ? "<" : "") << i.include
        << (i.is_angle_bracket ? ">" : "");
 }
-
+namespace {
 TEST(PreprocessUtils, PreprocessRangeIf_0_1) {
   constexpr std::string_view kTestContent = R"deftest(
 #if 0   // A constant. unambiguously excluded, not showing up in result
@@ -321,5 +320,5 @@ cc_library(
                        EXPECT_THAT(defines, Contains(Pair("VAL_BAZ_C", true)));
                      });
 }
-
+}  // namespace
 }  // namespace bant

@@ -210,8 +210,7 @@ static std::optional<bool> ParseTerminalColor(const char *value) {
   return std::nullopt;
 }
 
-template <typename T>
-static T GetWithFallback(std::optional<T> v, T fallback) {
+static bool GetWithFallback(std::optional<bool> v, bool fallback) {
   return v.has_value() ? v.value() : fallback;
 }
 
@@ -253,7 +252,7 @@ int main(int argc, char *argv[]) {
 
   bant::CommandlineFlags flags;
   flags.do_color = GetWithFallback(ParseTerminalColor(getenv("BANT_COLOR")),
-                                   (bool)isatty(STDOUT_FILENO));
+                                   isatty(STDOUT_FILENO));
   flags.do_links =
     GetWithFallback(ParseTerminalColor(getenv("BANT_LINKS")), false);
   // Since we're using basic getopt() currently, we've to fish out all the

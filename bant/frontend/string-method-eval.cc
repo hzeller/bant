@@ -232,6 +232,7 @@ Node *StringMethodEval::Replace(Node *orig, std::string_view str, List *args) {
   return f_.MakeNewStringScalarFrom(subject, f_.project()->GetLocation(str));
 }
 
+namespace {
 struct StringRangeParam {
   static std::optional<StringRangeParam> FromArgs(List *args) {
     StringRangeParam result;
@@ -271,6 +272,7 @@ struct StringRangeParam {
   size_t end_pos = std::numeric_limits<size_t>::max();
   size_t len;
 };
+}  // namespace
 
 Node *StringMethodEval::StartsWith(Node *orig, std::string_view str,
                                    List *args) {
