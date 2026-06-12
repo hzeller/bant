@@ -46,6 +46,8 @@ class StringMethodEval {
   Node *Replace(Node *orig, std::string_view str, List *args);
   Node *StartsWith(Node *orig, std::string_view str, List *args);
   Node *EndsWith(Node *orig, std::string_view str, List *args);
+  Node *Find(Node *orig, std::string_view str, List *args);
+  Node *RFind(Node *orig, std::string_view str, List *args);
   Node *Title(Node *orig, std::string_view str);
   Node *Rsplit(Node *orig, std::string_view str, List *args);
   Node *Split(Node *orig, std::string_view str, List *args);

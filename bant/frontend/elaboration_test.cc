@@ -565,7 +565,7 @@ RIGHT_EMPTY = "b"
   });
 }
 
-TEST_F(ElaborationTest, PercentFormat) {
+TEST_F(ElaborationTest, StringPercentFormat) {
   auto result = ElabAndPrint(
     R"(
 FOO = "Hello %s" % "World"
@@ -595,7 +595,7 @@ H1 = "with tuple 42"
   EXPECT_EQ(result.first, result.second);
 }
 
-TEST_F(ElaborationTest, FormatStringPositional) {
+TEST_F(ElaborationTest, StringFormatPositional) {
   auto result = ElabAndPrint(
     R"(
 FOO = "Hello {}".format("World")
@@ -617,7 +617,7 @@ HIGH_PRECEDENCE_DOT = "foo_here bar_baz"
   EXPECT_EQ(result.first, result.second);
 }
 
-TEST_F(ElaborationTest, FormatStringSelectArg) {
+TEST_F(ElaborationTest, StringFormatSelectArg) {
   auto result = ElabAndPrint(
     R"(
 FOO = "Hello {0}".format("World")
@@ -637,7 +637,7 @@ INVALID_ARGS = "Some "
   EXPECT_EQ(result.first, result.second);
 }
 
-TEST_F(ElaborationTest, FormatStringKwArg) {
+TEST_F(ElaborationTest, StringFormatKwArg) {
   auto result = ElabAndPrint(
     R"(
 FOO = "Hello {address}".format(address = "World")
@@ -655,7 +655,7 @@ MIXED_1 = "hello and world"
   EXPECT_EQ(result.first, result.second);
 }
 
-TEST_F(ElaborationTest, JoinStrings) {
+TEST_F(ElaborationTest, StringJoin) {
   auto result = ElabAndPrint(
     R"(
 FOO = "😊".join(["Hello", "universe", 42, "is" + " answer"])
@@ -673,7 +673,7 @@ QUX = "tuple is ok"
   EXPECT_EQ(result.first, result.second);
 }
 
-TEST_F(ElaborationTest, RsplitStrings) {
+TEST_F(ElaborationTest, StringRsplit) {
   auto result = ElabAndPrint(
     R"(
 S = "some space separated".rsplit()
@@ -697,7 +697,7 @@ E = ["Hello", "fillword", "remove"]
   EXPECT_EQ(result.first, result.second);
 }
 
-TEST_F(ElaborationTest, SplitStrings) {
+TEST_F(ElaborationTest, StringSplit) {
   auto result = ElabAndPrint(
     R"(
 S = "some space separated".split()
@@ -725,7 +725,7 @@ F = "1.2.3"
   EXPECT_EQ(result.first, result.second);
 }
 
-TEST_F(ElaborationTest, Partiion) {
+TEST_F(ElaborationTest, StringPartiion) {
   auto result = ElabAndPrint(
     R"(
 A = "foo.bar.baz".partition("x")
@@ -741,7 +741,7 @@ C = ("foo", "bar", "barbaz")
   EXPECT_EQ(result.first, result.second);
 }
 
-TEST_F(ElaborationTest, RPartiion) {
+TEST_F(ElaborationTest, StringRPartiion) {
   auto result = ElabAndPrint(
     R"(
 A = "foo.bar.baz".rpartition("x")
@@ -757,7 +757,7 @@ C = ("foobar", "bar", "baz")
   EXPECT_EQ(result.first, result.second);
 }
 
-TEST_F(ElaborationTest, ReplaceString) {
+TEST_F(ElaborationTest, StringReplace) {
   auto result = ElabAndPrint(
     R"(
 A = "foo/bar/baz".replace('/', '_')
@@ -771,33 +771,87 @@ B = "FOObarFOObaz"
   EXPECT_EQ(result.first, result.second);
 }
 
-TEST_F(ElaborationTest, StartsEndsWithString) {
+TEST_F(ElaborationTest, StringStartsEndsWith) {
   auto result = ElabAndPrint(
     R"(
 A = "foo/bar/baz".startswith("foo")
 B = "foo/bar/baz".startswith("baz")
 B1 = not "foo/bar/baz".startswith("baz")
 C = "foo/bar/baz".startswith()
+ATPOS_START = "hello world".startswith("world", 6)
 
 D = "foo/bar/baz".endswith("/baz")
 E = "foo/bar/baz".endswith("foo")
 F = "foo/bar/baz".endswith()
+ATPOS_END = "hello world".endswith("ello", 1, 5)
 )",
     R"(
 A = True
 B = False
 B1 = True
 C = "foo/bar/baz".startswith()
+ATPOS_START = True
 
 D = True
 E = False
 F = "foo/bar/baz".endswith()
+ATPOS_END = True
 )");
 
   EXPECT_EQ(result.first, result.second);
 }
 
-TEST_F(ElaborationTest, RemovePrefix) {
+TEST_F(ElaborationTest, StringFind) {
+  auto result = ElabAndPrint(
+    R"(
+A1 = "foo.bar".find(".b")
+A2 = "foo.bar".find(".b", 1)
+A3 = "foo.bar".find(".", 1, 4)
+A4 = "foo.bar".find(".b", 1, 5)
+B1 = "foo.bar".find(".", 1, 3)
+B2 = "foo.bar".find(".b", 1, 4)
+B3 = "foo.bar".find(".b", 4)
+B4 = "foo.bar".find(".b", 42)
+)",
+    R"(
+A1 = 3
+A2 = 3
+A3 = 3
+A4 = 3
+B1 = -1
+B2 = -1
+B3 = -1
+B4 = -1
+)");
+
+  EXPECT_EQ(result.first, result.second);
+}
+
+TEST_F(ElaborationTest, StringRFind) {
+  auto result = ElabAndPrint(
+    R"(
+A1 = "foo.bar".rfind(".b")
+A2 = "foo.bar".rfind(".b", 1)
+A3 = "foo.bar".rfind(".", 1, 4)
+A4 = "foo.bar".rfind(".b", 1, 5)
+B1 = "foo.bar".rfind(".", 1, 3)
+B2 = "foo.bar".rfind(".b", 1, 4)
+B3 = "foo.bar".rfind(".b", 4)
+)",
+    R"(
+A1 = 3
+A2 = 3
+A3 = 3
+A4 = 3
+B1 = -1
+B2 = -1
+B3 = -1
+)");
+
+  EXPECT_EQ(result.first, result.second);
+}
+
+TEST_F(ElaborationTest, StringRemovePrefix) {
   auto result = ElabAndPrint(
     R"(
 A = "/foo/bar/baz".removeprefix("/foo/bar/")
@@ -811,7 +865,7 @@ B = "/foo/bar/baz"
   EXPECT_EQ(result.first, result.second);
 }
 
-TEST_F(ElaborationTest, RemoveSuffix) {
+TEST_F(ElaborationTest, StringRemoveSuffix) {
   auto result = ElabAndPrint(
     R"(
 A = "/foo/bar/baz".removesuffix("/baz")
@@ -825,7 +879,7 @@ B = "/foo/bar/baz"
   EXPECT_EQ(result.first, result.second);
 }
 
-TEST_F(ElaborationTest, Strip) {
+TEST_F(ElaborationTest, StringStrip) {
   auto result = ElabAndPrint(
     R"(
 A = "hello world".strip()
@@ -843,7 +897,7 @@ D = ""
   EXPECT_EQ(result.first, result.second);
 }
 
-TEST_F(ElaborationTest, TitleString) {
+TEST_F(ElaborationTest, StringTitle) {
   auto result = ElabAndPrint(
     R"(
 A = "hello world".title()
@@ -859,7 +913,7 @@ C = "H E L L O"
   EXPECT_EQ(result.first, result.second);
 }
 
-TEST_F(ElaborationTest, UpperLowerString) {
+TEST_F(ElaborationTest, StringUpperLower) {
   auto result = ElabAndPrint(
     R"(
 A = "hello".lower()

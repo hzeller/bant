@@ -103,6 +103,12 @@ Node *StringMethodEval::StringMethodCall(Node *orig, StringScalar *object,
   if (method_name == "rpartition") {
     return RPartition(orig, object, method->argument());
   }
+  if (method_name == "find") {
+    return Find(orig, object->AsString(), method->argument());
+  }
+  if (method_name == "rfind") {
+    return RFind(orig, object->AsString(), method->argument());
+  }
   return orig;  // Not handled.
 }
 
@@ -226,21 +232,94 @@ Node *StringMethodEval::Replace(Node *orig, std::string_view str, List *args) {
   return f_.MakeNewStringScalarFrom(subject, f_.project()->GetLocation(str));
 }
 
+struct StringRangeParam {
+  static std::optional<StringRangeParam> FromArgs(List *args) {
+    StringRangeParam result;
+    List::iterator arg_it = args->begin();
+
+    if (arg_it == args->end()) return std::nullopt;
+    const Scalar *const maybe_str = (*arg_it)->CastAsScalar();
+    if (!maybe_str || maybe_str->type() != Scalar::ScalarType::kString) {
+      return std::nullopt;  // need a constant string here.
+    }
+    result.str = maybe_str->AsString();
+    ++arg_it;
+
+    if (arg_it != args->end()) {
+      const Scalar *const from = (*arg_it)->CastAsScalar();
+      if (!from || from->type() != Scalar::ScalarType::kInt) {
+        return std::nullopt;
+      }
+      result.start_pos = from->AsInt();
+      ++arg_it;
+    }
+
+    if (arg_it != args->end()) {
+      const Scalar *const to = (*arg_it)->CastAsScalar();
+      if (!to || to->type() != Scalar::ScalarType::kInt) {
+        return std::nullopt;
+      }
+      result.end_pos = to->AsInt();
+    }
+    if (result.end_pos < result.start_pos) return std::nullopt;
+    result.len = result.end_pos - result.start_pos;
+    return result;
+  }
+
+  std::string_view str;
+  size_t start_pos = 0;
+  size_t end_pos = std::numeric_limits<size_t>::max();
+  size_t len;
+};
+
 Node *StringMethodEval::StartsWith(Node *orig, std::string_view str,
                                    List *args) {
-  auto start_args = ExtractScalarPosArgs(args);
-  if (!start_args.has_value() || start_args->size() != 1) return orig;
-  const std::string_view with = start_args->at(0);
+  auto param = StringRangeParam::FromArgs(args);
+  if (!param.has_value()) return orig;
+  if (param->start_pos > str.size()) return orig;
+  std::string_view active_str = str.substr(param->start_pos, param->len);
   const auto &location = f_.project()->GetLocation(str);
-  return f_.MakeBoolWithStringRep(location, str.starts_with(with));
+  return f_.MakeBoolWithStringRep(location, active_str.starts_with(param->str));
 }
 
 Node *StringMethodEval::EndsWith(Node *orig, std::string_view str, List *args) {
-  auto ends_args = ExtractScalarPosArgs(args);
-  if (!ends_args.has_value() || ends_args->size() != 1) return orig;
-  const std::string_view with = ends_args->at(0);
+  auto param = StringRangeParam::FromArgs(args);
+  if (!param.has_value()) return orig;
+  if (param->start_pos > str.size()) return orig;
+  std::string_view active_str = str.substr(param->start_pos, param->len);
   const auto &location = f_.project()->GetLocation(str);
-  return f_.MakeBoolWithStringRep(location, str.ends_with(with));
+  return f_.MakeBoolWithStringRep(location, active_str.ends_with(param->str));
+}
+
+Node *StringMethodEval::Find(Node *orig, std::string_view str, List *args) {
+  auto param = StringRangeParam::FromArgs(args);
+  if (!param.has_value()) return orig;
+  const auto &location = f_.project()->GetLocation(str);
+  int64_t result;
+  if (param->start_pos > str.size()) {
+    result = -1;
+  } else {
+    const size_t pos =
+      str.substr(0, param->end_pos).find(param->str, param->start_pos);
+    result = pos == std::string_view::npos ? -1 : pos;
+  }
+  return f_.MakeIntWithStringRep(location, result);
+}
+
+Node *StringMethodEval::RFind(Node *orig, std::string_view str, List *args) {
+  auto param = StringRangeParam::FromArgs(args);
+  if (!param.has_value()) return orig;
+  const auto &location = f_.project()->GetLocation(str);
+  int64_t result;
+  if (param->str.length() > param->end_pos || param->start_pos > str.size()) {
+    result = -1;
+  } else {
+    const size_t pos =
+      str.rfind(param->str, param->end_pos - param->str.length());
+    result =
+      pos == std::string_view::npos || pos <= param->start_pos ? -1 : pos;
+  }
+  return f_.MakeIntWithStringRep(location, result);
 }
 
 Node *StringMethodEval::Title(Node *orig, std::string_view str) {
@@ -431,4 +510,5 @@ Node *StringMethodEval::RPartition(Node *orig, StringScalar *object,
   const std::string_view str = object->AsString();
   return MakePartitionTuple(str, object, str.rfind(sep), sep.length(), true);
 }
+
 }  // namespace bant
