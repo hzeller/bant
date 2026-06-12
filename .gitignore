@@ -8,7 +8,7 @@ perf.data*
 /.cache
 /bazel-*
 MODULE.bazel.lock
-compile_commands.json
+compile_flags.txt
 user.bazelrc
-bant_clang-tidy.out
+bant_clang-tidy.*
 scripts/run-clang-tidy-cached
