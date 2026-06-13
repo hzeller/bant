@@ -23,6 +23,7 @@ cc_library(
         "//bant/util:grep-highlighter",
         "//bant/util:stat",
         "//bant/util:table-printer",
+        "//bant/util:term-color",
         "//bant/util:thread-pool",
     ],
 )

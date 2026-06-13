@@ -1057,7 +1057,8 @@ size_t CreateDependencyEdits(Session &session, const ParsedProject &project,
   DWYUGenerator gen(session, project, edit_counting_forwarder);
   const size_t target_count = gen.CreateEditsForPattern(pattern);
   dwyu_stats.count += target_count;
-  session.info() << "Checked DWYU on " << target_count << " targets.";
+  session.info() << Dim(session) << "Checked DWYU on " << target_count
+                 << " targets." << Norm(session);
   if (target_count == 0 && pattern.HasFilter()) {
     session.info()
       << "\nNote: No cc_library/cc_binary/cc_test/proto_library targets"
@@ -1066,7 +1067,8 @@ size_t CreateDependencyEdits(Session &session, const ParsedProject &project,
          "\nConsider adding a macro to your project's .bant-macros file.";
   }
   if (edits_emitted) {
-    session.info() << " Emitted " << edits_emitted << " edits.";
+    session.info() << Dim(session) << " Emitted " << edits_emitted << " edits."
+                   << Norm(session);
   }
   session.info() << "\n";
   gen.PrintGenruleTargetsToRun(session.info());

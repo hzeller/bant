@@ -43,6 +43,7 @@
 #include "bant/util/grep-highlighter.h"
 #include "bant/util/stat.h"
 #include "bant/util/table-printer.h"
+#include "bant/util/term-color.h"
 #include "bant/util/thread-pool.h"
 #include "bant/workspace.h"
 
@@ -138,8 +139,7 @@ void FindAndParseMissingPackages(ThreadPool *io_thread_pool, Session &session,
 }
 
 template <typename Container>
-void PrintList(std::ostream &out, const char *msg, const Container &c) {
-  out << msg;
+void PrintList(std::ostream &out, const Container &c) {
   for (const auto &element : c) {
     out << "\t" << element << "\n";
   }
@@ -269,7 +269,9 @@ DependencyGraph BuildDependencyGraph(Session &session,
 
     if (session.MinVerbosity(2) && !deps_to_resolve_todo.empty()) {
       if (stat.count == 1) {
-        session.info() << "Dependency BFS graph expand round\n";
+        session.info() << Magenta(session)
+                       << "Dependency BFS graph expand round" << Norm(session)
+                       << "\n";
       }
       session.info() << "\t" << std::setw(2) << (stat.count - 1) << ". resolve "
                      << std::setw(5) << deps_to_resolve_todo.size()
@@ -380,13 +382,16 @@ DependencyGraph BuildDependencyGraph(Session &session,
     // genrules or protobuffer rules. Goal: should be zero.
     // But for now: hide behind 'verbose' flag, to not be too noisy.
     if (!error_packages.empty()) {
-      PrintList(session.info(),
-                "Dependency graph: Did not find these packages\n",
-                error_packages);
+      session.info() << Bold(session)
+                     << "Dependency graph: Did not find these packages"
+                     << Norm(session) << "\n";
+      PrintList(session.info(), error_packages);
     }
     const GrepHighlighter highlighter(false, false);
     if (!error_target_example.empty()) {
-      session.info() << "Dependency graph: Did not find these targets\n";
+      session.info() << Bold(session)
+                     << "Dependency graph: Did not find these targets"
+                     << Norm(session) << "\n";
       auto printer =
         TablePrinter::Create(session.info(), OutputFormat::kNative, highlighter,
                              {"Dependency", "needed-by"});

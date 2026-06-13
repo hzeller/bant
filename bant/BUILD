@@ -57,6 +57,7 @@ cc_binary(
         "//bant/util:hyperlink-builder",
         "//bant/util:stat",
         "//bant/util:table-printer",
+        "//bant/util:term-color",
         "@abseil-cpp//absl/container:flat_hash_set",
         "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/strings",

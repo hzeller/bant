@@ -49,6 +49,12 @@ class Bold : public Colored {
   explicit Bold(const Session &s) : Bold(s.flags().do_color) {}
 };
 
+class Dim : public Colored {
+ public:
+  explicit Dim(bool do_color) : Colored(do_color, "\033[2m") {}
+  explicit Dim(const Session &s) : Dim(s.flags().do_color) {}
+};
+
 class BoldOff : public Colored {
  public:
   explicit BoldOff(bool do_color) : Colored(do_color, "\033[22m") {}

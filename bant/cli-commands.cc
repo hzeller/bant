@@ -43,6 +43,7 @@
 #include "bant/util/hyperlink-builder.h"
 #include "bant/util/stat.h"
 #include "bant/util/table-printer.h"
+#include "bant/util/term-color.h"
 #include "bant/workspace.h"
 
 // Tools accessible by these commands
@@ -263,11 +264,13 @@ CliStatus RunCommand(Session &session, Command cmd,
         session, build_graph_pattern, flags.recurse_dependency_depth, &project);
       const size_t after_build_files = project.ParsedFiles().size();
       if (session.MinVerbosity(1)) {
-        session.info() << "Dependency graph expanded build file# from initial "
-                       << before_build_files << " to " << after_build_files
-                       << "; " << graph.depends_on.size() << " targets and "
-                       << graph.has_dependents.size()
-                       << " that depend on these.\n";
+        session.info()
+          << "Dependency graph expanded parsed BUILD file from initial "
+          << Bold(session) << before_build_files << Norm(session) << " to "
+          << Bold(session) << after_build_files << Norm(session) << "; total "
+          << Bold(session) << graph.depends_on.size() << Norm(session)
+          << " targets and " << Bold(session) << graph.has_dependents.size()
+          << Norm(session) << " that depend on these.\n";
         // Currently, we're not using the graph yet, just use it as a way to
         // populate project.
       }
