@@ -7,7 +7,7 @@ bant_used_stdenv.mkDerivation {
   name = "bant-build-environment";
   buildInputs = with pkgs;
     [
-      bazel_7
+      bazel_8
       jdk11
       re2c
 
