@@ -52,7 +52,8 @@ size_t CreateCanonicalizeEdits(Session &session, const ParsedProject &project,
           return;
         }
 
-        const auto deps = query::ExtractStringList(target.deps_list);
+        const auto deps =
+          query::ExtractStringList({target.deps_list, target.impl_deps_list});
         for (const std::string_view dep_str : deps) {
           stats.count++;
           auto dep_target = BazelTarget::ParseFrom(dep_str, current_package);

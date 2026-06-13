@@ -291,7 +291,8 @@ static std::vector<std::string> CollectIncDirs(
 
       // Now, let's check out the dependencies and see that all of the
       // referenced external projects are covered.
-      const auto deps = query::ExtractStringList(details.deps_list);
+      const auto deps =
+        query::ExtractStringList({details.deps_list, details.impl_deps_list});
       for (const std::string_view dependency_target : deps) {
         auto requested_dep =
           BazelTarget::ParseFrom(dependency_target, current_package);

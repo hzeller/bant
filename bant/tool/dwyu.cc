@@ -844,7 +844,8 @@ void DWYUGenerator::CreateEditsForTarget(const BazelTarget &target,
   // them off the 'deps_needed' list.
   // Everything deps_needed
   // verify we actually need them. If not: remove.
-  const auto deps = query::ExtractStringList(details.deps_list);
+  const auto deps =
+    query::ExtractStringList({details.deps_list, details.impl_deps_list});
   for (const std::string_view dependency_target : deps) {
     const auto requested_target = BazelTarget::ParseFrom(dependency_target,  //
                                                          target.package);

@@ -76,7 +76,8 @@ BazelWorkspace CreateFilteredWorkspace(Session &session,
           if (!target.has_value() || !pattern.Match(*target)) {
             return;
           }
-          potential_external_refs = query::ExtractStringList(details.deps_list);
+          potential_external_refs = query::ExtractStringList(
+            {details.deps_list, details.impl_deps_list});
           // If alias, look at what it points to
           if (!details.actual.empty()) {
             potential_external_refs.push_back(details.actual);

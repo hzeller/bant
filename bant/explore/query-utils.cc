@@ -115,6 +115,8 @@ class TargetFinder : public BaseVoidVisitor {
         current_.srcs_list = list;
       } else if (lhs == "deps") {
         current_.deps_list = list;
+      } else if (lhs == "implementation_deps") {
+        current_.impl_deps_list = list;
       } else if (lhs == "data") {
         current_.data_list = list;
       } else if (lhs == "tools") {
@@ -237,10 +239,18 @@ void AppendStringList(List *list, std::vector<std::string_view> &append_to) {
   }
 }
 
-std::vector<std::string_view> ExtractStringList(List *list) {
+std::vector<std::string_view> ExtractStringList(List *from_this) {
   std::vector<std::string_view> result;
-  AppendStringList(list, result);
+  AppendStringList(from_this, result);
   return result;
 }
 
+std::vector<std::string_view> ExtractStringList(
+  std::initializer_list<List *> from_these) {
+  std::vector<std::string_view> result;
+  for (List *from_this : from_these) {
+    AppendStringList(from_this, result);
+  }
+  return result;
+}
 }  // namespace bant::query

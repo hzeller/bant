@@ -43,6 +43,7 @@ struct Result {
   List *textual_hdrs = nullptr;
   List *public_hdrs = nullptr;
   List *deps_list = nullptr;
+  List *impl_deps_list = nullptr;
   List *data_list = nullptr;
   List *tools_list = nullptr;
   List *outs_list = nullptr;      // genrule.
@@ -90,11 +91,15 @@ Node *FindKWArg(FunCall *fun, std::string_view keyword);
 std::optional<std::string_view> FindKWArgAsStringView(FunCall *fun,
                                                       std::string_view keyword);
 
-// Utility function: extract list of non-empty strings from list-node and
+// Utility functions: extract list of non-empty strings from list-node and
 // return as vector.
 // The original string-views are preserved, so can be used to recover the
 // location in file.
-std::vector<std::string_view> ExtractStringList(List *list);
+std::vector<std::string_view> ExtractStringList(List *from_this);
+
+// Same, but from multiple lists.
+std::vector<std::string_view> ExtractStringList(
+  std::initializer_list<List *> from_these);
 
 // Similar to ExtractStringList(), but append to vector.
 void AppendStringList(List *list, std::vector<std::string_view> &append_to);

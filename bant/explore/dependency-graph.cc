@@ -301,7 +301,8 @@ DependencyGraph BuildDependencyGraph(Session &session,
           // and tools we use.
 
           // deps=[]
-          auto to_follow = query::ExtractStringList(result.deps_list);
+          auto to_follow =
+            query::ExtractStringList({result.deps_list, result.impl_deps_list});
           if (!result.actual.empty()) {  // Follow aliases
             to_follow.push_back(result.actual);
           }
