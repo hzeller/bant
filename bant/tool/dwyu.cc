@@ -814,6 +814,30 @@ void DWYUGenerator::CreateEditsForTarget(const BazelTarget &target,
 
   DefineMap defines = GetDefinesFromTarget(details);
 
+  // All the dependencies; BazelTarget -> locatable string view in file.
+  using TargetToFileLocation = OneToOne<BazelTarget, std::string_view>;
+  const TargetToFileLocation all_declared_dependencies = [&]() {
+    TargetToFileLocation result;
+    const auto deps =
+      query::ExtractStringList({details.deps_list, details.impl_deps_list});
+    for (const std::string_view dependency_target : deps) {
+      const auto requested_target =
+        BazelTarget::ParseFrom(dependency_target, target.package);
+      if (!requested_target.has_value()) {
+        Loc(project_, dependency_target)
+          << " Invalid target name '" << dependency_target << "'\n";
+        continue;
+      }
+
+      if (!result.emplace(*requested_target, dependency_target).second) {
+        Loc(project_, dependency_target)
+          << " in target " << target << ": dependency " << dependency_target
+          << " same dependency mentioned multiple times. Run buildifier\n";
+      }
+    }
+    return result;
+  }();
+
   absl::btree_set<BazelTarget> conservatively_keep;
   // Grep for all includes/imports they use to determine which deps we need
   auto deps_needed = is_proto_library
@@ -829,7 +853,7 @@ void DWYUGenerator::CreateEditsForTarget(const BazelTarget &target,
     for (auto it = deps_needed.begin(); it != deps_needed.end(); ++it) {
       if (it->contains(target)) {
         for (const BazelTarget &check : *it) {
-          checked_off_by.insert({check, target});  // remember what checked off.
+          checked_off_by.insert({check, target});  // remember who checked off.
         }
         deps_needed.erase(it);  // alternatives satisifed. Remove.
         // TODO: we should keep going and find all alternatives that might
@@ -844,34 +868,21 @@ void DWYUGenerator::CreateEditsForTarget(const BazelTarget &target,
   // them off the 'deps_needed' list.
   // Everything deps_needed
   // verify we actually need them. If not: remove.
-  const auto deps =
-    query::ExtractStringList({details.deps_list, details.impl_deps_list});
-  for (const std::string_view dependency_target : deps) {
-    const auto requested_target = BazelTarget::ParseFrom(dependency_target,  //
-                                                         target.package);
-    if (!requested_target.has_value()) {
-      Loc(project_, dependency_target)
-        << " Invalid target name '" << dependency_target << "'\n";
-      continue;
-    }
-
+  for (const auto &[requested_target, dep_in_file] :
+       all_declared_dependencies) {
     // Strike off the dependency requested in the build file from the
     // dependendencies we independently determined from the #includes.
     // If it is not on that list, it is a canidate for removal.
-    if (IsNeededInSourcesAndCheckOff(*requested_target)) {
+    if (IsNeededInSourcesAndCheckOff(requested_target)) {
       continue;
     }
 
-    if (checked_off_by.contains(*requested_target)) {
-      const BazelTarget &previously = checked_off_by[*requested_target];
-      if (previously == *requested_target) {
-        Loc(project_, dependency_target)
-          << " in target " << target << ": dependency " << dependency_target
-          << " same dependency mentioned multiple times. Run buildifier\n";
-      } else if (session_.MinVerbosity(1)) {
-        Loc(project_, dependency_target)
+    if (checked_off_by.contains(requested_target)) {
+      const BazelTarget &previously = checked_off_by[requested_target];
+      if (session_.MinVerbosity(1)) {
+        Loc(project_, dep_in_file)
           << " in target " << target << ": dependency " << Bold(session_)
-          << dependency_target << Norm(session_)
+          << dep_in_file << Norm(session_)
           << " provides headers already provided by " << Bold(session_)
           << previously << Norm(session_)
           << " before. Multiple libraries providing the same headers ?\n";
@@ -886,23 +897,23 @@ void DWYUGenerator::CreateEditsForTarget(const BazelTarget &target,
     const bool potential_remove_suggestion_safe = all_header_deps_known;
 
     // There are also other reasons why we might not want to remove a dependency
-    bool veto_removal = IsAlwayslink(*requested_target);
+    bool veto_removal = IsAlwayslink(requested_target);
     if (!veto_removal) {  // But maybe buildcleaner:keep ?
       static const LazyRE2 kExcludeVetoUserCommentRe{"#.*keep"};
-      const auto line = project_.GetSurroundingLine(dependency_target);
+      const auto line = project_.GetSurroundingLine(dep_in_file);
       veto_removal = (!session_.flags().ignore_keep_comment &&
                       RE2::PartialMatch(line, *kExcludeVetoUserCommentRe));
     }
     veto_removal =
-      veto_removal || conservatively_keep.contains(*requested_target);
+      veto_removal || conservatively_keep.contains(requested_target);
 
     // Emit the edits.
     if (!veto_removal) {
       if (potential_remove_suggestion_safe) {
-        emit_deps_edit_(EditRequest::kRemove, target, dependency_target, "");
+        emit_deps_edit_(EditRequest::kRemove, target, dep_in_file, "");
       } else if (session_.MinVerbosity(2)) {
-        Loc(project_, dependency_target)
-          << " " << Bold(session_) << requested_target->ToString()
+        Loc(project_, dep_in_file)
+          << " " << Bold(session_) << requested_target.ToString()
           << Norm(session_) << " dependency looks superfluous in "
           << Bold(session_) << target << Norm(session_)
           << ", but there are also unaccounted sources. Won't remove.\n";
