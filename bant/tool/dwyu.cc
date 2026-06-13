@@ -417,7 +417,7 @@ DWYUGenerator::DependenciesNeededBySources(
   const BazelTarget &target, const ParsedBuildFile &build_file,
   const std::vector<std::string_view> &sources,            // srcs, hdrs
   const std::vector<std::string_view> &includes_dir_list,  // includes = []
-  const DefineMap &defines,
+  const DefineMap &defines, const TargetToFileLocation &declared_deps,
   absl::btree_set<BazelTarget> *conservatively_no_remove,
   bool *all_headers_accounted_for) {
   Stat &source_read_stats =
@@ -479,8 +479,10 @@ DWYUGenerator::DependenciesNeededBySources(
         msg << Red(session_) << " (deprecated: " << *reason << ")"
             << Norm(session_);
       }
+      const std::string_view indicator =
+        (declared_deps.contains(possible_provider)) ? "✓ " : "- ";
       Loc(source, inc_file)
-        << "    | " << possible_provider << msg.str() << "\n";
+        << "    " << indicator << possible_provider << msg.str() << "\n";
     }
   };
 
@@ -815,7 +817,6 @@ void DWYUGenerator::CreateEditsForTarget(const BazelTarget &target,
   DefineMap defines = GetDefinesFromTarget(details);
 
   // All the dependencies; BazelTarget -> locatable string view in file.
-  using TargetToFileLocation = OneToOne<BazelTarget, std::string_view>;
   const TargetToFileLocation all_declared_dependencies = [&]() {
     TargetToFileLocation result;
     const auto deps =
@@ -845,7 +846,8 @@ void DWYUGenerator::CreateEditsForTarget(const BazelTarget &target,
                            target, build_file, sources, &all_header_deps_known)
                        : DependenciesNeededBySources(
                            target, build_file, sources, includes_list, defines,
-                           &conservatively_keep, &all_header_deps_known);
+                           all_declared_dependencies, &conservatively_keep,
+                           &all_header_deps_known);
 
   deps_needed = MinimizeDependencySet(deps_needed);
   OneToOne<BazelTarget, BazelTarget> checked_off_by;

@@ -73,6 +73,8 @@ class DWYUGenerator {
                                                 Stat &read_stats);
 
  private:
+  using TargetToFileLocation = OneToOne<BazelTarget, std::string_view>;
+
   // Extract all the known targets in project and remember corresponding node
   // in case later inspection is needed (e.g. for visibility).
   void InitKnownLibraries();
@@ -100,12 +102,12 @@ class DWYUGenerator {
   // a library for each of the headers we have seen.
   // This is important as only then we can confidently suggest removals in that
   // target.
-  // (this starts to be too many parameters)
+  // (these are too many parameters. Refactor)
   std::vector<absl::btree_set<BazelTarget>> DependenciesNeededBySources(
     const BazelTarget &target, const ParsedBuildFile &build_file,
     const std::vector<std::string_view> &sources,
     const std::vector<std::string_view> &includes_dir_list,
-    const DefineMap &defines,
+    const DefineMap &defines, const TargetToFileLocation &declared_deps,
     absl::btree_set<BazelTarget> *conservatively_no_remove,
     bool *all_headers_accounted_for);
 
