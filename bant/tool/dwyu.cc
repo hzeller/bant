@@ -479,10 +479,20 @@ DWYUGenerator::DependenciesNeededBySources(
         msg << Red(session_) << " (deprecated: " << *reason << ")"
             << Norm(session_);
       }
-      const std::string_view indicator =
-        (declared_deps.contains(possible_provider)) ? "✓ " : "- ";
-      Loc(source, inc_file)
-        << "    " << indicator << possible_provider << msg.str() << "\n";
+      const auto found_declared = declared_deps.find(possible_provider);
+      if (found_declared != declared_deps.end()) {
+        // If the dependency is already declared in target deps=[], add
+        // a checkmark and hyperlink it to the location in the BUILD file.
+        const std::string anchor_text = absl::StrCat("✓ ", possible_provider);
+        const FileLocation loc = project_.GetLocation(found_declared->second);
+        Loc(source, inc_file)
+          << "    " << HyperLinked{session_.linkgen(), loc, anchor_text}
+          << msg.str() << "\n";
+      } else {
+        // ... otherwise just print the would-be provider.
+        Loc(source, inc_file)
+          << "    - " << possible_provider << msg.str() << "\n";
+      }
     }
   };
 

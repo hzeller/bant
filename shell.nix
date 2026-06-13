@@ -18,5 +18,6 @@ bant_used_stdenv.mkDerivation {
       # clang tidy: use latest.
       export CLANG_TIDY=${pkgs.llvmPackages_21.clang-tools}/bin/clang-tidy
       export CLANG_FORMAT=${pkgs.llvmPackages_20.clang-tools}/bin/clang-format
+      export BANT_LINKS=auto
   '';
 }
