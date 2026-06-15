@@ -217,9 +217,11 @@ CliStatus RunCommand(Session &session, Command cmd,
     flags.recurse_dependency_depth = kReasonableDefaultDependencyDepth;
   }
 
-  // For most operations and least surprises, we want to elaborate.
-  // Only for print and parse we give finer control
-  if (cmd != Command::kParse && cmd != Command::kPrint) {
+  // For many operations and least surprises, we want to elaborate, others
+  // should be given the option to choose manually.
+  if (cmd != Command::kParse && cmd != Command::kPrint &&
+      cmd != Command::kListTargets && cmd != Command::kListLeafs &&
+      cmd != Command::kListFilegroups && cmd != Command::kListPackages) {
     flags.elaborate = true;
     flags.bant_macro_expand = true;
   }
