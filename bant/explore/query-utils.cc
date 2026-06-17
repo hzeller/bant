@@ -145,14 +145,6 @@ class TargetFinder : public BaseVoidVisitor {
 
   void InformCaller() {
     if (!allow_empty_name_ && current_.name.empty()) return;
-    // If we never got a hdrs list (or couldn't read it because
-    // it was a glob), assume this is an alwayslink library, so it wouldn't be
-    // considered for removal by DWYU (e.g. :gtest_main)
-    // TODO: figure out what the actual semantics is in bazel.
-    if (current_.rule == "cc_library" &&
-        (!current_.hdrs_list || current_.hdrs_list->empty())) {
-      current_.alwayslink = true;
-    }
     if (current_.visibility == nullptr) {
       current_.visibility = package_default_visibility_;
     }

@@ -862,7 +862,7 @@ cc_library(
 )
 
 cc_library(
-  name = "bar",          # a library without headers, should be consider keep
+  name = "bar",     # a library without headers, should be consider keep
   srcs = ["foo.cc"],
 )
 
@@ -877,7 +877,7 @@ cc_library(
   srcs = ["quux.cc"],
   deps = [
        ":foo",     # Not nominally needed, but we can't be sure to remove.
-       ":bar",     # considered an alwayslink
+       ":bar",     # considered to keep due to no headers
        ":baz",     # buildcleaner:keep
    ],
 )
@@ -891,7 +891,8 @@ cc_library(
   EXPECT_THAT(tester.LogContent(), HasSubstr("unknown provider"));
   EXPECT_THAT(tester.LogContent(),
               HasSubstr(":foo dependency looks superfluous"));
-  // However, we do NOT want to report the dependency that we consider
+  // Now that we know we can't report due to unknown provider, we should
+  // we should NOT want to report the dependency that we consider
   // alwayslink...
   EXPECT_THAT(tester.LogContent(),
               Not(HasSubstr(":bar dependency looks superfluous")));
@@ -922,7 +923,7 @@ cc_library(
   tester.RunForTarget("//some/path:bar");
 }
 
-TEST(DWYUTest, DoNotRemove_LibraryWithoutHeaderConsideredAlwayslinkDependency) {
+TEST(DWYUTest, DoNotRemove_LibraryWithoutHeaderConsideredDependencyToKeep) {
   ParsedProjectTestUtil pp;
   pp.Add("//some/path", R"(
 cc_library(

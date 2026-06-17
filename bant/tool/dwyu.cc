@@ -184,11 +184,18 @@ void DWYUGenerator::InitKnownLibraries() {
 }
 
 // Various predicates to check
-bool DWYUGenerator::IsAlwayslink(const BazelTarget &target) const {
+bool DWYUGenerator::DependencySaysShouldKeep(const BazelTarget &target) const {
   auto found = known_libs_.find(target);
   if (found == known_libs_.end()) return true;  // Unknown ? Be conservative.
+  const query::Result &dep = found->second;
   // TODO: follow all libs we depend on ?
-  return found->second.alwayslink;
+  if (dep.alwayslink) {
+    return true;
+  }
+  if (dep.rule == "cc_library" && (!dep.hdrs_list || dep.hdrs_list->empty())) {
+    return true;
+  }
+  return false;
 }
 
 bool DWYUGenerator::IsTestonlyCompatible(const BazelTarget &target,
@@ -915,7 +922,7 @@ void DWYUGenerator::CreateEditsForTarget(const BazelTarget &target,
     const bool potential_remove_suggestion_safe = all_header_deps_known;
 
     // There are also other reasons why we might not want to remove a dependency
-    bool veto_removal = IsAlwayslink(requested_target);
+    bool veto_removal = DependencySaysShouldKeep(requested_target);
     if (!veto_removal) {  // But maybe buildcleaner:keep ?
       static const LazyRE2 kExcludeVetoUserCommentRe{"(#.*keep.*)"};
       const auto line = project_.GetSurroundingLine(dep_in_file);

@@ -80,7 +80,7 @@ class DWYUGenerator {
   void InitKnownLibraries();
 
   // Various predicates to check targets to make decisions to include/exclude.
-  bool IsAlwayslink(const BazelTarget &target) const;
+  bool DependencySaysShouldKeep(const BazelTarget &target) const;
   bool IsTestonlyCompatible(const BazelTarget &target,
                             const BazelTarget &dep) const;
   // Check if "target" can see "dep". Sets "msg" if not.
