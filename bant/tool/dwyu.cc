@@ -218,11 +218,17 @@ bool DWYUGenerator::IsTestonlyCompatible(const BazelTarget &target,
 }
 
 // Visiblity check.
-std::optional<std::string_view> DWYUGenerator::DeprecationReason(
+std::optional<std::string_view> DWYUGenerator::AvoidDependencyReason(
   const BazelTarget &target) const {
-  const auto found = known_libs_.find(target);
-  if (found != known_libs_.end() && !found->second.deprecation.empty()) {
-    return found->second.deprecation;
+  if (auto found = known_libs_.find(target); found != known_libs_.end()) {
+    if (!found->second.deprecation.empty()) {
+      return found->second.deprecation;
+    }
+    const auto tags = query::ExtractStringList(found->second.tags);
+    if (auto avoid_dep = std::find(tags.begin(), tags.end(), "avoid_dep");
+        avoid_dep != tags.end()) {
+      return *avoid_dep;  // Original string_view from file.
+    }
   }
   return std::nullopt;
 }
@@ -357,7 +363,7 @@ void DWYUGenerator::AddVisibleAlternatives(
   absl::btree_set<BazelTarget> visible_deprecated;
   for (const BazelTarget &t : alternatives) {
     if (CanSee(target, t, nullptr)) {
-      if (DeprecationReason(t).has_value()) {
+      if (AvoidDependencyReason(t).has_value()) {
         visible_deprecated.emplace(t);
       } else {
         visible.emplace(t);
@@ -380,7 +386,7 @@ void DWYUGenerator::AddVisibleAlternativesWithStratum(
   bool found_non_deprecated = false;
   for (const BazelTarget &t : alternatives) {
     if (CanSee(target, t, nullptr)) {
-      const bool is_deprecated = DeprecationReason(t).has_value();
+      const bool is_deprecated = AvoidDependencyReason(t).has_value();
       if (is_deprecated && found_non_deprecated) continue;
       if (!is_deprecated && !found_non_deprecated) {
         // Until we find the first non-deprecated alternative, we also
@@ -475,8 +481,8 @@ DWYUGenerator::DependenciesNeededBySources(
       std::string why;
       if (!CanSee(target, possible_provider, &why)) {
         msg << Red(session_) << " (" << why << ")" << Norm(session_);
-      } else if (auto reason = DeprecationReason(possible_provider)) {
-        msg << Red(session_) << " (deprecated: " << *reason << ")"
+      } else if (auto reason = AvoidDependencyReason(possible_provider)) {
+        msg << Red(session_) << " (to avoid: " << *reason << ")"
             << Norm(session_);
       }
       const auto found_declared = declared_deps.find(possible_provider);
@@ -956,7 +962,7 @@ void DWYUGenerator::CreateEditsForTarget(const BazelTarget &target,
       emit_deps_edit_(EditRequest::kAdd, target, "",
                       need_add.ToStringRelativeTo(target.package));
       if (session_.MinVerbosity(1)) {
-        if (auto reason = DeprecationReason(need_add)) {
+        if (auto reason = AvoidDependencyReason(need_add)) {
           Loc(project_, details.name)
             << " Only suitable dependency " << need_add
             << " is deprecated: " << *reason << "\n";

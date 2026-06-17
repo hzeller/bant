@@ -464,7 +464,7 @@ TEST(DWYUTest, ChooseNonDeprecatedAlternative) {
 alias(
   name = "deprecated_foo",
   actual = ":new_foo",
-  deprecation = "This note makes sure it is not considered an alternative",
+  deprecation = "Deprecation note so not considered an alternative",
 )
 
 cc_library(
@@ -483,11 +483,50 @@ cc_binary(
 )");
 
   {
-    DWYUTestFixture tester(pp.project(), {});
+    // We have two alternatives, but since we can sort out the deprecated one,
+    // we expect a definitive add of the non-deprecated version.
+    DWYUTestFixture tester(pp.project(), {.verbose = 3});
     tester.ExpectAdd("//some/lib:new_foo");
     tester.ExpectRemove("//some/lib:deprecated_foo");
     tester.AddSource("user/hello.cc", R"(#include "some/lib/foo.h")");
     tester.RunForTarget("//user:hello");
+    EXPECT_THAT(tester.LogContent(), HasSubstr("to avoid: Deprecation"));
+  }
+}
+
+// Similar to deprecation, the tag = ["avoid_dep"] helps filter out.
+// (note: example similar to ChooseNonDeprecatedAlternative)
+TEST(DWYUTest, ChooseNonAvoidDepAlternative) {
+  ParsedProjectTestUtil pp;
+  pp.Add("//some/lib", R"(
+alias(
+  name = "to_avoid_foo",
+  actual = ":new_foo",
+  tags = ["avoid_dep"],
+)
+
+cc_library(
+  name = "new_foo",
+  srcs = ["foo.cc"],
+  hdrs = ["foo.h"],
+)
+)");
+
+  pp.Add("//user", R"(
+cc_binary(
+   name = "hello",
+   srcs = ["hello.cc"],
+   deps = ["//some/lib:to_avoid_foo"],
+)
+)");
+
+  {
+    DWYUTestFixture tester(pp.project(), {.verbose = 3});
+    tester.ExpectAdd("//some/lib:new_foo");
+    tester.ExpectRemove("//some/lib:to_avoid_foo");
+    tester.AddSource("user/hello.cc", R"(#include "some/lib/foo.h")");
+    tester.RunForTarget("//user:hello");
+    EXPECT_THAT(tester.LogContent(), HasSubstr("to avoid: avoid_dep"));
   }
 }
 
@@ -1317,6 +1356,8 @@ cc_library(
   tester.RunForTarget("//some/path:bar");
 }
 
+// If something is deprecated, we usually would not consider it. However, if
+// this is the only viable dependency, use that.
 TEST(DWYUTest, Add_ExclusivelyDeprecatedDependency) {
   ParsedProjectTestUtil pp;
   pp.Add("//lib/path", R"(

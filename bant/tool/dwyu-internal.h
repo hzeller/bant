@@ -89,7 +89,7 @@ class DWYUGenerator {
 
   // Returns the deprecation message if the target is deprecated, otherwise
   // std::nullopt.
-  std::optional<std::string_view> DeprecationReason(
+  std::optional<std::string_view> AvoidDependencyReason(
     const BazelTarget &target) const;
 
   // Workspace stratum of a bazel target. Relevant to weed out imposters.
