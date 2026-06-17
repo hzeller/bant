@@ -810,16 +810,17 @@ cc_library(
   srcs = ["baz.cc"],
   deps = [
     ":foo",
-    ":bar"  # random text dwyu that needs to contain: keep
+    ":bar"  # random text dwyu that contains word keep
   ],
 )
 )");
 
-  DWYUTestFixture tester(pp.project(), {});
+  DWYUTestFixture tester(pp.project(), {.verbose = 3});
   tester.ExpectRemove(":foo");
   // :bar should be removed, but is kept due to comment
   tester.AddSource("some/path/baz.cc", "/* no include */");
   tester.RunForTarget("//some/path:baz");
+  EXPECT_THAT(tester.LogContent(), HasSubstr("contains word keep"));
 }
 
 TEST(DWYUTest, DoNotRemove_IfThereIsSourceThatCanNotBeRead) {

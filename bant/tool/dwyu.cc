@@ -917,10 +917,18 @@ void DWYUGenerator::CreateEditsForTarget(const BazelTarget &target,
     // There are also other reasons why we might not want to remove a dependency
     bool veto_removal = IsAlwayslink(requested_target);
     if (!veto_removal) {  // But maybe buildcleaner:keep ?
-      static const LazyRE2 kExcludeVetoUserCommentRe{"#.*keep"};
+      static const LazyRE2 kExcludeVetoUserCommentRe{"(#.*keep.*)"};
       const auto line = project_.GetSurroundingLine(dep_in_file);
-      veto_removal = (!session_.flags().ignore_keep_comment &&
-                      RE2::PartialMatch(line, *kExcludeVetoUserCommentRe));
+      std::string_view keep_match;
+      veto_removal =
+        (!session_.flags().ignore_keep_comment &&
+         RE2::PartialMatch(line, *kExcludeVetoUserCommentRe, &keep_match));
+      if (veto_removal && session_.MinVerbosity(3)) {
+        Loc(project_, keep_match)
+          << " Keeping " << Bold(session_) << requested_target << Norm(session_)
+          << " due to comment: '" << Dim(session_) << keep_match
+          << Norm(session_) << "'\n";
+      }
     }
     veto_removal =
       veto_removal || conservatively_keep.contains(requested_target);
