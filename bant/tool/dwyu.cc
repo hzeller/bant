@@ -195,6 +195,11 @@ bool DWYUGenerator::DependencySaysShouldKeep(const BazelTarget &target) const {
   if (dep.rule == "cc_library" && (!dep.hdrs_list || dep.hdrs_list->empty())) {
     return true;
   }
+  const auto tags = query::ExtractStringList(dep.tags);
+  if (auto keep_dep = std::find(tags.begin(), tags.end(), "keep_dep");
+      keep_dep != tags.end()) {
+    return true;
+  }
   return false;
 }
 

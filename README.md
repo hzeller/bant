@@ -66,6 +66,10 @@ up-to-date in development.
 I usually just don't even add `deps = [...]` manually anymore but just
 let `bant dwyu` do the work.
 
+If a `cc_library()` has an `alwayslink = True` or `tags = ["keep_dep"]`
+attribute, it will not be considered to be removed in any the targets that
+have it as dependency, even none of their headers is included.
+
 The following auto-fixes all dependencies of the project:
 
 ```bash
@@ -91,6 +95,7 @@ cc_library(
   ]
 )
 ```
+
 Note, a well-defined project should not need this. This feature provides
 an escape hatch if needed. With `-k`, `bant` will be
 strict and ignore `# keep` comments and emit the removal edit anyway.

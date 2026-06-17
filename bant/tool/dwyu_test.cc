@@ -923,6 +923,28 @@ cc_library(
   tester.RunForTarget("//some/path:bar");
 }
 
+TEST(DWYUTest, DoNotRemove_TaggedWith_keep_dep_Dependency) {
+  ParsedProjectTestUtil pp;
+  pp.Add("//some/path", R"(
+cc_library(
+  name = "foo",
+  srcs = ["foo.cc"],
+  hdrs = ["foo.h"],
+  tags = ["keep_dep"],
+)
+
+cc_library(
+  name = "bar",
+  srcs = ["bar.cc"],
+  deps = [":foo"],
+)
+)");
+
+  DWYUTestFixture tester(pp.project(), {});
+  tester.AddSource("some/path/bar.cc", "/* no include */");
+  tester.RunForTarget("//some/path:bar");
+}
+
 TEST(DWYUTest, DoNotRemove_LibraryWithoutHeaderConsideredDependencyToKeep) {
   ParsedProjectTestUtil pp;
   pp.Add("//some/path", R"(
