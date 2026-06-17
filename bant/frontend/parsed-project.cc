@@ -47,6 +47,7 @@
 #include "bant/util/filesystem.h"
 #include "bant/util/grep-highlighter.h"
 #include "bant/util/stat.h"
+#include "bant/util/term-color.h"
 #include "bant/workspace.h"
 
 namespace bant {
@@ -203,9 +204,9 @@ ParsedBuildFile *ParsedProject::AddBuildFileContent(Session &session,
     ParsedBuildFile *const existing = inserted.first->second.get();
     // Should typically not happen, but maybe both BUILD and BUILD.bazel are
     // there ? Report for the user to figure out.
-    session.info() << file.path() << ": Package " << package
+    session.info() << Dim(session) << file.path() << ": Package " << package
                    << " already seen before in "
-                   << existing->source_.source_name() << "\n";
+                   << existing->source_.source_name() << Norm(session) << "\n";
     return existing;
   }
 

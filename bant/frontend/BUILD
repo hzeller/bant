@@ -150,6 +150,7 @@ cc_library(
         "//bant/util:grep-highlighter",
         "//bant/util:memory",
         "//bant/util:stat",
+        "//bant/util:term-color",
         "@abseil-cpp//absl/container:flat_hash_map",
         "@abseil-cpp//absl/log:check",
         "@abseil-cpp//absl/status",
