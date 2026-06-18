@@ -380,9 +380,10 @@ void DWYUGenerator::LogUnknownProvider(const NamedLineIndexedContent &source,
             << Norm(session_);
     header_without_provider_[ref_file].insert(message.str());
   }
-  Loc(source, ref_file) << " " << ref_keyword << " \"" << ref_file << "\"\n";
-  Loc(source, ref_file) << Red(session_) << "    ?      ^ unknown provider"
-                        << Norm(session_) << extra_info << "\n";
+  Loc(source, ref_file) << " " << Bold(session_) << ref_keyword << " \""
+                        << ref_file << "\" " << Norm(session_) << Red(session_)
+                        << "(unknown provider)" << Norm(session_) << "\n";
+  Loc(source, ref_file) << "    ?      ^ " << extra_info << "\n";
 }
 
 void DWYUGenerator::AddVisibleAlternatives(

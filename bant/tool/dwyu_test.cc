@@ -207,7 +207,8 @@ cc_library(
 #include "wrongpath/foo.h"
 )");
     tester.RunForTarget("//some/path:bar");
-    EXPECT_THAT(tester.LogContent(), HasSubstr("unknown provider -- Missing"));
+    EXPECT_THAT(tester.LogContent(), HasSubstr("(unknown provider)"));
+    EXPECT_THAT(tester.LogContent(), HasSubstr("Missing or from non-standard"));
   }
 }
 
