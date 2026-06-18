@@ -56,7 +56,7 @@ struct Result {
   std::string_view include_prefix;        // ... to manipulate the path ...
   std::string_view strip_include_prefix;  // ... files from hdrs are found.
   std::string_view strip_import_prefix;   // ... similar, used in proto_library
-  bool alwayslink = false;
+  const Scalar *alwayslink_scalar = nullptr;
   bool testonly = false;
   bool bant_skip_dependency_check = false;  // No dwyu; used in builtin macros.
 };

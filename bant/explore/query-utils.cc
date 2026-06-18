@@ -92,7 +92,7 @@ class TargetFinder : public BaseVoidVisitor {
       if (lhs == "name") {
         current_.name = scalar->AsString();
       } else if (lhs == "alwayslink") {
-        current_.alwayslink = scalar->AsInt();
+        current_.alwayslink_scalar = scalar;
       } else if (lhs == "testonly") {
         current_.testonly = scalar->AsInt();
       } else if (lhs == "bant_skip_dependency_check") {

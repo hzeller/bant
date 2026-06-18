@@ -80,7 +80,15 @@ class DWYUGenerator {
   void InitKnownLibraries();
 
   // Various predicates to check targets to make decisions to include/exclude.
-  bool DependencySaysShouldKeep(const BazelTarget &target) const;
+  struct ShouldKeepMessage {
+    std::string message;                // Explanation;
+    std::string_view locatable_reason;  // Point to string-view in project
+  };
+  bool DependencySaysShouldKeep(const BazelTarget &target,
+                                ShouldKeepMessage *msg) const;
+  bool CommentSaysShouldKeepDependency(std::string_view dep_in_file,
+                                       ShouldKeepMessage *msg) const;
+
   bool IsTestonlyCompatible(const BazelTarget &target,
                             const BazelTarget &dep) const;
   // Check if "target" can see "dep". Sets "msg" if not.

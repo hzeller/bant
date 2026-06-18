@@ -184,20 +184,37 @@ void DWYUGenerator::InitKnownLibraries() {
 }
 
 // Various predicates to check
-bool DWYUGenerator::DependencySaysShouldKeep(const BazelTarget &target) const {
+bool DWYUGenerator::DependencySaysShouldKeep(const BazelTarget &target,
+                                             ShouldKeepMessage *msg) const {
   auto found = known_libs_.find(target);
   if (found == known_libs_.end()) return true;  // Unknown ? Be conservative.
   const query::Result &dep = found->second;
   // TODO: follow all libs we depend on ?
-  if (dep.alwayslink) {
-    return true;
-  }
-  if (dep.rule == "cc_library" && (!dep.hdrs_list || dep.hdrs_list->empty())) {
+  if (dep.alwayslink_scalar && dep.alwayslink_scalar->AsInt()) {
+    *msg = {"alwayslink", dep.alwayslink_scalar->AsString()};
     return true;
   }
   const auto tags = query::ExtractStringList(dep.tags);
   if (auto keep_dep = std::find(tags.begin(), tags.end(), "keep_dep");
       keep_dep != tags.end()) {
+    *msg = {"tag", *keep_dep};
+    return true;
+  }
+  if (dep.rule == "cc_library" && (!dep.hdrs_list || dep.hdrs_list->empty())) {
+    *msg = {"empty hdrs = []", dep.name};
+    return true;
+  }
+  return false;
+}
+
+bool DWYUGenerator::CommentSaysShouldKeepDependency(
+  std::string_view dep_in_file, ShouldKeepMessage *msg) const {
+  static const LazyRE2 kExcludeVetoUserCommentRe{"(#.*keep.*)"};
+  const auto line = project_.GetSurroundingLine(dep_in_file);
+  std::string_view keep_match;
+  if ((!session_.flags().ignore_keep_comment &&
+       RE2::PartialMatch(line, *kExcludeVetoUserCommentRe, &keep_match))) {
+    *msg = {"comment", keep_match};
     return true;
   }
   return false;
@@ -867,14 +884,14 @@ void DWYUGenerator::CreateEditsForTarget(const BazelTarget &target,
     return result;
   }();
 
-  absl::btree_set<BazelTarget> conservatively_keep;
+  absl::btree_set<BazelTarget> conservatively_no_remove;
   // Grep for all includes/imports they use to determine which deps we need
   auto deps_needed = is_proto_library
                        ? DependenciesNeededByProtoSources(
                            target, build_file, sources, &all_header_deps_known)
                        : DependenciesNeededBySources(
                            target, build_file, sources, includes_list, defines,
-                           all_declared_dependencies, &conservatively_keep,
+                           all_declared_dependencies, &conservatively_no_remove,
                            &all_header_deps_known);
 
   deps_needed = MinimizeDependencySet(deps_needed);
@@ -926,24 +943,20 @@ void DWYUGenerator::CreateEditsForTarget(const BazelTarget &target,
     // a dependency for every header-include we saw.
     const bool potential_remove_suggestion_safe = all_header_deps_known;
 
-    // There are also other reasons why we might not want to remove a dependency
-    bool veto_removal = DependencySaysShouldKeep(requested_target);
-    if (!veto_removal) {  // But maybe buildcleaner:keep ?
-      static const LazyRE2 kExcludeVetoUserCommentRe{"(#.*keep.*)"};
-      const auto line = project_.GetSurroundingLine(dep_in_file);
-      std::string_view keep_match;
-      veto_removal =
-        (!session_.flags().ignore_keep_comment &&
-         RE2::PartialMatch(line, *kExcludeVetoUserCommentRe, &keep_match));
-      if (veto_removal && session_.MinVerbosity(3)) {
-        Loc(project_, keep_match)
-          << " Keeping " << Bold(session_) << requested_target << Norm(session_)
-          << " due to comment: '" << Dim(session_) << keep_match
-          << Norm(session_) << "'\n";
-      }
+    // There might be reasons why we might not want to remove a dependency
+    ShouldKeepMessage keep_msg;
+    const bool veto_removal =
+      DependencySaysShouldKeep(requested_target, &keep_msg) ||
+      CommentSaysShouldKeepDependency(dep_in_file, &keep_msg) ||
+      conservatively_no_remove.contains(requested_target);
+
+    if (veto_removal && !keep_msg.locatable_reason.empty() &&
+        session_.MinVerbosity(3)) {
+      Loc(project_, keep_msg.locatable_reason)
+        << " Keeping " << Bold(session_) << requested_target << Norm(session_)
+        << " due to " << keep_msg.message << ": '" << Dim(session_)
+        << keep_msg.locatable_reason << Norm(session_) << "'\n";
     }
-    veto_removal =
-      veto_removal || conservatively_keep.contains(requested_target);
 
     // Emit the edits.
     if (!veto_removal) {

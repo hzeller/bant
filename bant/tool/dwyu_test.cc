@@ -888,12 +888,14 @@ cc_library(
 #include "some/path/unaccounted-header.h"
 )");
   tester.RunForTarget("//some/path:quux");
+
   EXPECT_THAT(tester.LogContent(), HasSubstr("unknown provider"));
   EXPECT_THAT(tester.LogContent(),
               HasSubstr(":foo dependency looks superfluous"));
+
   // Now that we know we can't report due to unknown provider, we should
-  // we should NOT want to report the dependency that we consider
-  // alwayslink...
+  // we should NOT want to report other reasons, as we generally don't do
+  // any removals on that target now.
   EXPECT_THAT(tester.LogContent(),
               Not(HasSubstr(":bar dependency looks superfluous")));
   // .. or keep
@@ -918,9 +920,10 @@ cc_library(
 )
 )");
 
-  DWYUTestFixture tester(pp.project(), {});
+  DWYUTestFixture tester(pp.project(), {.verbose = 3});
   tester.AddSource("some/path/bar.cc", "/* no include */");
   tester.RunForTarget("//some/path:bar");
+  EXPECT_THAT(tester.LogContent(), HasSubstr("due to alwayslink: 'True'"));
 }
 
 TEST(DWYUTest, DoNotRemove_TaggedWith_keep_dep_Dependency) {
@@ -940,9 +943,10 @@ cc_library(
 )
 )");
 
-  DWYUTestFixture tester(pp.project(), {});
+  DWYUTestFixture tester(pp.project(), {.verbose = 3});
   tester.AddSource("some/path/bar.cc", "/* no include */");
   tester.RunForTarget("//some/path:bar");
+  EXPECT_THAT(tester.LogContent(), HasSubstr("due to tag: 'keep_dep'"));
 }
 
 TEST(DWYUTest, DoNotRemove_LibraryWithoutHeaderConsideredDependencyToKeep) {
@@ -977,11 +981,12 @@ cc_library(
 )
 )");
 
-  DWYUTestFixture tester(pp.project(), {});
+  DWYUTestFixture tester(pp.project(), {.verbose = 3});
   tester.AddSource("some/path/quux.cc", "/* no include */");
 
   tester.ExpectRemove(":baz");  // Only one expected to be removed.
   tester.RunForTarget("//some/path:quux");
+  EXPECT_THAT(tester.LogContent(), HasSubstr("due to empty hdrs"));
 }
 
 TEST(DWYUTest, Add_ProtoLibraryForProtoInclude) {
