@@ -1,7 +1,7 @@
 { pkgs ? import <nixpkgs> {} }:
 let
   bant_used_stdenv = pkgs.stdenv;        # no layering_check but clangd works
-  #bant_used_stdenv = pkgs.clang19Stdenv;  # layering_check works, but clangd fails to understand c++ headers.
+  #bant_used_stdenv = pkgs.llvmPackages_21.stdenv;  # layering_check works, but clangd fails to understand c++ headers.
 in
 bant_used_stdenv.mkDerivation {
   name = "bant-build-environment";
@@ -11,13 +11,13 @@ bant_used_stdenv.mkDerivation {
       jdk11
       re2c
 
-      llvmPackages_20.clang-tools
+      llvmPackages_21.clang-tools
       bazel-buildtools  # buildifier, buildozer
     ];
   shellHook = ''
       # clang tidy: use latest.
       export CLANG_TIDY=${pkgs.llvmPackages_21.clang-tools}/bin/clang-tidy
-      export CLANG_FORMAT=${pkgs.llvmPackages_20.clang-tools}/bin/clang-format
+      export CLANG_FORMAT=${pkgs.llvmPackages_21.clang-tools}/bin/clang-format
       export BANT_LINKS=auto
   '';
 }
