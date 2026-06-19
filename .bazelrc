@@ -19,6 +19,9 @@ build       --cxxopt=-Wno-unused-parameter --host_cxxopt=-Wno-unused-parameter
 build       --cxxopt=-fno-exceptions       --host_cxxopt=-fno-exceptions
 build       --cxxopt=-fno-rtti             --host_cxxopt=-fno-rtti
 
+# Bazel compiles headers and then compiler complains about -c arg.
+build --copt=-Wno-unused-command-line-argument
+
 # For 3rd party code: Disable warnings entirely.
 # They are not actionable and just create noise.
 build --per_file_copt=external/.*@-w
