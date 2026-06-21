@@ -55,7 +55,7 @@ constexpr std::string_view kBazelRoot("bazel-out/../../..");
 struct q {
   std::string_view value;
 };
-static std::ostream &operator<<(std::ostream &out, const q &quoted_str) {
+std::ostream &operator<<(std::ostream &out, const q &quoted_str) {
   out << "\"" << quoted_str.value << "\"";
   return out;
 }
@@ -95,20 +95,33 @@ class RelativePathCanonicalizer {
   const std::optional<std::string> root_resolved_;
 };
 
-// Common typical options considered for the compiler.
-static constexpr std::string_view kCommonDefaultOptions[] = {
-  "-xc++",
-  "-U_FORTIFY_SOURCE",
-  "-O2",
-  "-DNDEBUG",
-};
+using DuplicationCheckSet = absl::flat_hash_set<std::string>;
+
+std::vector<std::string> AddDefaultOptions(DuplicationCheckSet *already_seen) {
+  // Common typical options considered for the compiler.
+  static constexpr std::string_view kCommonDefaultOptions[] = {
+    "-xc++",
+    "-U_FORTIFY_SOURCE",
+    "-O2",
+    "-DNDEBUG",
+  };
+
+  std::vector<std::string> result;
+  // The options we always kinda want.
+  for (const std::string_view option : kCommonDefaultOptions) {
+    if (already_seen->emplace(option).second) {
+      result.emplace_back(option);
+    }
+  }
+  return result;
+}
 
 // Return options found in the bazelrc in the sequence they arrive.
 // TODO: just emit the last winning option if multiple same options found.
 //       (right now it emits the _first_)
 // TODO: needs test :)
 std::vector<std::string> ExtractOptionsFromBazelrc(
-  const std::string_view content) {
+  const std::string_view content, DuplicationCheckSet *already_seen) {
   // Line prefix we're interested in to look for options.
   static const LazyRE2 kLinePrefix{R"/(^\s*(build|test|common)(\:linux)? )/"};
 
@@ -119,12 +132,11 @@ std::vector<std::string> ExtractOptionsFromBazelrc(
     R"/(--(?:host_)?c(?:xx)?opt\s*=?\s*['"]?(-[^\s"']+))/"};
 
   std::vector<std::string> result;
-  absl::flat_hash_set<std::string_view> already_seen;
   for (std::string_view line : absl::StrSplit(content, '\n')) {
     if (!RE2::PartialMatch(line, *kLinePrefix)) continue;
     std::string_view cxx_opt;
     while (RE2::FindAndConsume(&line, *kCoptExtract, &cxx_opt)) {
-      if (already_seen.insert(cxx_opt).second) {
+      if (already_seen->emplace(cxx_opt).second) {
         result.emplace_back(cxx_opt);
       }
     }
@@ -139,12 +151,13 @@ std::vector<std::string> ExtractOptionsFromBazelrc(
   return result;
 }
 
-static std::vector<std::string> ExtractOptionsFromBazelrcFile() {
+std::vector<std::string> ExtractOptionsFromBazelrcFile(
+  DuplicationCheckSet *already_seen) {
   std::vector<std::string> result;
   Filesystem &fs = Filesystem::instance();
   const auto bazelrc = fs.ReadFileToString(".bazelrc");
   if (!bazelrc.has_value()) return result;
-  return ExtractOptionsFromBazelrc(*bazelrc);
+  return ExtractOptionsFromBazelrc(*bazelrc, already_seen);
 }
 
 // Hack to accomodate protocol buffers.
@@ -155,10 +168,9 @@ static std::vector<std::string> ExtractOptionsFromBazelrcFile() {
 // actually expands to as cc_library with their corresponding deps = []
 // (without having to parse the convoluted *.bzl file).
 // Broken out in separate function to easily remove this hack later.
-static void ProtobufHack(const BazelTarget &target,
-                         const BazelWorkspace &workspace, bool is_proto_library,
-                         absl::flat_hash_set<std::string> *already_seen,
-                         std::vector<std::string> &result) {
+void ProtobufHack(const BazelTarget &target, const BazelWorkspace &workspace,
+                  bool is_proto_library, DuplicationCheckSet *already_seen,
+                  std::vector<std::string> &result) {
   const std::string_view protobuf_project = target.package.project;
   if (!absl::StrContains(protobuf_project, "protobuf")) {
     return;  // not interesting.
@@ -210,8 +222,9 @@ static void ProtobufHack(const BazelTarget &target,
   }
 }
 
-static std::vector<std::string> CollectIncDirs(
-  Session &session, const BazelTargetMatcher &pattern, ParsedProject *project) {
+std::vector<std::string> CollectIncDirs(Session &session,
+                                        const BazelTargetMatcher &pattern,
+                                        ParsedProject *project) {
   std::vector<std::string> result;
 
   result.emplace_back(".");          // Our sources.
@@ -220,7 +233,7 @@ static std::vector<std::string> CollectIncDirs(
 
   // All the -I (or more precisely: -iquote) directories.
   const BazelWorkspace &workspace = project->workspace();
-  absl::flat_hash_set<std::string> already_seen;
+  DuplicationCheckSet already_seen;
   BuildDependencyGraph(
     session, pattern, 30, project,
     [&](const BazelTarget &target, const query::Result &details) {
@@ -324,15 +337,20 @@ static std::vector<std::string> CollectIncDirs(
   return result;
 }
 
-static std::string EncodeFlagsIncludeAsJson(Session &session,
-                                            const BazelTargetMatcher &pattern,
-                                            ParsedProject *project) {
+std::string EncodeFlagsIncludeAsJson(Session &session,
+                                     const BazelTargetMatcher &pattern,
+                                     ParsedProject *project) {
   constexpr std::string_view kIndent = "      ";
 
   std::stringstream out;
 
+  DuplicationCheckSet seen;
+  for (const std::string &cxxopt : AddDefaultOptions(&seen)) {
+    out << kIndent << q{cxxopt} << ",\n";
+  }
+
   // All the cxx options mentioned in the .bazelrc
-  for (const std::string &cxxopt : ExtractOptionsFromBazelrcFile()) {
+  for (const std::string &cxxopt : ExtractOptionsFromBazelrcFile(&seen)) {
     out << kIndent << q{cxxopt} << ",\n";
   }
 
@@ -348,13 +366,13 @@ static std::string EncodeFlagsIncludeAsJson(Session &session,
   return out.str();
 }
 
-static void WriteCompilationDBEntry(const ParsedProject &project,
-                                    const BazelPackage &package,
-                                    const query::Result &details,
-                                    const std::string &cwd,
-                                    const std::string &external_inc_json,
-                                    std::set<std::string> *already_written,
-                                    std::ostream &out) {
+void WriteCompilationDBEntry(const ParsedProject &project,
+                             const BazelPackage &package,
+                             const query::Result &details,
+                             const std::string &cwd,
+                             const std::string &external_inc_json,
+                             DuplicationCheckSet *already_written,
+                             std::ostream &out) {
   std::vector<std::string_view> sources;
   query::AppendStringList(details.srcs_list, sources);
   query::AppendStringList(details.hdrs_list, sources);
@@ -375,7 +393,7 @@ static void WriteCompilationDBEntry(const ParsedProject &project,
     out << "    " << q{"file"} << ": " << q{abs_src} << ",\n";
     out << "    " << q{"arguments"} << ": [\n";
     out << "      " << q{"gcc"} << ",\n";
-    for (const std::string_view option : kCommonDefaultOptions) {
+    for (const std::string_view option : AddDefaultOptions(already_written)) {
       out << "      " << q{option} << ",\n";
     }
 
@@ -393,9 +411,8 @@ static void WriteCompilationDBEntry(const ParsedProject &project,
   }
 }
 
-static void WriteCompilationDB(Session &session,
-                               const BazelTargetMatcher &pattern,
-                               ParsedProject *project) {
+void WriteCompilationDB(Session &session, const BazelTargetMatcher &pattern,
+                        ParsedProject *project) {
   std::ostream &out = session.out();
   const std::string cwd = std::filesystem::current_path().string();
 
@@ -408,7 +425,7 @@ static void WriteCompilationDB(Session &session,
   const std::string external_inc_json =
     EncodeFlagsIncludeAsJson(session, pattern, project);
 
-  std::set<std::string> already_written;
+  DuplicationCheckSet already_written;
   out << "[\n";
   for (const auto &[_, parsed_package] : project->ParsedFiles()) {
     const BazelPackage &current_package = parsed_package->package;
@@ -431,9 +448,9 @@ static void WriteCompilationDB(Session &session,
 }
 
 // TODO: these variables should probably be expanded at evaluation time.
-static std::string ReplaceMakeVariables(const BazelWorkspace &ws,
-                                        const BazelPackage &package,
-                                        std::string_view text) {
+std::string ReplaceMakeVariables(const BazelWorkspace &ws,
+                                 const BazelPackage &package,
+                                 std::string_view text) {
   std::string result{text};
   if (!absl::StrContains(result, "$(")) return result;  // common case.
 
@@ -466,9 +483,9 @@ static std::string ReplaceMakeVariables(const BazelWorkspace &ws,
 
 // Extract all -Ifoobar elements found in all of the copts of cc_binary() and
 // cc_library() for compile_flags.txt, where we just combine everything.
-static std::set<std::string> GetAllIncCOpts(Session &session,
-                                            const BazelTargetMatcher &pattern,
-                                            ParsedProject *project) {
+std::set<std::string> GetAllIncCOpts(Session &session,
+                                     const BazelTargetMatcher &pattern,
+                                     ParsedProject *project) {
   const BazelWorkspace &ws = project->workspace();
   std::set<std::string> result;
   for (const auto &[_, parsed_build] : project->ParsedFiles()) {
@@ -489,11 +506,15 @@ static std::set<std::string> GetAllIncCOpts(Session &session,
   return result;
 }
 
-static void WriteCompilationFlags(Session &session,
-                                  const BazelTargetMatcher &pattern,
-                                  ParsedProject *project) {
+void WriteCompilationFlags(Session &session, const BazelTargetMatcher &pattern,
+                           ParsedProject *project) {
+  DuplicationCheckSet seen;
+  for (const std::string &cxxopt : AddDefaultOptions(&seen)) {
+    session.out() << cxxopt << "\n";
+  }
+
   // All the cxx options mentioned in the .bazelrc
-  for (const std::string &cxxopt : ExtractOptionsFromBazelrcFile()) {
+  for (const std::string &cxxopt : ExtractOptionsFromBazelrcFile(&seen)) {
     session.out() << cxxopt << "\n";
   }
 
