@@ -260,18 +260,17 @@ std::optional<std::string_view> DWYUGenerator::AvoidDueToVisibility(
   // that does not acctually provide any actual libraries. From the comment
   // there it is there for some shared object building rules; but we should
   // not depend on it, so pretend we can't see it.
-  if (dep.target_name == "protobuf_headers") {
+  if (found->second.name == "protobuf_headers") {
     // "protobuf_headers don't actually provide implementation";
-    return dep.target_name;
+    return found->second.name;
   }
 
   List *visibility_list = found->second.visibility;
   if (!visibility_list) return std::nullopt;
   bool any_valid_visiblity_pattern = false;
-  for (Node *entry : *visibility_list) {
-    const Scalar *str = entry->CastAsScalar();
-    if (!str) continue;
-    auto vis_or = BazelPattern::ParseVisibility(str->AsString(), dep.package);
+  for (std::string_view pattern : query::ExtractStringList(visibility_list)) {
+    if (pattern.empty()) continue;
+    auto vis_or = BazelPattern::ParseVisibility(pattern, dep.package);
     if (!vis_or.has_value()) continue;
     any_valid_visiblity_pattern = true;
     if (vis_or->Match(target)) {

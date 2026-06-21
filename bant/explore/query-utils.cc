@@ -79,6 +79,7 @@ class TargetFinder : public BaseVoidVisitor {
     const std::string_view lhs = a->lhs_maybe_identifier()->id();
     if (List *list = a->value()->CastAsList()) {
       if (lhs == "default_visibility") {
+        package_default_visibility_label_ = lhs;
         package_default_visibility_ = list;
       }
     }
@@ -147,6 +148,7 @@ class TargetFinder : public BaseVoidVisitor {
   void InformCaller() {
     if (!allow_empty_name_ && current_.name.empty()) return;
     if (current_.visibility == nullptr) {
+      current_.visibility_label = package_default_visibility_label_;
       current_.visibility = package_default_visibility_;
     }
     found_cb_(current_);
@@ -162,6 +164,7 @@ class TargetFinder : public BaseVoidVisitor {
   // The package should come early in the file, so we should have gathered
   // the default visibility once we hit an actual rule.
   List *package_default_visibility_ = nullptr;
+  std::string_view package_default_visibility_label_;  // locatable string.
 
   // TODO: this assumes library call being a toplevel function; might need
   // stack here if nested (though we might just deal with that in a separate
