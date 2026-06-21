@@ -491,7 +491,8 @@ cc_binary(
     tester.ExpectRemove("//some/lib:deprecated_foo");
     tester.AddSource("user/hello.cc", R"(#include "some/lib/foo.h")");
     tester.RunForTarget("//user:hello");
-    EXPECT_THAT(tester.LogContent(), HasSubstr("to avoid: Deprecation"));
+    EXPECT_THAT(tester.LogContent(),
+                HasSubstr("avoid if possible: Deprecation"));
   }
 }
 
@@ -527,7 +528,7 @@ cc_binary(
     tester.ExpectRemove("//some/lib:to_avoid_foo");
     tester.AddSource("user/hello.cc", R"(#include "some/lib/foo.h")");
     tester.RunForTarget("//user:hello");
-    EXPECT_THAT(tester.LogContent(), HasSubstr("to avoid: avoid_dep"));
+    EXPECT_THAT(tester.LogContent(), HasSubstr("avoid if possible: avoid_dep"));
   }
 }
 
@@ -1413,8 +1414,8 @@ cc_library(
 )");
   tester.RunForTarget("//some/path:bar");
   const std::string log = tester.LogContent();
-  EXPECT_THAT(log, HasSubstr("Only suitable dependency //lib/path:foo"));
-  EXPECT_THAT(log, HasSubstr("is deprecated: Do not use foo."));
+  EXPECT_THAT(log, HasSubstr("//lib/path:foo is the only suitable dependency"));
+  EXPECT_THAT(log, HasSubstr("avoid if possible: Do not use foo."));
 }
 
 TEST(DWYUTest, ReplaceDeprecatedDependencyWithNonDeprecatedAlternative) {

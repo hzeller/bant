@@ -91,14 +91,18 @@ class DWYUGenerator {
 
   bool IsTestonlyCompatible(const BazelTarget &target,
                             const BazelTarget &dep) const;
-  // Check if "target" can see "dep". Sets "msg" if not.
-  bool CanSee(const BazelTarget &target, const BazelTarget &dep,
-              std::string *msg) const;
 
-  // Returns the deprecation message if the target is deprecated, otherwise
-  // std::nullopt.
+  // Check if "target" can see "dep". Returns a locatable reason if not,
+  // otherwise std::nullopt indicates visibility.
+  // The returned string_view is locatable.
+  std::optional<std::string_view> AvoidDueToVisibility(
+    const BazelTarget &target, const BazelTarget &dep) const;
+
+  // Returns the reason if the target is to be avoided (deprecation,
+  // avoid_dep tag, etc.), otherwise  std::nullopt.
+  // The returned string_view is locatable.
   std::optional<std::string_view> AvoidDependencyReason(
-    const BazelTarget &target) const;
+    const BazelTarget &self, const BazelTarget &dep) const;
 
   // Workspace stratum of a bazel target. Relevant to weed out imposters.
   int GetStratum(const BazelTarget &target) const;

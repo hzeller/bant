@@ -46,7 +46,8 @@ struct Result {
   List *impl_deps_list = nullptr;
   List *data_list = nullptr;
   List *tools_list = nullptr;
-  List *outs_list = nullptr;      // genrule.
+  List *outs_list = nullptr;  // genrule.
+  std::string_view visibility_label;
   List *visibility = nullptr;     // from rule or default_visibility
   List *includes_list = nullptr;  // various ways ...
   List *copts = nullptr;

@@ -126,6 +126,7 @@ class TargetFinder : public BaseVoidVisitor {
       } else if (lhs == "outs") {
         current_.outs_list = list;
       } else if (lhs == "visibility") {
+        current_.visibility_label = lhs;
         current_.visibility = list;
       } else if (lhs == "textual_hdrs") {
         current_.textual_hdrs = list;

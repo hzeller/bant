@@ -246,10 +246,50 @@ bool DWYUGenerator::IsTestonlyCompatible(const BazelTarget &target,
   return false;
 }
 
-// Visiblity check.
+std::optional<std::string_view> DWYUGenerator::AvoidDueToVisibility(
+  const BazelTarget &target, const BazelTarget &dep) const {
+  const auto found = known_libs_.find(dep);
+  if (found == known_libs_.end()) return std::nullopt;  // Unknown ? Be Bold.
+
+  if (target.package == dep.package) {
+    // We can implicitly see all the targets in the same package.
+    return std::nullopt;
+  }
+
+  // Somewhat ugly hack: the protobuf library has a protobuf_headers library
+  // that does not acctually provide any actual libraries. From the comment
+  // there it is there for some shared object building rules; but we should
+  // not depend on it, so pretend we can't see it.
+  if (dep.target_name == "protobuf_headers") {
+    // "protobuf_headers don't actually provide implementation";
+    return dep.target_name;
+  }
+
+  List *visibility_list = found->second.visibility;
+  if (!visibility_list) return std::nullopt;
+  bool any_valid_visiblity_pattern = false;
+  for (Node *entry : *visibility_list) {
+    const Scalar *str = entry->CastAsScalar();
+    if (!str) continue;
+    auto vis_or = BazelPattern::ParseVisibility(str->AsString(), dep.package);
+    if (!vis_or.has_value()) continue;
+    any_valid_visiblity_pattern = true;
+    if (vis_or->Match(target)) {
+      return std::nullopt;
+    }
+  }
+  // There might be variables and other things that we couldn't elaborate.
+  // So in case there was not a any pattern we can expand, assume this to
+  // be public visibility.
+  if (!any_valid_visiblity_pattern) return std::nullopt;
+
+  // The visibility label is the closest locatable.
+  return found->second.visibility_label;
+}
+
 std::optional<std::string_view> DWYUGenerator::AvoidDependencyReason(
-  const BazelTarget &target) const {
-  if (auto found = known_libs_.find(target); found != known_libs_.end()) {
+  const BazelTarget &self, const BazelTarget &dep) const {
+  if (auto found = known_libs_.find(dep); found != known_libs_.end()) {
     if (!found->second.deprecation.empty()) {
       return found->second.deprecation;
     }
@@ -259,52 +299,7 @@ std::optional<std::string_view> DWYUGenerator::AvoidDependencyReason(
       return *avoid_dep;  // Original string_view from file.
     }
   }
-  return std::nullopt;
-}
-
-bool DWYUGenerator::CanSee(const BazelTarget &target, const BazelTarget &dep,
-                           std::string *msg) const {
-  const auto found = known_libs_.find(dep);
-  if (found == known_libs_.end()) return true;  // Unknown ? Be Bold.
-
-  if (target.package == dep.package) {
-    // We can implicitly see all the targets in the same package.
-    return true;
-  }
-
-  // Somewhat ugly hack: the protobuf library has a protobuf_headers library
-  // that does not acctually provide any actual libraries. From the comment
-  // there it is there for some shared object building rules; but we should
-  // not depend on it, so pretend we can't see it.
-  if (dep.target_name == "protobuf_headers") {
-    if (msg) *msg = "protobuf_headers don't actually provide implementation";
-    return false;
-  }
-
-  List *visibility_list = found->second.visibility;
-  if (!visibility_list) return true;
-  bool any_valid_visiblity_pattern = false;
-  bool any_non_matching_visibility_pattern = false;
-  for (Node *entry : *visibility_list) {
-    const Scalar *str = entry->CastAsScalar();
-    if (!str) continue;
-    auto vis_or = BazelPattern::ParseVisibility(str->AsString(), dep.package);
-    if (!vis_or.has_value()) continue;
-    any_valid_visiblity_pattern = true;
-    if (vis_or->Match(target)) {
-      return true;
-    }
-    if (msg) {
-      if (any_non_matching_visibility_pattern) msg->append("; ");
-      absl::StrAppend(msg, project_.Loc(str->AsString()), str->AsString(),
-                      " visibility not matched");
-    }
-    any_non_matching_visibility_pattern = true;
-  }
-  // There might be variables and other things that we couldn't elaborate.
-  // So in case there was not a any pattern we can expand, assume this to
-  // be public visibility.
-  return !any_valid_visiblity_pattern;
+  return AvoidDueToVisibility(self, dep);
 }
 
 namespace {
@@ -389,22 +384,20 @@ void DWYUGenerator::LogUnknownProvider(const NamedLineIndexedContent &source,
 void DWYUGenerator::AddVisibleAlternatives(
   const BazelTarget &target, const absl::btree_set<BazelTarget> &alternatives,
   std::vector<absl::btree_set<BazelTarget>> &result) {
-  absl::btree_set<BazelTarget> visible;
-  absl::btree_set<BazelTarget> visible_deprecated;
+  absl::btree_set<BazelTarget> no_limits;
+  absl::btree_set<BazelTarget> avoid_if_possible;
   for (const BazelTarget &t : alternatives) {
-    if (CanSee(target, t, nullptr)) {
-      if (AvoidDependencyReason(t).has_value()) {
-        visible_deprecated.emplace(t);
-      } else {
-        visible.emplace(t);
-      }
+    if (AvoidDependencyReason(target, t).has_value()) {
+      avoid_if_possible.emplace(t);
+    } else {
+      no_limits.emplace(t);
     }
   }
-  if (!visible.empty()) {
-    result.push_back(std::move(visible));
-  } else if (!visible_deprecated.empty()) {
+  if (!no_limits.empty()) {
+    result.push_back(std::move(no_limits));
+  } else if (!avoid_if_possible.empty()) {
     // If we _only_ have deprecated alternatives, consider them visible.
-    result.push_back(std::move(visible_deprecated));
+    result.push_back(std::move(avoid_if_possible));
   }
 }
 
@@ -413,25 +406,24 @@ void DWYUGenerator::AddVisibleAlternativesWithStratum(
   std::vector<absl::btree_set<BazelTarget>> &result) {
   Range stratum_range;
   std::vector<BazelTarget> temp_result;
-  bool found_non_deprecated = false;
+  bool found_non_avoiding = false;
   for (const BazelTarget &t : alternatives) {
-    if (CanSee(target, t, nullptr)) {
-      const bool is_deprecated = AvoidDependencyReason(t).has_value();
-      if (is_deprecated && found_non_deprecated) continue;
-      if (!is_deprecated && !found_non_deprecated) {
-        // Until we find the first non-deprecated alternative, we also
-        // keep deprecated targets as they might be our only chance.
-        temp_result.clear();
-        stratum_range = Range{};
-        found_non_deprecated = true;
-      }
-      const int stratum = GetStratum(t);
-      stratum_range.Update(stratum);
-      if (stratum <= stratum_range.min_value) {
-        temp_result.emplace_back(t);
-      }
+    const bool is_to_avoid = AvoidDependencyReason(target, t).has_value();
+    if (is_to_avoid && found_non_avoiding) continue;
+    if (!is_to_avoid && !found_non_avoiding) {
+      // Until we find the first non-deprecated alternative, we also
+      // keep deprecated targets as they might be our only chance.
+      temp_result.clear();
+      stratum_range = Range{};
+      found_non_avoiding = true;
+    }
+    const int stratum = GetStratum(t);
+    stratum_range.Update(stratum);
+    if (stratum <= stratum_range.min_value) {
+      temp_result.emplace_back(t);
     }
   }
+
   if (temp_result.empty()) return;
   auto &result_set = result.emplace_back();
   for (const BazelTarget &t : temp_result) {
@@ -508,11 +500,11 @@ DWYUGenerator::DependenciesNeededBySources(
                           << "\n";
     for (const BazelTarget &possible_provider : alternatives) {
       std::stringstream msg;
-      std::string why;
-      if (!CanSee(target, possible_provider, &why)) {
-        msg << Red(session_) << " (" << why << ")" << Norm(session_);
-      } else if (auto reason = AvoidDependencyReason(possible_provider)) {
-        msg << Red(session_) << " (to avoid: " << *reason << ")"
+      if (auto reason = AvoidDependencyReason(target, possible_provider);
+          reason.has_value()) {
+        const FileLocation loc = project_.GetLocation(*reason);
+        msg << Red(session_) << " (avoid if possible: "
+            << HyperLinked(session_.linkgen(), loc, *reason) << ")"
             << Norm(session_);
       }
       const auto found_declared = declared_deps.find(possible_provider);
@@ -990,22 +982,23 @@ void DWYUGenerator::CreateEditsForTarget(const BazelTarget &target,
     if (need_add == target) {  // That's us. Not needed (but why not caught?)
       continue;
     }
-    std::string visibility_msg;
-    if (CanSee(target, need_add, &visibility_msg) &&
+    auto possible_visibility_veto = AvoidDueToVisibility(target, need_add);
+    if (!possible_visibility_veto.has_value() &&
         IsTestonlyCompatible(target, need_add)) {
       emit_deps_edit_(EditRequest::kAdd, target, "",
                       need_add.ToStringRelativeTo(target.package));
       if (session_.MinVerbosity(1)) {
-        if (auto reason = AvoidDependencyReason(need_add)) {
+        if (auto reason = AvoidDependencyReason(target, need_add)) {
           Loc(project_, details.name)
-            << " Only suitable dependency " << need_add
-            << " is deprecated: " << *reason << "\n";
+            << " Can't avoid even though '" << *reason << "': " << need_add
+            << " is the only suitable dependency\n";
         }
       }
-    } else if (session_.MinVerbosity(2)) {
+    } else if (session_.MinVerbosity(2) &&
+               possible_visibility_veto.has_value()) {
       Loc(project_, details.name)
-        << ": Would add " << need_add << ", but not visible. " << visibility_msg
-        << "\n";
+        << ": Would add " << need_add << ", but not visible. "
+        << *possible_visibility_veto << "\n";
     }
   }
 }
