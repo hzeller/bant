@@ -141,6 +141,8 @@ class TargetFinder : public BaseVoidVisitor {
         current_.local_defines = list;
       } else if (lhs == "tags") {
         current_.tags = list;
+      } else if (lhs == "packages") {
+        current_.packages = list;
       }
     }
   }

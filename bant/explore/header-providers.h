@@ -33,7 +33,8 @@
 #include "bant/workspace.h"
 
 // TODO: Given that this not only provides HeaderToLibMapping but also
-// from Genrule, the name of this file is somewhat a misnomer.
+// from Genrule as well as other facts exctracted, so the name of this file is
+// somewhat a misnomer now.
 
 namespace bant {
 
@@ -94,6 +95,11 @@ ProvidedFromTarget ExtractGeneratedFromGenrule(const ParsedProject &project,
                                                std::ostream &info_out,
                                                bool suffix_index = false);
 
+// Extract all package groups, mapping the bazel target (the package group)
+// to the packages listed.
+using PackageGroups = OneToN<BazelTarget, std::string_view>;
+PackageGroups ExtractPackageGroups(const ParsedProject &project);
+
 // Returns a map from targets to all the files they provide. Looks
 // at filegroups and genrules. The returned mapping are string_view that
 // point to the original locaion in the project, so can be location extracted.
@@ -126,18 +132,24 @@ std::optional<FindResult> FindBySuffix(const ProvidedFromTargetSet &index,
 
 // Pretty-print provided files and targets they are coming from in two columns.
 void PrintProvidedSources(Session &session, const std::string &table_header,
-                          const BazelTargetMatcher &pattern,
+                          const BazelTargetMatcher &filter,
                           const ProvidedFromTarget &provided_from_lib);
 
 void PrintProvidedSources(Session &session, const std::string &table_header,
-                          const BazelTargetMatcher &pattern,
+                          const BazelTargetMatcher &filter,
                           const ProvidedFromTargetSet &provided_from_lib);
 
 // Print filegroup-like set, mapping BazelTarget -> filestheyprovide*
 // Makes files fully qualified
 void PrintTargetFileSet(Session &session, const BazelWorkspace &workspace,
-                        const BazelTargetMatcher &pattern,
+                        const BazelTargetMatcher &filter,
                         const TargetProvidedFiles &target_to_files);
+
+// Print OneToN package group to list of patterns (cave: currently the table
+// header writes 'pattern')
+void PrintTargetToN(Session &session, const BazelWorkspace &workspace,
+                    const BazelTargetMatcher &filter,
+                    const PackageGroups &pkg_groups);
 
 void PrintFileToFileSet(Session &session,
                         const HeaderToCanonicalHeader &header_to_headers);

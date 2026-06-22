@@ -525,6 +525,20 @@ ProvidedFromTarget ExtractGeneratedFromGenrule(const ParsedProject &project,
   return result;
 }
 
+PackageGroups ExtractPackageGroups(const ParsedProject &project) {
+  PackageGroups result;
+  for (const auto &[_, file_content] : project.ParsedFiles()) {
+    if (!file_content->ast) continue;
+    query::FindTargets(
+      file_content->ast, {"package_group"}, [&](const query::Result &params) {
+        auto target = file_content->package.QualifiedTarget(params.name);
+        if (!target.has_value()) return;
+        result[*target] = query::ExtractStringList(params.packages);
+      });
+  }
+  return result;
+}
+
 TargetProvidedFiles ExtractFilegroupTargets(const ParsedProject &project) {
   TargetProvidedFiles result;
   for (const auto &[_, file_content] : project.ParsedFiles()) {
@@ -665,7 +679,7 @@ std::optional<FindResult> FindBySuffix(const ProvidedFromTargetSet &index,
 }
 
 void PrintProvidedSources(Session &session, const std::string &table_header,
-                          const BazelTargetMatcher &pattern,
+                          const BazelTargetMatcher &filter,
                           const ProvidedFromTarget &provided_from_lib) {
   auto highlighter = CreateGrepHighlighterFromFlags(session);
   if (!highlighter) return;
@@ -673,14 +687,14 @@ void PrintProvidedSources(Session &session, const std::string &table_header,
     TablePrinter::Create(session.out(), session.flags().output_format,
                          *highlighter, {table_header, "providing-rule"});
   for (const auto &[provided, lib] : provided_from_lib) {
-    if (!pattern.Match(lib)) continue;
+    if (!filter.Match(lib)) continue;
     printer->AddRow({provided, lib.ToString()});
   }
   printer->Finish();
 }
 
 void PrintProvidedSources(Session &session, const std::string &table_header,
-                          const BazelTargetMatcher &pattern,
+                          const BazelTargetMatcher &filter,
                           const ProvidedFromTargetSet &provided_from_lib) {
   const auto dup_handling = session.flags().duplicate_handling;
   auto highlighter = CreateGrepHighlighterFromFlags(session);
@@ -699,7 +713,7 @@ void PrintProvidedSources(Session &session, const std::string &table_header,
     }
     std::vector<std::string> list;
     for (const BazelTarget &target : libs) {
-      if (pattern.Match(target)) list.push_back(target.ToString());
+      if (filter.Match(target)) list.push_back(target.ToString());
     }
     printer->AddRowWithRepeatedLastColumn({provided}, list);
   }
@@ -707,7 +721,7 @@ void PrintProvidedSources(Session &session, const std::string &table_header,
 }
 
 void PrintTargetFileSet(Session &session, const BazelWorkspace &workspace,
-                        const BazelTargetMatcher &pattern,
+                        const BazelTargetMatcher &filter,
                         const TargetProvidedFiles &target_to_files) {
   auto highlighter = CreateGrepHighlighterFromFlags(session);
   if (!highlighter) return;
@@ -715,12 +729,29 @@ void PrintTargetFileSet(Session &session, const BazelWorkspace &workspace,
     TablePrinter::Create(session.out(), session.flags().output_format,
                          *highlighter, {"label", "files"});
   for (const auto &[target, files] : target_to_files) {
-    if (!pattern.Match(target)) continue;
+    if (!filter.Match(target)) continue;
     std::vector<std::string> list;
     for (const std::string_view package_relative_file : files) {
       list.emplace_back(
         target.package.FullyQualifiedFile(workspace, package_relative_file));
     }
+    printer->AddRowWithRepeatedLastColumn({target.ToString()}, list);
+  }
+  printer->Finish();
+}
+
+void PrintTargetToN(Session &session, const BazelWorkspace &workspace,
+                    const BazelTargetMatcher &filter,
+                    const PackageGroups &pkg_groups) {
+  auto highlighter = CreateGrepHighlighterFromFlags(session);
+  if (!highlighter) return;
+  auto printer =
+    TablePrinter::Create(session.out(), session.flags().output_format,
+                         *highlighter, {"label", "pattern"});
+  for (const auto &[target, group_pattern] : pkg_groups) {
+    if (!filter.Match(target)) continue;
+    std::vector<std::string> list;
+    for (auto p : group_pattern) list.emplace_back(p);
     printer->AddRowWithRepeatedLastColumn({target.ToString()}, list);
   }
   printer->Finish();

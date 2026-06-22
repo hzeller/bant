@@ -54,6 +54,7 @@ struct Result {
   List *defines = nullptr;
   List *local_defines = nullptr;
   List *tags = nullptr;
+  List *packages = nullptr;
   std::string_view include_prefix;        // ... to manipulate the path ...
   std::string_view strip_include_prefix;  // ... files from hdrs are found.
   std::string_view strip_import_prefix;   // ... similar, used in proto_library

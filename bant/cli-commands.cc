@@ -71,6 +71,7 @@ enum class Command {
   kListTargets,
   kListLeafs,
   kListFilegroups,
+  kListPackageGroups,
   kListWorkkspace,
   kTargetHdrs,
   kTargetSrcs,
@@ -425,6 +426,11 @@ CliStatus RunCommand(Session &session, Command cmd,
                              ExtractFilegroupTargets(project));
     break;
 
+  case Command::kListPackageGroups:
+    bant::PrintTargetToN(session, project.workspace(), print_pattern,
+                         ExtractPackageGroups(project));
+    break;
+
   case Command::kListWorkkspace:
     PrintMatchingWorkspaceExternalRepos(session, project, patterns);
     break;
@@ -472,6 +478,7 @@ CliStatus RunCliCommand(Session &session, std::span<std::string_view> args) {
     {"list-targets", Command::kListTargets},
     {"list-leafs", Command::kListLeafs},
     {"list-filegroups", Command::kListFilegroups},
+    {"list-packagegroups", Command::kListPackageGroups},
     {"workspace", Command::kListWorkkspace},
     {"target-hdrs", Command::kTargetHdrs},
     {"target-data", Command::kTargetData},
