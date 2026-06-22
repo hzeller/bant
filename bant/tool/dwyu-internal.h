@@ -167,6 +167,7 @@ class DWYUGenerator {
   const ParsedProject &project_;
   const EditCallback emit_deps_edit_;
   TargetProvidedFiles filegroups_;
+  PackageGroups packagegroups_;
   ProvidedFromTargetSet headers_from_libs_;
   ProvidedFromTargetSet protos_from_libs_;
   ProvidedFromTarget files_from_genrules_;

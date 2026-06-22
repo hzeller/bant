@@ -268,15 +268,33 @@ std::optional<std::string_view> DWYUGenerator::AvoidDueToVisibility(
   List *visibility_list = found->second.visibility;
   if (!visibility_list) return std::nullopt;
   bool any_valid_visiblity_pattern = false;
-  for (std::string_view pattern : query::ExtractStringList(visibility_list)) {
-    if (pattern.empty()) continue;
-    auto vis_or = BazelPattern::ParseVisibility(pattern, dep.package);
-    if (!vis_or.has_value()) continue;
-    any_valid_visiblity_pattern = true;
-    if (vis_or->Match(target)) {
-      return std::nullopt;
+  std::vector<std::string_view> single_vis(1);
+  for (std::string_view vis : query::ExtractStringList(visibility_list)) {
+    if (vis.empty()) continue;
+    const std::vector<std::string_view> *patterns_to_consider = nullptr;
+
+    // Maybe a package group ?
+    if (auto maybe_group_target = BazelTarget::ParseFrom(vis, dep.package);
+        maybe_group_target.has_value()) {
+      if (const auto found = packagegroups_.find(*maybe_group_target);
+          found != packagegroups_.end()) {
+        patterns_to_consider = &found->second;
+      }
+    }
+    if (!patterns_to_consider) {
+      single_vis[0] = vis;
+      patterns_to_consider = &single_vis;
+    }
+    for (std::string_view vis_pattern : *patterns_to_consider) {
+      auto vis_or = BazelPattern::ParseVisibility(vis_pattern, dep.package);
+      if (!vis_or.has_value()) continue;
+      any_valid_visiblity_pattern = true;
+      if (vis_or->Match(target)) {
+        return std::nullopt;
+      }
     }
   }
+
   // There might be variables and other things that we couldn't elaborate.
   // So in case there was not a any pattern we can expand, assume this to
   // be public visibility.
@@ -1032,6 +1050,9 @@ DWYUGenerator::DWYUGenerator(Session &session, const ParsedProject &project,
   // ExtractExpandedHeaderToLibMapping() also internally does the same thing.
   // We should just pass this through.
   filegroups_ = ExtractFilegroupTargets(project);
+
+  // for visibilitychecks
+  packagegroups_ = ExtractPackageGroups(project);
 
   headers_from_libs_ =
     ExtractExpandedHeaderToLibMapping(project, session.info(),

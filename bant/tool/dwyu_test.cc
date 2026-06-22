@@ -586,9 +586,7 @@ cc_library(
   EXPECT_THAT(tester.LogContent(), HasSubstr("not matching visibility"));
 }
 
-// We don't handle package groups properly yet, so should be treated
-// as //visibility:public
-TEST(DWYUTest, Add_IfVisibilityDisallowedByPackageGroup) {
+TEST(DWYUTest, DoNotAdd_IfVisibilityDisallowedByPackageGroup) {
   ParsedProjectTestUtil pp;
   pp.Add("//some/package", R"(
 package_group(
@@ -604,7 +602,45 @@ cc_library(
   name = "foo",
   srcs = ["foo.cc"],
   hdrs = ["foo.h"],
-  visibility = ["//some/package:group"],  # Should be considered public for now
+  visibility = ["//some/package:group"],
+)
+)");
+
+  pp.Add("//some/path", R"(
+cc_library(
+  name = "bar",
+  srcs = ["bar.cc"],
+)
+)");
+
+  DWYUTestFixture tester(pp.project(), {.verbose = 3});
+  // no add happening
+  tester.AddSource("some/path/bar.cc", R"(
+#include "lib/path/foo.h"
+)");
+  tester.RunForTarget("//some/path:bar");
+  EXPECT_THAT(tester.LogContent(), HasSubstr("not matching visibility"));
+}
+
+// Note, this is essentially the same as before, except that we now allow
+// some/path/... in package group
+TEST(DWYUTest, Add_IfVisibilityAllowedByPackageGroup) {
+  ParsedProjectTestUtil pp;
+  pp.Add("//some/package", R"(
+package_group(
+  name = "group",
+  packages = [
+    "//something/...",
+    "//some/path/...",
+  ],
+)
+)");  //
+  pp.Add("//lib/path", R"(
+cc_library(
+  name = "foo",
+  srcs = ["foo.cc"],
+  hdrs = ["foo.h"],
+  visibility = ["//some/package:group"],
 )
 )");
 
@@ -616,7 +652,7 @@ cc_library(
 )");
 
   DWYUTestFixture tester(pp.project(), {});
-  tester.ExpectAdd("//lib/path:foo");  // until we understand package groups
+  tester.ExpectAdd("//lib/path:foo");  // allowed
   tester.AddSource("some/path/bar.cc", R"(
 #include "lib/path/foo.h"
 )");
