@@ -97,6 +97,10 @@ class RelativePathCanonicalizer {
 
 using DuplicationCheckSet = absl::flat_hash_set<std::string>;
 
+bool NeedsAdding(DuplicationCheckSet *check_set, std::string_view what) {
+  return check_set->emplace(what).second;
+}
+
 std::vector<std::string> AddDefaultOptions(DuplicationCheckSet *already_seen) {
   // Common typical options considered for the compiler.
   static constexpr std::string_view kCommonDefaultOptions[] = {
@@ -109,7 +113,7 @@ std::vector<std::string> AddDefaultOptions(DuplicationCheckSet *already_seen) {
   std::vector<std::string> result;
   // The options we always kinda want.
   for (const std::string_view option : kCommonDefaultOptions) {
-    if (already_seen->emplace(option).second) {
+    if (NeedsAdding(already_seen, option)) {
       result.emplace_back(option);
     }
   }
@@ -136,7 +140,7 @@ std::vector<std::string> ExtractOptionsFromBazelrc(
     if (!RE2::PartialMatch(line, *kLinePrefix)) continue;
     std::string_view cxx_opt;
     while (RE2::FindAndConsume(&line, *kCoptExtract, &cxx_opt)) {
-      if (already_seen->emplace(cxx_opt).second) {
+      if (NeedsAdding(already_seen, cxx_opt)) {
         result.emplace_back(cxx_opt);
       }
     }
@@ -180,7 +184,7 @@ void ProtobufHack(const BazelTarget &target, const BazelWorkspace &workspace,
 
   // First time we see a protobuf dependecy, add the usual suspect of
   // virtual includes
-  if (already_seen->insert("protobuf-extra-include-hack").second) {
+  if (NeedsAdding(already_seen, "protobuf-extra-include-hack")) {
     constexpr struct PackageTarget {
       const char *package;
       const char *target;
@@ -204,7 +208,7 @@ void ProtobufHack(const BazelTarget &target, const BazelWorkspace &workspace,
         absl::StrCat("bazel-bin/external/", protobuf_dir->filename(),
                      "/src/google/protobuf/", extra_inc.package,
                      "_virtual_includes/", extra_inc.target);
-      if (already_seen->insert(virt_incdir).second) {
+      if (NeedsAdding(already_seen, virt_incdir)) {
         result.emplace_back(virt_incdir);
       }
     }
@@ -216,7 +220,7 @@ void ProtobufHack(const BazelTarget &target, const BazelWorkspace &workspace,
     const std::string virt_incdir = absl::StrCat(
       "bazel-bin/external/", protobuf_dir->filename(),
       "/src/google/protobuf/_virtual_includes/", target.target_name);
-    if (already_seen->insert(virt_incdir).second) {
+    if (NeedsAdding(already_seen, virt_incdir)) {
       result.emplace_back(virt_incdir);
     }
   }
@@ -244,7 +248,7 @@ std::vector<std::string> CollectIncDirs(Session &session,
       for (const std::string_view inc_dir : inc_dirs) {
         const std::string inc_path =
           current_package.FullyQualifiedFile(workspace, inc_dir);
-        if (!already_seen.insert(inc_path).second) {
+        if (!NeedsAdding(&already_seen, inc_path)) {
           continue;
         }
         result.emplace_back(inc_path);
@@ -273,14 +277,14 @@ std::vector<std::string> CollectIncDirs(Session &session,
           const std::string virt_incdir = absl::StrCat(
             "bazel-bin/external/", ext_dir->filename(), "/", target_path,
             "/_virtual_includes/", target.target_name);
-          if (already_seen.insert(virt_incdir).second) {
+          if (NeedsAdding(&already_seen, virt_incdir)) {
             result.emplace_back(virt_incdir);
           }
         } else {  // internal project
           const std::string virt_incdir =
             absl::StrCat("bazel-bin/", target_path, "/_virtual_includes/",
                          target.target_name);
-          if (already_seen.insert(virt_incdir).second) {
+          if (NeedsAdding(&already_seen, virt_incdir)) {
             result.emplace_back(virt_incdir);
           }
         }
@@ -292,7 +296,7 @@ std::vector<std::string> CollectIncDirs(Session &session,
         if (ext_dir) {
           const std::string prefix_applied =
             absl::StrCat(ext_dir->path(), "/", details.strip_include_prefix);
-          if (already_seen.insert(prefix_applied).second) {
+          if (NeedsAdding(&already_seen, prefix_applied)) {
             result.emplace_back(prefix_applied);
           }
         }
@@ -317,7 +321,7 @@ std::vector<std::string> CollectIncDirs(Session &session,
         if (external_project.empty()) {
           continue;  // Include path of our project is implicit
         }
-        if (!already_seen.insert(external_project).second) {
+        if (!NeedsAdding(&already_seen, external_project)) {
           continue;
         }
         auto ext_dir = workspace.FindPathByProject(external_project);
@@ -388,7 +392,7 @@ void WriteCompilationDBEntry(const ParsedProject &project,
   for (const auto src : sources) {
     const std::string abs_src =
       package.FullyQualifiedFile(project.workspace(), src);
-    if (!already_written->insert(abs_src).second) continue;
+    if (!NeedsAdding(already_written, abs_src)) continue;
     out << "  {\n";
     out << "    " << q{"file"} << ": " << q{abs_src} << ",\n";
     out << "    " << q{"arguments"} << ": [\n";
@@ -520,6 +524,7 @@ void WriteCompilationFlags(Session &session, const BazelTargetMatcher &pattern,
 
   RelativePathCanonicalizer resolver;
   for (const std::string &inc : CollectIncDirs(session, pattern, project)) {
+    if (!NeedsAdding(&seen, inc)) continue;
     session.out() << "-I" << inc << "\n";
     // Work around clangd canonicalization bug.
     if (auto cpath = resolver.MaybeCanonicalize(inc); cpath.has_value()) {
@@ -527,7 +532,9 @@ void WriteCompilationFlags(Session &session, const BazelTargetMatcher &pattern,
     }
   }
 
-  for (const std::string &incopt : GetAllIncCOpts(session, pattern, project)) {
+  for (std::string_view incopt : GetAllIncCOpts(session, pattern, project)) {
+    if (incopt.length() < 2) continue;
+    if (!NeedsAdding(&seen, incopt.substr(2))) continue;
     session.out() << incopt << "\n";
   }
 }
