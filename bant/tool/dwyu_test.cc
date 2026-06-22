@@ -139,7 +139,7 @@ cc_library(
 )");
 
   {
-    DWYUTestFixture tester(pp.project(), {});
+    DWYUTestFixture tester(pp.project(), {.verbose = 3});
     tester.ExpectAdd(":foo");
     tester.AddSource("some/path/bar.h", "");
     tester.AddSource("some/path/bar.cc", R"(
@@ -147,6 +147,8 @@ cc_library(
 #include "some/path/bar.h"
 )");
     tester.RunForTarget("//some/path:bar");
+    // listing target without checkmark
+    EXPECT_THAT(tester.LogContent(), HasSubstr("- //some/path:foo"));
   }
 
   {  // Files relative to current directory are properly handled.
@@ -355,12 +357,14 @@ cc_binary(
 )");
 
   {
-    DWYUTestFixture tester(pp.project(), {});
+    DWYUTestFixture tester(pp.project(), {.verbose = 3});
     tester.AddSource("path/baz.cc", R"(
 #include "path/bar.h"   // order dependent currently.
 #include "path/foo.h"
 )");
     tester.RunForTarget("//path:baz");
+    EXPECT_THAT(tester.LogContent(), HasSubstr("✓ //path:allthethings"));
+    EXPECT_THAT(tester.LogContent(), HasSubstr("- //path:onlyfoo"));
   }
 }
 
@@ -418,17 +422,19 @@ cc_library(
 )");
 
   {  // Uses one of the libraries providing foo.h header. Satisfied.
-    DWYUTestFixture tester(pp.project(), {});
+    DWYUTestFixture tester(pp.project(), {.verbose = 3});
     // No expects of add, as "foo-1" is used and it provides header.
     tester.AddSource("path/usefoo-1.cc", R"(#include "path/foo.h")");
     tester.RunForTarget("//path:usefoo-1");
+    EXPECT_THAT(tester.LogContent(), HasSubstr("✓ //path:foo-1"));
   }
 
   {  // Uses the other of the libraries providing foo.h header. Satisfied.
-    DWYUTestFixture tester(pp.project(), {});
+    DWYUTestFixture tester(pp.project(), {.verbose = 3});
     // No expects of add, as "foo-2" is used and it provides header.
     tester.AddSource("path/usefoo-2.cc", R"(#include "path/foo.h")");
     tester.RunForTarget("//path:usefoo-2");
+    EXPECT_THAT(tester.LogContent(), HasSubstr("✓ //path:foo-2"));
   }
 
   {
@@ -721,10 +727,11 @@ cc_binary(
 )");
 
   {
-    DWYUTestFixture tester(pp.project(), {});
+    DWYUTestFixture tester(pp.project(), {.verbose = 3});
     tester.ExpectAdd("//some/lib:visible_foo_alias");
     tester.AddSource("user/hello.cc", R"(#include "some/lib/foo.h")");
     tester.RunForTarget("//user:hello");
+    EXPECT_THAT(tester.LogContent(), HasSubstr("private_foo (avoid"));
   }
 }
 
@@ -802,12 +809,14 @@ cc_library(
 )
 )");
 
-  DWYUTestFixture tester(pp.project(), {});
+  DWYUTestFixture tester(pp.project(), {.verbose = 3});
   // No add expected.
   tester.AddSource("some/path/bar.cc", R"(
 #include "lib/path/foo.h"
 )");
   tester.RunForTarget("//some/path:bar");
+  EXPECT_THAT(tester.LogContent(),
+              HasSubstr("not matching default_visibility"));
 }
 
 TEST(DWYUTest, DoNotAdd_IfTestonlyMismatch) {
@@ -1056,12 +1065,13 @@ cc_library(
 )
 )");
 
-  DWYUTestFixture tester(pp.project(), {});
+  DWYUTestFixture tester(pp.project(), {.verbose = 3});
   tester.AddSource("some/path/bar.cc", R"(
 #include "some/path/baz.pb.h"
 )");
   tester.ExpectAdd(":foo_proto_lib");
   tester.RunForTarget("//some/path:bar");
+  EXPECT_THAT(tester.LogContent(), HasSubstr("- //some/path:foo_proto_lib"));
 }
 
 TEST(DWYUTest, Add_ProtoLibraryForProtoIncludeThatActsAsDependencyForwarder) {
@@ -1228,10 +1238,11 @@ cc_library(
 )
 )");
 
-  DWYUTestFixture tester(pp.project(), {});
+  DWYUTestFixture tester(pp.project(), {.verbose = 3});
   tester.AddSource("some/path/bar.cc", "/* no include */");
   tester.ExpectRemove(":foo_proto_lib");
   tester.RunForTarget("//some/path:bar");
+  // no log output, as we have not seen any header.
 }
 
 // In absl/strings:string_view, there is the string_view.h exported.
@@ -1489,13 +1500,14 @@ cc_library(
 )
 )");
 
-  DWYUTestFixture tester(pp.project(), {});
+  DWYUTestFixture tester(pp.project(), {.verbose = 3});
   tester.ExpectRemove("//lib/path:deprecated_foo");
   tester.ExpectAdd("//lib/path:new_foo");
   tester.AddSource("some/path/bar.cc", R"(
 #include "lib/path/foo.h"
 )");
   tester.RunForTarget("//some/path:bar");
+  EXPECT_THAT(tester.LogContent(), HasSubstr(":deprecated_foo (avoid"));
 }
 
 TEST(DWYUTest, AngleBracketInclude_DefaultNotRemove) {
