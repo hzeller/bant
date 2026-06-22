@@ -577,18 +577,28 @@ cc_library(
 )
 )");
 
-  DWYUTestFixture tester(pp.project(), {});
+  DWYUTestFixture tester(pp.project(), {.verbose = 3});
   // No add expected.
   tester.AddSource("some/path/bar.cc", R"(
 #include "lib/path/foo.h"
 )");
   tester.RunForTarget("//some/path:bar");
+  EXPECT_THAT(tester.LogContent(), HasSubstr("not matching visibility"));
 }
 
 // We don't handle package groups properly yet, so should be treated
 // as //visibility:public
-TEST(DWYUTest, Add_IfVisibilityIsPackageGroup) {
+TEST(DWYUTest, Add_IfVisibilityDisallowedByPackageGroup) {
   ParsedProjectTestUtil pp;
+  pp.Add("//some/package", R"(
+package_group(
+  name = "group",
+  packages = [
+    "//something/...",
+    # //some/path actually not allowed
+  ],
+)
+)");  //
   pp.Add("//lib/path", R"(
 cc_library(
   name = "foo",

@@ -981,6 +981,10 @@ void DWYUGenerator::CreateEditsForTarget(const BazelTarget &target,
     if (need_add == target) {  // That's us. Not needed (but why not caught?)
       continue;
     }
+
+    // We typically would add 'to avoid' targets if this is the last resort.
+    // However, if this is due to visibility, we should not get us into trouble,
+    // and not add; test for this situation here right before we'd add.
     auto possible_visibility_veto = AvoidDueToVisibility(target, need_add);
     if (!possible_visibility_veto.has_value() &&
         IsTestonlyCompatible(target, need_add)) {
@@ -995,9 +999,11 @@ void DWYUGenerator::CreateEditsForTarget(const BazelTarget &target,
       }
     } else if (session_.MinVerbosity(2) &&
                possible_visibility_veto.has_value()) {
+      const std::string_view viz_veto = *possible_visibility_veto;
+      const FileLocation loc = project_.GetLocation(viz_veto);
       Loc(project_, details.name)
-        << ": Would add " << need_add << ", but not visible. "
-        << *possible_visibility_veto << "\n";
+        << ": Would add " << need_add << ", but not matching "
+        << HyperLinked(session_.linkgen(), loc, viz_veto) << "\n";
     }
   }
 }
