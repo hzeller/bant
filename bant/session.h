@@ -57,6 +57,12 @@ enum class DuplicateHandling {
   kOutputOnlyUnique,
 };
 
+enum class BracketIncHandling {
+  kIgnore,       // Don't consider, remove possible deps providing it
+  kAcknowledge,  // Don't remove deps, but also don't add if there was one.
+  kValidate,     // No remove, but add. Also: complain as not good practice.
+};
+
 // Command line flags filled in main(), used by tools (some only needed
 // in some commands)
 struct CommandlineFlags {
@@ -78,7 +84,7 @@ struct CommandlineFlags {
   bool grep_or_semantics = false;
   bool do_color = false;
   bool do_links = false;
-  bool dwyu_consider_bracket_includes = false;  // dwyu only.
+  BracketIncHandling dwyu_bracket_include = BracketIncHandling::kAcknowledge;
   std::vector<std::string> graph_deps;  // augment dependency graph with these
   // https://bazel.build/docs/configurable-attributes#custom-flags
   absl::flat_hash_set<std::string> custom_flags;

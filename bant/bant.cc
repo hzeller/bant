@@ -31,6 +31,7 @@ extern char *optarg;  // NOLINT
 extern int optind;    // NOLINT
 }
 
+#include <cctype>
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
@@ -177,10 +178,15 @@ Commands (unique prefix sufficient):
     dwyu           : DWYU: Depend on What You Use (emit buildozer edit script)
                      Default invocation uses -r4
                       -k strict: emit remove even if # keep comment in line.
-                      --consider-bracket-includes: also consider includes that
-                        are bracketed instead of quoted (e.g. <zlib.h>
-                        instead of "zlib.h") for adding dependencies.
-                        (fix your project to use quotes if you need this)
+                      --bracket-include one of ignore, acknowledge, or validate
+                        How to handle bracketed includes (e.g. <zlib.h>
+                        instead of "zlib.h") for considering deps for them.
+                        ignore     : bracket inclues ignored, deps removed.
+                        acknowldege: will not remove deps, but also no add.
+                        validate   : will also add deps providing that header.
+                        (fix your project to use quotes if you need acknowlege
+                         or validate).
+                        Default: acknowledge
     canonicalize   : Emit rename edits to canonicalize targets.
     compile-flags  : (experimental) Emit compile flags. Redirect or output with
                      -o compile_flags.txt
@@ -238,6 +244,34 @@ static void PossiblyApplyBazelIgnore(bant::Filesystem &fs) {
   }
 }
 
+template <typename OptEnum>
+static OptEnum BestMatchValue(std::string_view value,
+                              const std::vector<std::string_view> &options,
+                              OptEnum fallback) {
+  int longest_match = 3;  // require at least some initial match length.
+  OptEnum chosen_value = fallback;
+  auto prefix_len = [](std::string_view a, std::string_view b) -> int {
+    int result = 0;
+    std::string_view::const_iterator pos_a = a.begin();
+    std::string_view::const_iterator pos_b = b.begin();
+    while (pos_a < a.end() && pos_b < b.end() &&
+           std::tolower(*pos_a) == std::tolower(*pos_b)) {
+      ++result;
+      ++pos_a;
+      ++pos_b;
+    }
+    return result;
+  };
+  for (size_t i = 0; i < options.size(); ++i) {
+    int len = prefix_len(value, options[i]);
+    if (len >= longest_match) {
+      longest_match = len;
+      chosen_value = static_cast<OptEnum>(i);
+    }
+  }
+  return chosen_value;
+}
+
 int main(int argc, char *argv[]) {
   // non-nullptr streams if chosen by user.
   std::unique_ptr<std::ostream> user_primary_out;
@@ -288,7 +322,7 @@ int main(int argc, char *argv[]) {
     { "macro-expand",  no_argument,       nullptr, 'm'          },
     { "elaborate",     no_argument,       nullptr, 'e'          },
     { "directory",     required_argument, nullptr, 'C'          },
-    { "consider-bracket-includes", no_argument, nullptr, OPT_BRACKET_INC },
+    { "bracket-include", required_argument, nullptr, OPT_BRACKET_INC },
     { "graph-augment", required_argument, nullptr, OPT_GRAPH_AUGMENT },
     //
     { nullptr, 0,                 nullptr, 0                    }};
@@ -404,7 +438,11 @@ int main(int argc, char *argv[]) {
         return EXIT_FAILURE;
       }
     } break;
-    case OPT_BRACKET_INC: flags.dwyu_consider_bracket_includes = true; break;
+    case OPT_BRACKET_INC:
+      flags.dwyu_bracket_include =
+        BestMatchValue(optarg, {"ignore", "acknowledge", "validate"},
+                       bant::BracketIncHandling::kAcknowledge);
+      break;
     case OPT_GRAPH_AUGMENT: {
       flags.graph_deps.emplace_back(optarg);
     } break;

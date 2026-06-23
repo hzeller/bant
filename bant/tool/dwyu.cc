@@ -470,9 +470,14 @@ DWYUGenerator::DependenciesNeededBySources(
   Stat &source_grep_stats =
     session_.GetStatsFor("  - C++ preprocess; extract #inc", "sources");
 
-  const bool full_consider_bracket_include =
-    session_.flags().dwyu_consider_bracket_includes;
-  const bool angle_only_prevent_removal = !full_consider_bracket_include;
+  const bool bracket_inc_is_ignore =
+    session_.flags().dwyu_bracket_include == BracketIncHandling::kIgnore;
+
+  const bool bracket_inc_is_validate =
+    session_.flags().dwyu_bracket_include == BracketIncHandling::kValidate;
+
+  const bool bracket_inc_is_acknowlege =
+    session_.flags().dwyu_bracket_include == BracketIncHandling::kAcknowledge;
 
   size_t total_size = 0;
 
@@ -497,7 +502,7 @@ DWYUGenerator::DependenciesNeededBySources(
   auto maybe_log = [&](const NamedLineIndexedContent &source,
                        std::string_view inc_file, bool is_bracket_include,
                        const absl::btree_set<BazelTarget> &alternatives) {
-    const bool log_bracket_code_smell = full_consider_bracket_include;
+    const bool log_bracket_code_smell = bracket_inc_is_validate;
     // Nasty code-smell thus always show early in verbosity.
     if (is_bracket_include && log_bracket_code_smell &&
         session_.MinVerbosity(1)) {
@@ -563,10 +568,12 @@ DWYUGenerator::DependenciesNeededBySources(
     }
     // Now for all includes, we need to make sure we can account for it.
     for (const TaggedInclude inc : pound_includes) {
+      if (inc.is_angle_bracket && bracket_inc_is_ignore) continue;
       const std::string_view inc_file = inc.include;
 
       if (inc.is_ifdefed_out) {
-        if (session_.MinVerbosity(1) && full_consider_bracket_include) {
+        // TODO: should this look at bracket inc or rather some ifdef flag ?
+        if (session_.MinVerbosity(1) && bracket_inc_is_validate) {
           // TODO: the following should really only be reported if this results
           // in a removal, otherwise a higher verbosity level might be ok.
           maybe_log_source_headline(src_name, source_content->path, target);
@@ -656,7 +663,7 @@ DWYUGenerator::DependenciesNeededBySources(
         }
         maybe_log(source, inc_file, inc.is_angle_bracket,
                   *found_result.target_set);
-        if (inc.is_angle_bracket && angle_only_prevent_removal) {
+        if (inc.is_angle_bracket && bracket_inc_is_acknowlege) {
           // only prevent removal: make sure it is not removed.
           conservatively_no_remove->insert(header_providers.begin(),
                                            header_providers.end());
@@ -685,7 +692,7 @@ DWYUGenerator::DependenciesNeededBySources(
           maybe_log_source_headline(src_name, source_content->path, target);
         }
         maybe_log(source, inc_file, inc.is_angle_bracket, *found->target_set);
-        if (inc.is_angle_bracket && angle_only_prevent_removal) {
+        if (inc.is_angle_bracket && bracket_inc_is_acknowlege) {
           // only prevent removal: make sure it is not removed.
           conservatively_no_remove->insert(found->target_set->begin(),
                                            found->target_set->end());

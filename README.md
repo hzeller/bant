@@ -620,10 +620,15 @@ Commands (unique prefix sufficient):
     dwyu           : DWYU: Depend on What You Use (emit buildozer edit script)
                      Default invocation uses -r4
                       -k strict: emit remove even if # keep comment in line.
-                      --consider-bracket-includes: also consider includes that
-                        are bracketed instead of quoted (e.g. <zlib.h>
-                        instead of "zlib.h") for adding dependencies.
-                        (fix your project to use quotes if you need this)
+                      --bracket-include one of ignore, acknowledge, or validate
+                        How to handle bracketed includes (e.g. <zlib.h>
+                        instead of "zlib.h") for considering deps for them.
+                        ignore     : bracket inclues ignored, deps removed.
+                        acknowldege: will not remove deps, but also no add.
+                        validate   : will also add deps providing that header.
+                        (fix your project to use quotes if you need acknowlege
+                         or validate).
+                        Default: acknowledge
     canonicalize   : Emit rename edits to canonicalize targets.
     compile-flags  : (experimental) Emit compile flags. Redirect or output with
                      -o compile_flags.txt

@@ -1510,7 +1510,7 @@ cc_library(
   EXPECT_THAT(tester.LogContent(), HasSubstr(":deprecated_foo (avoid"));
 }
 
-TEST(DWYUTest, AngleBracketInclude_DefaultNotRemove) {
+TEST(DWYUTest, BracketIncludeHandling) {
   ParsedProjectTestUtil pp;
   pp.Add("//some/path", R"(
 cc_library(
@@ -1532,9 +1532,11 @@ cc_library(
 )
 )");
 
-  {
-    DWYUTestFixture tester(
-      pp.project(), {.verbose = 1, .dwyu_consider_bracket_includes = false});
+  for (BracketIncHandling bracket_inc : {BracketIncHandling::kIgnore,       //
+                                         BracketIncHandling::kAcknowledge,  //
+                                         BracketIncHandling::kValidate}) {
+    DWYUTestFixture tester(pp.project(),
+                           {.verbose = 1, .dwyu_bracket_include = bracket_inc});
     tester.AddSource("some/path/foo.h", "");
     tester.AddSource("some/path/bar.h", "");
     tester.AddSource("some/path/baz.cc", R"(
@@ -1542,28 +1544,20 @@ cc_library(
 #include <some/path/bar.h>
 )");
 
-    // We do NOT expect Remove() as we conservatively detect the situation.
-    // But we also do NOT Add(), as that would require full bracket includes.
-    tester.RunForTarget("//some/path:baz");
-    // No log outpus expected either, we only complain when consider bracket on.
-  }
-
-  {
-    DWYUTestFixture tester(
-      pp.project(), {.verbose = 1, .dwyu_consider_bracket_includes = true});
-    tester.AddSource("some/path/foo.h", "");
-    tester.AddSource("some/path/bar.h", "");
-    tester.AddSource("some/path/baz.cc", R"(
-#include <some/path/foo.h>
-#include <some/path/bar.h>
-)");
-
-    tester.ExpectAdd(":bar");
+    if (bracket_inc == BracketIncHandling::kIgnore) {
+      tester.ExpectRemove(":foo");
+    }
+    if (bracket_inc == BracketIncHandling::kValidate) {
+      tester.ExpectAdd(":bar");
+    }
     tester.RunForTarget("//some/path:baz");
 
-    const std::string log = tester.LogContent();
-    EXPECT_THAT(log, HasSubstr("quote-style \"some/path/foo.h"));
-    EXPECT_THAT(log, HasSubstr("quote-style \"some/path/bar.h"));
+    if (bracket_inc == BracketIncHandling::kValidate) {
+      // In validate mode, we loudly complain to steer project towards fix.
+      const std::string log = tester.LogContent();
+      EXPECT_THAT(log, HasSubstr("quote-style \"some/path/foo.h"));
+      EXPECT_THAT(log, HasSubstr("quote-style \"some/path/bar.h"));
+    }
   }
 }
 
