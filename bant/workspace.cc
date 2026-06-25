@@ -81,7 +81,8 @@ std::optional<FilesystemPath> BazelWorkspace::FindPathByProject(
 
 bool BestEffortAugmentFromExternalDir(Session &session,
                                       BazelWorkspace &workspace) {
-  static const LazyRE2 kExtensionRe{R"/(^(?:_main)?[+~][^+~]*[+~](.*))/"};
+  static const LazyRE2 kExtensionRe{
+    R"/(^(?:[^~+]+[~+])?[~+](?:[^~+]+)[~+]([^/]+))/"};
 
   bant::Stat &workspace_stats =
     session.GetStatsFor("Augment workspace from ext. dir", "directories");
