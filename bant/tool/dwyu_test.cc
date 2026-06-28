@@ -1441,6 +1441,33 @@ cc_library(
   tester.AddSource("some/path/bar.cc", R"(
 #include "lib/path/foo.h"
 )");
+  // Since skip dependency check is set, we do NOT expect an Add() for :foo
+  tester.RunForTarget("//some/path:bar");
+}
+
+TEST(DWYUTest, Add_SkipsDependencyCheckIf_nofixdeps_tagIsSet) {
+  ParsedProjectTestUtil pp;
+  pp.Add("//lib/path", R"(
+cc_library(
+  name = "foo",
+  srcs = ["foo.cc"],
+  hdrs = ["foo.h"],
+)
+)");
+
+  pp.Add("//some/path", R"(
+cc_library(
+  name = "bar",
+  srcs = ["bar.cc"],
+  tags = ["nofixdeps"],  # Semantically the same as bant_skip_dependency_check
+)
+)");
+
+  DWYUTestFixture tester(pp.project(), {});
+  tester.AddSource("some/path/bar.cc", R"(
+#include "lib/path/foo.h"
+)");
+  // Since tag "nofixdeps" is provided, we do NOT expect an Add() for :foo
   tester.RunForTarget("//some/path:bar");
 }
 

@@ -183,6 +183,19 @@ void DWYUGenerator::InitKnownLibraries() {
   }
 }
 
+// Test if tags list contains a tag with given context; if so, return its
+// value (locatable string);
+static std::optional<std::string_view> TagContains(List *tags_list,
+                                                   std::string_view query_tag) {
+  if (!tags_list) return std::nullopt;
+  const auto tags = query::ExtractStringList(tags_list);
+  if (auto found = std::find(tags.begin(), tags.end(), query_tag);
+      found != tags.end()) {
+    return *found;
+  }
+  return std::nullopt;
+}
+
 // Various predicates to check
 bool DWYUGenerator::DependencySaysShouldKeep(const BazelTarget &target,
                                              ShouldKeepMessage *msg) const {
@@ -194,9 +207,7 @@ bool DWYUGenerator::DependencySaysShouldKeep(const BazelTarget &target,
     *msg = {"alwayslink", dep.alwayslink_scalar->AsString()};
     return true;
   }
-  const auto tags = query::ExtractStringList(dep.tags);
-  if (auto keep_dep = std::find(tags.begin(), tags.end(), "keep_dep");
-      keep_dep != tags.end()) {
+  if (auto keep_dep = TagContains(dep.tags, "keep_dep"); keep_dep.has_value()) {
     *msg = {"tag", *keep_dep};
     return true;
   }
@@ -310,10 +321,9 @@ std::optional<std::string_view> DWYUGenerator::AvoidDependencyReason(
     if (!found->second.deprecation.empty()) {
       return found->second.deprecation;
     }
-    const auto tags = query::ExtractStringList(found->second.tags);
-    if (auto avoid_dep = std::find(tags.begin(), tags.end(), "avoid_dep");
-        avoid_dep != tags.end()) {
-      return *avoid_dep;  // Original string_view from file.
+    if (auto avoid_dep = TagContains(found->second.tags, "avoid_dep");
+        avoid_dep.has_value()) {
+      return avoid_dep;  // Original string_view from file.
     }
   }
   return AvoidDueToVisibility(self, dep);
@@ -854,7 +864,10 @@ DWYUGenerator::DependenciesNeededByProtoSources(
 void DWYUGenerator::CreateEditsForTarget(const BazelTarget &target,
                                          const query::Result &details,
                                          const ParsedBuildFile &build_file) {
-  if (details.bant_skip_dependency_check) return;
+  if (details.bant_skip_dependency_check ||
+      TagContains(details.tags, "nofixdeps").has_value()) {
+    return;
+  }
 
   // Looking at the include/import files the sources reference, map these back
   // to the dependencies that provide them: these are the deps we
