@@ -54,6 +54,8 @@ struct TaggedInclude {
   std::string_view include;  // path of the include file.
   bool is_angle_bracket;     // if true, included via <>, otherwise ""
   bool is_ifdefed_out;       // if not considered due to macros in defines.
+  std::string_view active_preprocessing_condition;  // Last #if/#ifdef
+  // bool pp_condition_looks_like_header_guard;      // Useful print the above ?
   bool operator==(const TaggedInclude &) const = default;
 };
 std::vector<TaggedInclude> ExtractCCIncludes(NamedLineIndexedContent *src,

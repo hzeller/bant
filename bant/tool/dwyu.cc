@@ -577,9 +577,13 @@ DWYUGenerator::DependenciesNeededBySources(
           // TODO: the following should really only be reported if this results
           // in a removal, otherwise a higher verbosity level might be ok.
           maybe_log_source_headline(src_name, source_content->path, target);
+          const auto active_condition = inc.active_preprocessing_condition;
+          const FileLocation loc = source.GetLocation(active_condition);
           Loc(source, inc_file)
             << " " << Bold(session_) << inc_file << Norm(session_)
-            << " not considered due to ifdef; " << Red(session_)
+            << " not considered due to macro "
+            << HyperLinked(session_.linkgen(), loc, active_condition)
+            << Red(session_)
             << "if not intended, make sure to set "
                "defines=[] or copts=[] in "
             << Norm(session_) << Bold(session_) << target << Norm(session_)

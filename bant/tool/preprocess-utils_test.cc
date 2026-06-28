@@ -39,7 +39,8 @@ namespace bant {
 static void PrintTo(const TaggedInclude &i, std::ostream *out) {
   *out << (i.is_ifdefed_out ? "EXCLUDED: " : " ")
        << (i.is_angle_bracket ? "<" : "") << i.include
-       << (i.is_angle_bracket ? ">" : "");
+       << (i.is_angle_bracket ? ">" : "") << " ("
+       << i.active_preprocessing_condition << ")";
 }
 namespace {
 TEST(PreprocessUtils, PreprocessRangeIf_0_1) {
@@ -61,8 +62,8 @@ TEST(PreprocessUtils, PreprocessRangeIf_0_1) {
     NamedLineIndexedContent scanned_src("<text>", kTestContent);
     auto ranges = ExtractCCIncludes(&scanned_src, defs);
     using TI = TaggedInclude;
-    EXPECT_THAT(ranges, ElementsAre(TI{"A_PRIME_TEXT.h", false, false},
-                                    TI{"B_TEXT.h", false, false}));
+    EXPECT_THAT(ranges, ElementsAre(TI{"A_PRIME_TEXT.h", false, false, "#if 0"},
+                                    TI{"B_TEXT.h", false, false, "#if 1"}));
   }
 }
 
@@ -114,11 +115,12 @@ TEST(PreprocessUtils, PreprocessRangeUnambiguousValueMacro) {
     NamedLineIndexedContent scanned_src("<text>", kTestContent);
     auto ranges = ExtractCCIncludes(&scanned_src, defs);
     using TI = TaggedInclude;
-    EXPECT_THAT(ranges, ElementsAre(TI{"A_PRIME_TEXT.h", false, false},  //
-                                    TI{"B_TEXT.h", false, true},         //
-                                    TI{"B_PRIME_TEXT.h", false, false},  //
-                                    TI{"C_TEXT.h", false, false}         //
-                                    ));
+    EXPECT_THAT(ranges,
+                ElementsAre(TI{"A_PRIME_TEXT.h", false, false, "#if FOO"},  //
+                            TI{"B_TEXT.h", false, true, "#if BAR"},         //
+                            TI{"B_PRIME_TEXT.h", false, false, "#if BAR"},  //
+                            TI{"C_TEXT.h", false, false, "#if BAZ"}         //
+                            ));
   }
 }
 
@@ -143,10 +145,11 @@ TEST(PreprocessUtils, PreprocessRangeUnambiguousExistenceMacro) {
     NamedLineIndexedContent scanned_src("<text>", kTestContent);
     auto ranges = ExtractCCIncludes(&scanned_src, defs);
     using TI = TaggedInclude;
-    EXPECT_THAT(ranges, ElementsAre(TI{"A_TEXT.h", false, false},      //
-                                    TI{"B_TEXT.h", false, false},      //
-                                    TI{"B_PRIME_TEXT.h", false, true}  //
-                                    ));
+    EXPECT_THAT(ranges,
+                ElementsAre(TI{"A_TEXT.h", false, false, "#ifdef FOO"},       //
+                            TI{"B_TEXT.h", false, false, "#ifndef BAR"},      //
+                            TI{"B_PRIME_TEXT.h", false, true, "#ifndef BAR"}  //
+                            ));
   }
 }
 
@@ -169,8 +172,9 @@ TEST(PreprocessUtils, PreprocessRangeIndirectDefinedInclusion) {
     NamedLineIndexedContent scanned_src("<text>", kTestContent);
     auto ranges = ExtractCCIncludes(&scanned_src, defs);
     using TI = TaggedInclude;
-    EXPECT_THAT(ranges, ElementsAre(TI{"A_TEXT.h", false, false}  //
-                                    ));
+    EXPECT_THAT(ranges,
+                ElementsAre(TI{"A_TEXT.h", false, false, "#if A_PRIME_DEF"}  //
+                            ));
   }
 }
 
@@ -194,8 +198,9 @@ TEST(PreprocessUtils, PreprocessRangeIndirectUnDefinedInclusion) {
     NamedLineIndexedContent scanned_src("<text>", kTestContent);
     auto ranges = ExtractCCIncludes(&scanned_src, defs);
     using TI = TaggedInclude;
-    EXPECT_THAT(ranges, ElementsAre(TI{"WITH_BAR.h", false, true},  //
-                                    TI{"NO_BAR.h", false, false}));
+    EXPECT_THAT(ranges,
+                ElementsAre(TI{"WITH_BAR.h", false, true, "#ifdef BAR"},  //
+                            TI{"NO_BAR.h", false, false, "#ifdef BAR"}));
   }
 }
 
@@ -242,19 +247,21 @@ R"xyz(
   NamedLineIndexedContent scanned_src("<text>", kTestContent);
   const auto includes = ExtractCCIncludes(&scanned_src, DefineMap());
   using TI = TaggedInclude;
-  EXPECT_THAT(includes,
-              ElementsAre(/* 0*/ TI{"CaSe-dash_underscore.h", false, false},
-                          /* 1*/ TI{"a_bracket_include", true, false},
-                          /* 2*/ TI{"but-this.h", false, false},
-                          /* 3*/ TI{"with/suffix.hh", false, false},
-                          /* 4*/ TI{"with/suffix.pb.h", false, false},
-                          /* 5*/ TI{"with/suffix.inc", false, false},
-                          /* 6*/ TI{"ifdefed-out.h", false, true},
-                          /* 7*/ TI{"../dotdot.h", false, false},
-                          /* 8*/ TI{"more-special-c++.h", false, false},
-                          /* 9*/ TI{"w/space.h", false, false},
-                          /*10*/ TI{"should-be-seen.h", false, false},
-                          /*11*/ TI{"this-as-well.h", false, false}));
+  EXPECT_THAT(
+    includes,
+    ElementsAre(
+      /* 0*/ TI{"CaSe-dash_underscore.h", false, false},
+      /* 1*/ TI{"a_bracket_include", true, false},
+      /* 2*/ TI{"but-this.h", false, false},
+      /* 3*/ TI{"with/suffix.hh", false, false},
+      /* 4*/ TI{"with/suffix.pb.h", false, false},
+      /* 5*/ TI{"with/suffix.inc", false, false},
+      /* 6*/ TI{"ifdefed-out.h", false, true, "#if THIS_IS_NOT_DEFINED"},
+      /* 7*/ TI{"../dotdot.h", false, false},
+      /* 8*/ TI{"more-special-c++.h", false, false},
+      /* 9*/ TI{"w/space.h", false, false},
+      /*10*/ TI{"should-be-seen.h", false, false},
+      /*11*/ TI{"this-as-well.h", false, false}));
   // Let's check some locations.
   EXPECT_EQ(PosOfPart(scanned_src, includes, 0), (LineColumn{2, 10}));
   EXPECT_EQ(PosOfPart(scanned_src, includes, 1), (LineColumn{3, 10}));

@@ -42,7 +42,8 @@ std::vector<TaggedInclude> PreprocessInternal(std::string_view source,
                                               DefineMap &defines) {
   struct BranchState {
     bool is_active;
-    bool is_ambiguous;
+    bool is_ambiguous;  // e.g. due to #ifndef, i.e. the absence of a value.
+    std::string_view condition;
   };
   std::vector<BranchState> condition_stack;
   bool current_emitting = true;
@@ -55,6 +56,13 @@ std::vector<TaggedInclude> PreprocessInternal(std::string_view source,
   auto is_ambiguous = [&]() {
     return condition_stack.empty() ? false
                                    : condition_stack.back().is_ambiguous;
+  };
+
+  auto get_active_condition = [&]() {
+    // If there is no condition, still return an empty string, coming from
+    // the source to be locatable.
+    return condition_stack.empty() ? source.substr(0, 0)
+                                   : condition_stack.back().condition;
   };
 
   // re2c internal variables to keep track of lexing state.
@@ -87,9 +95,11 @@ std::vector<TaggedInclude> PreprocessInternal(std::string_view source,
     {
       if (!all_space(start_of_line, pound_start)) continue;
       const std::string_view value(v_start, v_end - v_start);
-      const auto parsed = ParsePreprocessValue(value, defines);
-      const bool is_active = current_emitting && parsed.is_on;
-      condition_stack.emplace_back(is_active, parsed.is_ambiguous);
+      const std::string_view condition(pound_start, v_end - pound_start);
+      const auto parsed_value = ParsePreprocessValue(value, defines);
+      const bool is_active = current_emitting && parsed_value.is_on;
+      condition_stack.emplace_back(is_active, parsed_value.is_ambiguous,
+                                   condition);
       update_emitting_state();
 
       continue;
@@ -100,10 +110,11 @@ std::vector<TaggedInclude> PreprocessInternal(std::string_view source,
       if (!all_space(start_of_line, pound_start)) continue;
       const bool is_ifndef = (k_start[2] == 'n');
       const std::string_view macro(v_start, v_end - v_start);
+      const std::string_view condition(pound_start, v_end - pound_start);
 
       const bool macro_known = defines.contains(macro);
       const bool is_active = current_emitting && (macro_known ^ is_ifndef);
-      condition_stack.emplace_back(is_active, !macro_known);
+      condition_stack.emplace_back(is_active, !macro_known, condition);
       update_emitting_state();
 
       continue;
@@ -153,7 +164,8 @@ std::vector<TaggedInclude> PreprocessInternal(std::string_view source,
       if (!all_space(start_of_line, pound_start)) continue;
       const std::string_view inc(i_start, i_end - i_start);
       if (current_emitting || is_ambiguous()) {
-         result.emplace_back(inc, b_start[0] == '<', !current_emitting);
+         result.emplace_back(inc, b_start[0] == '<', !current_emitting,
+                             get_active_condition());
       }
       continue;
     }
