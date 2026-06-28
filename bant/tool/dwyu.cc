@@ -56,7 +56,7 @@
 //
 // This file is a dense bowl of spaghetti as a result of ad-hoc adding features.
 // Refactor.
-//
+// A lot of 'noise' comes from the extensive logging for debug reasons.
 
 // Looking for source files directly in the source tree, but if not found
 // in the various locations generated files could be.
@@ -510,26 +510,26 @@ DWYUGenerator::DependenciesNeededBySources(
   // This shows a after the include all the dependencies that can provide
   // it.
   auto maybe_log = [&](const NamedLineIndexedContent &source,
-                       std::string_view inc_file, bool is_bracket_include,
+                       const TaggedInclude &inc,
                        const absl::btree_set<BazelTarget> &alternatives) {
     const bool log_bracket_code_smell = bracket_inc_is_validate;
     // Nasty code-smell thus always show early in verbosity.
-    if (is_bracket_include && log_bracket_code_smell &&
+    if (inc.is_angle_bracket && log_bracket_code_smell &&
         session_.MinVerbosity(1)) {
       std::string see_also = !session_.MinVerbosity(3) ? " See with -vvv" : "";
-      Loc(source, inc_file)
+      Loc(source, inc.include)
         << " source of " << Bold(session_) << target << Norm(session_)
-        << ": #include " << Magenta(session_) << "<" << inc_file << ">"
+        << ": #include " << Magenta(session_) << "<" << inc.include << ">"
         << Norm(session_) << " uses <>-bracketed include style. "
         << Red(session_) << "Should use quote-style "
-        << "\"" << inc_file << "\" as this header is provided by "
+        << "\"" << inc.include << "\" as this header is provided by "
         << "project libraries." << see_also << Norm(session_) << "\n";
     }
     if (!session_.MinVerbosity(3)) return;
-    Loc(source, inc_file) << Bold(session_) << " #include "
-                          << (is_bracket_include ? '<' : '"') << inc_file
-                          << (is_bracket_include ? '>' : '"') << Norm(session_)
-                          << "\n";
+    Loc(source, inc.include)
+      << Bold(session_) << " #include " << (inc.is_angle_bracket ? '<' : '"')
+      << inc.include << (inc.is_angle_bracket ? '>' : '"') << Norm(session_)
+      << "\n";
     for (const BazelTarget &possible_provider : alternatives) {
       std::stringstream msg;
       if (auto reason = AvoidDependencyReason(target, possible_provider);
@@ -545,12 +545,12 @@ DWYUGenerator::DependenciesNeededBySources(
         // a checkmark and hyperlink it to the location in the BUILD file.
         const std::string anchor_text = absl::StrCat("✓ ", possible_provider);
         const FileLocation loc = project_.GetLocation(found_declared->second);
-        Loc(source, inc_file)
+        Loc(source, inc.include)
           << "    " << HyperLinked{session_.linkgen(), loc, anchor_text}
           << msg.str() << "\n";
       } else {
         // ... otherwise just print the would-be provider.
-        Loc(source, inc_file)
+        Loc(source, inc.include)
           << "    - " << possible_provider << msg.str() << "\n";
       }
     }
@@ -675,8 +675,7 @@ DWYUGenerator::DependenciesNeededBySources(
         if (session_.MinVerbosity(3)) {
           maybe_log_source_headline(src_name, source_content->path, target);
         }
-        maybe_log(source, inc_file, inc.is_angle_bracket,
-                  *found_result.target_set);
+        maybe_log(source, inc, *found_result.target_set);
         if (inc.is_angle_bracket && bracket_inc_is_acknowlege) {
           // only prevent removal: make sure it is not removed.
           conservatively_no_remove->insert(header_providers.begin(),
@@ -705,7 +704,7 @@ DWYUGenerator::DependenciesNeededBySources(
         if (session_.MinVerbosity(3)) {
           maybe_log_source_headline(src_name, source_content->path, target);
         }
-        maybe_log(source, inc_file, inc.is_angle_bracket, *found->target_set);
+        maybe_log(source, inc, *found->target_set);
         if (inc.is_angle_bracket && bracket_inc_is_acknowlege) {
           // only prevent removal: make sure it is not removed.
           conservatively_no_remove->insert(found->target_set->begin(),
