@@ -43,8 +43,21 @@ std::vector<TaggedInclude> PreprocessInternal(std::string_view source,
   struct BranchState {
     bool is_active;
     bool is_ambiguous;  // e.g. due to #ifndef, i.e. the absence of a value.
-    std::string_view condition;
+    std::string_view condition_location;
+    std::string_view else_location;
   };
+
+  // a locatable empty location within the source.
+  const std::string_view empty_location = source.substr(0, 0);
+
+  // Default branch state if we are actually not in any branch.
+  const BranchState default_branch_state = {
+    .is_active = true,
+    .is_ambiguous = false,
+    .condition_location = empty_location,
+    .else_location = empty_location,
+  };
+
   std::vector<BranchState> condition_stack;
   bool current_emitting = true;
 
@@ -53,16 +66,11 @@ std::vector<TaggedInclude> PreprocessInternal(std::string_view source,
       condition_stack.empty() ? true : condition_stack.back().is_active;
   };
 
-  auto is_ambiguous = [&]() {
-    return condition_stack.empty() ? false
-                                   : condition_stack.back().is_ambiguous;
-  };
-
-  auto get_active_condition = [&]() {
-    // If there is no condition, still return an empty string, coming from
-    // the source to be locatable.
-    return condition_stack.empty() ? source.substr(0, 0)
-                                   : condition_stack.back().condition;
+  auto get_effective_branch_state = [&]() -> const BranchState & {
+    if (condition_stack.empty()) {
+      return default_branch_state;
+    }
+    return condition_stack.back();
   };
 
   // re2c internal variables to keep track of lexing state.
@@ -120,11 +128,13 @@ std::vector<TaggedInclude> PreprocessInternal(std::string_view source,
       continue;
     }
 
-    POUND "else"
+    POUND "else" @v_end
     {
       if (!all_space(start_of_line, pound_start)) continue;
       if (!condition_stack.empty()) {
+        const std::string_view else_loc(pound_start, v_end - pound_start);
         condition_stack.back().is_active ^= true;
+        condition_stack.back().else_location = else_loc;
         update_emitting_state();
       }
       continue;
@@ -163,9 +173,10 @@ std::vector<TaggedInclude> PreprocessInternal(std::string_view source,
     {
       if (!all_space(start_of_line, pound_start)) continue;
       const std::string_view inc(i_start, i_end - i_start);
-      if (current_emitting || is_ambiguous()) {
+      const BranchState &state = get_effective_branch_state();
+      if (current_emitting || state.is_ambiguous) {
          result.emplace_back(inc, b_start[0] == '<', !current_emitting,
-                             get_active_condition());
+                             state.condition_location, state.else_location);
       }
       continue;
     }

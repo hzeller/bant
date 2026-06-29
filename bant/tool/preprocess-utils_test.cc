@@ -40,7 +40,7 @@ static void PrintTo(const TaggedInclude &i, std::ostream *out) {
   *out << (i.is_ifdefed_out ? "EXCLUDED: " : " ")
        << (i.is_angle_bracket ? "<" : "") << i.include
        << (i.is_angle_bracket ? ">" : "") << " ("
-       << i.active_preprocessing_condition << ")";
+       << i.active_preprocessing_condition << " " << i.else_location << ")";
 }
 namespace {
 TEST(PreprocessUtils, PreprocessRangeIf_0_1) {
@@ -62,8 +62,9 @@ TEST(PreprocessUtils, PreprocessRangeIf_0_1) {
     NamedLineIndexedContent scanned_src("<text>", kTestContent);
     auto ranges = ExtractCCIncludes(&scanned_src, defs);
     using TI = TaggedInclude;
-    EXPECT_THAT(ranges, ElementsAre(TI{"A_PRIME_TEXT.h", false, false, "#if 0"},
-                                    TI{"B_TEXT.h", false, false, "#if 1"}));
+    EXPECT_THAT(
+      ranges, ElementsAre(TI{"A_PRIME_TEXT.h", false, false, "#if 0", "#else"},
+                          TI{"B_TEXT.h", false, false, "#if 1"}));
   }
 }
 
@@ -115,12 +116,13 @@ TEST(PreprocessUtils, PreprocessRangeUnambiguousValueMacro) {
     NamedLineIndexedContent scanned_src("<text>", kTestContent);
     auto ranges = ExtractCCIncludes(&scanned_src, defs);
     using TI = TaggedInclude;
-    EXPECT_THAT(ranges,
-                ElementsAre(TI{"A_PRIME_TEXT.h", false, false, "#if FOO"},  //
-                            TI{"B_TEXT.h", false, true, "#if BAR"},         //
-                            TI{"B_PRIME_TEXT.h", false, false, "#if BAR"},  //
-                            TI{"C_TEXT.h", false, false, "#if BAZ"}         //
-                            ));
+    EXPECT_THAT(
+      ranges,
+      ElementsAre(TI{"A_PRIME_TEXT.h", false, false, "#if FOO", "#else"},  //
+                  TI{"B_TEXT.h", false, true, "#if BAR"},                  //
+                  TI{"B_PRIME_TEXT.h", false, false, "#if BAR", "#else"},  //
+                  TI{"C_TEXT.h", false, false, "#if BAZ"}                  //
+                  ));
   }
 }
 
@@ -145,11 +147,12 @@ TEST(PreprocessUtils, PreprocessRangeUnambiguousExistenceMacro) {
     NamedLineIndexedContent scanned_src("<text>", kTestContent);
     auto ranges = ExtractCCIncludes(&scanned_src, defs);
     using TI = TaggedInclude;
-    EXPECT_THAT(ranges,
-                ElementsAre(TI{"A_TEXT.h", false, false, "#ifdef FOO"},       //
-                            TI{"B_TEXT.h", false, false, "#ifndef BAR"},      //
-                            TI{"B_PRIME_TEXT.h", false, true, "#ifndef BAR"}  //
-                            ));
+    EXPECT_THAT(
+      ranges,
+      ElementsAre(TI{"A_TEXT.h", false, false, "#ifdef FOO"},                //
+                  TI{"B_TEXT.h", false, false, "#ifndef BAR"},               //
+                  TI{"B_PRIME_TEXT.h", false, true, "#ifndef BAR", "#else"}  //
+                  ));
   }
 }
 
@@ -198,9 +201,9 @@ TEST(PreprocessUtils, PreprocessRangeIndirectUnDefinedInclusion) {
     NamedLineIndexedContent scanned_src("<text>", kTestContent);
     auto ranges = ExtractCCIncludes(&scanned_src, defs);
     using TI = TaggedInclude;
-    EXPECT_THAT(ranges,
-                ElementsAre(TI{"WITH_BAR.h", false, true, "#ifdef BAR"},  //
-                            TI{"NO_BAR.h", false, false, "#ifdef BAR"}));
+    EXPECT_THAT(
+      ranges, ElementsAre(TI{"WITH_BAR.h", false, true, "#ifdef BAR"},  //
+                          TI{"NO_BAR.h", false, false, "#ifdef BAR", "#else"}));
   }
 }
 
