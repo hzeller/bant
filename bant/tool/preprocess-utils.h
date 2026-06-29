@@ -56,6 +56,7 @@ struct TaggedInclude {
   bool is_ifdefed_out;       // if not considered due to macros in defines.
   std::string_view active_preprocessing_condition;  // Last #if/#ifdef
   std::string_view else_location;
+  bool likely_header_guard_condition = false;
   bool operator==(const TaggedInclude &) const = default;
 };
 std::vector<TaggedInclude> ExtractCCIncludes(NamedLineIndexedContent *src,

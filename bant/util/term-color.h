@@ -73,6 +73,12 @@ class Red : public Colored {
   explicit Red(const Session &s) : Red(s.flags().do_color) {}
 };
 
+class Green : public Colored {
+ public:
+  explicit Green(bool do_color) : Colored(do_color, "\033[32m") {}
+  explicit Green(const Session &s) : Green(s.flags().do_color) {}
+};
+
 class Magenta : public Colored {
  public:
   explicit Magenta(bool do_color) : Colored(do_color, "\033[35m") {}

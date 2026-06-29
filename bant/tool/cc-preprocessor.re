@@ -45,6 +45,7 @@ std::vector<TaggedInclude> PreprocessInternal(std::string_view source,
     bool is_ambiguous;  // e.g. due to #ifndef, i.e. the absence of a value.
     std::string_view condition_location;
     std::string_view else_location;
+    bool possibly_header_guard_condition = false;
   };
 
   // a locatable empty location within the source.
@@ -56,6 +57,7 @@ std::vector<TaggedInclude> PreprocessInternal(std::string_view source,
     .is_ambiguous = false,
     .condition_location = empty_location,
     .else_location = empty_location,
+    .possibly_header_guard_condition = false,
   };
 
   std::vector<BranchState> condition_stack;
@@ -77,7 +79,7 @@ std::vector<TaggedInclude> PreprocessInternal(std::string_view source,
   const char *YYCURSOR = source.data();
   const char *const YYLIMIT = source.data() + source.size();
   const char *YYMARKER;
-  const char *yyt1, *yyt2, *yyt3, *yyt4;
+  const char *yyt1, *yyt2, *yyt3, *yyt4, *yyt5;
 
   // Variables remembering 'capture group' ranges.
   const char *start_of_line = source.data();
@@ -87,6 +89,9 @@ std::vector<TaggedInclude> PreprocessInternal(std::string_view source,
   const char *i_start, *i_end;
   const char *k_start, *k_end;
   const char *v_start, *v_end;
+
+  // header-guard detection logic to not report conditions that are 'boring'
+  std::string_view maybe_header_guard;
 
   std::vector<TaggedInclude> result;
   while (YYCURSOR < YYLIMIT) {
@@ -122,6 +127,11 @@ std::vector<TaggedInclude> PreprocessInternal(std::string_view source,
 
       const bool macro_known = defines.contains(macro);
       const bool is_active = current_emitting && (macro_known ^ is_ifndef);
+
+      // First ifndef in file at toplevel position might be header guard.
+      if (is_ifndef && condition_stack.empty() && maybe_header_guard.empty()) {
+        maybe_header_guard = macro;
+      }
       condition_stack.emplace_back(is_active, !macro_known, condition);
       update_emitting_state();
 
@@ -150,13 +160,20 @@ std::vector<TaggedInclude> PreprocessInternal(std::string_view source,
       continue;
     }
 
-    POUND "define" [ \t]+ (@k_start IDNUM @k_end) [ \t]+ (@v_start IDNUM @v_end)
+    POUND "define"[ \t]+(@k_start IDNUM @k_end)([ \t]+(@v_start IDNUM @v_end))?
     {
       if (!all_space(start_of_line, pound_start)) continue;
       const std::string_view macro(k_start, k_end - k_start);
+
+      // If we didn't get a value, make sure we have a locatable empty string.
+      if (v_start == nullptr) { v_start = k_end; v_end = k_end; }
       const std::string_view value(v_start, v_end - v_start);
+
       if (current_emitting) {
         defines[macro] = ParsePreprocessValue(value, defines).is_on;
+        if (macro == maybe_header_guard && condition_stack.size() == 1) {
+          condition_stack.back().possibly_header_guard_condition = true;
+        }
       }
       continue;
     }
@@ -176,7 +193,8 @@ std::vector<TaggedInclude> PreprocessInternal(std::string_view source,
       const BranchState &state = get_effective_branch_state();
       if (current_emitting || state.is_ambiguous) {
          result.emplace_back(inc, b_start[0] == '<', !current_emitting,
-                             state.condition_location, state.else_location);
+                             state.condition_location, state.else_location,
+                             state.possibly_header_guard_condition);
       }
       continue;
     }

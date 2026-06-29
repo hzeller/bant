@@ -526,10 +526,35 @@ DWYUGenerator::DependenciesNeededBySources(
         << "project libraries." << see_also << Norm(session_) << "\n";
     }
     if (!session_.MinVerbosity(3)) return;
+
+    // Show #include and possibly preprocessing #ifdef condition we're in.
     Loc(source, inc.include)
       << Bold(session_) << " #include " << (inc.is_angle_bracket ? '<' : '"')
-      << inc.include << (inc.is_angle_bracket ? '>' : '"') << Norm(session_)
-      << "\n";
+      << inc.include << (inc.is_angle_bracket ? '>' : '"') << Norm(session_);
+    if (!inc.active_preprocessing_condition.empty() &&
+        !inc.likely_header_guard_condition) {
+      if (inc.is_ifdefed_out) {  // if we allow all branches, this might show
+        session_.info() << Red(session_) << " (PP: in ";
+      } else {
+        session_.info() << Green(session_) << " (PP: in ";
+      }
+      if (!inc.else_location.empty()) {
+        const FileLocation loc = source.GetLocation(inc.else_location);
+        session_.info() << Bold(session_)
+                        << HyperLinked(session_.linkgen(), loc,
+                                       inc.else_location)
+                        << BoldOff(session_) << " branch of ";
+      }
+      const FileLocation loc =
+        source.GetLocation(inc.active_preprocessing_condition);
+      session_.info() << "condition " << Bold(session_)
+                      << HyperLinked(session_.linkgen(), loc,
+                                     inc.active_preprocessing_condition)
+                      << BoldOff(session_);
+      session_.info() << ")" << Norm(session_);
+    }
+    session_.info() << "\n";
+
     for (const BazelTarget &possible_provider : alternatives) {
       std::stringstream msg;
       if (auto reason = AvoidDependencyReason(target, possible_provider);
