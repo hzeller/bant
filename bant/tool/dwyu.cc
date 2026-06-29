@@ -917,9 +917,18 @@ void DWYUGenerator::CreateEditsForTarget(const BazelTarget &target,
   // all implicit -I with includes = ["include"] elements.
   auto includes_list = query::ExtractStringList(details.includes_list);
 
-  DefineMap defines = GetDefinesFromTarget(details);
+  DefineMap defines;
+  if (const auto found = defines_for_targets_.find(target);
+      found != defines_for_targets_.end()) {
+    defines = found->second;
+  }
 
   // All the dependencies; BazelTarget -> locatable string view in file.
+  // Also, we update the defines with all direct dependency defines while
+  // at it. This is somewhat of a double duty, returning a value but also
+  // modifying `defines`, and as such somewhat ugly. But we save doing the
+  // same ParseFrom() etc. twice. Maybe break up and make it slow if ugliness
+  // is too much...
   const TargetToFileLocation all_declared_dependencies = [&]() {
     TargetToFileLocation result;
     const auto deps =
@@ -937,6 +946,12 @@ void DWYUGenerator::CreateEditsForTarget(const BazelTarget &target,
         Loc(project_, dependency_target)
           << " in target " << target << ": dependency " << dependency_target
           << " same dependency mentioned multiple times. Run buildifier\n";
+      }
+
+      // Let's see if there are defines.
+      if (const auto found = defines_for_targets_.find(*requested_target);
+          found != defines_for_targets_.end()) {
+        defines.insert(found->second.begin(), found->second.end());
       }
     }
     return result;
@@ -1108,6 +1123,19 @@ DWYUGenerator::DWYUGenerator(Session &session, const ParsedProject &project,
   protos_from_libs_ = ExtractProtoToProtoLibMapping(project, session.info(),
                                                     /*suffix_index=*/true);
   files_from_genrules_ = ExtractGeneratedFromGenrule(project, session.info());
+
+  // The following is a utility that should probably go to header-providers.h
+  for (const auto &[_, build_file] : project.ParsedFiles()) {
+    if (!build_file->ast) continue;
+    query::FindTargets(
+      build_file->ast, {"cc_library"}, [&](const query::Result &cc_lib) {
+        if (cc_lib.defines == nullptr || cc_lib.defines->empty()) return;
+        auto target = build_file->package.QualifiedTarget(cc_lib.name);
+        if (!target.has_value()) return;
+        defines_for_targets_[*target] = GetDefinesFromTarget(cc_lib);
+      });
+  }
+
   InitKnownLibraries();
   stats.count = known_libs_.size();
 }

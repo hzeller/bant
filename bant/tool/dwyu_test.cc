@@ -1046,6 +1046,37 @@ cc_library(
   EXPECT_THAT(tester.LogContent(), HasSubstr("due to empty hdrs"));
 }
 
+TEST(DWYUTest, DefinesAreInheritedFromLibraries) {
+  ParsedProjectTestUtil pp;
+  pp.Add("//some/path", R"(
+cc_library(
+  name = "bar",
+  hdrs = ["bar.h"],
+  defines = ["HELLO_WORLD"],
+)
+
+cc_library(
+  name = "foo",
+  srcs = [ "foo.cc"],
+  deps = [
+     ":bar"
+  ],
+)
+)");
+
+  {
+    DWYUTestFixture tester(pp.project(), {.verbose = 3});
+    tester.AddSource("some/path/foo.cc", R"(
+#ifdef HELLO_WORLD  // only if we properly eval this...
+#include "some/path/bar.h"  // ... we see this include and won't remove :bar
+#endif
+)");
+    tester.RunForTarget("//some/path:foo");
+    EXPECT_THAT(tester.LogContent(),
+                HasSubstr("PP: in condition #ifdef HELLO_WORLD"));
+  }
+}
+
 TEST(DWYUTest, Add_ProtoLibraryForProtoInclude) {
   ParsedProjectTestUtil pp;
   pp.Add("//some/path", R"(

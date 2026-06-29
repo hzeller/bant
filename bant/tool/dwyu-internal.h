@@ -171,6 +171,8 @@ class DWYUGenerator {
   ProvidedFromTargetSet headers_from_libs_;
   ProvidedFromTargetSet protos_from_libs_;
   ProvidedFromTarget files_from_genrules_;
+  using TargetDefineMap = OneToOne<bant::BazelTarget, DefineMap>;
+  TargetDefineMap defines_for_targets_;
   absl::btree_map<BazelTarget, query::Result> known_libs_;
 
   // Collected information that is later emitted as summary
