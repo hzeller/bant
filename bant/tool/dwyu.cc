@@ -917,11 +917,8 @@ void DWYUGenerator::CreateEditsForTarget(const BazelTarget &target,
   // all implicit -I with includes = ["include"] elements.
   auto includes_list = query::ExtractStringList(details.includes_list);
 
-  DefineMap defines;
-  if (const auto found = defines_for_targets_.find(target);
-      found != defines_for_targets_.end()) {
-    defines = found->second;
-  }
+  // We always want to see the local defines for _our_ target.
+  DefineMap defines = GetDefinesFromTarget(details, true);
 
   // All the dependencies; BazelTarget -> locatable string view in file.
   // Also, we update the defines with all direct dependency defines while
@@ -1132,7 +1129,7 @@ DWYUGenerator::DWYUGenerator(Session &session, const ParsedProject &project,
         if (cc_lib.defines == nullptr || cc_lib.defines->empty()) return;
         auto target = build_file->package.QualifiedTarget(cc_lib.name);
         if (!target.has_value()) return;
-        defines_for_targets_[*target] = GetDefinesFromTarget(cc_lib);
+        defines_for_targets_[*target] = GetDefinesFromTarget(cc_lib, false);
       });
   }
 

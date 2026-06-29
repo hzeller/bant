@@ -42,7 +42,8 @@ PreprocessValueResult ParsePreprocessValue(std::string_view value,
   return {false, true};
 }
 
-DefineMap GetDefinesFromTarget(const query::Result &target) {
+DefineMap GetDefinesFromTarget(const query::Result &target,
+                               bool include_local_defines) {
   DefineMap result;
   auto insert_define = [&result](std::string_view d) {
     std::vector<std::string_view> elements = absl::StrSplit(d, '=');
@@ -52,12 +53,16 @@ DefineMap GetDefinesFromTarget(const query::Result &target) {
       result[elements[0]] = true;
     }
   };
-  for (std::string_view opt : query::ExtractStringList(target.copts)) {
-    if (!opt.starts_with("-D")) continue;
-    insert_define(opt.substr(2));
-  }
-  for (std::string_view opt : query::ExtractStringList(target.local_defines)) {
-    insert_define(opt);
+  if (include_local_defines) {
+    for (std::string_view opt : query::ExtractStringList(target.copts)) {
+      if (!opt.starts_with("-D")) continue;
+      insert_define(opt.substr(2));
+    }
+
+    for (std::string_view opt :
+         query::ExtractStringList(target.local_defines)) {
+      insert_define(opt);
+    }
   }
   // TODO: we should provide a way to walk the deps=[] graph to collect defines,
   // because these are transitive and we need to follow all of them.

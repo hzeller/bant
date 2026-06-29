@@ -1077,6 +1077,64 @@ cc_library(
   }
 }
 
+TEST(DWYUTest, COptsAreNotInheritedFromLibraries) {
+  ParsedProjectTestUtil pp;
+  pp.Add("//some/path", R"(
+cc_library(
+  name = "bar",
+  hdrs = ["bar.h"],
+  defines = ["SOME_UNRELATED_DEFINE"],
+  copts = ["-DHELLO_WORLD"],
+)
+
+cc_library(
+  name = "foo",
+  srcs = [ "foo.cc"],
+  deps = [
+     ":bar"
+  ],
+)
+)");
+
+  {
+    DWYUTestFixture tester(pp.project(), {.verbose = 1});
+    tester.AddSource("some/path/foo.cc", R"(
+#ifdef HELLO_WORLD  // this one we should not see
+#include "some/path/bar.h"  // ... thus we should proceed to remove this
+#endif
+)");
+    tester.ExpectRemove(":bar");
+    tester.RunForTarget("//some/path:foo");
+  }
+}
+
+TEST(DWYUTest, MakeSureWeSeeLocalDefines) {
+  ParsedProjectTestUtil pp;
+  pp.Add("//some/path", R"(
+cc_library(
+  name = "bar",
+  hdrs = ["bar.h"],
+)
+
+cc_library(
+  name = "foo",
+  srcs = [ "foo.cc"],
+  local_defines = ["SHOULD_INCLUDE_BAR"],
+)
+)");
+
+  {
+    DWYUTestFixture tester(pp.project(), {.verbose = 1});
+    tester.AddSource("some/path/foo.cc", R"(
+#ifdef SHOULD_INCLUDE_BAR
+#include "some/path/bar.h"  // ... thus we should proceed to remove this
+#endif
+)");
+    tester.ExpectAdd(":bar");
+    tester.RunForTarget("//some/path:foo");
+  }
+}
+
 TEST(DWYUTest, Add_ProtoLibraryForProtoInclude) {
   ParsedProjectTestUtil pp;
   pp.Add("//some/path", R"(

@@ -39,7 +39,8 @@ PreprocessValueResult ParsePreprocessValue(std::string_view value,
 
 // Given a target, look at copt =[] and define = [] and return defined
 // values. To be used as input to ExtractActiveCCIfdefRanges()
-DefineMap GetDefinesFromTarget(const query::Result &target);
+DefineMap GetDefinesFromTarget(const query::Result &target,
+                               bool include_local_defines);
 
 // Scan "src" and extract #include project headers.
 // Returned string_views point to the original "src"; the index is updated to

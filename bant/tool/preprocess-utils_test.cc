@@ -320,7 +320,7 @@ cc_library(
 )");
   query::FindTargets(build_file->ast, {"cc_library"},
                      [](const query::Result &cc_lib) {
-                       const auto defines = GetDefinesFromTarget(cc_lib);
+                       const auto defines = GetDefinesFromTarget(cc_lib, true);
                        EXPECT_THAT(defines, Contains(Pair("DEF_FOO_D", true)));
                        EXPECT_THAT(defines, Contains(Pair("VAL_BAR_D", false)));
                        EXPECT_THAT(defines, Contains(Pair("VAL_BAZ_D", true)));
