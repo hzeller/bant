@@ -599,7 +599,7 @@ package_group(
   name = "group",
   packages = [
     "//something/...",
-    # //some/path actually not allowed
+    # //some/path not allowed
   ],
 )
 )");  //
@@ -638,6 +638,48 @@ package_group(
   packages = [
     "//something/...",
     "//some/path/...",
+  ],
+)
+)");  //
+  pp.Add("//lib/path", R"(
+cc_library(
+  name = "foo",
+  srcs = ["foo.cc"],
+  hdrs = ["foo.h"],
+  visibility = ["//some/package:group"],
+)
+)");
+
+  pp.Add("//some/path", R"(
+cc_library(
+  name = "bar",
+  srcs = ["bar.cc"],
+)
+)");
+
+  DWYUTestFixture tester(pp.project(), {});
+  tester.ExpectAdd("//lib/path:foo");  // allowed
+  tester.AddSource("some/path/bar.cc", R"(
+#include "lib/path/foo.h"
+)");
+  tester.RunForTarget("//some/path:bar");
+}
+
+TEST(DWYUTest, VisibilityIsFollowedThroughIncludeIndirection) {
+  ParsedProjectTestUtil pp;
+  pp.Add("//some/package", R"(
+package_group(
+  name = "some_path_group",
+  packages = [
+    "//some/path/...",
+  ]
+)
+
+package_group(
+  name = "group",
+  includes = [ ":some_path_group" ],
+  packages = [
+    "//something/...",
   ],
 )
 )");  //

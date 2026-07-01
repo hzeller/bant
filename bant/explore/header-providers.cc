@@ -531,11 +531,52 @@ PackageGroups ExtractPackageGroups(const ParsedProject &project) {
     if (!file_content->ast) continue;
     query::FindTargets(
       file_content->ast, {"package_group"}, [&](const query::Result &params) {
-        auto target = file_content->package.QualifiedTarget(params.name);
-        if (!target.has_value()) return;
-        result[*target] = query::ExtractStringList(params.packages);
+        auto group_name = file_content->package.QualifiedTarget(params.name);
+        if (!group_name.has_value()) return;
+
+        PackageGroup group;
+        group.packages = query::ExtractStringList(params.packages);
+
+        // Besides the direct patterns, we can have references to other groups
+        // in includes = [].
+        for (auto group_ref : query::ExtractStringList(params.includes_list)) {
+          auto inc_group = file_content->package.QualifiedTarget(group_ref);
+          if (!inc_group.has_value()) continue;
+          group.includes.emplace_back(*inc_group);
+        }
+        result[*group_name] = group;
       });
   }
+  return result;
+}
+
+// Follow packages and their includes until we have a comprehensive list
+// of includede patterns.
+static void FollowPackageGroupPatternsTree(
+  const PackageGroups &all_groups, const BazelTarget &package_group,
+  absl::btree_set<BazelTarget> *seen_already,
+  std::vector<std::string_view> *append_to) {
+  if (!seen_already->insert(package_group).second) return;
+  const auto found = all_groups.find(package_group);
+  if (found == all_groups.end()) return;
+  const PackageGroup &group = found->second;
+  append_to->insert(append_to->end(), group.packages.begin(),
+                    group.packages.end());
+  for (const BazelTarget &inc_group : group.includes) {
+    // TODO: if we leave the package, do the patterns be resolved or are thsee
+    // always matched globally ?
+    FollowPackageGroupPatternsTree(all_groups, inc_group, seen_already,
+                                   append_to);
+  }
+}
+
+// Public interface of FollowPackageGroupPatternsTree()
+std::vector<std::string_view> ResolvePackageGroupPatterns(
+  const PackageGroups &all_groups, const BazelTarget &package_group) {
+  absl::btree_set<BazelTarget> seen_already;
+  std::vector<std::string_view> result;
+  FollowPackageGroupPatternsTree(all_groups, package_group, &seen_already,
+                                 &result);
   return result;
 }
 
@@ -748,10 +789,12 @@ void PrintTargetToN(Session &session, const BazelWorkspace &workspace,
   auto printer =
     TablePrinter::Create(session.out(), session.flags().output_format,
                          *highlighter, {"label", "pattern"});
-  for (const auto &[target, group_pattern] : pkg_groups) {
+  for (const auto &[target, _] : pkg_groups) {
     if (!filter.Match(target)) continue;
     std::vector<std::string> list;
-    for (auto p : group_pattern) list.emplace_back(p);
+    for (auto p : ResolvePackageGroupPatterns(pkg_groups, target)) {
+      list.emplace_back(p);
+    }
     printer->AddRowWithRepeatedLastColumn({target.ToString()}, list);
   }
   printer->Finish();

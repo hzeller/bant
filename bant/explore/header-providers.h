@@ -97,8 +97,17 @@ ProvidedFromTarget ExtractGeneratedFromGenrule(const ParsedProject &project,
 
 // Extract all package groups, mapping the bazel target (the package group)
 // to the packages listed.
-using PackageGroups = OneToN<BazelTarget, std::string_view>;
+struct PackageGroup {
+  std::vector<std::string_view> packages;  // package patterns
+  std::vector<BazelTarget> includes;       // reference to other packages.
+};
+using PackageGroups = OneToOne<BazelTarget, PackageGroup>;
 PackageGroups ExtractPackageGroups(const ParsedProject &project);
+
+// Given a package group, resolve all the patterns that match. Follows
+// includes recursively to get a comprehensive list of patterns.
+std::vector<std::string_view> ResolvePackageGroupPatterns(
+  const PackageGroups &all_groups, const BazelTarget &package_group);
 
 // Returns a map from targets to all the files they provide. Looks
 // at filegroups and genrules. The returned mapping are string_view that

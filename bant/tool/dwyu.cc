@@ -279,24 +279,20 @@ std::optional<std::string_view> DWYUGenerator::AvoidDueToVisibility(
   List *visibility_list = found->second.visibility;
   if (!visibility_list) return std::nullopt;
   bool any_valid_visiblity_pattern = false;
-  std::vector<std::string_view> single_vis(1);
   for (std::string_view vis : query::ExtractStringList(visibility_list)) {
     if (vis.empty()) continue;
-    const std::vector<std::string_view> *patterns_to_consider = nullptr;
+    std::vector<std::string_view> patterns_to_consider;
 
     // Maybe a package group ?
     if (auto maybe_group_target = BazelTarget::ParseFrom(vis, dep.package);
         maybe_group_target.has_value()) {
-      if (const auto found = packagegroups_.find(*maybe_group_target);
-          found != packagegroups_.end()) {
-        patterns_to_consider = &found->second;
-      }
+      patterns_to_consider =
+        ResolvePackageGroupPatterns(packagegroups_, *maybe_group_target);
     }
-    if (!patterns_to_consider) {
-      single_vis[0] = vis;
-      patterns_to_consider = &single_vis;
+    if (patterns_to_consider.empty()) {
+      patterns_to_consider.emplace_back(vis);  // let's assume it is pattern
     }
-    for (std::string_view vis_pattern : *patterns_to_consider) {
+    for (std::string_view vis_pattern : patterns_to_consider) {
       auto vis_or = BazelPattern::ParseVisibility(vis_pattern, dep.package);
       if (!vis_or.has_value()) continue;
       any_valid_visiblity_pattern = true;
