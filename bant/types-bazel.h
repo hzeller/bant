@@ -163,11 +163,16 @@ class BazelPattern final : public BazelTargetMatcher {
   static std::optional<BazelPattern> ParseFrom(std::string_view pattern,
                                                const BazelPackage &context);
 
-  BazelPattern(BazelTarget pattern, MatchKind kind, std::unique_ptr<RE2> regex);
+  BazelPattern(BazelTarget pattern, MatchKind kind, bool is_inverted_match,
+               std::unique_ptr<RE2> regex);
+
+  bool MatchPositive(const BazelTarget &target) const;
+  bool MatchPositive(const BazelPackage &package) const;
 
   BazelTarget match_pattern_;
   std::shared_ptr<RE2> regex_pattern_;  // shared: makes it copyable.
   MatchKind kind_;
+  bool is_inverted_match_ = false;
 };
 
 class BazelPatternBundle final : public BazelTargetMatcher {

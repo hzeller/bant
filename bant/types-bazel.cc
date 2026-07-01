@@ -214,6 +214,8 @@ BazelPattern::BazelPattern() : kind_(MatchKind::kAlwaysMatch) {}
 
 std::optional<BazelPattern> BazelPattern::ParseVisibility(
   std::string_view pattern, const BazelPackage &context) {
+  const bool negative_match = false;  // handled when we actually do ParseFrom()
+
   if (pattern == "//visibility:public") {
     return BazelPattern();  // always match
   }
@@ -221,7 +223,7 @@ std::optional<BazelPattern> BazelPattern::ParseVisibility(
     auto visibility_context = BazelTarget::ParseFrom("", context);
     if (!visibility_context.has_value()) return std::nullopt;
     return BazelPattern(*visibility_context, MatchKind::kAllTargetInPackage,
-                        nullptr);
+                        negative_match, nullptr);
   }
   // HACK for now: until we understand package_groups, let everything that
   // does not look like a pattern be always-match
@@ -255,6 +257,9 @@ static std::unique_ptr<RE2> GlobbingToRE2(std::string_view glob) {
 
 std::optional<BazelPattern> BazelPattern::ParseFrom(
   std::string_view pattern, const BazelPackage &context) {
+  const bool negative_match = pattern.starts_with('-');
+  if (negative_match) pattern.remove_prefix(1);
+
   auto target = BazelTarget::ParseFrom(pattern, context);
   if (!target.has_value()) return std::nullopt;
 
@@ -302,16 +307,18 @@ std::optional<BazelPattern> BazelPattern::ParseFrom(
     kind = MatchKind::kExact;
   }
 
-  return BazelPattern(target_pattern, kind, std::move(regex));
+  return BazelPattern(target_pattern, kind, negative_match, std::move(regex));
 }
 
 BazelPattern::BazelPattern(BazelTarget pattern, MatchKind kind,
-                           std::unique_ptr<RE2> regex)
+                           bool is_inverted_match, std::unique_ptr<RE2> regex)
     : match_pattern_(std::move(pattern)),
       regex_pattern_(std::move(regex)),
-      kind_(kind) {}
+      kind_(kind),
+      is_inverted_match_(is_inverted_match) {
+}
 
-bool BazelPattern::Match(const BazelTarget &target) const {
+bool BazelPattern::MatchPositive(const BazelTarget &target) const {
   switch (kind_) {
   case MatchKind::kAlwaysMatch:  //
     return true;
@@ -326,12 +333,16 @@ bool BazelPattern::Match(const BazelTarget &target) const {
   case MatchKind::kAllTargetInPackage: {
     return target.package == match_pattern_.package;
   }
-  case MatchKind::kRecursive: return Match(target.package);
+  case MatchKind::kRecursive: return MatchPositive(target.package);
   }
   return false;
 }
 
-bool BazelPattern::Match(const BazelPackage &package) const {
+bool BazelPattern::Match(const BazelTarget &target) const {
+  return MatchPositive(target) ^ is_inverted_match_;
+}
+
+bool BazelPattern::MatchPositive(const BazelPackage &package) const {
   switch (kind_) {
   case MatchKind::kAlwaysMatch:  //
     return true;
@@ -352,6 +363,10 @@ bool BazelPattern::Match(const BazelPackage &package) const {
   }
   }
   return false;
+}
+
+bool BazelPattern::Match(const BazelPackage &package) const {
+  return MatchPositive(package) ^ is_inverted_match_;
 }
 
 bool BazelPatternBundle::Match(const BazelTarget &target) const {

@@ -318,6 +318,7 @@ TEST(TypesBazel, CheckPatternPackageMatch) {
 
   EXPECT_TRUE(PatternOrDie("//foo/...").Match(PackageOrDie("//foo")));
   EXPECT_TRUE(PatternOrDie("//foo/...").Match(PackageOrDie("//foo/bar")));
+  EXPECT_FALSE(PatternOrDie("-//foo/...").Match(PackageOrDie("//foo/bar")));  //
   EXPECT_FALSE(PatternOrDie("//foo/...").Match(PackageOrDie("//foobar")));
 
   EXPECT_TRUE(
@@ -338,6 +339,7 @@ TEST(TypesBazel, CheckPatternTargetMatch) {
   EXPECT_TRUE(PatternOrDie("//foo/...").Match(TargetOrDie("//foo/bar:baz")));
 
   EXPECT_TRUE(PatternOrDie("//foo/...").Match(TargetOrDie("//foo")));
+  EXPECT_FALSE(PatternOrDie("-//foo/...").Match(TargetOrDie("//foo")));
   EXPECT_FALSE(PatternOrDie("//foo/...").Match(TargetOrDie("//fo")));
 
   EXPECT_TRUE(PatternOrDie("//foo").Match(TargetOrDie("//foo")));
