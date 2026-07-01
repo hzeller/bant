@@ -227,10 +227,11 @@ std::optional<BazelPattern> BazelPattern::ParseVisibility(
     return BazelPattern(*visibility_context, MatchKind::kAllTargetInPackage,
                         negative_match, nullptr);
   }
-  // HACK for now: until we understand package_groups, let everything that
-  // does not look like a pattern be always-match
+  // If this is not a typical pattern with ... or __something, we assume this
+  // is a package group which should not be here, possibly couldn't be resolved.
+  // Conservatively assume 'not visible'.
   if (!pattern.ends_with("...") && !pattern.ends_with("__")) {
-    return BazelPattern(negative_match);  // treat like //visibility:public
+    return BazelPattern(!negative_match);  // treat like //visibility:public
   }
   return ParseFrom(pattern, context);
 }

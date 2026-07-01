@@ -743,7 +743,7 @@ cc_library(
   tester.RunForTarget("//some/path:bar");
 }
 
-TEST(DWYUTest, VisibilityIsFollowedThroughInPackageGroupsMentioned) {
+TEST(DWYUTest, VisibilityAccidentallyInPackagesNotIncludeNotMatched) {
   ParsedProjectTestUtil pp;
   pp.Add("//some/package", R"(
 package_group(
@@ -757,7 +757,7 @@ package_group(
   name = "group",
   packages = [
     "//something/...",
-    ":some_path_group",  # should be dealt like include
+    ":some_path_group",  # should not be here, but in include=[]
   ],
 )
 )");  //
@@ -778,7 +778,7 @@ cc_library(
 )");
 
   DWYUTestFixture tester(pp.project(), {});
-  tester.ExpectAdd("//lib/path:foo");  // allowed
+  // not added, as the visibility does not match
   tester.AddSource("some/path/bar.cc", R"(
 #include "lib/path/foo.h"
 )");

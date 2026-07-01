@@ -413,6 +413,11 @@ TEST(TypesBazel, CheckVisibilityTargetMatch) {
                 .Match(TargetOrDie("//foo/bar:hello")));
   EXPECT_TRUE(VisibilityOrDie("__subpackages__", p)
                 .Match(TargetOrDie("//foo/bar/baz/and/deep/belo:hello")));
+
+  // if we find a visibility that is not a pattern but a package group of sorts,
+  // assume it couldn't be resolvved and consider it not matching.
+  EXPECT_FALSE(VisibilityOrDie("//looks/like/some:package_group", p)
+                 .Match(TargetOrDie("//some:target")));
 }
 }  // namespace
 }  // namespace bant
