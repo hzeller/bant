@@ -315,8 +315,7 @@ BazelPattern::BazelPattern(BazelTarget pattern, MatchKind kind,
     : match_pattern_(std::move(pattern)),
       regex_pattern_(std::move(regex)),
       kind_(kind),
-      is_inverted_match_(is_inverted_match) {
-}
+      is_inverted_match_(is_inverted_match) {}
 
 bool BazelPattern::MatchPositive(const BazelTarget &target) const {
   switch (kind_) {
@@ -369,18 +368,46 @@ bool BazelPattern::Match(const BazelPackage &package) const {
   return MatchPositive(package) ^ is_inverted_match_;
 }
 
-bool BazelPatternBundle::Match(const BazelTarget &target) const {
-  for (const auto &pattern : patterns_) {
-    if (pattern.Match(target)) return true;
+void BazelPatternBundle::AddPattern(const BazelPattern &p) {
+  if (p.is_inverted()) {
+    inverted_patterns_.emplace_back(p);
+  } else {
+    patterns_.emplace_back(p);
   }
-  return false;
+}
+
+bool BazelPatternBundle::Match(const BazelTarget &target) const {
+  bool positive_match = false;
+  for (const auto &pattern : patterns_) {
+    if (pattern.Match(target)) {
+      positive_match = true;
+      break;
+    }
+  }
+  if (!positive_match) return false;
+  for (const auto &pattern : inverted_patterns_) {
+    if (!pattern.Match(target)) {  // note, it is already inverted
+      return false;
+    }
+  }
+  return true;
 }
 
 bool BazelPatternBundle::Match(const BazelPackage &package) const {
+  bool positive_match = false;
   for (const auto &pattern : patterns_) {
-    if (pattern.Match(package)) return true;
+    if (pattern.Match(package)) {
+      positive_match = true;
+      break;
+    }
   }
-  return false;
+  if (!positive_match) return false;
+  for (const auto &pattern : inverted_patterns_) {
+    if (!pattern.Match(package)) {  // note, it is already inverted
+      return false;
+    }
+  }
+  return true;
 }
 
 }  // namespace bant

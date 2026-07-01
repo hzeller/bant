@@ -340,6 +340,7 @@ TEST(TypesBazel, CheckPatternTargetMatch) {
 
   EXPECT_TRUE(PatternOrDie("//foo/...").Match(TargetOrDie("//foo")));
   EXPECT_FALSE(PatternOrDie("-//foo/...").Match(TargetOrDie("//foo")));
+
   EXPECT_FALSE(PatternOrDie("//foo/...").Match(TargetOrDie("//fo")));
 
   EXPECT_TRUE(PatternOrDie("//foo").Match(TargetOrDie("//foo")));
@@ -381,6 +382,17 @@ TEST(TypesBazel, CheckPatternTargetMatch) {
 
   // Should the following work ?
   // EXPECT_TRUE(PatternOrDie("//foo").Match(TargetOrDie("//foo/")));
+}
+
+TEST(TypesBazel, CheckPatternBundle) {
+  BazelPatternBundle bundle;
+  bundle.AddPattern(PatternOrDie("//foo/..."));
+  bundle.AddPattern(PatternOrDie("-//foo/bar/..."));
+  bundle.Finish();
+
+  EXPECT_TRUE(bundle.Match(TargetOrDie("//foo")));
+  EXPECT_TRUE(bundle.Match(TargetOrDie("//foo/baz")));
+  EXPECT_FALSE(bundle.Match(TargetOrDie("//foo/bar/baz")));  // excluded.
 }
 
 TEST(TypesBazel, CheckVisibilityTargetMatch) {

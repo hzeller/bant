@@ -292,13 +292,18 @@ std::optional<std::string_view> DWYUGenerator::AvoidDueToVisibility(
     if (patterns_to_consider.empty()) {
       patterns_to_consider.emplace_back(vis);  // let's assume it is pattern
     }
+
+    BazelPatternBundle vis_bundle;
     for (std::string_view vis_pattern : patterns_to_consider) {
       auto vis_or = BazelPattern::ParseVisibility(vis_pattern, dep.package);
       if (!vis_or.has_value()) continue;
       any_valid_visiblity_pattern = true;
-      if (vis_or->Match(target)) {
-        return std::nullopt;
-      }
+      vis_bundle.AddPattern(*vis_or);
+    }
+    vis_bundle.Finish();
+
+    if (vis_bundle.Match(target)) {
+      return std::nullopt;
     }
   }
 

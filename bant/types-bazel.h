@@ -132,6 +132,7 @@ class BazelPattern final : public BazelTargetMatcher {
   BazelPattern();
 
   // Factory to parse BazelPattern that is returned as value if successful.
+  // Patterns that start with a minus provide inverted matches.
   static std::optional<BazelPattern> ParseFrom(std::string_view pattern);
 
   // Very similar to ParseFrom, but taking sligth visibility pattern differences
@@ -145,6 +146,8 @@ class BazelPattern final : public BazelTargetMatcher {
   bool is_recursive() const {
     return (kind_ == MatchKind::kRecursive || kind_ == MatchKind::kAlwaysMatch);
   }
+
+  bool is_inverted() const { return is_inverted_match_; }
 
   // -- BazelTargetMatcher interface
   bool HasFilter() const final { return kind_ != MatchKind::kAlwaysMatch; }
@@ -177,9 +180,9 @@ class BazelPattern final : public BazelTargetMatcher {
 
 class BazelPatternBundle final : public BazelTargetMatcher {
  public:
-  void AddPattern(const BazelPattern &p) { patterns_.emplace_back(p); }
+  void AddPattern(const BazelPattern &p);
   void Finish() {
-    has_filter_ = !patterns_.empty();
+    has_filter_ = !patterns_.empty() || !inverted_patterns_.empty();
     if (!has_filter_) {
       // Make it provide a regular recursive BazelPattern to make things
       // work seamlessly.
@@ -195,9 +198,8 @@ class BazelPatternBundle final : public BazelTargetMatcher {
   bool Match(const BazelPackage &package) const final;
 
  private:
-  // TODO: maybe also match negative patterns that 'subtract' ? Then store
-  // tuple here <bool, BazelPattern>.
   std::vector<BazelPattern> patterns_;
+  std::vector<BazelPattern> inverted_patterns_;
   bool has_filter_ = false;
 };
 }  // namespace bant
