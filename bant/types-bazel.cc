@@ -210,16 +210,18 @@ std::string BazelTarget::ToStringRelativeTo(
   return absl::StrCat(":", target_name);
 }
 
-BazelPattern::BazelPattern() : kind_(MatchKind::kAlwaysMatch) {}
+BazelPattern::BazelPattern(bool is_inverted_match)
+    : kind_(MatchKind::kAlwaysMatch), is_inverted_match_(is_inverted_match) {}
 
 std::optional<BazelPattern> BazelPattern::ParseVisibility(
   std::string_view pattern, const BazelPackage &context) {
-  const bool negative_match = false;  // handled when we actually do ParseFrom()
+  const bool negative_match = pattern.starts_with('-');
 
-  if (pattern == "//visibility:public") {
-    return BazelPattern();  // always match
+  const std::string_view local_pattern = pattern.substr(negative_match ? 1 : 0);
+  if (local_pattern == "//visibility:public") {
+    return BazelPattern(negative_match);  // always match
   }
-  if (pattern == "//visibility:private") {
+  if (local_pattern == "//visibility:private") {
     auto visibility_context = BazelTarget::ParseFrom("", context);
     if (!visibility_context.has_value()) return std::nullopt;
     return BazelPattern(*visibility_context, MatchKind::kAllTargetInPackage,
@@ -228,7 +230,7 @@ std::optional<BazelPattern> BazelPattern::ParseVisibility(
   // HACK for now: until we understand package_groups, let everything that
   // does not look like a pattern be always-match
   if (!pattern.ends_with("...") && !pattern.ends_with("__")) {
-    return BazelPattern();  // always match, essentially //visibility:public
+    return BazelPattern(negative_match);  // treat like //visibility:public
   }
   return ParseFrom(pattern, context);
 }

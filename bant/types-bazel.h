@@ -129,7 +129,7 @@ class BazelPattern final : public BazelTargetMatcher {
   ~BazelPattern() = default;
 
   // The default constructed pattern always matches anything.
-  BazelPattern();
+  explicit BazelPattern(bool is_inverted_match = false);
 
   // Factory to parse BazelPattern that is returned as value if successful.
   // Patterns that start with a minus provide inverted matches.
@@ -175,7 +175,7 @@ class BazelPattern final : public BazelTargetMatcher {
   BazelTarget match_pattern_;
   std::shared_ptr<RE2> regex_pattern_;  // shared: makes it copyable.
   MatchKind kind_;
-  bool is_inverted_match_ = false;
+  bool is_inverted_match_;
 };
 
 class BazelPatternBundle final : public BazelTargetMatcher {
