@@ -707,6 +707,48 @@ cc_library(
   tester.RunForTarget("//some/path:bar");
 }
 
+TEST(DWYUTest, VisibilityIsFollowedThroughInPackageGroupsMentioned) {
+  ParsedProjectTestUtil pp;
+  pp.Add("//some/package", R"(
+package_group(
+  name = "some_path_group",
+  packages = [
+    "//some/path/...",
+  ]
+)
+
+package_group(
+  name = "group",
+  packages = [
+    "//something/...",
+    ":some_path_group",  # should be dealt like include
+  ],
+)
+)");  //
+  pp.Add("//lib/path", R"(
+cc_library(
+  name = "foo",
+  srcs = ["foo.cc"],
+  hdrs = ["foo.h"],
+  visibility = ["//some/package:group"],
+)
+)");
+
+  pp.Add("//some/path", R"(
+cc_library(
+  name = "bar",
+  srcs = ["bar.cc"],
+)
+)");
+
+  DWYUTestFixture tester(pp.project(), {});
+  tester.ExpectAdd("//lib/path:foo");  // allowed
+  tester.AddSource("some/path/bar.cc", R"(
+#include "lib/path/foo.h"
+)");
+  tester.RunForTarget("//some/path:bar");
+}
+
 TEST(DWYUTest, AllowVisibilityFromVariable) {
   for (const bool private_visibility : {false, true}) {
     ParsedProjectTestUtil pp;
