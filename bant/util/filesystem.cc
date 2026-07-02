@@ -182,7 +182,7 @@ std::optional<std::string> Filesystem::ReadFileToString(std::string_view path) {
     success = (bytes_left == 0);
     return filesize;
   };
-#if __cplusplus >= 202100L  // Implemented in gcc since 202100
+#if defined(__cpp_lib_string_resize_and_overwrite)  // library support, not language level
   content.resize_and_overwrite(filesize, copy_file_to_buffer);
 #else
   content.resize(filesize);
