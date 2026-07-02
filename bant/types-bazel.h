@@ -140,6 +140,11 @@ class BazelPattern final : public BazelTargetMatcher {
   static std::optional<BazelPattern> ParseVisibility(
     std::string_view pattern, const BazelPackage &context);
 
+  // In visibilities, there can be targets that are not really patterns
+  // (with //foo/... or //foo:__pkg__), but indicate that they might be
+  // references package groups.
+  static bool VisibilityLooksLikePackageGroup(std::string_view pattern);
+
   const std::string &path() const { return match_pattern_.package.path; }
   const std::string &project() const { return match_pattern_.package.project; }
 

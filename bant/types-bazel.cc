@@ -213,6 +213,11 @@ std::string BazelTarget::ToStringRelativeTo(
 BazelPattern::BazelPattern(bool is_inverted_match)
     : kind_(MatchKind::kAlwaysMatch), is_inverted_match_(is_inverted_match) {}
 
+bool BazelPattern::VisibilityLooksLikePackageGroup(std::string_view pattern) {
+  return !pattern.ends_with("...") && !pattern.ends_with("__") &&
+         absl::StrContains(pattern, ':');
+}
+
 std::optional<BazelPattern> BazelPattern::ParseVisibility(
   std::string_view pattern, const BazelPackage &context) {
   const bool negative_match = pattern.starts_with('-');
@@ -230,7 +235,7 @@ std::optional<BazelPattern> BazelPattern::ParseVisibility(
   // If this is not a typical pattern with ... or __something, we assume this
   // is a package group which should not be here, possibly couldn't be resolved.
   // Conservatively assume 'not visible'.
-  if (!pattern.ends_with("...") && !pattern.ends_with("__")) {
+  if (VisibilityLooksLikePackageGroup(pattern)) {
     return BazelPattern(!negative_match);  // treat like //visibility:public
   }
   return ParseFrom(pattern, context);
