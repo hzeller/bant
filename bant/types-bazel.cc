@@ -215,7 +215,8 @@ BazelPattern::BazelPattern(bool is_inverted_match)
 
 bool BazelPattern::VisibilityLooksLikePackageGroup(std::string_view pattern) {
   return !pattern.ends_with("...") && !pattern.ends_with("__") &&
-         absl::StrContains(pattern, ':');
+         absl::StrContains(pattern, ':') &&
+         !pattern.starts_with("//visibility:");
 }
 
 std::optional<BazelPattern> BazelPattern::ParseVisibility(

@@ -255,6 +255,7 @@ DependencyGraph BuildDependencyGraph(Session &session,
                        });
   }
 
+  std::set<BazelPackage> extra_visibility_packages;
   DependencyGraph graph;
   do {
     ++stat.count;
@@ -262,7 +263,9 @@ DependencyGraph BuildDependencyGraph(Session &session,
     // Only need to look in a subset of packages requested by our target todo.
     // All these targets boil down to a set of packages that we need
     // to have available in the project (and possibly parse if not yet).
-    std::set<BazelPackage> scan_package;
+    std::set<BazelPackage> scan_package(extra_visibility_packages.begin(),
+                                        extra_visibility_packages.end());
+    extra_visibility_packages.clear();
     for (const auto &[target, _] : deps_to_resolve_todo) {
       scan_package.insert(target.package);
     }
@@ -307,6 +310,20 @@ DependencyGraph BuildDependencyGraph(Session &session,
             query::ExtractStringList({result.deps_list, result.impl_deps_list});
           if (!result.actual.empty()) {  // Follow aliases
             to_follow.push_back(result.actual);
+          }
+
+          // Let's see if we need to open other BUILD files to understand
+          // package groups. They are needed as DWYU will build and index
+          // of all package groups that show up in visibilities.
+          for (auto vis : query::ExtractStringList(result.visibility)) {
+            if (BazelPattern::VisibilityLooksLikePackageGroup(vis)
+                // Only if it starts with "//" this indicates different package.
+                && vis.starts_with("//")) {
+              auto vis_package = BazelPackage::ParseFrom(vis);
+              if (vis_package.has_value()) {
+                extra_visibility_packages.emplace(*vis_package);
+              }
+            }
           }
 
           session.GetStatsFor("  - deps[] dependencies follow  ", "labels")
