@@ -29,7 +29,7 @@
 #include <utility>
 #include <vector>
 
-#include "bant/explore/header-providers.h"
+#include "bant/explore/project-indexing.h"
 #include "bant/explore/query-utils.h"
 #include "bant/frontend/ast.h"
 #include "bant/frontend/elaboration.h"

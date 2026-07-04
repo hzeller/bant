@@ -42,7 +42,7 @@ cc_binary(
         ":types-bazel",
         ":workspace",
         "//bant/explore:dependency-graph",
-        "//bant/explore:header-providers",
+        "//bant/explore:project-indexing",
         "//bant/explore:query-utils",
         "//bant/frontend:elaboration",
         "//bant/frontend:node-printer",

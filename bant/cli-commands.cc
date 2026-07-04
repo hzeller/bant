@@ -30,7 +30,7 @@
 #include "absl/strings/str_cat.h"
 #include "bant/explore/aliased-by.h"
 #include "bant/explore/dependency-graph.h"
-#include "bant/explore/header-providers.h"
+#include "bant/explore/project-indexing.h"
 #include "bant/explore/query-utils.h"
 #include "bant/frontend/elaboration.h"
 #include "bant/frontend/node-printer.h"

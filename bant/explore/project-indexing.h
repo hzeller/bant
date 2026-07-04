@@ -15,8 +15,8 @@
 // with this program; if not, write to the Free Software Foundation, Inc.,
 // 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 
-#ifndef BANT_TOOL_HEADER_PROVIDER_
-#define BANT_TOOL_HEADER_PROVIDER_
+#ifndef BANT_PROJECT_INDEXING_
+#define BANT_PROJECT_INDEXING_
 
 #include <cstdlib>
 #include <optional>
@@ -32,9 +32,7 @@
 #include "bant/types.h"
 #include "bant/workspace.h"
 
-// TODO: Given that this not only provides HeaderToLibMapping but also
-// from Genrule as well as other facts exctracted, so the name of this file is
-// somewhat a misnomer now.
+// Create various useful indexes and collections from the project.
 
 namespace bant {
 
@@ -165,4 +163,4 @@ void PrintFileToFileSet(Session &session,
 
 }  // namespace bant
 
-#endif  // BANT_TOOL_HEADER_PROVIDER_
+#endif  // BANT_PROJECT_INDEXING_

@@ -75,7 +75,7 @@ cc_library(
         "//bant:types",
         "//bant:types-bazel",
         "//bant:workspace",
-        "//bant/explore:header-providers",
+        "//bant/explore:project-indexing",
         "//bant/explore:query-utils",
         "//bant/frontend:named-content",
         "//bant/frontend:parsed-project",

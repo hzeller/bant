@@ -10,7 +10,7 @@ cc_library(
     srcs = ["dependency-graph.cc"],
     hdrs = ["dependency-graph.h"],
     deps = [
-        ":header-providers",
+        ":project-indexing",
         ":query-utils",
         "//bant:session",
         "//bant:types",
@@ -52,16 +52,15 @@ cc_test(
     ],
 )
 
-# TODO: rename header-providers source and the overall library
 cc_library(
-    name = "header-providers",
+    name = "project-indexing",
     srcs = [
         "aliased-by.cc",
-        "header-providers.cc",
+        "project-indexing.cc",
     ],
     hdrs = [
         "aliased-by.h",
-        "header-providers.h",
+        "project-indexing.h",
     ],
     deps = [
         ":query-utils",
@@ -80,10 +79,10 @@ cc_library(
 )
 
 cc_test(
-    name = "header-providers_test",
-    srcs = ["header-providers_test.cc"],
+    name = "project-indexing_test",
+    srcs = ["project-indexing_test.cc"],
     deps = [
-        ":header-providers",
+        ":project-indexing",
         "//bant:types-bazel",
         "//bant/frontend:parsed-project_testutil",
         "@abseil-cpp//absl/log:check",

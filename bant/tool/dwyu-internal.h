@@ -27,7 +27,7 @@
 
 #include "absl/container/btree_map.h"
 #include "absl/container/btree_set.h"
-#include "bant/explore/header-providers.h"
+#include "bant/explore/project-indexing.h"
 #include "bant/explore/query-utils.h"
 #include "bant/frontend/named-content.h"
 #include "bant/frontend/parsed-project.h"

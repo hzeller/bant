@@ -34,7 +34,7 @@
 #include "absl/log/check.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
-#include "bant/explore/header-providers.h"
+#include "bant/explore/project-indexing.h"
 #include "bant/explore/query-utils.h"
 #include "bant/frontend/ast.h"
 #include "bant/frontend/named-content.h"
@@ -1122,7 +1122,7 @@ DWYUGenerator::DWYUGenerator(Session &session, const ParsedProject &project,
                                                     /*suffix_index=*/true);
   files_from_genrules_ = ExtractGeneratedFromGenrule(project, session.info());
 
-  // The following is a utility that should probably go to header-providers.h
+  // The following is a utility that should probably go to project-indexing.h
   for (const auto &[_, build_file] : project.ParsedFiles()) {
     if (!build_file->ast) continue;
     query::FindTargets(
