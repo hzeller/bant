@@ -78,6 +78,15 @@ namespace bant {
 static bool IsHeaderInList(std::string_view header,
                            const std::vector<std::string_view> &list,
                            std::string_view prefix_path) {
+  // Don't do relative includes like that.
+  while (header.starts_with("../")) {
+    header.remove_prefix(3);
+    if (auto last_slash = prefix_path.find_last_of('/');
+        last_slash != std::string_view::npos) {
+      prefix_path = prefix_path.substr(0, last_slash);
+    }
+  }
+
   // The list items are provided without the full path in the cc_library(),
   // so we always need to prepend that prefix_path.
   for (std::string_view list_item : list) {
