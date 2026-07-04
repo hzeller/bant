@@ -418,6 +418,10 @@ void DWYUGenerator::LogUnknownProvider(const NamedLineIndexedContent &source,
   Loc(source, ref_file) << "    ?      ^ " << extra_info << "\n";
 }
 
+// TODO; the whole alternative thing should probably something like a
+// RankedAlternative in which we express preferred alternatives, in which
+// we then can fold avoid, deprecation, stratum, visibility.
+
 void DWYUGenerator::AddVisibleAlternatives(
   const BazelTarget &target, const absl::btree_set<BazelTarget> &alternatives,
   std::vector<absl::btree_set<BazelTarget>> &result) {
@@ -438,6 +442,7 @@ void DWYUGenerator::AddVisibleAlternatives(
   }
 }
 
+// Add alternatives, but rank root > bazel_dep() > randomly found dependencies
 void DWYUGenerator::AddVisibleAlternativesWithStratum(
   const BazelTarget &target, const absl::btree_set<BazelTarget> &alternatives,
   std::vector<absl::btree_set<BazelTarget>> &result) {
@@ -448,8 +453,8 @@ void DWYUGenerator::AddVisibleAlternativesWithStratum(
     const bool is_to_avoid = AvoidDependencyReason(target, t).has_value();
     if (is_to_avoid && found_non_avoiding) continue;
     if (!is_to_avoid && !found_non_avoiding) {
-      // Until we find the first non-deprecated alternative, we also
-      // keep deprecated targets as they might be our only chance.
+      // Until we find the first non-avoid alternative, we also
+      // keep to avoid targets as they might be our only chance.
       temp_result.clear();
       stratum_range = Range{};
       found_non_avoiding = true;

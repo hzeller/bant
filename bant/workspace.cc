@@ -148,7 +148,8 @@ static std::optional<int> LoadWorkspaceFromFile(Session &session,
   // TODO: deal with extensions (we only find them in directories right now)
   int count_added = 0;
   query::FindTargets(
-    ast, {"http_archive", "bazel_dep"}, [&](const query::Result &result) {
+    ast, {"http_archive", "bazel_dep", "new_local_repository"},
+    [&](const query::Result &result) {
       // Sometimes, the version is attached to the dirs (bazel 6), somtimes
       // not (before bazel 6: plain file, at bazel 7: just ~, at bazel 8 '+')
       // Check for both if we have a version.
