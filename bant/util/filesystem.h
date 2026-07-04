@@ -41,6 +41,7 @@ struct DirectoryEntry {
     kOther,
     kDirectory,
     kSymlink,
+    kRegularFile,
   };
 
   uint64_t inode = 0;
@@ -48,9 +49,7 @@ struct DirectoryEntry {
   std::string name;
 };
 
-// Very rudimentary filesystem. Right now only used as intermediary to
-// cache readdir() results, but could be a start for a filesystem abstraction
-// later (e.g. providing stat() and open file).
+// Filesystem interaction with the outside world.
 class Filesystem {
  public:
   // Currently only one global filesystem instance.
@@ -60,9 +59,15 @@ class Filesystem {
   Filesystem(Filesystem &&) = delete;
 
   // Equivalent of opendir()/loop readdir() and return all DirectoryEntries.
-  // Might return cached results.
   // The directory entries are sorted by name.
+  // Const reference return value backed by cache.
   const std::vector<DirectoryEntry> &ReadDir(std::string_view dirpath);
+
+  // Read file at given path and return as string. If file could not be read,
+  // std::nullopt is returned. Const reference return value backed by cache.
+  const std::optional<std::string> &ReadFileToString(std::string_view path);
+
+  // -- convenience methods
 
   // Check if file in directory exists.
   // This is reading the directory and checks if the filename is in there.
@@ -74,9 +79,12 @@ class Filesystem {
   // path that is the dir / filename.
   bool Exists(std::string_view path);
 
-  // Read file at given path and return as string. If file could not be read,
-  // std::nullopt is returned.
-  std::optional<std::string> ReadFileToString(std::string_view path);
+  // Return stat info if available for filename in directory.
+  std::optional<DirectoryEntry> StatInDir(std::string_view dir,
+                                          std::string_view filename);
+
+  // Similar to StatInDir(), but with whole path.
+  std::optional<DirectoryEntry> StatPath(std::string_view path);
 
   // Evict cache. Might be needed in unit tests.
   void EvictCache();
@@ -102,7 +110,7 @@ class Filesystem {
     ABSL_GUARDED_BY(dir_mutex_);
 
   mutable absl::Mutex file_mutex_;
-  absl::flat_hash_map<std::string, std::string> file_cache_
+  absl::flat_hash_map<std::string, std::optional<std::string>> file_cache_
     ABSL_GUARDED_BY(file_mutex_);
 };
 }  // namespace bant

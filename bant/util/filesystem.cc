@@ -45,6 +45,7 @@ static DirectoryEntry::Type FileTypeFromDirent(const dirent *entry) {
   switch (entry->d_type) {
   case DT_LNK: return DirectoryEntry::Type::kSymlink;
   case DT_DIR: return DirectoryEntry::Type::kDirectory;
+  case DT_REG: return DirectoryEntry::Type::kRegularFile;
   default: return DirectoryEntry::Type::kOther;
   }
 }
@@ -135,18 +136,49 @@ bool Filesystem::ExistsInDir(std::string_view dir, std::string_view filename) {
                             compare_entry);
 }
 
-bool Filesystem::Exists(std::string_view path) {
+struct NameInDir {
+  std::string_view dir;
+  std::string_view filename;
+};
+static NameInDir SplitPath(std::string_view path) {
+  NameInDir result;
   static const std::string_view kCurrentDir(".");
   const auto last_slash = path.find_last_of('/');
-  const std::string_view dir = (last_slash == std::string::npos)
-                                 ? kCurrentDir
-                                 : path.substr(0, last_slash);
-  const std::string_view filename =
+  result.dir = (last_slash == std::string::npos) ? kCurrentDir
+                                                 : path.substr(0, last_slash);
+  result.filename =
     (last_slash == std::string::npos) ? path : path.substr(last_slash + 1);
-  return ExistsInDir(dir, filename);
+  return result;
 }
 
-std::optional<std::string> Filesystem::ReadFileToString(std::string_view path) {
+bool Filesystem::Exists(std::string_view path) {
+  auto dirname = SplitPath(path);
+  return ExistsInDir(dirname.dir, dirname.filename);
+}
+
+std::optional<DirectoryEntry> Filesystem::StatInDir(std::string_view dir,
+                                                    std::string_view filename) {
+  if (dir.empty()) dir = ".";
+  DirectoryEntry compare_entry;
+  compare_entry.name = filename;
+
+  const auto &dir_content = ReadDir(dir);
+  auto found =
+    std::lower_bound(dir_content.begin(), dir_content.end(), compare_entry);
+  if (found == dir_content.end() || found->name != filename) {
+    return std::nullopt;
+  }
+  return *found;
+}
+
+// Similar to StatInDir(), but with whole path.
+std::optional<DirectoryEntry> Filesystem::StatPath(std::string_view path) {
+  auto dirname = SplitPath(path);
+  return StatInDir(dirname.dir, dirname.filename);
+}
+
+const std::optional<std::string> &Filesystem::ReadFileToString(
+  std::string_view path) {
   const std::string_view cache_key = LightlyCanonicalizeAsCacheKey(path);
   // Note: will only start writing after the initial pre-warm is finished,
   [[maybe_unused]] const bool was_new =
@@ -160,42 +192,48 @@ std::optional<std::string> Filesystem::ReadFileToString(std::string_view path) {
   }
 
   std::string filename_as_string(path);
+  std::optional<std::string> result;
   const int fd = open(filename_as_string.c_str(), O_RDONLY);
-  if (fd < 0) return std::nullopt;
-  const absl::Cleanup fd_closer = [fd]() { close(fd); };
-  struct stat st;
-  if (fstat(fd, &st) != 0) return std::nullopt;
-
-  const size_t filesize = st.st_size;
-  bool success = false;
-  std::string content;
-  auto copy_file_to_buffer = [fd, filesize, &success](char *buf,
-                                                      std::size_t available) {
-    // Need to use filesize; alloced_size is >= requested.
-    size_t bytes_left = filesize;
-    while (bytes_left) {
-      const ssize_t r = read(fd, buf, bytes_left);
-      if (r <= 0) break;
-      bytes_left -= r;
-      buf += r;
-    }
-    success = (bytes_left == 0);
-    return filesize;
-  };
+  if (fd > 0) {
+    const absl::Cleanup fd_closer = [fd]() { close(fd); };
+    struct stat st;
+    if (fstat(fd, &st) == 0) {
+      const size_t filesize = st.st_size;
+      bool success = false;
+      std::string content;
+      auto copy_file_to_buffer = [fd, filesize, &success](
+                                   char *buf, std::size_t available) {
+        // Need to use filesize; alloced_size is >= requested.
+        size_t bytes_left = filesize;
+        while (bytes_left) {
+          const ssize_t r = read(fd, buf, bytes_left);
+          if (r <= 0) break;
+          bytes_left -= r;
+          buf += r;
+        }
+        success = (bytes_left == 0);
+        return filesize;
+      };
 #if __cplusplus >= 202100L  // Implemented in gcc since 202100
-  content.resize_and_overwrite(filesize, copy_file_to_buffer);
+      content.resize_and_overwrite(filesize, copy_file_to_buffer);
 #else
-  content.resize(filesize);
-  copy_file_to_buffer(const_cast<char *>(content.data()), filesize);
+      content.resize(filesize);
+      copy_file_to_buffer(const_cast<char *>(content.data()), filesize);
 #endif
-  if (!success) return std::nullopt;
+      if (success) result = std::move(content);
+    }
+  }
 
   const absl::WriterMutexLock l(file_mutex_);
   if (kDebugCacheMisses && was_new) {
-    fprintf(stderr, "File Cache miss for '%s' (%d bytes)\n",
-            std::string{cache_key}.c_str(), static_cast<int>(content.size()));
+    fprintf(stderr, "File Cache miss for '%s'", std::string{cache_key}.c_str());
+    if (result.has_value()) {
+      fprintf(stderr, " (%d bytes)\n", static_cast<int>(result->size()));
+    } else {
+      fprintf(stderr, " (NOT FOUND)\n");
+    }
   }
-  auto inserted = file_cache_.emplace(cache_key, std::move(content));
+  auto inserted = file_cache_.emplace(cache_key, std::move(result));
   return inserted.first->second;
 }
 

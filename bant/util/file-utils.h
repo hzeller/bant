@@ -92,7 +92,7 @@ std::string WeaklyCanonicalizePath(std::string_view path);
 std::optional<std::string> StronglyCanonicalizePath(std::string_view path);
 
 // Same, but update read time and count of stat
-std::optional<std::string> ReadFileToStringUpdateStat(
+const std::optional<std::string> &ReadFileToStringUpdateStat(
   const FilesystemPath &filename, Stat &stat);
 
 // Collect files found recursively (BFS) and return.

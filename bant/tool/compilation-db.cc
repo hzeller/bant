@@ -159,7 +159,7 @@ std::vector<std::string> ExtractOptionsFromBazelrcFile(
   DuplicationCheckSet *already_seen) {
   std::vector<std::string> result;
   Filesystem &fs = Filesystem::instance();
-  const auto bazelrc = fs.ReadFileToString(".bazelrc");
+  const auto &bazelrc = fs.ReadFileToString(".bazelrc");
   if (!bazelrc.has_value()) return result;
   return ExtractOptionsFromBazelrc(*bazelrc, already_seen);
 }

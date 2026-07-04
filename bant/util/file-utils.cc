@@ -92,19 +92,22 @@ std::string_view FilesystemPath::parent_path() const {
 
 bool FilesystemPath::is_directory() const {
   if (is_dir_ == MemoizedResult::kUnknown) {
-    struct stat s;
-    if (stat(c_str(), &s) != 0) return false;  // ¯\_(ツ)_/¯
-    is_dir_ = (S_ISDIR(s.st_mode)) ? MemoizedResult::kYes : MemoizedResult::kNo;
+    auto stat_result = Filesystem::instance().StatPath(path_);
+    is_dir_ = stat_result.has_value() &&
+                  stat_result->type == DirectoryEntry::Type::kDirectory
+                ? MemoizedResult::kYes
+                : MemoizedResult::kNo;
   }
   return (is_dir_ == MemoizedResult::kYes);
 }
 
 bool FilesystemPath::is_symlink() const {
   if (is_symlink_ == MemoizedResult::kUnknown) {
-    struct stat s;
-    if (lstat(c_str(), &s) != 0) return false;  // ¯\_(ツ)_/¯
-    is_symlink_ =
-      (S_ISLNK(s.st_mode)) ? MemoizedResult::kYes : MemoizedResult::kNo;
+    auto stat_result = Filesystem::instance().StatPath(path_);
+    is_symlink_ = (stat_result.has_value() &&
+                   stat_result->type == DirectoryEntry::Type::kSymlink)
+                    ? MemoizedResult::kYes
+                    : MemoizedResult::kNo;
   }
   return (is_symlink_ == MemoizedResult::kYes);
 }
@@ -116,6 +119,8 @@ struct InternalDirectoryStat {
   // Update "out_inode" with the inode at the destination.
   // Can't call path.is_directory() as we also want to know the inode.
   static bool FollowLinkTestIsDir(FilesystemPath &path, uint64_t *out_inode) {
+    // TODO: this punches through OS-filesystem with stat(); provide such
+    // link-follow stat in Filesystem::
     struct stat s;
     if (stat(path.c_str(), &s) != 0) return false;
     *out_inode = s.st_ino;
@@ -134,16 +139,16 @@ std::vector<FilesystemPath> Glob(std::string_view glob_pattern) {
     [&](const FilesystemPath &file) { return accept_matcher(file.path()); });
 }
 
-std::optional<std::string> ReadFileToStringUpdateStat(
+const std::optional<std::string> &ReadFileToStringUpdateStat(
   const FilesystemPath &filename, Stat &fread_stat) {
-  std::optional<std::string> content;
   const ScopedTimer timer(&fread_stat.duration);
-  content = Filesystem::instance().ReadFileToString(filename.path());
-  if (content.has_value()) {
+  const auto &maybe_content =
+    Filesystem::instance().ReadFileToString(filename.path());
+  if (maybe_content.has_value()) {
     ++fread_stat.count;
-    fread_stat.AddBytesProcessed(content->size());
+    fread_stat.AddBytesProcessed(maybe_content->size());
   }
-  return content;
+  return maybe_content;
 }
 
 // Best effort on filesystems that don't have inodes; they typically emit some
