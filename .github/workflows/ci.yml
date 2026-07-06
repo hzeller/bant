@@ -159,6 +159,7 @@ jobs:
 
   ReleasableArtifacts:
     runs-on: ubuntu-24.04
+    needs: release-tagging
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
