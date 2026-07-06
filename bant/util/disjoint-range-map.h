@@ -37,6 +37,8 @@ class DisjointRangeMap {
   }
 
   // Find value by subrange or std::nullopt if it doesn't exist.
+  // TODO: we return stuff by value here which might be expensive. Consider
+  // also adding find()/begin()/end() returning iterators.
   std::optional<ValueType> FindBySubrange(const KeyRange &subrange) const {
     const auto &lower = container_.lower_bound(subrange.end());
     if (lower == container_.end()) return std::nullopt;

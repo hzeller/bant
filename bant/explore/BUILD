@@ -90,3 +90,18 @@ cc_test(
         "@googletest//:gtest_main",
     ],
 )
+
+cc_library(
+    name = "cross-reference",
+    srcs = ["cross-reference.cc"],
+    hdrs = ["cross-reference.h"],
+    deps = [
+        ":query-utils",
+        "//bant:types",
+        "//bant:types-bazel",
+        "//bant/frontend:parsed-project",
+        "//bant/frontend:source-locator",
+        "//bant/util:disjoint-range-map",
+        "//bant/util:file-utils",
+    ],
+)
