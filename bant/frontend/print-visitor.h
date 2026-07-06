@@ -18,16 +18,23 @@
 #ifndef BANT_PRINT_VISITOR_H
 #define BANT_PRINT_VISITOR_H
 
+#include <functional>
 #include <ostream>
+#include <string_view>
 
 #include "bant/frontend/ast.h"
 #include "bant/frontend/operator-precedence.h"
 
 namespace bant {
+
 class PrintVisitor : public BaseVoidVisitor {
  public:
   explicit PrintVisitor(std::ostream &out, bool do_color = false)
       : out_(out), do_color_(do_color) {}
+
+  // A callback that is called right before a string sclar is emitted. This
+  // can be used to collect locations where we might want to add annoations.
+  void RegisterStringScalarCallback(std::function<void(std::string_view)> cb);
 
   void VisitAssignment(Assignment *a) final;
   void VisitFunCall(FunCall *f) final;
@@ -57,6 +64,7 @@ class PrintVisitor : public BaseVoidVisitor {
   std::ostream &out_;
   const bool do_color_;
   int indent_ = 0;
+  std::function<void(std::string_view)> string_scalar_callback_;
 
   PrecedenceState current_precedence_;
 };

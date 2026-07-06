@@ -17,10 +17,12 @@
 
 #include "bant/frontend/print-visitor.h"
 
+#include <functional>
 #include <ostream>
 #include <sstream>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include "bant/frontend/ast.h"
@@ -50,8 +52,8 @@ class ScopedPrecedence {
   const PrintVisitor::PrecedenceState saved_state_;
 };
 
-// TODO: put this in some other place. There is also color handling in dwyu
-// and others places.
+// TODO: put this in some other place. There is also color handling in
+// util/term-color.h
 struct Colors {
   std::string_view bold;
   std::string_view assignment_lhs;
@@ -77,6 +79,11 @@ static constexpr Colors kColor = {
   .assignment_lhs = "\033[35m",
   .reset = "\033[0m",
 };
+
+void PrintVisitor::RegisterStringScalarCallback(
+  std::function<void(std::string_view)> cb) {
+  string_scalar_callback_ = std::move(cb);
+}
 
 void PrintVisitor::VisitFunCall(FunCall *f) {
   if (do_color_) out_ << kColor.bold;
@@ -268,6 +275,7 @@ void PrintVisitor::VisitScalar(Scalar *s) {
 
     if (str->is_triple_quoted()) out_ << quote_char << quote_char;
     out_ << quote_char;
+    if (string_scalar_callback_) string_scalar_callback_(s->AsString());
     out_ << str->AsString();
     out_ << quote_char;
     if (str->is_triple_quoted()) out_ << quote_char << quote_char;
