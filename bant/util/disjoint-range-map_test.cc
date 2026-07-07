@@ -27,6 +27,7 @@ namespace bant {
 namespace {
 TEST(DisjointRangeMap, RangeLookups) {
   DisjointRangeMap<std::string_view, size_t> subrange_map;
+
   constexpr std::array<std::string_view, 3> values{
     "Hello world", "Another text", "Yet another substring"};
 
@@ -39,46 +40,47 @@ TEST(DisjointRangeMap, RangeLookups) {
   // Full range lookup
   for (size_t i = 0; i < values.size(); ++i) {
     auto found = subrange_map.FindBySubrange(values[i]);
-    ASSERT_TRUE(found.has_value());
-    EXPECT_EQ(found.value(), i);  // NOLINT
+    ASSERT_NE(found, subrange_map.end());
+    EXPECT_EQ(*found, i);
   }
 
   // At beginning of range
   for (size_t i = 0; i < values.size(); ++i) {
     auto found = subrange_map.FindBySubrange(values[i].substr(0, 3));
-    ASSERT_TRUE(found.has_value());
-    EXPECT_EQ(found.value(), i);  // NOLINT
+    ASSERT_NE(found, subrange_map.end());
+    EXPECT_EQ(*found, i);
   }
 
   // Empty range at beginning
   for (size_t i = 0; i < values.size(); ++i) {
     auto found = subrange_map.FindBySubrange(values[i].substr(0, 0));
-    ASSERT_TRUE(found.has_value());
-    EXPECT_EQ(found.value(), i);  // NOLINT
+    ASSERT_NE(found, subrange_map.end());
+    EXPECT_EQ(*found, i);
   }
 
   // middle range lookup
   for (size_t i = 0; i < values.size(); ++i) {
     auto found = subrange_map.FindBySubrange(values[i].substr(3, 7));
-    ASSERT_TRUE(found.has_value());
-    EXPECT_EQ(found.value(), i);  // NOLINT
+    ASSERT_NE(found, subrange_map.end());
+    EXPECT_EQ(*found, i);
   }
 
   // empty middle range.
   for (size_t i = 0; i < values.size(); ++i) {
     auto found = subrange_map.FindBySubrange(values[i].substr(8, 0));
-    ASSERT_TRUE(found.has_value());
-    EXPECT_EQ(found.value(), i);  // NOLINT
+    ASSERT_NE(found, subrange_map.end());
+    EXPECT_EQ(*found, i);
   }
 
   // At end
   for (size_t i = 0; i < values.size(); ++i) {
     auto found = subrange_map.FindBySubrange(values[i].substr(5));
-    ASSERT_TRUE(found.has_value());
-    EXPECT_EQ(found.value(), i);  // NOLINT
+    ASSERT_NE(found, subrange_map.end());
+    EXPECT_EQ(*found, i);
   }
 
-  EXPECT_FALSE(subrange_map.FindBySubrange("different string").has_value());
+  EXPECT_EQ(subrange_map.FindBySubrange("different string"),
+            subrange_map.end());
 }
 }  // namespace
 }  // namespace bant

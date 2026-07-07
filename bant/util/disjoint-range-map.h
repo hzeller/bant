@@ -16,7 +16,7 @@
 // 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 #ifndef BANT_DISJOINT_RANGE_MAP_H
 #define BANT_DISJOINT_RANGE_MAP_H
-#include <optional>
+
 #include <utility>
 
 #include "absl/container/btree_map.h"
@@ -30,27 +30,46 @@ namespace bant {
 // changing while stored in this map). [comparable]
 template <typename KeyRange, typename ValueType>
 class DisjointRangeMap {
+  using Container =
+    absl::btree_map<typename KeyRange::const_iterator,
+                    std::pair<typename KeyRange::const_iterator, ValueType>>;
+
  public:
   bool Insert(const KeyRange &key, ValueType v) {
     // No error handling, such as subrange overlap test.
     return container_.insert({key.end(), {key.begin(), std::move(v)}}).second;
   }
 
-  // Find value by subrange or std::nullopt if it doesn't exist.
-  // TODO: we return stuff by value here which might be expensive. Consider
-  // also adding find()/begin()/end() returning iterators.
-  std::optional<ValueType> FindBySubrange(const KeyRange &subrange) const {
+  // Behave a little bit like a container from the users' perpective, at
+  // least for 'find' purposes. FindBysubrange() return an iterator that can
+  // be compared to end() and dereference to a Value. This wrapper class
+  // around the pointer ensures the limited functionality.
+  class const_iterator {
+   public:
+    const ValueType &operator*() const { return *it_; }
+    const ValueType &operator->() const { return *it_; }
+    bool operator==(const const_iterator &o) const { return it_ == o.it_; }
+    bool operator!=(const const_iterator &o) const { return it_ != o.it_; }
+
+   private:
+    friend class DisjointRangeMap;
+    explicit const_iterator(const ValueType *v) : it_(v) {}
+    const ValueType *it_;
+  };
+
+  const_iterator end() const { return const_iterator(nullptr); }
+
+  // Find value by subrange or end() if it doesn't exist.
+  const_iterator FindBySubrange(const KeyRange &subrange) const {
     const auto &lower = container_.lower_bound(subrange.end());
-    if (lower == container_.end()) return std::nullopt;
+    if (lower == container_.end()) return end();
     const auto &mapped_to = lower->second;
-    if (mapped_to.first > subrange.begin()) return std::nullopt;
-    return mapped_to.second;
+    if (mapped_to.first > subrange.begin()) return end();
+    return const_iterator(&mapped_to.second);
   }
 
  private:
-  absl::btree_map<typename KeyRange::const_iterator,
-                  std::pair<typename KeyRange::const_iterator, ValueType>>
-    container_;
+  Container container_;
 };
 }  // namespace bant
 #endif  // BANT_DISJOINT_RANGE_MAP_H

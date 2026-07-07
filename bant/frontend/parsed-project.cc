@@ -309,17 +309,17 @@ void ParsedProject::RegisterLocationRange(std::string_view range,
 
 FileLocation ParsedProject::GetLocation(std::string_view text) const {
   auto found = location_maps_.FindBySubrange(text);
-  CHECK(found.has_value())
+  CHECK_NE(found, location_maps_.end())
     << "Not in any of the files managed by ParsedProject '" << text << "'";
-  return found.value()->GetLocation(text);
+  return found->GetLocation(text);
 }
 
 std::string_view ParsedProject::GetSurroundingLine(
   std::string_view text) const {
   auto found = location_maps_.FindBySubrange(text);
-  CHECK(found.has_value())
+  CHECK_NE(found, location_maps_.end())
     << "Not in any of the files managed by ParsedProject '" << text << "'";
-  return found.value()->GetSurroundingLine(text);
+  return found->GetSurroundingLine(text);
 }
 
 const ParsedBuildFile *ParsedProject::FindParsedOrNull(
