@@ -218,8 +218,8 @@ CliStatus RunCommand(Session &session, Command cmd,
     flags.recurse_dependency_depth = kReasonableDefaultDependencyDepth;
   }
 
-  if (flags.recurse_dependency_depth <= 0 && (cmd == Command::kPrint)
-      && flags.do_links) {
+  if (flags.recurse_dependency_depth <= 0 && (cmd == Command::kPrint) &&
+      flags.do_links) {
     // if we print, and also have links enabled, we need to be able to determine
     // the positions of where the direct dependencies are defined to be able
     // to produce FileLocations for these; so we need to go at least

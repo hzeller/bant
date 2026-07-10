@@ -207,10 +207,10 @@ static std::optional<bool> ParseTerminalColor(const char *value) {
   if (o == "auto") {
     return isatty(STDOUT_FILENO);
   }
-  if (o == "never") {
+  if (o == "never" || o == "off") {
     return false;
   }
-  if (o == "always") {
+  if (o == "always" || o == "on") {
     return true;
   }
   return std::nullopt;
