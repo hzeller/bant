@@ -218,6 +218,16 @@ CliStatus RunCommand(Session &session, Command cmd,
     flags.recurse_dependency_depth = kReasonableDefaultDependencyDepth;
   }
 
+  if (flags.recurse_dependency_depth <= 0 && (cmd == Command::kPrint)
+      && flags.do_links) {
+    // if we print, and also have links enabled, we need to be able to determine
+    // the positions of where the direct dependencies are defined to be able
+    // to produce FileLocations for these; so we need to go at least
+    // one level deep.
+    constexpr int kFollowDirectDependencies = 1;
+    flags.recurse_dependency_depth = kFollowDirectDependencies;
+  }
+
   // For many operations and least surprises, we want to elaborate, others
   // should be given the option to choose manually.
   if (cmd != Command::kParse && cmd != Command::kPrint &&
@@ -239,6 +249,7 @@ CliStatus RunCommand(Session &session, Command cmd,
   switch (cmd) {
   case Command::kDWYU:
   case Command::kParse:
+  case Command::kPrint:
   case Command::kTargetHdrs:
   case Command::kTargetData:
   case Command::kExpandedLibraryHeaders:

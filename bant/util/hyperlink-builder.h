@@ -62,6 +62,9 @@ class HyperlinkBuilder {
   // a string..
   bool LinkTo(const FileLocation &location, std::ostream &out) const;
 
+  // Link to a particulr file relative to project root.
+  bool LinkTo(std::string_view filename, std::ostream &out) const;
+
   // Create a link to the file relative to the bazel package.
   bool LinkTo(const BazelPackage &pkg, std::string_view filename,
               std::ostream &out) const;

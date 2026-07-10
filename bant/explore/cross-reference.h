@@ -17,6 +17,7 @@
 #ifndef BANT_CROSS_REFERENCE_H
 #define BANT_CROSS_REFERENCE_H
 
+#include <memory>
 #include <string>
 #include <string_view>
 #include <variant>
@@ -26,19 +27,16 @@
 #include "bant/util/disjoint-range-map.h"
 
 namespace bant {
-struct FileNameReference {
-  // A filename, relative to project root.
-  std::string filename;
-};
 
-using CrossReference = std::variant<FileLocation, FileNameReference>;
+using CrossReference = std::variant<FileLocation, std::string>;
 
 using CrossReferenceMap =
   DisjointRangeMap<std::string_view, bant::CrossReference>;
 
 // Given a project, build cross references, that match various strings to
 // places that can be shown in e.g. hyperlinks.
-CrossReferenceMap BuildCrossReferences(const ParsedProject &project);
+std::unique_ptr<CrossReferenceMap> BuildCrossReferences(
+  const ParsedProject &project);
 }  // namespace bant
 
 #endif  // BANT_CROSS_REFERENCE_H

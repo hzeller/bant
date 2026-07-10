@@ -329,6 +329,13 @@ bool HyperlinkBuilder::LinkTo(const BazelPackage &pkg,
   return true;
 }
 
+bool HyperlinkBuilder::LinkTo(std::string_view filename,
+                              std::ostream &out) const {
+  // TODO: this is not fully correct: we should check if filename is actually
+  // external.
+  return LinkTo({}, filename, out);
+}
+
 static std::string MakeAbsolute(std::string_view path) {
   std::error_code ec;
   auto cpath = std::filesystem::canonical(path, ec);

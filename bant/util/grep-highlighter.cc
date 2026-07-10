@@ -155,7 +155,8 @@ bool GrepHighlighter::EmitMatch(std::string_view content, std::ostream &out,
 
   // TODO: when we have nested elements inside a colored region, we should
   // reset, add colored insert and re-establish that outer color.
-
+  // TODO: this should be implemented using annotators, needs to be refactored
+  // out.
   out << prefix;
   int highlight_depth = 0;  // Only when zero, emit the end match.
   const char *last_end = content.data();
@@ -187,8 +188,13 @@ bool GrepHighlighter::EmitMatch(std::string_view content, std::ostream &out,
 std::unique_ptr<GrepHighlighter> CreateGrepHighlighterFromFlags(
   Session &session) {
   const auto &flags = session.flags();
+
+  // Right now, if we also emit links, we would mess up the output, so disable
+  // while that is active. Should soon be fixed.
+  const bool do_highlight = flags.do_color && !flags.do_links;
+
   auto result =
-    std::make_unique<GrepHighlighter>(flags.do_color, !flags.grep_or_semantics);
+    std::make_unique<GrepHighlighter>(do_highlight, !flags.grep_or_semantics);
   if (!result->AddExpressions(flags.grep_include_expressions,
                               flags.regex_case_insesitive, session.error())) {
     result.reset();

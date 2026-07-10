@@ -18,12 +18,18 @@
 #include "bant/frontend/node-printer.h"
 
 #include <cstddef>
+#include <functional>
+#include <memory>
 #include <optional>
 #include <ostream>
 #include <sstream>
+#include <string>
 #include <string_view>
 #include <utility>
+#include <variant>
+#include <vector>
 
+#include "bant/explore/cross-reference.h"
 #include "bant/explore/query-utils.h"
 #include "bant/frontend/ast.h"
 #include "bant/frontend/parsed-project.h"
@@ -31,6 +37,7 @@
 #include "bant/session.h"
 #include "bant/types-bazel.h"
 #include "bant/util/grep-highlighter.h"
+#include "bant/util/hyperlink-builder.h"
 
 namespace bant {
 // If we have an arbitrary node, find the fist string or identifier to latch
@@ -67,15 +74,53 @@ std::optional<std::string_view> FindFirstLocatableString(Node *ast) {
 }
 
 bool PrintNode(Session &session, const GrepHighlighter &highlighter,
-               std::string_view headline, Node *node) {
+               std::string_view headline, Node *node,
+               const CrossReferenceMap *xrefs) {
   if (!node) return false;
 
   static constexpr std::string_view kHeadlineColor = "\033[2;37m";
   static constexpr std::string_view kHeadlineReset = "\033[0m";
 
+  const bool make_hyperlinks = session.linkgen() && xrefs;
   const CommandlineFlags &flags = session.flags();
   std::stringstream ast_out;
   PrintVisitor printer(ast_out, flags.do_color);
+
+  // somewhat hacky: remmeber if the link anntation start actually was
+  // succesful, so when we get to the close-link annoation we know to emit the
+  // corresponding end anchor text.
+  bool last_print_link_success = false;
+
+  // need also cross reference map.
+  struct OffsetAnnotation {
+    size_t offset;
+    std::function<void(std::ostream &)> annotation_printer;
+  };
+  std::vector<OffsetAnnotation> annotations;  // strictly ordered by startpos.
+  if (make_hyperlinks) {
+    auto annotation_adder = [&](std::string_view s) {
+      auto found = xrefs->FindBySubrange(s);
+      if (found == xrefs->end()) return;
+      std::visit(
+        [&](const auto &linkable) {
+          const size_t current_offset = ast_out.tellp();
+          // Add start- and end-annotation
+          annotations.push_back(
+            OffsetAnnotation{current_offset, [&](std::ostream &out) {
+                               last_print_link_success =
+                                 session.linkgen()->LinkTo(linkable, out);
+                             }});
+          annotations.push_back(OffsetAnnotation{
+            current_offset + s.length(), [&](std::ostream &out) {
+              if (last_print_link_success) {
+                out << HyperlinkBuilder::kTerminalEndAnchorText;
+              }
+            }});
+        },
+        *found);
+    };
+    printer.RegisterStringScalarCallback(annotation_adder);
+  }
   printer.WalkNonNull(node);
 
   std::stringstream headline_out;
@@ -85,7 +130,24 @@ bool PrintNode(Session &session, const GrepHighlighter &highlighter,
     if (flags.do_color) headline_out << kHeadlineReset;
   }
 
-  return highlighter.EmitMatch(ast_out.str(), session.out(), headline_out.str(),
+  // TODO: the highlighter should of course also collect annotations, then
+  // we sort everything and apply all of them as annoations.
+  std::string print_out = ast_out.str();
+  const std::string_view print_out_view = print_out;
+  std::stringstream annotation_out;
+  if (make_hyperlinks) {
+    size_t last_offset = 0;
+    for (const OffsetAnnotation &annotation : annotations) {
+      const size_t new_offset = annotation.offset;
+      annotation_out << print_out_view.substr(last_offset,
+                                              new_offset - last_offset);
+      annotation.annotation_printer(annotation_out);
+      last_offset = new_offset;
+    }
+    annotation_out << print_out_view.substr(last_offset) << "\n";
+    print_out = annotation_out.str();
+  }
+  return highlighter.EmitMatch(print_out, session.out(), headline_out.str(),
                                "\n");
 }
 
@@ -112,6 +174,10 @@ std::pair<size_t, size_t> PrintProject(Session &session,
   if (!highlighter) {
     return {count, total};  // Issue building the highligher.
   }
+  std::unique_ptr<CrossReferenceMap> xrefs;
+  if (session.linkgen()) {
+    xrefs = BuildCrossReferences(project);
+  }
   for (const auto &[package, file_content] : project.ParsedFiles()) {
     if (flags.print_only_errors && file_content->errors.empty()) {
       continue;
@@ -130,7 +196,8 @@ std::pair<size_t, size_t> PrintProject(Session &session,
         if (position_or.has_value()) {
           headline << project.Loc(*position_or);
         }
-        if (PrintNode(session, *highlighter, headline.str(), item)) {
+        if (PrintNode(session, *highlighter, headline.str(), item,
+                      xrefs.get())) {
           ++count;
         }
       }
@@ -158,7 +225,8 @@ std::pair<size_t, size_t> PrintProject(Session &session,
         }
         MaybePrintVisibility(result.visibility, headline);
 
-        if (PrintNode(session, *highlighter, headline.str(), result.node)) {
+        if (PrintNode(session, *highlighter, headline.str(), result.node,
+                      xrefs.get())) {
           ++count;
         }
       });

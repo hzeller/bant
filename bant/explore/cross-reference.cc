@@ -17,6 +17,7 @@
 
 #include "bant/explore/cross-reference.h"
 
+#include <memory>
 #include <string_view>
 
 #include "bant/explore/query-utils.h"
@@ -43,8 +44,9 @@ static TargetToLocation ExtractTargetToLocation(const ParsedProject &project) {
   return result;
 }
 
-CrossReferenceMap BuildCrossReferences(const ParsedProject &project) {
-  CrossReferenceMap result;
+std::unique_ptr<CrossReferenceMap> BuildCrossReferences(
+  const ParsedProject &project) {
+  auto result = std::make_unique<CrossReferenceMap>();
   const TargetToLocation targetLocation = ExtractTargetToLocation(project);
   Filesystem &fs = Filesystem::instance();
   for (const auto &[_, parsed_package] : project.ParsedFiles()) {
@@ -53,7 +55,7 @@ CrossReferenceMap BuildCrossReferences(const ParsedProject &project) {
       parsed_package->ast, {}, [&](const query::Result &details) {
         // If it has a name, just point to that location.
         if (!details.name.empty()) {
-          result.Insert(details.name, project.GetLocation(details.name));
+          result->Insert(details.name, project.GetLocation(details.name));
         }
 
         auto srcs_list =
@@ -63,7 +65,7 @@ CrossReferenceMap BuildCrossReferences(const ParsedProject &project) {
             current_package.FullyQualifiedFile(project.workspace(), src);
           if (fs.Exists(fqn)) {
             // Actual file that is existing ? Then link to that.
-            result.Insert(src, FileNameReference{fqn});
+            result->Insert(src, fqn);
             continue;
           }
           // Ok, not a file, maybe some sort of target, e.g. genrule ref ?
@@ -71,7 +73,7 @@ CrossReferenceMap BuildCrossReferences(const ParsedProject &project) {
           if (qualified.has_value()) {
             if (auto found = targetLocation.find(*qualified);
                 found != targetLocation.end()) {
-              result.Insert(src, found->second);
+              result->Insert(src, found->second);
             }
           }
         }
@@ -85,7 +87,7 @@ CrossReferenceMap BuildCrossReferences(const ParsedProject &project) {
           if (!qualified.has_value()) continue;
           if (auto found = targetLocation.find(*qualified);
               found != targetLocation.end()) {
-            result.Insert(target, found->second);
+            result->Insert(target, found->second);
           }
         }
       });

@@ -88,8 +88,10 @@ cc_library(
         ":parser",
         "//bant:session",
         "//bant:types-bazel",
+        "//bant/explore:cross-reference",
         "//bant/explore:query-utils",
         "//bant/util:grep-highlighter",
+        "//bant/util:hyperlink-builder",
     ],
 )
 
