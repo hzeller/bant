@@ -34,10 +34,8 @@
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "bant/builtin-macros.h"
-#include "bant/explore/query-utils.h"
 #include "bant/frontend/ast.h"
 #include "bant/frontend/named-content.h"
-#include "bant/frontend/node-printer.h"
 #include "bant/frontend/parser.h"
 #include "bant/frontend/scanner.h"
 #include "bant/frontend/source-locator.h"
@@ -45,7 +43,6 @@
 #include "bant/types-bazel.h"
 #include "bant/util/file-utils.h"
 #include "bant/util/filesystem.h"
-#include "bant/util/grep-highlighter.h"
 #include "bant/util/stat.h"
 #include "bant/util/term-color.h"
 #include "bant/workspace.h"
@@ -327,83 +324,6 @@ const ParsedBuildFile *ParsedProject::FindParsedOrNull(
   auto found = package_to_parsed_.find(package);
   if (found == package_to_parsed_.end()) return nullptr;
   return found->second.get();
-}
-
-// Print visibility, but not regular print walk, but put in one line.
-static void MaybePrintVisibility(List *visibility, std::ostream &out) {
-  if (!visibility) return;
-  out << " (visibility:";
-  for (Node *v : *visibility) {
-    const Scalar *const s = v->CastAsScalar();
-    if (!s) continue;
-    out << " " << s->AsString();
-  }
-  out << ")";
-}
-
-std::pair<size_t, size_t> PrintProject(Session &session,
-                                       const BazelTargetMatcher &pattern,
-                                       const ParsedProject &project) {
-  size_t count = 0;
-  size_t total = 0;
-  const CommandlineFlags &flags = session.flags();
-
-  auto highlighter = CreateGrepHighlighterFromFlags(session);
-  if (!highlighter) {
-    return {count, total};  // Issue building the highligher.
-  }
-  for (const auto &[package, file_content] : project.ParsedFiles()) {
-    if (flags.print_only_errors && file_content->errors.empty()) {
-      continue;
-    }
-    if (!pattern.Match(package)) {
-      continue;
-    }
-
-    total += file_content->ast->size();
-
-    // Detailed print of package if requested with -a (all)
-    if (flags.print_ast) {
-      for (Node *item : *file_content->ast) {
-        std::stringstream headline;
-        auto position_or = FindFirstLocatableString(item);
-        if (position_or.has_value()) {
-          headline << project.Loc(*position_or);
-        }
-        if (PrintNode(session, *highlighter, headline.str(), item)) {
-          ++count;
-        }
-      }
-      continue;
-    }
-
-    // ... otherwise just print matching rules.
-    query::FindTargetsAllowEmptyName(
-      file_content->ast, {}, [&](const query::Result &result) {
-        std::optional<BazelTarget> maybe_target;
-        if (!result.name.empty()) {
-          maybe_target = package.QualifiedTarget(result.name);
-        }
-        // If pattern requires some match, need to check now.
-        if (!maybe_target.has_value() || !pattern.Match(*maybe_target)) {
-          return;
-        }
-
-        // TODO: instead of just marking the range of the function name,
-        // show the range the whole function covers until closed parenthesis.
-        std::stringstream headline;
-        headline << project.Loc(result.node->identifier()->id());
-        if (maybe_target.has_value()) {  // only has value if target with name.
-          headline << " " << *maybe_target;
-        }
-        MaybePrintVisibility(result.visibility, headline);
-
-        if (PrintNode(session, *highlighter, headline.str(), result.node)) {
-          ++count;
-        }
-      });
-  }
-  return {count, total};
 }
 
 Node *ParsedProject::FindMacro(std::string_view name) const {

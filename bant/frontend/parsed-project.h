@@ -18,7 +18,6 @@
 #ifndef BANT_PROJECT_PARDER_
 #define BANT_PROJECT_PARDER_
 
-#include <cstddef>
 #include <functional>
 #include <memory>
 #include <ostream>
@@ -181,13 +180,6 @@ class ParsedProject : public SourceLocator {
   absl::flat_hash_map<std::string_view, Node *> macros_;
   DisjointRangeMap<std::string_view, const SourceLocator *> location_maps_;
 };
-
-// Convenience function to print a fully parsed project, recreated from the
-// AST. Takes grep_regex into account for filtering.
-// Returns matches of rules/nodes and total number of nodes considered.
-std::pair<size_t, size_t> PrintProject(Session &session,
-                                       const BazelTargetMatcher &pattern,
-                                       const ParsedProject &project);
 
 }  // namespace bant
 #endif  // BANT_PROJECT_PARDER_

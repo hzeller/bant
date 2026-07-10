@@ -17,13 +17,19 @@
 
 #include "bant/frontend/node-printer.h"
 
+#include <cstddef>
 #include <optional>
+#include <ostream>
 #include <sstream>
 #include <string_view>
+#include <utility>
 
+#include "bant/explore/query-utils.h"
 #include "bant/frontend/ast.h"
+#include "bant/frontend/parsed-project.h"
 #include "bant/frontend/print-visitor.h"
 #include "bant/session.h"
+#include "bant/types-bazel.h"
 #include "bant/util/grep-highlighter.h"
 
 namespace bant {
@@ -82,4 +88,82 @@ bool PrintNode(Session &session, const GrepHighlighter &highlighter,
   return highlighter.EmitMatch(ast_out.str(), session.out(), headline_out.str(),
                                "\n");
 }
+
+// Print visibility, but not regular print walk, but put in one line.
+static void MaybePrintVisibility(List *visibility, std::ostream &out) {
+  if (!visibility) return;
+  out << " (visibility:";
+  for (Node *v : *visibility) {
+    const Scalar *const s = v->CastAsScalar();
+    if (!s) continue;
+    out << " " << s->AsString();
+  }
+  out << ")";
+}
+
+std::pair<size_t, size_t> PrintProject(Session &session,
+                                       const BazelTargetMatcher &pattern,
+                                       const ParsedProject &project) {
+  size_t count = 0;
+  size_t total = 0;
+  const CommandlineFlags &flags = session.flags();
+
+  auto highlighter = CreateGrepHighlighterFromFlags(session);
+  if (!highlighter) {
+    return {count, total};  // Issue building the highligher.
+  }
+  for (const auto &[package, file_content] : project.ParsedFiles()) {
+    if (flags.print_only_errors && file_content->errors.empty()) {
+      continue;
+    }
+    if (!pattern.Match(package)) {
+      continue;
+    }
+
+    total += file_content->ast->size();
+
+    // Detailed print of package if requested with -a (all)
+    if (flags.print_ast) {
+      for (Node *item : *file_content->ast) {
+        std::stringstream headline;
+        auto position_or = FindFirstLocatableString(item);
+        if (position_or.has_value()) {
+          headline << project.Loc(*position_or);
+        }
+        if (PrintNode(session, *highlighter, headline.str(), item)) {
+          ++count;
+        }
+      }
+      continue;
+    }
+
+    // ... otherwise just print matching rules.
+    query::FindTargetsAllowEmptyName(
+      file_content->ast, {}, [&](const query::Result &result) {
+        std::optional<BazelTarget> maybe_target;
+        if (!result.name.empty()) {
+          maybe_target = package.QualifiedTarget(result.name);
+        }
+        // If pattern requires some match, need to check now.
+        if (!maybe_target.has_value() || !pattern.Match(*maybe_target)) {
+          return;
+        }
+
+        // TODO: instead of just marking the range of the function name,
+        // show the range the whole function covers until closed parenthesis.
+        std::stringstream headline;
+        headline << project.Loc(result.node->identifier()->id());
+        if (maybe_target.has_value()) {  // only has value if target with name.
+          headline << " " << *maybe_target;
+        }
+        MaybePrintVisibility(result.visibility, headline);
+
+        if (PrintNode(session, *highlighter, headline.str(), result.node)) {
+          ++count;
+        }
+      });
+  }
+  return {count, total};
+}
+
 }  // namespace bant

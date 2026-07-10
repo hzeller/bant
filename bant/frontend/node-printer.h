@@ -18,11 +18,15 @@
 #ifndef BANT_NODE_PRINTER_H
 #define BANT_NODE_PRINTER_H
 
+#include <cstddef>
 #include <optional>
 #include <string_view>
+#include <utility>
 
 #include "bant/frontend/ast.h"
+#include "bant/frontend/parsed-project.h"
 #include "bant/session.h"
+#include "bant/types-bazel.h"
 #include "bant/util/grep-highlighter.h"
 
 namespace bant {
@@ -32,6 +36,13 @@ namespace bant {
 // Returns true if this was printed and not filtered out.
 bool PrintNode(Session &session, const GrepHighlighter &highlighter,
                std::string_view headline, Node *node);
+
+// Convenience function to print a fully parsed project, recreated from the
+// AST. Takes grep_regex into account for filtering.
+// Returns matches of rules/nodes and total number of nodes considered.
+std::pair<size_t, size_t> PrintProject(Session &session,
+                                       const BazelTargetMatcher &pattern,
+                                       const ParsedProject &project);
 
 // Given a node, extract the first identifier or string it encounters. Useful
 // to build headlines for PrintNode(). The string_view is from the original

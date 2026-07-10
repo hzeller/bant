@@ -84,8 +84,11 @@ cc_library(
     srcs = ["node-printer.cc"],
     hdrs = ["node-printer.h"],
     deps = [
+        ":parsed-project",
         ":parser",
         "//bant:session",
+        "//bant:types-bazel",
+        "//bant/explore:query-utils",
         "//bant/util:grep-highlighter",
     ],
 )
@@ -136,7 +139,6 @@ cc_library(
     hdrs = ["parsed-project.h"],
     deps = [
         ":named-content",
-        ":node-printer",
         ":parser",
         ":source-locator",
         "//bant:builtin-macros",
@@ -144,10 +146,8 @@ cc_library(
         "//bant:types",
         "//bant:types-bazel",
         "//bant:workspace",
-        "//bant/explore:query-utils",
         "//bant/util:disjoint-range-map",
         "//bant/util:file-utils",
-        "//bant/util:grep-highlighter",
         "//bant/util:memory",
         "//bant/util:stat",
         "//bant/util:term-color",
