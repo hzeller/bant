@@ -34,6 +34,7 @@
 
 #include "absl/cleanup/cleanup.h"
 #include "absl/strings/match.h"
+#include "absl/strings/resize_and_overwrite.h"
 #include "absl/synchronization/mutex.h"
 #include "bant/util/filesystem-prewarm-cache.h"
 
@@ -214,12 +215,7 @@ const std::optional<std::string> &Filesystem::ReadFileToString(
         success = (bytes_left == 0);
         return filesize;
       };
-#if __cplusplus >= 202100L  // Implemented in gcc since 202100
-      content.resize_and_overwrite(filesize, copy_file_to_buffer);
-#else
-      content.resize(filesize);
-      copy_file_to_buffer(const_cast<char *>(content.data()), filesize);
-#endif
+      absl::StringResizeAndOverwrite(content, filesize, copy_file_to_buffer);
       if (success) result = std::move(content);
     }
   }

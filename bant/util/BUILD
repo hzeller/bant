@@ -125,6 +125,7 @@ cc_library(
         "@abseil-cpp//absl/container:flat_hash_map",
         "@abseil-cpp//absl/container:flat_hash_set",
         "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/strings:resize_and_overwrite",
         "@abseil-cpp//absl/strings:str_format",
         "@abseil-cpp//absl/synchronization",
     ],
