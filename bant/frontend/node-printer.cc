@@ -27,7 +27,6 @@
 #include <string_view>
 #include <utility>
 #include <variant>
-#include <vector>
 
 #include "bant/explore/cross-reference.h"
 #include "bant/explore/query-utils.h"
@@ -38,6 +37,7 @@
 #include "bant/types-bazel.h"
 #include "bant/util/grep-highlighter.h"
 #include "bant/util/hyperlink-builder.h"
+#include "bant/util/text-decorator.h"
 
 namespace bant {
 // If we have an arbitrary node, find the fist string or identifier to latch
@@ -91,37 +91,35 @@ bool PrintNode(Session &session, const GrepHighlighter &highlighter,
   // corresponding end anchor text.
   bool last_print_link_success = false;
 
-  // need also cross reference map.
-  struct OffsetAnnotation {
-    size_t offset;
-    std::function<void(std::ostream &)> annotation_printer;
-  };
-  std::vector<OffsetAnnotation> annotations;  // strictly ordered by startpos.
+  TextDecorator text_decorator;
   if (make_hyperlinks) {
-    auto annotation_adder = [&](std::string_view s) {
+    // Whenever the node printer comes accross a string view scalar, it
+    // informs us, and we might want to add a decoration later at wherever
+    // the current stream position is.
+    auto stringview_print_observer = [&](std::string_view s) {
       auto found = xrefs->FindBySubrange(s);
       if (found == xrefs->end()) return;
       std::visit(
         [&](const auto &linkable) {
           const size_t current_offset = ast_out.tellp();
-          // Add start- and end-annotation
-          annotations.push_back(
-            OffsetAnnotation{current_offset, [&](std::ostream &out) {
-                               last_print_link_success =
-                                 session.linkgen()->LinkTo(linkable, out);
-                             }});
-          annotations.push_back(OffsetAnnotation{
-            current_offset + s.length(), [&](std::ostream &out) {
+          text_decorator.AddDecoration(
+            current_offset, s.length(),
+            [&](std::ostream &out) {
+              last_print_link_success =
+                session.linkgen()->LinkTo(linkable, out);
+            },
+            [&](std::ostream &out) {
               if (last_print_link_success) {
                 out << HyperlinkBuilder::kTerminalEndAnchorText;
               }
-            }});
+            });
         },
         *found);
     };
-    printer.RegisterStringScalarCallback(annotation_adder);
+    printer.RegisterStringScalarCallback(stringview_print_observer);
   }
   printer.WalkNonNull(node);
+  ast_out << "\n";
 
   std::stringstream headline_out;
   if (!headline.empty()) {
@@ -132,23 +130,11 @@ bool PrintNode(Session &session, const GrepHighlighter &highlighter,
 
   // TODO: the highlighter should of course also collect annotations, then
   // we sort everything and apply all of them as annoations.
-  std::string print_out = ast_out.str();
-  const std::string_view print_out_view = print_out;
-  std::stringstream annotation_out;
-  if (make_hyperlinks) {
-    size_t last_offset = 0;
-    for (const OffsetAnnotation &annotation : annotations) {
-      const size_t new_offset = annotation.offset;
-      annotation_out << print_out_view.substr(last_offset,
-                                              new_offset - last_offset);
-      annotation.annotation_printer(annotation_out);
-      last_offset = new_offset;
-    }
-    annotation_out << print_out_view.substr(last_offset) << "\n";
-    print_out = annotation_out.str();
-  }
-  return highlighter.EmitMatch(print_out, session.out(), headline_out.str(),
-                               "\n");
+  std::stringstream decorated_out;
+  text_decorator.Emit(ast_out.str(), decorated_out);
+
+  return highlighter.EmitMatch(decorated_out.str(), session.out(),
+                               headline_out.str(), "\n");
 }
 
 // Print visibility, but not regular print walk, but put in one line.

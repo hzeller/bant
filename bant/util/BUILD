@@ -253,3 +253,9 @@ cc_test(
         "@googletest//:gtest_main",
     ],
 )
+
+cc_library(
+    name = "text-decorator",
+    srcs = ["text-decorator.cc"],
+    hdrs = ["text-decorator.h"],
+)

@@ -92,6 +92,7 @@ cc_library(
         "//bant/explore:query-utils",
         "//bant/util:grep-highlighter",
         "//bant/util:hyperlink-builder",
+        "//bant/util:text-decorator",
     ],
 )
 
