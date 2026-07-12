@@ -39,22 +39,20 @@ class TextDecorator {
   void Emit(std::string_view text, std::ostream &out);
 
  private:
-  // TODO: we're not dealing with overlapping annotations well yet, which
-  // could mean for typical terminal reset that they show up early.
   struct OffsetDecoration {
-    // Upper bits: offset, lower bit: start=0 or end=1. That way, when sorting
+    // Upper bits: offset; lower bit: start=1 or end=0. That way, when sorting
     // an end of a previous annotation and a start at the same offset of the
     // next annoation are stably sorted. The end is finished before the next
     // start happens.
     OffsetDecoration(size_t offset, bool is_start, SnippetEmitter s)
-        : offset_location(offset << 1 | !is_start), emitter(std::move(s)) {}
+        : offset_location(offset << 1 | is_start), emitter(std::move(s)) {}
     size_t offset() const { return offset_location >> 1; }
 
     uint64_t offset_location;
     SnippetEmitter emitter;
   };
 
-  std::vector<OffsetDecoration> registered_decorations_;
+  std::vector<OffsetDecoration> decorations_;
 };
 
 }  // namespace bant

@@ -259,3 +259,13 @@ cc_library(
     srcs = ["text-decorator.cc"],
     hdrs = ["text-decorator.h"],
 )
+
+cc_test(
+    name = "text-decorator_test",
+    srcs = ["text-decorator_test.cc"],
+    deps = [
+        ":text-decorator",
+        "@googletest//:gtest",
+        "@googletest//:gtest_main",
+    ],
+)

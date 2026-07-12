@@ -27,22 +27,22 @@ namespace bant {
 
 void TextDecorator::AddDecoration(size_t offset, size_t len,
                                   SnippetEmitter start, SnippetEmitter end) {
-  registered_decorations_.emplace_back(offset, true, std::move(start));
-  registered_decorations_.emplace_back(offset + len, false, std::move(end));
+  if (start) decorations_.emplace_back(offset, true, std::move(start));
+  if (end) decorations_.emplace_back(offset + len, false, std::move(end));
 }
 
 // Emit the text, but with decorations applied.
 void TextDecorator::Emit(std::string_view text, std::ostream &out) {
-  std::sort(registered_decorations_.begin(), registered_decorations_.end(),
-            [](const OffsetDecoration &a, const OffsetDecoration &b) {
-              return a.offset_location < b.offset_location;
-            });
+  std::stable_sort(decorations_.begin(), decorations_.end(),
+                   [](const OffsetDecoration &a, const OffsetDecoration &b) {
+                     return a.offset_location < b.offset_location;
+                   });
 
   size_t last_offset = 0;
-  for (const OffsetDecoration &decoration : registered_decorations_) {
+  for (const OffsetDecoration &decoration : decorations_) {
     const size_t new_offset = decoration.offset();
     out << text.substr(last_offset, new_offset - last_offset);
-    if (decoration.emitter) decoration.emitter(out);
+    decoration.emitter(out);
     last_offset = new_offset;
   }
   out << text.substr(last_offset);
