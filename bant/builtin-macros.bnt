@@ -35,8 +35,9 @@
 dict = {k: v for (k, v) in _arg_0}
 
 ##
-# rules found in various projects. For now, this is build into bant,
-# but eventually these should be files loaded per project.
+# rules found in various projects. For now, this is build into bant, but
+# eventually we should upstream corresponding .bant-macros to these projects.
+#
 # Note: these only need to be 'approximate', enough for bant to know what files
 # and libraries are provided, broken down into bazel building blocks.
 # Use bant_skip_dependency_check = True in cc_library() to skip dwyu there.
@@ -89,10 +90,21 @@ gentbl_cc_library = (
     ),
 )
 
-### Boringssl
-bssl_cc_library = bant_forward_args(
-    cc_library(),
+### https://github.com/envoyproxy/envoy
+# They are going all out defining their own names for common rules.
+envoy_cc_library = bant_forward_args(cc_library())
+envoy_cc_test = bant_forward_args(cc_test())
+envoy_cc_test_library = cc_library(
+    name = name,
+    srcs = srcs,
+    hdrs = hdrs,
+    deps = deps,
+    defines = defines,
+    testonly = True,
 )
+
+### Boringssl
+bssl_cc_library = bant_forward_args(cc_library())
 
 ### Grpc
 grpc_cc_library = cc_library(
