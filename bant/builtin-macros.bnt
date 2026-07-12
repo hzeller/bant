@@ -90,6 +90,17 @@ gentbl_cc_library = (
     ),
 )
 
+# llvm-project-overlay/libc/libc_build_rules.bzl
+# We can't use default values such as has_def_template as the original
+# implementation in the llvm project does; so we also test
+# if it is defined first, with bant_is_defined() built-in.
+libc_header_info = struct(
+    target_name = "include_{}_h".format(_arg_0.replace("/", "_")),
+    staging_path = "staging/include/{}.h".format(_arg_0),
+    yaml_template = "include/{}.yaml".format(_arg_0),
+    other_srcs = other_srcs + (["include/{}.h.def".format(_arg_0)] if (bant_is_defined(has_def_template) and has_def_template) else []),
+)
+
 ### https://github.com/envoyproxy/envoy
 # They are going all out defining their own names for common rules.
 envoy_cc_library = bant_forward_args(cc_library())
