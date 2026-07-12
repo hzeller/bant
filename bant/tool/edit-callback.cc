@@ -41,7 +41,7 @@ EditCallback CreateBuildozerDepsEditCallback(std::ostream &out,
       tmp_out << "'replace deps " << before << " " << after << "' " << target;
       break;
     }
-    grepper.EmitMatch(tmp_out.str(), out, "buildozer ", "\n");
+    GrepHighlight(grepper, tmp_out.str(), out, "buildozer ", "\n");
   };
 }
 

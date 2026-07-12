@@ -17,10 +17,8 @@
 
 #include "bant/util/grep-highlighter.h"
 
-#include <algorithm>
 #include <cstddef>
 #include <initializer_list>
-#include <map>
 #include <memory>
 #include <ostream>
 #include <set>
@@ -29,6 +27,7 @@
 
 #include "absl/log/check.h"
 #include "bant/session.h"
+#include "bant/util/text-decorator.h"
 #include "re2/re2.h"
 
 namespace bant {
@@ -106,28 +105,16 @@ bool GrepHighlighter::AddExcludeExpressions(
                            &exclude_matchers_);
 }
 
-bool GrepHighlighter::EmitMatch(std::string_view content, std::ostream &out,
-                                std::string_view prefix,
-                                std::string_view suffix) const {
+bool GrepHighlighter::Match(std::string_view content,
+                            TextDecorator *decorator) const {
   for (const auto &exclude_re : exclude_matchers_) {
     if (RE2::PartialMatch(content, *exclude_re)) return false;
   }
 
-  if (matchers_.empty()) {  // Short path
-    out << prefix << content << suffix;
-    return true;
-  }
-
-  // Preprocess; we first need to determine all the matches so that we can
-  // properly highlight overlapping sections. Store them in matching order
+  if (matchers_.empty()) return true;  // Short path
 
   // Remember which regexps matched (for and semnatics)
   std::set<int> matched_regex_index;
-
-  // Matching start point to start of match for a particular color and
-  // -1 for 'reset color' (needs to be before regular colors)
-  constexpr int kResetCol = -1;
-  std::map<const char *, std::vector<int>> pos_to_expression;
 
   for (size_t i = 0; i < matchers_.size(); ++i) {
     const auto &re = matchers_[i];
@@ -136,9 +123,15 @@ bool GrepHighlighter::EmitMatch(std::string_view content, std::ostream &out,
     while (RE2::FindAndConsume(&run, *re, &match)) {
       matched_regex_index.insert(i);
       if (match.empty()) continue;
-      const int color = i % color_highlight_.size();
-      pos_to_expression[match.data()].emplace_back(color);
-      pos_to_expression[match.data() + match.length()].emplace_back(kResetCol);
+      if (decorator && do_highlight_) {
+        const size_t offset = match.data() - content.data();
+        const int color_index = i % color_highlight_.size();
+        const std::string color = color_highlight_[color_index];
+        const std::string reset = end_highlight_;
+        decorator->AddDecoration(
+          offset, match.length(), [color](std::ostream &o) { o << color; },
+          [reset](std::ostream &o) { o << reset; });
+      }
     }
   }
 
@@ -147,52 +140,24 @@ bool GrepHighlighter::EmitMatch(std::string_view content, std::ostream &out,
   if (and_semantics_ && matched_regex_index.size() != matchers_.size()) {
     return false;
   }
+  return true;
+}
 
-  if (!do_highlight_) {
-    out << prefix << content << suffix;
-    return true;
-  }
-
-  // TODO: when we have nested elements inside a colored region, we should
-  // reset, add colored insert and re-establish that outer color.
-  // TODO: this should be implemented using annotators, needs to be refactored
-  // out.
+bool GrepHighlight(const GrepHighlighter &highligher, std::string_view content,
+                   std::ostream &out, std::string_view prefix,
+                   std::string_view suffix) {
+  TextDecorator decorator;
+  if (!highligher.Match(content, &decorator)) return false;
   out << prefix;
-  int highlight_depth = 0;  // Only when zero, emit the end match.
-  const char *last_end = content.data();
-  for (auto &[pos, colors] : pos_to_expression) {
-    std::sort(colors.begin(), colors.end());  // Always reset first
-    for (const int color : colors) {
-      if (color == kResetCol) {
-        if (--highlight_depth == 0) {  // Reset only last of overlapping
-          out << std::string_view(last_end, pos - last_end);
-          out << end_highlight_;
-          last_end = pos;
-        }
-        continue;
-      }
-
-      out << std::string_view(last_end, pos - last_end);
-      out << color_highlight_[color];
-      last_end = pos;
-      ++highlight_depth;
-    }
-  }
-  CHECK_EQ(highlight_depth, 0);
-  out << std::string_view(last_end, content.end() - last_end);
+  decorator.Emit(content, out);
   out << suffix;
-
   return true;
 }
 
 std::unique_ptr<GrepHighlighter> CreateGrepHighlighterFromFlags(
   Session &session) {
   const auto &flags = session.flags();
-
-  // Right now, if we also emit links, we would mess up the output, so disable
-  // while that is active. Should soon be fixed.
-  const bool do_highlight = flags.do_color && !flags.do_links;
-
+  const bool do_highlight = flags.do_color;
   auto result =
     std::make_unique<GrepHighlighter>(do_highlight, !flags.grep_or_semantics);
   if (!result->AddExpressions(flags.grep_include_expressions,

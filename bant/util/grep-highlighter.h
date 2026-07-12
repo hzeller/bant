@@ -25,6 +25,7 @@
 #include <vector>
 
 #include "bant/session.h"
+#include "bant/util/text-decorator.h"
 #include "re2/re2.h"
 
 namespace bant {
@@ -59,21 +60,17 @@ class GrepHighlighter {
   // By default terminal reset escape.
   void SetHighlightEnd(std::string_view reset_color);
 
-  // Work-horse: given content, check for matches and emit to output stream if
-  // and only if there are matches (if regexp list was empty, then by definition
-  // this is a match).
+  // Match content and, if decorator is provided, add terminal markups
+  // to decorator. If regexp list is empty, by definition this is a match.
+  //
+  // If "and_semantics" is selected in constructor, _all_ regular expressions
+  // have to match; otherwise just one of them matching is considred a match.
   //
   // If "do_highlight" was selected in the constructor, emits terminal escape
-  // sequences around the matches to color the output.
+  // decorations around the matches to color the output.
   //
-  // Returns if "content" matched and something was printed to the output.
-  // value == regexp.size(), then all of them matched ('and' expression').
-  //
-  // Iff content is written also emit prefix and suffix (but prefix and suffix
-  // are not subject to match checking).
-  bool EmitMatch(std::string_view content, std::ostream &out,
-                 std::string_view prefix = "",
-                 std::string_view suffix = "") const;
+  // Returns 'true' on match.
+  bool Match(std::string_view content, TextDecorator *decorator) const;
 
  private:
   using RegexList = std::vector<std::unique_ptr<RE2>>;
@@ -88,6 +85,15 @@ class GrepHighlighter {
   RegexList matchers_;
   RegexList exclude_matchers_;
 };
+
+// Utility function: given content, check for matches and emit to output
+// stream iff there are matches. See GrepHighlighter::Match().
+//
+// Iff content is written also emit prefix and suffix (but prefix and suffix
+// are not subject to match checking).
+bool GrepHighlight(const GrepHighlighter &highligher, std::string_view content,
+                   std::ostream &out, std::string_view prefix = "",
+                   std::string_view suffix = "");
 
 // Convenience factory: create a GrepHighlighter from the flags in the
 // session. Returns a fully constructed GrepHighlighter or nullptr if there

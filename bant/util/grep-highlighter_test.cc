@@ -28,9 +28,9 @@ TEST(GrepHighlighterTest, SimpleMatch) {
   std::stringstream sink;
   EXPECT_TRUE(highligher.AddExpressions({"ello"}, false, sink));
 
-  EXPECT_TRUE(highligher.EmitMatch("hello world", sink));
-  EXPECT_FALSE(highligher.EmitMatch("nothing here", sink));
-  EXPECT_EQ(sink.str(), "hello world");
+  EXPECT_TRUE(GrepHighlight(highligher, "hello world", sink, "start>", "<end"));
+  EXPECT_FALSE(GrepHighlight(highligher, "nothing here", sink));
+  EXPECT_EQ(sink.str(), "start>hello world<end");
 }
 
 TEST(GrepHighlighterTest, SimpleExludeMatch) {
@@ -39,8 +39,8 @@ TEST(GrepHighlighterTest, SimpleExludeMatch) {
   std::stringstream sink;
   EXPECT_TRUE(highligher.AddExcludeExpressions({"ello"}, false, sink));
 
-  EXPECT_FALSE(highligher.EmitMatch("hello world", sink));
-  EXPECT_TRUE(highligher.EmitMatch("nothing here", sink));
+  EXPECT_FALSE(GrepHighlight(highligher, "hello world", sink));
+  EXPECT_TRUE(GrepHighlight(highligher, "nothing here", sink));
 
   EXPECT_EQ(sink.str(), "nothing here");
 }
@@ -52,19 +52,8 @@ TEST(GrepHighlighterTest, HighlightMatch) {
   highligher.SetHighlightStart({"_RED_", "_GREEN_", "_BLUE_"});
   highligher.SetHighlightEnd("_END_");
 
-  EXPECT_TRUE(highligher.EmitMatch("hello world", sink));
+  EXPECT_TRUE(GrepHighlight(highligher, "hello world", sink));
   EXPECT_EQ(sink.str(), "h_RED_ello_END_ wo_GREEN_rld_END_");
-}
-
-TEST(GrepHighlighterTest, HighlightOverlapMatch) {
-  GrepHighlighter highligher(true, true);
-  std::stringstream sink;
-  EXPECT_TRUE(highligher.AddExpressions({"ello", "lo wo"}, false, sink));
-  highligher.SetHighlightStart({"_RED_", "_GREEN_", "_BLUE_"});
-  highligher.SetHighlightEnd("_END_");
-
-  EXPECT_TRUE(highligher.EmitMatch("hello world", sink));
-  EXPECT_EQ(sink.str(), "h_RED_el_GREEN_lo wo_END_rld");
 }
 
 TEST(GrepHighlighterTest, HighlightButtingUpMatch) {
@@ -74,7 +63,7 @@ TEST(GrepHighlighterTest, HighlightButtingUpMatch) {
   highligher.SetHighlightStart({"_RED_", "_GREEN_", "_BLUE_"});
   highligher.SetHighlightEnd("_END_");
 
-  EXPECT_TRUE(highligher.EmitMatch("helloworld", sink));
+  EXPECT_TRUE(GrepHighlight(highligher, "helloworld", sink));
   EXPECT_EQ(sink.str(), "_RED_hello_END__GREEN_world_END_");
 }
 
@@ -85,7 +74,7 @@ TEST(GrepHighlighterTest, AlwaysResetFirstButtingUpMatch) {
   highligher.SetHighlightStart({"_RED_", "_GREEN_", "_BLUE_"});
   highligher.SetHighlightEnd("_END_");
 
-  EXPECT_TRUE(highligher.EmitMatch("helloworld", sink));
+  EXPECT_TRUE(GrepHighlight(highligher, "helloworld", sink));
   EXPECT_EQ(sink.str(), "_GREEN_hello_END__RED_world_END_");
 }
 

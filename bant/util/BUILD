@@ -190,6 +190,7 @@ cc_library(
     srcs = ["grep-highlighter.cc"],
     hdrs = ["grep-highlighter.h"],
     deps = [
+        ":text-decorator",
         "//bant:session",
         "@abseil-cpp//absl/log:check",
         "@re2",

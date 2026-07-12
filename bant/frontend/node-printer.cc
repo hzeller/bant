@@ -119,22 +119,19 @@ bool PrintNode(Session &session, const GrepHighlighter &highlighter,
     printer.RegisterStringScalarCallback(stringview_print_observer);
   }
   printer.WalkNonNull(node);
-  ast_out << "\n";
 
-  std::stringstream headline_out;
+  const std::string ast_print = ast_out.str();
+  if (!highlighter.Match(ast_print, &text_decorator)) return false;
+
   if (!headline.empty()) {
-    if (flags.do_color) headline_out << kHeadlineColor;
-    headline_out << "# " << headline << "\n";
-    if (flags.do_color) headline_out << kHeadlineReset;
+    if (flags.do_color) session.out() << kHeadlineColor;
+    session.out() << "# " << headline << "\n";
+    if (flags.do_color) session.out() << kHeadlineReset;
   }
 
-  // TODO: the highlighter should of course also collect annotations, then
-  // we sort everything and apply all of them as annoations.
-  std::stringstream decorated_out;
-  text_decorator.Emit(ast_out.str(), decorated_out);
-
-  return highlighter.EmitMatch(decorated_out.str(), session.out(),
-                               headline_out.str(), "\n");
+  text_decorator.Emit(ast_print, session.out());
+  session.out() << "\n";
+  return true;
 }
 
 // Print visibility, but not regular print walk, but put in one line.
