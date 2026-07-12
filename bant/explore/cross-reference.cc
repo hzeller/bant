@@ -58,8 +58,8 @@ std::unique_ptr<CrossReferenceMap> BuildCrossReferences(
           result->Insert(details.name, project.GetLocation(details.name));
         }
 
-        auto srcs_list =
-          query::ExtractStringList({details.srcs_list, details.hdrs_list});
+        auto srcs_list = query::ExtractStringList(
+          {details.srcs_list, details.hdrs_list, details.data_list});
         for (std::string_view src : srcs_list) {
           auto fqn =
             current_package.FullyQualifiedFile(project.workspace(), src);
