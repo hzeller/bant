@@ -530,7 +530,7 @@ overhead.
 ```
 bant v0.2.xx <http://bant.build/>
 Copyright (c) 2024-2026 Henner Zeller. This program is free software; GPL 3.0.
-Usage: bant [options] <command> [bazel-target-pattern...]
+Usage: bazel-bin/bant/bant [options] <command> [bazel-target-pattern...]
 Options
     -C <directory> : Change to this project directory first (default = '.')
     -q, --quiet    : Quiet: don't print info messages to stderr.
@@ -557,7 +557,9 @@ Options
                      picked up by elaboration (-e) (experimental; does not yet
                      read config_setting(), but flag value is used directly).
     --color=<opt>  : enable colored output. One of "auto", "never", "always"
-
+                     Default "auto" or from environment variable BANT_COLOR
+    --links=<opt>  : enable hyperlinks. One of "auto", "never", "always"
+                     Default "auto" or from environment variable BANT_LINKS
 Commands (unique prefix sufficient):
     == Parsing ==
     print          : Print rules matching pattern. (-E : only files w/ errors)

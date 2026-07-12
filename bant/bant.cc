@@ -115,7 +115,9 @@ static int usage(const char *prog, const char *message, int exit_code) {
                      picked up by elaboration (-e) (experimental; does not yet
                      read config_setting(), but flag value is used directly).
     --color=<opt>  : enable colored output. One of "auto", "never", "always"
-
+                     Default "auto" or from environment variable BANT_COLOR
+    --links=<opt>  : enable hyperlinks. One of "auto", "never", "always"
+                     Default "auto" or from environment variable BANT_LINKS
 Commands (unique prefix sufficient):
     %s== Parsing ==%s
     print          : Print rules matching pattern. (-E : only files w/ errors)
@@ -284,11 +286,12 @@ int main(int argc, char *argv[]) {
 
   bool be_quiet = false;
 
+  const bool output_is_terminal = isatty(STDOUT_FILENO);
   bant::CommandlineFlags flags;
   flags.do_color = GetWithFallback(ParseTerminalColor(getenv("BANT_COLOR")),
-                                   isatty(STDOUT_FILENO));
-  flags.do_links =
-    GetWithFallback(ParseTerminalColor(getenv("BANT_LINKS")), false);
+                                   output_is_terminal);
+  flags.do_links = GetWithFallback(ParseTerminalColor(getenv("BANT_LINKS")),
+                                   output_is_terminal);
   // Since we're using basic getopt() currently, we've to fish out all the
   // double-dash bazel configs, otherwise getopt() gets confused about unknown
   // options.
