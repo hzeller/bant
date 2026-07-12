@@ -189,6 +189,8 @@ Commands (unique prefix sufficient):
                         (fix your project to use quotes if you need acknowlege
                          or validate).
                         Default: acknowledge
+                      --graph-augment=<bazel-target> Additioal bazel targets
+                         you'd like the dependency graph know about.
     canonicalize   : Emit rename edits to canonicalize targets.
     compile-flags  : (experimental) Emit compile flags. Redirect or output with
                      -o compile_flags.txt
