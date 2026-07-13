@@ -56,10 +56,11 @@ class EditExpector {
 
   EditCallback checker() {
     return [this](EditRequest op, const BazelTarget &target,
-                  std::string_view before, std::string_view after) {
+                  std::string_view before, std::string_view after) -> bool {
       const std::string actual = Encode(op, before, after);
       auto erase_count = expected_edits_.erase(actual);
       EXPECT_TRUE(erase_count == 1) << "'" << actual << "' not in expectations";
+      return true;  // Not filtered.
     };
   }
 

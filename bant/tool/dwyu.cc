@@ -1257,12 +1257,15 @@ size_t CreateDependencyEdits(Session &session, const ParsedProject &project,
   Stat &dwyu_stats = session.GetStatsFor("DWYU Operation", "targets");
   const ScopedTimer timer(&dwyu_stats.duration);
 
-  size_t edits_emitted = 0;
+  size_t edits_requested = 0;
+  size_t post_filter_edits = 0;
   const EditCallback edit_counting_forwarder =
     [&](EditRequest op, const BazelTarget &target,  //
         std::string_view before, std::string_view after) {
-      ++edits_emitted;
-      emit_deps_edit(op, target, before, after);
+      const bool is_emitted = emit_deps_edit(op, target, before, after);
+      ++edits_requested;
+      if (is_emitted) ++post_filter_edits;
+      return is_emitted;
     };
   DWYUGenerator gen(session, project, edit_counting_forwarder);
   const size_t target_count = gen.CreateEditsForPattern(pattern);
@@ -1276,15 +1279,19 @@ size_t CreateDependencyEdits(Session &session, const ParsedProject &project,
          " custom rule."
          "\nConsider adding a macro to your project's .bant-macros file.";
   }
-  if (edits_emitted) {
-    session.info() << Dim(session) << " Emitted " << edits_emitted << " edits."
-                   << Norm(session);
+  if (edits_requested) {
+    session.info() << Dim(session) << " Requested " << edits_requested
+                   << " edits.";
+    if (edits_requested != post_filter_edits) {
+      session.info() << " Grep-selected " << post_filter_edits << " of these.";
+    }
+    session.info() << Norm(session);
   }
   session.info() << "\n";
   gen.PrintGenruleTargetsToRun(session.info());
   if (session.MinVerbosity(2)) {
     gen.PrintSourcesNotFound(session.info());
   }
-  return edits_emitted;
+  return edits_requested;
 }
 }  // namespace bant

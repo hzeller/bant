@@ -44,8 +44,9 @@ enum class EditRequest {
 // For kRemove and kRename operation, this is simply the original location.
 // For kAdd operations, this should be an empty string roughly at the location
 // where the addition should take place.
+// Returns 'true' if edit actually was emitted (e.g. not filtered out).
 using EditCallback =
-  std::function<void(EditRequest op, const BazelTarget &target,
+  std::function<bool(EditRequest op, const BazelTarget &target,
                      std::string_view before, std::string_view after)>;
 
 // Create an EditCallback function that writes "buildozer" dep-edits to "out"
