@@ -72,14 +72,14 @@ class HyperlinkBuilder {
  private:
   const BazelWorkspace &workspace_;
 
-  std::optional<TextTemplate::Prepared> project_path_;
-  std::optional<TextTemplate::Prepared> project_path_with_loc_;
+  std::optional<TextTemplate::Prepared> project_file_;
+  std::optional<TextTemplate::Prepared> project_file_with_loc_;
 
-  std::optional<TextTemplate::Prepared> external_path_;
-  std::optional<TextTemplate::Prepared> external_path_with_loc_;
+  std::optional<TextTemplate::Prepared> external_file_;
+  std::optional<TextTemplate::Prepared> external_file_with_loc_;
 
-  std::optional<TextTemplate::Prepared> generated_path_;
-  std::optional<TextTemplate::Prepared> generated_path_with_loc_;
+  std::optional<TextTemplate::Prepared> generated_file_;
+  std::optional<TextTemplate::Prepared> generated_file_with_loc_;
 };
 
 // Utility wrapper for a location to be printed as link on the terminal

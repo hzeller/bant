@@ -44,8 +44,8 @@ TEST(HyperlinkBuilder, SimpleLinkBuilding) {
   EXPECT_TRUE(b.Build(
     {
       {"repo_url", "https://repo.com/user/project"},
-      {"project_dir", "/abs/project/dir"},
-      {"external_dir", "/abs/external/dir"},
+      {"project_root", "/abs/project/dir"},
+      {"external_root", "/abs/external/dir"},
     },
     "<a href='", "'>"));
 

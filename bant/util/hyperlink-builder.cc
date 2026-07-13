@@ -40,14 +40,14 @@
 namespace bant {
 /*
 Constants extracted from project
-  ${project_dir}     // Root of the project on the local filesystem
-  ${external_dir}    // Root where all the external projets are
-  ${repo_url}        // if available: this is the base-url for ${project_path}s
+  ${project_root}    // Absolute root of dir of the project on local filesystem
+  ${external_root}   // Absolute root dir where all the external projets are
+  ${repo_url}        // if available: this is the base-url for ${project_file}s
 
 Variables used within links
-  ${project_path}    // filename relative to ${project_dir}
-  ${external_path}   // filename relative to ${external_dir}
-  ${generated_path}  // filename that is generated; relative to ${project_dir}
+  ${project_file}    // filename relative to ${project_root}
+  ${external_file}   // filename relative to ${external_root}
+  ${generated_file}  // filename that is generated; relative to ${project_root}
 
   // range from-to as line and column information, as zero and one based.
   ${line_start_0} ${col_start_0} and ${line_start_1} ${col_start_1}
@@ -64,8 +64,8 @@ static constexpr std::string_view kUrlTemplates[] = {
   // Use repo_urls (if available) to assemble a link directly to the repo.
   // This can only be done on project paths, as external and generated are
   // only available locally.
-  "${repo_url}/${project_path}#L${line_start_1}-L${line_end_1}",
-  "${repo_url}/${project_path}",
+  "${repo_url}/${project_file}#L${line_start_1}-L${line_end_1}",
+  "${repo_url}/${project_file}",
 
   // Fallbacks: just plain file URLs to local filesystem. Unfortunately, in
   // that case we never can give location, as browsers don't support jumping
@@ -73,15 +73,15 @@ static constexpr std::string_view kUrlTemplates[] = {
   // However, some editors can deal with line/column links, so we also provide
   // specific versions. If anything it shows the users that there might be
   // a chance to configure their terminal+editor combination to do the jump.
-  "file://${project_dir}/${project_path}?line=${line_start_1}&column=${col_start_1}",
+  "file://${project_root}/${project_file}?line=${line_start_1}&column=${col_start_1}",
 
-  "file://${project_dir}/${project_path}",
+  "file://${project_root}/${project_file}",
 
-  "file://${project_dir}/${generated_path}?line=${line_start_1}&column=${col_start_1}",
-  "file://${project_dir}/${generated_path}",
+  "file://${project_root}/${generated_file}?line=${line_start_1}&column=${col_start_1}",
+  "file://${project_root}/${generated_file}",
 
-  "file://${external_dir}/${external_path}?line=${line_start_1}&column=${col_start_1}",
-  "file://${external_dir}/${external_path}",
+  "file://${external_root}/${external_file}?line=${line_start_1}&column=${col_start_1}",
+  "file://${external_root}/${external_file}",
 };
 // clang-format on
 
@@ -117,7 +117,7 @@ static std::string ReplaceKnownValues(std::string_view tpl,
 
 // Build an accessor given the variable name assuming FileLocation as data.
 static TextTemplate::ValueAccessor AccessorForVariable(std::string_view v) {
-  if (v == "project_path" || v == "generated_path" || v == "external_path") {
+  if (v == "project_file" || v == "generated_file" || v == "external_file") {
     return [](const void *data) -> std::string {
       const FileLocation &floc = *static_cast<const FileLocation *>(data);
       return std::string(floc.filename);
@@ -194,8 +194,8 @@ bool HyperlinkBuilder::Build(const VarKV &constants, std::string_view prefix,
                              std::string_view suffix) {
   using StringSet = std::set<std::string_view>;
   static const StringSet kAllowedBaseVariables{
-    "project_dir",   "external_dir", "repo_url",        // constants
-    "external_path", "project_path", "generated_path",  // runtime
+    "project_root",   "external_root", "repo_url",        // constants
+    "external_file", "project_file", "generated_file",  // runtime
   };
   static const StringSet kLocVars{
     "line_start_0", "col_start_0", "line_start_1", "col_start_1",  // start..
@@ -222,14 +222,14 @@ bool HyperlinkBuilder::Build(const VarKV &constants, std::string_view prefix,
   // Project relative
   StringSet available_for_in_project_no_loc{const_vars.begin(),
                                             const_vars.end()};
-  available_for_in_project_no_loc.insert("project_path");
+  available_for_in_project_no_loc.insert("project_file");
 
   StringSet available_for_in_project_with_loc{available_for_in_project_no_loc};
   available_for_in_project_with_loc.insert(kLocVars.begin(), kLocVars.end());
 
   // External projects
   StringSet available_for_external_no_loc{const_vars.begin(), const_vars.end()};
-  available_for_external_no_loc.insert("external_path");
+  available_for_external_no_loc.insert("external_file");
 
   StringSet available_for_external_with_loc{available_for_external_no_loc};
   available_for_external_with_loc.insert(kLocVars.begin(), kLocVars.end());
@@ -237,7 +237,7 @@ bool HyperlinkBuilder::Build(const VarKV &constants, std::string_view prefix,
   // Generated files
   StringSet available_for_generated_no_loc{const_vars.begin(),
                                            const_vars.end()};
-  available_for_generated_no_loc.insert("generated_path");
+  available_for_generated_no_loc.insert("generated_file");
 
   StringSet available_for_generated_with_loc{available_for_generated_no_loc};
   available_for_generated_with_loc.insert(kLocVars.begin(), kLocVars.end());
@@ -252,31 +252,31 @@ bool HyperlinkBuilder::Build(const VarKV &constants, std::string_view prefix,
       success = false;
       continue;
     }
-    if (!project_path_.has_value() &&
+    if (!project_file_.has_value() &&
         AllElementsInSet(vars, available_for_in_project_no_loc)) {
-      project_path_ = Prepare(tpl, constants, prefix, suffix);
+      project_file_ = Prepare(tpl, constants, prefix, suffix);
     }
-    if (!project_path_with_loc_.has_value() &&
+    if (!project_file_with_loc_.has_value() &&
         AllElementsInSet(vars, available_for_in_project_with_loc)) {
-      project_path_with_loc_ = Prepare(tpl, constants, prefix, suffix);
+      project_file_with_loc_ = Prepare(tpl, constants, prefix, suffix);
     }
 
-    if (!external_path_.has_value() &&
+    if (!external_file_.has_value() &&
         AllElementsInSet(vars, available_for_external_no_loc)) {
-      external_path_ = Prepare(tpl, constants, prefix, suffix);
+      external_file_ = Prepare(tpl, constants, prefix, suffix);
     }
-    if (!external_path_with_loc_.has_value() &&
+    if (!external_file_with_loc_.has_value() &&
         AllElementsInSet(vars, available_for_external_with_loc)) {
-      external_path_with_loc_ = Prepare(tpl, constants, prefix, suffix);
+      external_file_with_loc_ = Prepare(tpl, constants, prefix, suffix);
     }
 
-    if (!generated_path_.has_value() &&
+    if (!generated_file_.has_value() &&
         AllElementsInSet(vars, available_for_generated_no_loc)) {
-      generated_path_ = Prepare(tpl, constants, prefix, suffix);
+      generated_file_ = Prepare(tpl, constants, prefix, suffix);
     }
-    if (!generated_path_with_loc_.has_value() &&
+    if (!generated_file_with_loc_.has_value() &&
         AllElementsInSet(vars, available_for_generated_with_loc)) {
-      generated_path_with_loc_ = Prepare(tpl, constants, prefix, suffix);
+      generated_file_with_loc_ = Prepare(tpl, constants, prefix, suffix);
     }
   }
 
@@ -293,12 +293,12 @@ bool HyperlinkBuilder::LinkTo(const FileLocation &location,
   FileLocation print_location = location;
   const std::optional<TextTemplate::Prepared> *template_to_use = nullptr;
   if (location.filename.starts_with(workspace_.external_dir)) {
-    template_to_use = &external_path_with_loc_;
+    template_to_use = &external_file_with_loc_;
     print_location.filename.remove_prefix(workspace_.external_dir.length());
   } else if (LooksLikeGeneratedPath(location.filename)) {
-    template_to_use = &generated_path_with_loc_;
+    template_to_use = &generated_file_with_loc_;
   } else {
-    template_to_use = &project_path_with_loc_;
+    template_to_use = &project_file_with_loc_;
   }
   if (!template_to_use || !template_to_use->has_value()) {
     return false;
@@ -313,9 +313,9 @@ bool HyperlinkBuilder::LinkTo(const BazelPackage &pkg,
                               std::ostream &out) const {
   const std::optional<TextTemplate::Prepared> *template_to_use = nullptr;
   if (pkg.project.empty()) {
-    template_to_use = &project_path_;
+    template_to_use = &project_file_;
   } else {
-    template_to_use = &external_path_;
+    template_to_use = &external_file_;
   }
 
   if (!template_to_use || !template_to_use->has_value()) {
@@ -348,15 +348,15 @@ std::unique_ptr<HyperlinkBuilder> MakeLinkBuilder(
   auto link_builder = std::make_unique<HyperlinkBuilder>(workspace);
   if (enable_links) {
     HyperlinkBuilder::VarKV constants;
-    const std::string project_dir = std::filesystem::current_path().string();
-    constants["project_dir"] = project_dir;
+    const std::string project_root = std::filesystem::current_path().string();
+    constants["project_root"] = project_root;
     std::string external_abs_dir;
     if (absl::StrContains(workspace.external_dir, "../")) {
       external_abs_dir = MakeAbsolute(workspace.external_dir);
     } else {
-      external_abs_dir = absl::StrCat(project_dir, "/", workspace.external_dir);
+      external_abs_dir = absl::StrCat(project_root, "/", workspace.external_dir);
     }
-    constants["external_dir"] = external_abs_dir;
+    constants["external_root"] = external_abs_dir;
     link_builder->Build(constants);
   }
   return link_builder;
