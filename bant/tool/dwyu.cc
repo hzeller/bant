@@ -482,6 +482,27 @@ void DWYUGenerator::AddVisibleAlternativesWithStratum(
   }
 }
 
+static bool AnyAlternativeInProvidedDeps(
+  const absl::btree_set<BazelTarget> &alternatives,
+  const OneToOne<BazelTarget, std::string_view> &declared_deps) {
+  auto map_it = declared_deps.begin();
+  auto set_it = alternatives.begin();
+
+  while (map_it != declared_deps.end() && set_it != alternatives.end()) {
+    if (map_it->first < *set_it) {
+      // The map key is too small; skip forward.
+      // Optimization: use lower_bound to leapfrog if there's a huge gap
+      map_it = declared_deps.lower_bound(*set_it);
+    } else if (*set_it < map_it->first) {
+      // The set key is too small; skip forward.
+      set_it = alternatives.lower_bound(map_it->first);
+    } else {
+      return true;
+    }
+  }
+  return false;
+}
+
 // TODO: the following does a bunch per source file. This should probably
 // be encasulated in a struct or class PerSourceFileDWYU that captures
 // all the context and has methods such as HeaderMentionedInOwnSources()
@@ -511,6 +532,15 @@ DWYUGenerator::DependenciesNeededBySources(
 
   size_t total_size = 0;
 
+  // In verbosity 3, we always show alternatives, in verbosity 2 we
+  // we only show headers with missing libraries.
+  auto should_log_alternatives_p =
+    [&](const absl::btree_set<BazelTarget> &alternatives) -> bool {
+    if (session_.MinVerbosity(3)) return true;
+    if (!session_.MinVerbosity(2)) return false;
+    return !AnyAlternativeInProvidedDeps(alternatives, declared_deps);
+  };
+
   // Whenever we encounter an issue in the processing of a source, we first
   // add a headline for easier visual navigation in the log.
   bool source_headline_logged_already = false;
@@ -526,80 +556,80 @@ DWYUGenerator::DependenciesNeededBySources(
     source_headline_logged_already = true;
   };
 
+  auto log_angle_bracket_codesmell = [&](const NamedLineIndexedContent &source,
+                                         const TaggedInclude &inc) {
+    // Nasty code-smell thus always show early in verbosity.
+    if (!bracket_inc_is_validate || !session_.MinVerbosity(1)) return;
+    if (!inc.is_angle_bracket) return;
+    std::string see_also = !session_.MinVerbosity(3) ? " See with -vvv" : "";
+    Loc(source, inc.include)
+      << " source of " << Bold(session_) << target << Norm(session_)
+      << ": #include " << Magenta(session_) << "<" << inc.include << ">"
+      << Norm(session_) << " uses <>-bracketed include style. " << Red(session_)
+      << "Should use quote-style "
+      << "\"" << inc.include << "\" as this header is provided by "
+      << "project libraries." << see_also << Norm(session_) << "\n";
+  };
+
   // Log providers if super verbose -vvv
   // This shows a after the include all the dependencies that can provide
   // it.
-  auto maybe_log = [&](const NamedLineIndexedContent &source,
-                       const TaggedInclude &inc,
-                       const absl::btree_set<BazelTarget> &alternatives) {
-    const bool log_bracket_code_smell = bracket_inc_is_validate;
-    // Nasty code-smell thus always show early in verbosity.
-    if (inc.is_angle_bracket && log_bracket_code_smell &&
-        session_.MinVerbosity(1)) {
-      std::string see_also = !session_.MinVerbosity(3) ? " See with -vvv" : "";
+  auto log_alternatives_for_include =
+    [&](const NamedLineIndexedContent &source, const TaggedInclude &inc,
+        const absl::btree_set<BazelTarget> &alternatives) {
+      // Show #include and possibly preprocessing #ifdef condition we're in.
       Loc(source, inc.include)
-        << " source of " << Bold(session_) << target << Norm(session_)
-        << ": #include " << Magenta(session_) << "<" << inc.include << ">"
-        << Norm(session_) << " uses <>-bracketed include style. "
-        << Red(session_) << "Should use quote-style "
-        << "\"" << inc.include << "\" as this header is provided by "
-        << "project libraries." << see_also << Norm(session_) << "\n";
-    }
-    if (!session_.MinVerbosity(3)) return;
-
-    // Show #include and possibly preprocessing #ifdef condition we're in.
-    Loc(source, inc.include)
-      << Bold(session_) << " #include " << (inc.is_angle_bracket ? '<' : '"')
-      << inc.include << (inc.is_angle_bracket ? '>' : '"') << Norm(session_);
-    if (!inc.active_preprocessing_condition.empty() &&
-        !inc.likely_header_guard_condition) {
-      if (inc.is_ifdefed_out) {  // if we allow all branches, this might show
-        session_.info() << Red(session_) << " (PP: in ";
-      } else {
-        session_.info() << Green(session_) << " (PP: in ";
-      }
-      if (!inc.else_location.empty()) {
-        const FileLocation loc = source.GetLocation(inc.else_location);
-        session_.info() << Bold(session_)
+        << Bold(session_) << " #include " << (inc.is_angle_bracket ? '<' : '"')
+        << inc.include << (inc.is_angle_bracket ? '>' : '"') << Norm(session_);
+      if (!inc.active_preprocessing_condition.empty() &&
+          !inc.likely_header_guard_condition) {
+        if (inc.is_ifdefed_out) {  // if we allow all branches, this might show
+          session_.info() << Red(session_) << " (PP: in ";
+        } else {
+          session_.info() << Green(session_) << " (PP: in ";
+        }
+        if (!inc.else_location.empty()) {
+          const FileLocation loc = source.GetLocation(inc.else_location);
+          session_.info() << Bold(session_)
+                          << HyperLinked(session_.linkgen(), loc,
+                                         inc.else_location)
+                          << BoldOff(session_) << " branch of ";
+        }
+        const FileLocation loc =
+          source.GetLocation(inc.active_preprocessing_condition);
+        session_.info() << "condition " << Bold(session_)
                         << HyperLinked(session_.linkgen(), loc,
-                                       inc.else_location)
-                        << BoldOff(session_) << " branch of ";
+                                       inc.active_preprocessing_condition)
+                        << BoldOff(session_);
+        session_.info() << ")" << Norm(session_);
       }
-      const FileLocation loc =
-        source.GetLocation(inc.active_preprocessing_condition);
-      session_.info() << "condition " << Bold(session_)
-                      << HyperLinked(session_.linkgen(), loc,
-                                     inc.active_preprocessing_condition)
-                      << BoldOff(session_);
-      session_.info() << ")" << Norm(session_);
-    }
-    session_.info() << "\n";
+      session_.info() << "\n";
 
-    for (const BazelTarget &possible_provider : alternatives) {
-      std::stringstream msg;
-      if (auto reason = AvoidDependencyReason(target, possible_provider);
-          reason.has_value()) {
-        const FileLocation loc = project_.GetLocation(*reason);
-        msg << Red(session_) << " (avoid if possible: "
-            << HyperLinked(session_.linkgen(), loc, *reason) << ")"
-            << Norm(session_);
+      for (const BazelTarget &possible_provider : alternatives) {
+        std::stringstream msg;
+        if (auto reason = AvoidDependencyReason(target, possible_provider);
+            reason.has_value()) {
+          const FileLocation loc = project_.GetLocation(*reason);
+          msg << Red(session_) << " (avoid if possible: "
+              << HyperLinked(session_.linkgen(), loc, *reason) << ")"
+              << Norm(session_);
+        }
+        const auto found_declared = declared_deps.find(possible_provider);
+        if (found_declared != declared_deps.end()) {
+          // If the dependency is already declared in target deps=[], add
+          // a checkmark and hyperlink it to the location in the BUILD file.
+          const std::string anchor_text = absl::StrCat("✓ ", possible_provider);
+          const FileLocation loc = project_.GetLocation(found_declared->second);
+          Loc(source, inc.include)
+            << "    " << HyperLinked{session_.linkgen(), loc, anchor_text}
+            << msg.str() << "\n";
+        } else {
+          // ... otherwise just print the would-be provider.
+          Loc(source, inc.include)
+            << "    - " << possible_provider << msg.str() << "\n";
+        }
       }
-      const auto found_declared = declared_deps.find(possible_provider);
-      if (found_declared != declared_deps.end()) {
-        // If the dependency is already declared in target deps=[], add
-        // a checkmark and hyperlink it to the location in the BUILD file.
-        const std::string anchor_text = absl::StrCat("✓ ", possible_provider);
-        const FileLocation loc = project_.GetLocation(found_declared->second);
-        Loc(source, inc.include)
-          << "    " << HyperLinked{session_.linkgen(), loc, anchor_text}
-          << msg.str() << "\n";
-      } else {
-        // ... otherwise just print the would-be provider.
-        Loc(source, inc.include)
-          << "    - " << possible_provider << msg.str() << "\n";
-      }
-    }
-  };
+    };
 
   bool any_maybe_not_intended_ifdef_out = false;
   std::vector<absl::btree_set<BazelTarget>> result;
@@ -660,7 +690,7 @@ DWYUGenerator::DependenciesNeededBySources(
       for (std::string_view src_prefix : includes_dir_list) {
         if (IsHeaderInList(inc_file, sources, src_prefix)) {
           // Only complain if actionable
-          if (!source_content->is_generated && session_.MinVerbosity(2)) {
+          if (!source_content->is_generated && session_.MinVerbosity(3)) {
             maybe_log_source_headline(src_name, source_content->path, target);
             Loc(source, inc_file)
               << Bold(session_) << " -I" << src_prefix << Norm(session_)
@@ -683,7 +713,7 @@ DWYUGenerator::DependenciesNeededBySources(
       }
       if (IsHeaderInList(inc_file, sources, src_prefix)) {
         // Only complain if actionable
-        if (!source_content->is_generated && session_.MinVerbosity(2)) {
+        if (!source_content->is_generated && session_.MinVerbosity(3)) {
           maybe_log_source_headline(src_name, source_content->path, target);
           Loc(source, inc_file)
             << " prefix " << Bold(session_) << src_prefix << "/"
@@ -717,10 +747,11 @@ DWYUGenerator::DependenciesNeededBySources(
             << Norm(session_) << "' ( "
             << absl::StrJoin(header_providers, " | ") << " )\n";
         }
-        if (session_.MinVerbosity(3)) {
+        log_angle_bracket_codesmell(source, inc);
+        if (should_log_alternatives_p(*found_result.target_set)) {
           maybe_log_source_headline(src_name, source_content->path, target);
+          log_alternatives_for_include(source, inc, *found_result.target_set);
         }
-        maybe_log(source, inc, *found_result.target_set);
         if (inc.is_angle_bracket && bracket_inc_is_acknowlege) {
           // only prevent removal: make sure it is not removed.
           conservatively_no_remove->insert(header_providers.begin(),
@@ -739,17 +770,18 @@ DWYUGenerator::DependenciesNeededBySources(
         if (found->target_set->contains(target)) continue;  // found self
 
         // Only complain if actionable
-        if (!source_content->is_generated && session_.MinVerbosity(2)) {
+        if (!source_content->is_generated && session_.MinVerbosity(3)) {
           maybe_log_source_headline(src_name, source_content->path, target);
           Loc(source, inc_file)
             << " fuzzy matched " << Magenta(session_) << inc_file
             << Norm(session_) << " header relative to this file. "
             << "Consider FQN relative to project root.\n";
         }
-        if (session_.MinVerbosity(3)) {
+        log_angle_bracket_codesmell(source, inc);
+        if (should_log_alternatives_p(*found->target_set)) {
           maybe_log_source_headline(src_name, source_content->path, target);
+          log_alternatives_for_include(source, inc, *found->target_set);
         }
-        maybe_log(source, inc, *found->target_set);
         if (inc.is_angle_bracket && bracket_inc_is_acknowlege) {
           // only prevent removal: make sure it is not removed.
           conservatively_no_remove->insert(found->target_set->begin(),
@@ -766,7 +798,8 @@ DWYUGenerator::DependenciesNeededBySources(
       // So after we've checked all other possible providers, let's just waive
       // this one here.
       if (inc_file == "assert.h") {
-        if (session_.MinVerbosity(2)) {  // quasi-benign. Only on high verbose
+        // quasi-benign. Only on high verbose, and only if actionable.
+        if (!source_content->is_generated && session_.MinVerbosity(2)) {
           maybe_log_source_headline(src_name, source_content->path, target);
           LogUnknownProvider(source, inc_file, target, "#include",
                              " (assuming system header and moving on.)", false);
@@ -816,12 +849,14 @@ DWYUGenerator::DependenciesNeededBySources(
     }
   }
 
-  if (any_maybe_not_intended_ifdef_out && session_.MinVerbosity(2)) {
+  if (any_maybe_not_intended_ifdef_out && session_.MinVerbosity(3)) {
     for (const auto &[key, _] : defines) {
+      // TODO: should we only emit the ones that were actually used by the
+      // preprocessor ? Then we can probably do lower verbosity.
       Loc(project_, key) << " FYI, macro " << Magenta(session_)
                          << Bold(session_) << key << Norm(session_)
-                         << " defined in " << Bold(session_) << target
-                         << Norm(session_) << "\n";
+                         << " definition visible in " << Bold(session_)
+                         << target << Norm(session_) << "\n";
     }
   }
 

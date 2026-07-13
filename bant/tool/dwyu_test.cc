@@ -152,7 +152,7 @@ cc_library(
   }
 
   {  // Files relative to current directory are properly handled.
-    DWYUTestFixture tester(pp.project(), {.verbose = 2});
+    DWYUTestFixture tester(pp.project(), {.verbose = 3});
     tester.ExpectAdd(":foo");
     tester.AddSource("some/path/bar.h", "");
     tester.AddSource("some/path/bar.cc", R"(
@@ -163,7 +163,7 @@ cc_library(
   }
 
   {  // Files relative to current directory are properly handled.
-    DWYUTestFixture tester(pp.project(), {.verbose = 2});
+    DWYUTestFixture tester(pp.project(), {.verbose = 3});
     tester.ExpectAdd(":foo");
     // Should not be added: :bar, as the bar header is meant to come from local
     tester.AddSource("some/path/src/baz.h", "");
@@ -229,7 +229,7 @@ cc_library(
 )");
 
   {
-    DWYUTestFixture tester(pp.project(), {.verbose = 2});
+    DWYUTestFixture tester(pp.project(), {.verbose = 3});
     tester.AddSource("some/path/include/bar.h", "");
     tester.AddSource("some/path/src/foo.h", "");
     tester.AddSource("some/path/src/subdir/foo.cc", R"(
