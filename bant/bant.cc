@@ -323,7 +323,7 @@ int main(int argc, char *argv[]) {
     { "grep",          required_argument, nullptr, 'g'          },
     { "exclude-match", required_argument, nullptr, 'G'          },
     { "ignore-case",   required_argument, nullptr, 'i'          },
-    { "or",            required_argument, nullptr, 'O'          },
+    { "or",            no_argument,       nullptr, 'O'          },
     { "macro-expand",  no_argument,       nullptr, 'm'          },
     { "elaborate",     no_argument,       nullptr, 'e'          },
     { "directory",     required_argument, nullptr, 'C'          },
