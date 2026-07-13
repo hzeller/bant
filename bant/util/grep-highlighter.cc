@@ -22,6 +22,7 @@
 #include <memory>
 #include <ostream>
 #include <set>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -31,17 +32,18 @@
 #include "re2/re2.h"
 
 namespace bant {
+static constexpr std::initializer_list<std::string_view> kDefaultColors = {
+  "\033[7m",   // Invers
+  "\033[41m",  // red background
+  // avoid green as that is a typical terminal color
+  "\033[44m",  // blue background
+  "\033[45m",  // magenta background
+  "\033[46m",  // cyan background
+};
+
 GrepHighlighter::GrepHighlighter(bool do_highlight, bool and_semantics)
     : do_highlight_(do_highlight), and_semantics_(and_semantics) {
-  const std::initializer_list<std::string_view> colors = {
-    "\033[7m",   // Invers
-    "\033[41m",  // red background
-    // avoid green as that is a typical terminal color
-    "\033[44m",  // blue background
-    "\033[45m",  // magenta background
-    "\033[46m",  // cyan background
-  };
-  SetHighlightStart(colors);
+  SetHighlightStart(kDefaultColors);
   SetHighlightEnd("\033[0m");
 }
 
@@ -126,8 +128,8 @@ bool GrepHighlighter::Match(std::string_view content,
       if (decorator && do_highlight_) {
         const size_t offset = match.data() - content.data();
         const int color_index = i % color_highlight_.size();
-        const std::string color = color_highlight_[color_index];
-        const std::string reset = end_highlight_;
+        const std::string_view color = color_highlight_[color_index];
+        const std::string_view reset = end_highlight_;
         decorator->AddDecoration(
           offset, match.length(), [color](std::ostream &o) { o << color; },
           [reset](std::ostream &o) { o << reset; });

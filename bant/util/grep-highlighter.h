@@ -52,14 +52,6 @@ class GrepHighlighter {
 
   bool HasExpressions() const { return !matchers_.empty(); }
 
-  // Set different hightlight start strings for each expressionn. If there are
-  // more expressions than colors, they cycle through.
-  void SetHighlightStart(const std::vector<std::string_view> &colors);
-
-  // The string used at the end of a highlight.
-  // By default terminal reset escape.
-  void SetHighlightEnd(std::string_view reset_color);
-
   // Match content and, if decorator is provided, add terminal markups
   // to decorator. If regexp list is empty, by definition this is a match.
   //
@@ -72,6 +64,20 @@ class GrepHighlighter {
   // Returns 'true' on match.
   bool Match(std::string_view content, TextDecorator *decorator) const;
 
+  /* The following are only really needed for testing. By default,
+   * GrepHighlighter already uses a set of useful terminal colors
+   */
+
+  // Set different hightlight start strings for each expressionn. If there are
+  // more expressions than colors, they cycle through.
+  // Note: the string_views must outlive thie object.
+  void SetHighlightStart(const std::vector<std::string_view> &colors);
+
+  // The string used at the end of a highlight.
+  // By default terminal reset escape.
+  // Note: the string_views must outlive thie object.
+  void SetHighlightEnd(std::string_view reset_color);
+
  private:
   using RegexList = std::vector<std::unique_ptr<RE2>>;
   static bool AppendExpressions(const std::vector<std::string> &regex_list,
@@ -80,8 +86,8 @@ class GrepHighlighter {
 
   const bool do_highlight_;
   const bool and_semantics_;
-  std::vector<std::string> color_highlight_;
-  std::string end_highlight_;
+  std::vector<std::string_view> color_highlight_;
+  std::string_view end_highlight_;
   RegexList matchers_;
   RegexList exclude_matchers_;
 };
