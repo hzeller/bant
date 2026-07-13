@@ -418,9 +418,14 @@ void DWYUGenerator::LogUnknownProvider(const NamedLineIndexedContent &source,
   Loc(source, ref_file) << "    ?      ^ " << extra_info << "\n";
 }
 
-// TODO; the whole alternative thing should probably something like a
-// RankedAlternative in which we express preferred alternatives, in which
-// we then can fold avoid, deprecation, stratum, visibility.
+// TODO; the whole alternativs (right now: just a target) should probably
+// something like a RankedAlternative (tuple target, rank) in which we express
+// preferred alternatives, in which we then can fold avoid, deprecation,
+// stratum, visibility.
+// Also possibly a boost if we find that a particular dependency looks like if
+// it is actually the implementing one (say two targets that both claim to
+// export header foo.h but one depends on the other (strong hint) or one has a
+// corresponding foo.cc (weaker hint)
 
 void DWYUGenerator::AddVisibleAlternatives(
   const BazelTarget &target, const absl::btree_set<BazelTarget> &alternatives,

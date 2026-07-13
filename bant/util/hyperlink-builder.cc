@@ -194,8 +194,8 @@ bool HyperlinkBuilder::Build(const VarKV &constants, std::string_view prefix,
                              std::string_view suffix) {
   using StringSet = std::set<std::string_view>;
   static const StringSet kAllowedBaseVariables{
-    "project_root",   "external_root", "repo_url",        // constants
-    "external_file", "project_file", "generated_file",  // runtime
+    "project_root",  "external_root", "repo_url",        // constants
+    "external_file", "project_file",  "generated_file",  // runtime
   };
   static const StringSet kLocVars{
     "line_start_0", "col_start_0", "line_start_1", "col_start_1",  // start..
@@ -354,7 +354,8 @@ std::unique_ptr<HyperlinkBuilder> MakeLinkBuilder(
     if (absl::StrContains(workspace.external_dir, "../")) {
       external_abs_dir = MakeAbsolute(workspace.external_dir);
     } else {
-      external_abs_dir = absl::StrCat(project_root, "/", workspace.external_dir);
+      external_abs_dir =
+        absl::StrCat(project_root, "/", workspace.external_dir);
     }
     constants["external_root"] = external_abs_dir;
     link_builder->Build(constants);
