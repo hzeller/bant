@@ -40,6 +40,11 @@
 #include "bant/util/stat.h"
 
 namespace bant {
+
+// For each include, there are alternatives of dependencies that fulfil
+// the need.
+using IncludeNeededDepsAlternatives = std::vector<absl::btree_set<BazelTarget>>;
+
 // The DWYUGenerator is the underlying implementation, for which
 // CreateDependencyEdits() is the façade. Typically not used directly,
 // just needed in tests.
@@ -115,7 +120,7 @@ class DWYUGenerator {
   // This is important as only then we can confidently suggest removals in that
   // target.
   // (these are too many parameters. Refactor)
-  std::vector<absl::btree_set<BazelTarget>> DependenciesNeededBySources(
+  IncludeNeededDepsAlternatives DependenciesNeededBySources(
     const BazelTarget &target, const ParsedBuildFile &build_file,
     const std::vector<std::string_view> &sources,
     const std::vector<std::string_view> &includes_dir_list,
@@ -126,7 +131,7 @@ class DWYUGenerator {
   // Similar to DependenciesNeededBySources but for proto_library targets.
   // Reads .proto source files and extracts import statements to determine
   // which proto_library deps are actually needed.
-  std::vector<absl::btree_set<BazelTarget>> DependenciesNeededByProtoSources(
+  IncludeNeededDepsAlternatives DependenciesNeededByProtoSources(
     const BazelTarget &target, const ParsedBuildFile &build_file,
     const std::vector<std::string_view> &sources,
     bool *all_imports_accounted_for);
@@ -151,17 +156,21 @@ class DWYUGenerator {
                           bool remember_for_summary);
 
   // Filter alternatives to only visible targets and append to result.
-  void AddVisibleAlternatives(
-    const BazelTarget &target, const absl::btree_set<BazelTarget> &alternatives,
-    std::vector<absl::btree_set<BazelTarget>> &result);
+  void AddVisibleAlternatives(const BazelTarget &target,
+                              const absl::btree_set<BazelTarget> &alternatives,
+                              IncludeNeededDepsAlternatives &result);
 
   // Like AddVisibleAlternatives but also considers stratum for cc targets.
   void AddVisibleAlternativesWithStratum(
     const BazelTarget &target, const absl::btree_set<BazelTarget> &alternatives,
-    std::vector<absl::btree_set<BazelTarget>> &result);
+    IncludeNeededDepsAlternatives &result);
 
   // Print filename and line/column of given string-view, possibly colored.
   std::ostream &Loc(const SourceLocator &locator, std::string_view where) const;
+
+  // Log the dependency alternatives.
+  std::ostream &LogDepSet(const char *msg,
+                          const IncludeNeededDepsAlternatives &d);
 
   Session &session_;
   const ParsedProject &project_;

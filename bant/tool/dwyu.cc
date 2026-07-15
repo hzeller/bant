@@ -118,18 +118,40 @@ static absl::btree_set<BazelTarget> intersect(
   return result;
 }
 
+std::ostream &DWYUGenerator::LogDepSet(const char *msg,
+                                       const IncludeNeededDepsAlternatives &d) {
+  std::ostream &out = session_.info();
+  // This is in super-high verbosity, so printing annoying inverted headers
+  // helps finding this in the myriad of other messages.
+  out << Invert(session_) << msg << Norm(session_) << " [";
+  for (const auto &altenatives : d) {
+    if (altenatives.empty()) continue;
+    out << "{";
+    bool is_first = true;
+    for (const auto &t : altenatives) {
+      if (!is_first) out << ", ";
+      out << t;
+      is_first = false;
+    }
+    out << "}, ";
+  }
+  out << "] ; " << Bold(session_) << "(" << d.size() << " sets)"
+      << Norm(session_);
+  return out;
+}
+
 // Input is a list of dependency alternative we need: for each header file,
 // there are potentially multiple libraries that are providing these,
 // the 'alternatives'. So we have a bag of alternative sets.
 // Output is a potentially smaller set of smaller alternatives.
-static std::vector<absl::btree_set<BazelTarget>> MinimizeDependencySet(
-  const std::vector<absl::btree_set<BazelTarget>> &to_reduce) {
+static IncludeNeededDepsAlternatives MinimizeDependencySet(
+  const IncludeNeededDepsAlternatives &to_reduce) {
   // Find all the sets that intersect, and only remember the intersection.
   // The intersection will be sufficient to satisfy the dependency requirements
   // for both.
 
   // n^2, but usually pretty small n.
-  std::vector<absl::btree_set<BazelTarget>> result;
+  IncludeNeededDepsAlternatives result;
   std::set<size_t> already_covereed;
   for (size_t i = 0; i < to_reduce.size(); ++i) {
     if (already_covereed.contains(i)) continue;
@@ -429,7 +451,7 @@ void DWYUGenerator::LogUnknownProvider(const NamedLineIndexedContent &source,
 
 void DWYUGenerator::AddVisibleAlternatives(
   const BazelTarget &target, const absl::btree_set<BazelTarget> &alternatives,
-  std::vector<absl::btree_set<BazelTarget>> &result) {
+  IncludeNeededDepsAlternatives &result) {
   absl::btree_set<BazelTarget> no_limits;
   absl::btree_set<BazelTarget> avoid_if_possible;
   for (const BazelTarget &t : alternatives) {
@@ -450,7 +472,7 @@ void DWYUGenerator::AddVisibleAlternatives(
 // Add alternatives, but rank root > bazel_dep() > randomly found dependencies
 void DWYUGenerator::AddVisibleAlternativesWithStratum(
   const BazelTarget &target, const absl::btree_set<BazelTarget> &alternatives,
-  std::vector<absl::btree_set<BazelTarget>> &result) {
+  IncludeNeededDepsAlternatives &result) {
   Range stratum_range;
   std::vector<BazelTarget> temp_result;
   bool found_non_avoiding = false;
@@ -508,8 +530,7 @@ static bool AnyAlternativeInProvidedDeps(
 // all the context and has methods such as HeaderMentionedInOwnSources()
 // HeaderIsMentionedInOwnSourceWithIncludePath() etc.
 // That way we avoid the various unnamed blocks in a huge loop.
-std::vector<absl::btree_set<BazelTarget>>
-DWYUGenerator::DependenciesNeededBySources(
+IncludeNeededDepsAlternatives DWYUGenerator::DependenciesNeededBySources(
   const BazelTarget &target, const ParsedBuildFile &build_file,
   const std::vector<std::string_view> &sources,            // srcs, hdrs
   const std::vector<std::string_view> &includes_dir_list,  // includes = []
@@ -632,7 +653,7 @@ DWYUGenerator::DependenciesNeededBySources(
     };
 
   bool any_maybe_not_intended_ifdef_out = false;
-  std::vector<absl::btree_set<BazelTarget>> result;
+  IncludeNeededDepsAlternatives result;
   for (const std::string_view src_name : sources) {
     source_headline_logged_already = false;
     auto source_content =
@@ -864,8 +885,7 @@ DWYUGenerator::DependenciesNeededBySources(
   return result;
 }
 
-std::vector<absl::btree_set<BazelTarget>>
-DWYUGenerator::DependenciesNeededByProtoSources(
+IncludeNeededDepsAlternatives DWYUGenerator::DependenciesNeededByProtoSources(
   const BazelTarget &target, const ParsedBuildFile &build_file,
   const std::vector<std::string_view> &sources,
   bool *all_imports_accounted_for) {
@@ -890,7 +910,7 @@ DWYUGenerator::DependenciesNeededByProtoSources(
     source_logged_already = true;
   };
 
-  std::vector<absl::btree_set<BazelTarget>> result;
+  IncludeNeededDepsAlternatives result;
 
   for (const std::string_view src_name : sources) {
     source_logged_already = false;
@@ -1019,7 +1039,14 @@ void DWYUGenerator::CreateEditsForTarget(const BazelTarget &target,
                            all_declared_dependencies, &conservatively_no_remove,
                            &all_header_deps_known);
 
+  if (session_.MinVerbosity(4)) {
+    LogDepSet("Raw needed dependencies: ", deps_needed) << "\n";
+  }
   deps_needed = MinimizeDependencySet(deps_needed);
+  if (session_.MinVerbosity(4)) {
+    LogDepSet("After minimizing: ", deps_needed) << "\n";
+  }
+
   OneToOne<BazelTarget, BazelTarget> checked_off_by;
   auto IsNeededInSourcesAndCheckOff = [&](const BazelTarget &target) -> bool {
     for (auto it = deps_needed.begin(); it != deps_needed.end(); ++it) {
@@ -1095,6 +1122,10 @@ void DWYUGenerator::CreateEditsForTarget(const BazelTarget &target,
           << ", but there are also unaccounted sources. Won't remove.\n";
       }
     }
+  }
+
+  if (session_.MinVerbosity(4)) {
+    LogDepSet("After checking off existing deps=[]: ", deps_needed) << "\n";
   }
 
   // Now, if there is still something we need, add them.
