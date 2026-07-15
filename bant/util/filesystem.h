@@ -26,7 +26,7 @@
 #include <vector>
 
 #include "absl/base/thread_annotations.h"
-#include "absl/container/flat_hash_map.h"
+#include "absl/container/node_hash_map.h"
 #include "absl/synchronization/mutex.h"
 
 namespace bant {
@@ -106,11 +106,11 @@ class Filesystem {
   static void ReadDirectory(std::string_view path, CacheEntry &result);
 
   mutable absl::Mutex dir_mutex_;
-  absl::flat_hash_map<std::string, CacheEntry> dir_cache_
+  absl::node_hash_map<std::string, CacheEntry> dir_cache_
     ABSL_GUARDED_BY(dir_mutex_);
 
   mutable absl::Mutex file_mutex_;
-  absl::flat_hash_map<std::string, std::optional<std::string>> file_cache_
+  absl::node_hash_map<std::string, std::optional<std::string>> file_cache_
     ABSL_GUARDED_BY(file_mutex_);
 };
 }  // namespace bant
