@@ -109,10 +109,9 @@ static bool IsHeaderInList(std::string_view header,
   return false;
 }
 
-static absl::btree_set<BazelTarget> intersect(
-  const absl::btree_set<BazelTarget> &a,
-  const absl::btree_set<BazelTarget> &b) {
-  absl::btree_set<BazelTarget> result;
+static AlternativeSet intersect(const AlternativeSet &a,
+                                const AlternativeSet &b) {
+  AlternativeSet result;
   std::set_intersection(a.begin(), a.end(), b.begin(), b.end(),
                         std::inserter(result, result.begin()));
   return result;
@@ -452,10 +451,10 @@ void DWYUGenerator::LogUnknownProvider(const NamedLineIndexedContent &source,
 // corresponding foo.cc (weaker hint)
 
 void DWYUGenerator::AddVisibleAlternatives(
-  const BazelTarget &target, const absl::btree_set<BazelTarget> &alternatives,
+  const BazelTarget &target, const AlternativeSet &alternatives,
   IncludeNeededDepsAlternatives &result) {
-  absl::btree_set<BazelTarget> no_limits;
-  absl::btree_set<BazelTarget> avoid_if_possible;
+  AlternativeSet no_limits;
+  AlternativeSet avoid_if_possible;
   for (const BazelTarget &t : alternatives) {
     if (AvoidDependencyReason(target, t).has_value()) {
       avoid_if_possible.emplace(t);
@@ -473,7 +472,7 @@ void DWYUGenerator::AddVisibleAlternatives(
 
 // Add alternatives, but rank root > bazel_dep() > randomly found dependencies
 void DWYUGenerator::AddVisibleAlternativesWithStratum(
-  const BazelTarget &target, const absl::btree_set<BazelTarget> &alternatives,
+  const BazelTarget &target, const AlternativeSet &alternatives,
   IncludeNeededDepsAlternatives &result) {
   Range stratum_range;
   std::vector<BazelTarget> temp_result;
@@ -507,7 +506,7 @@ void DWYUGenerator::AddVisibleAlternativesWithStratum(
 }
 
 static bool AnyAlternativeInProvidedDeps(
-  const absl::btree_set<BazelTarget> &alternatives,
+  const AlternativeSet &alternatives,
   const OneToOne<BazelTarget, std::string_view> &declared_deps) {
   auto map_it = declared_deps.begin();
   auto set_it = alternatives.begin();
@@ -558,7 +557,7 @@ IncludeNeededDepsAlternatives DWYUGenerator::DependenciesNeededBySources(
   // In verbosity 3, we always show alternatives, in verbosity 2 we
   // we only show headers with missing libraries.
   auto should_log_alternatives_p =
-    [&](const absl::btree_set<BazelTarget> &alternatives) -> bool {
+    [&](const AlternativeSet &alternatives) -> bool {
     if (session_.MinVerbosity(3)) return true;
     if (!session_.MinVerbosity(2)) return false;
     return !AnyAlternativeInProvidedDeps(alternatives, declared_deps);
@@ -597,62 +596,62 @@ IncludeNeededDepsAlternatives DWYUGenerator::DependenciesNeededBySources(
   // Log providers if super verbose -vvv
   // This shows a after the include all the dependencies that can provide
   // it.
-  auto log_alternatives_for_include =
-    [&](const NamedLineIndexedContent &source, const TaggedInclude &inc,
-        const absl::btree_set<BazelTarget> &alternatives) {
-      // Show #include and possibly preprocessing #ifdef condition we're in.
-      Loc(source, inc.include)
-        << Bold(session_) << " #include " << (inc.is_angle_bracket ? '<' : '"')
-        << inc.include << (inc.is_angle_bracket ? '>' : '"') << Norm(session_);
-      if (!inc.active_preprocessing_condition.empty() &&
-          !inc.likely_header_guard_condition) {
-        if (inc.is_ifdefed_out) {  // if we allow all branches, this might show
-          session_.info() << Red(session_) << " (PP: in ";
-        } else {
-          session_.info() << Green(session_) << " (PP: in ";
-        }
-        if (!inc.else_location.empty()) {
-          const FileLocation loc = source.GetLocation(inc.else_location);
-          session_.info() << Bold(session_)
-                          << HyperLinked(session_.linkgen(), loc,
-                                         inc.else_location)
-                          << BoldOff(session_) << " branch of ";
-        }
-        const FileLocation loc =
-          source.GetLocation(inc.active_preprocessing_condition);
-        session_.info() << "condition " << Bold(session_)
+  auto log_alternatives_for_include = [&](const NamedLineIndexedContent &source,
+                                          const TaggedInclude &inc,
+                                          const AlternativeSet &alternatives) {
+    // Show #include and possibly preprocessing #ifdef condition we're in.
+    Loc(source, inc.include)
+      << Bold(session_) << " #include " << (inc.is_angle_bracket ? '<' : '"')
+      << inc.include << (inc.is_angle_bracket ? '>' : '"') << Norm(session_);
+    if (!inc.active_preprocessing_condition.empty() &&
+        !inc.likely_header_guard_condition) {
+      if (inc.is_ifdefed_out) {  // if we allow all branches, this might show
+        session_.info() << Red(session_) << " (PP: in ";
+      } else {
+        session_.info() << Green(session_) << " (PP: in ";
+      }
+      if (!inc.else_location.empty()) {
+        const FileLocation loc = source.GetLocation(inc.else_location);
+        session_.info() << Bold(session_)
                         << HyperLinked(session_.linkgen(), loc,
-                                       inc.active_preprocessing_condition)
-                        << BoldOff(session_);
-        session_.info() << ")" << Norm(session_);
+                                       inc.else_location)
+                        << BoldOff(session_) << " branch of ";
       }
-      session_.info() << "\n";
+      const FileLocation loc =
+        source.GetLocation(inc.active_preprocessing_condition);
+      session_.info() << "condition " << Bold(session_)
+                      << HyperLinked(session_.linkgen(), loc,
+                                     inc.active_preprocessing_condition)
+                      << BoldOff(session_);
+      session_.info() << ")" << Norm(session_);
+    }
+    session_.info() << "\n";
 
-      for (const BazelTarget &possible_provider : alternatives) {
-        std::stringstream msg;
-        if (auto reason = AvoidDependencyReason(target, possible_provider);
-            reason.has_value()) {
-          const FileLocation loc = project_.GetLocation(*reason);
-          msg << Red(session_) << " (avoid if possible: "
-              << HyperLinked(session_.linkgen(), loc, *reason) << ")"
-              << Norm(session_);
-        }
-        const auto found_declared = declared_deps.find(possible_provider);
-        if (found_declared != declared_deps.end()) {
-          // If the dependency is already declared in target deps=[], add
-          // a checkmark and hyperlink it to the location in the BUILD file.
-          const std::string anchor_text = absl::StrCat("✓ ", possible_provider);
-          const FileLocation loc = project_.GetLocation(found_declared->second);
-          Loc(source, inc.include)
-            << "    " << HyperLinked{session_.linkgen(), loc, anchor_text}
-            << msg.str() << "\n";
-        } else {
-          // ... otherwise just print the would-be provider.
-          Loc(source, inc.include)
-            << "    - " << possible_provider << msg.str() << "\n";
-        }
+    for (const BazelTarget &possible_provider : alternatives) {
+      std::stringstream msg;
+      if (auto reason = AvoidDependencyReason(target, possible_provider);
+          reason.has_value()) {
+        const FileLocation loc = project_.GetLocation(*reason);
+        msg << Red(session_) << " (avoid if possible: "
+            << HyperLinked(session_.linkgen(), loc, *reason) << ")"
+            << Norm(session_);
       }
-    };
+      const auto found_declared = declared_deps.find(possible_provider);
+      if (found_declared != declared_deps.end()) {
+        // If the dependency is already declared in target deps=[], add
+        // a checkmark and hyperlink it to the location in the BUILD file.
+        const std::string anchor_text = absl::StrCat("✓ ", possible_provider);
+        const FileLocation loc = project_.GetLocation(found_declared->second);
+        Loc(source, inc.include)
+          << "    " << HyperLinked{session_.linkgen(), loc, anchor_text}
+          << msg.str() << "\n";
+      } else {
+        // ... otherwise just print the would-be provider.
+        Loc(source, inc.include)
+          << "    - " << possible_provider << msg.str() << "\n";
+      }
+    }
+  };
 
   bool any_maybe_not_intended_ifdef_out = false;
   IncludeNeededDepsAlternatives result;

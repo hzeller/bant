@@ -41,9 +41,13 @@
 
 namespace bant {
 
+// Instead of a bare BazelTarget, this should probably be some ranked
+// alternative. See somment inside DWYU.
+using AlternativeSet = absl::btree_set<BazelTarget>;
+
 // For each include, there are alternatives of dependencies that fulfil
 // the need.
-using IncludeNeededDepsAlternatives = std::vector<absl::btree_set<BazelTarget>>;
+using IncludeNeededDepsAlternatives = std::vector<AlternativeSet>;
 
 // The DWYUGenerator is the underlying implementation, for which
 // CreateDependencyEdits() is the façade. Typically not used directly,
@@ -157,13 +161,13 @@ class DWYUGenerator {
 
   // Filter alternatives to only visible targets and append to result.
   void AddVisibleAlternatives(const BazelTarget &target,
-                              const absl::btree_set<BazelTarget> &alternatives,
+                              const AlternativeSet &alternatives,
                               IncludeNeededDepsAlternatives &result);
 
   // Like AddVisibleAlternatives but also considers stratum for cc targets.
-  void AddVisibleAlternativesWithStratum(
-    const BazelTarget &target, const absl::btree_set<BazelTarget> &alternatives,
-    IncludeNeededDepsAlternatives &result);
+  void AddVisibleAlternativesWithStratum(const BazelTarget &target,
+                                         const AlternativeSet &alternatives,
+                                         IncludeNeededDepsAlternatives &result);
 
   // Print filename and line/column of given string-view, possibly colored.
   std::ostream &Loc(const SourceLocator &locator, std::string_view where) const;
