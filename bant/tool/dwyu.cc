@@ -126,6 +126,7 @@ std::ostream &DWYUGenerator::LogDepSet(const char *msg,
   out << Invert(session_) << msg << Norm(session_) << " [";
   for (const auto &altenatives : d) {
     if (altenatives.empty()) continue;
+    if (altenatives.size() == 1) out << Dim(session_);  // More boring
     out << "{";
     bool is_first = true;
     for (const auto &t : altenatives) {
@@ -134,6 +135,7 @@ std::ostream &DWYUGenerator::LogDepSet(const char *msg,
       is_first = false;
     }
     out << "}, ";
+    if (altenatives.size() == 1) out << Norm(session_);
   }
   out << "] ; " << Bold(session_) << "(" << d.size() << " sets)"
       << Norm(session_);
