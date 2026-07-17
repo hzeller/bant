@@ -33,6 +33,7 @@
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/synchronization/mutex.h"
+#include "absl/types/span.h"
 #include "bant/session.h"
 #include "bant/util/filesystem.h"
 #include "bant/util/stat.h"
@@ -108,8 +109,8 @@ void FilesystemPrewarmCache::InitCacheFile(bant::Session &session,
 
 // -- Public interface
 
-bool FilesystemPrewarmCacheInit(bant::Session &session, int argc,
-                                char *argv[]) {
+bool FilesystemPrewarmCacheInit(
+  bant::Session &session, absl::Span<const std::string_view> positional_args) {
   // If the user created a ~/.cache/bant directory, use that.
   const char *homedir = getenv("HOME");
   if (!homedir) return false;
@@ -118,27 +119,25 @@ bool FilesystemPrewarmCacheInit(bant::Session &session, int argc,
     return false;  // no dir, no cache.
   }
 
-  // Make filename unique to match cwd and arguments.
+  // Create cache key from the commandline args that influence which files
+  // are opened.
   std::error_code err;
   const std::filesystem::path cwd = std::filesystem::current_path(err);
   uint64_t argument_dependent_hash = std::hash<std::string>()(cwd.string());
-  for (int i = 1; i < argc; ++i) {
-    const std::string_view arg(argv[i]);
-    // With or without the following flags, same access pattern expected; don't
-    // inlude them in the cache uniqifier.
-    if (arg == "-v" || arg == "-q" || arg == "-vq" || arg == "-qv" ||
-        arg == "-k") {
-      continue;
-    }
-
-    if (arg == "-C" ||  // already reflected in the cwd
-        arg == "-o" || arg == "-f") {
-      ++i;  // Skip optarg
-      continue;
-    }
-
+  // Order of positional_args doesn't matter.
+  for (std::string_view arg : positional_args) {
     argument_dependent_hash ^= std::hash<std::string_view>()(arg);
   }
+
+  const CommandlineFlags &flags = session.flags();
+  for (std::string_view arg : flags.graph_deps) {
+    argument_dependent_hash ^= std::hash<std::string_view>()(arg);
+  }
+
+  // Only a few of the flags affect the set of files being opened.
+  argument_dependent_hash ^= std::hash<std::string>()(
+    absl::StrCat(flags.recurse_dependency_depth, "-", flags.elaborate, "-",
+                 flags.direct_filename));
 
   const std::string cache_file = absl::StrFormat(
     "%s/fs-warm-%08x-%s", cache_dir, argument_dependent_hash & 0xffff'ffff,

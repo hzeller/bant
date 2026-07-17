@@ -50,6 +50,7 @@ extern int optind;    // NOLINT
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_format.h"
 #include "absl/time/time.h"
+#include "absl/types/span.h"
 #include "bant/cli-commands.h"
 #include "bant/output-format.h"
 #include "bant/session.h"
@@ -244,8 +245,15 @@ static void PossiblyApplyBazelIgnore(bant::Filesystem &fs) {
   if (!input.good()) return;
   std::string line;
   while (std::getline(input, line)) {
-    fs.SetAlwaysReportEmptyDirectory(line);
+    fs.SetAlwaysReportEmptyDirectory(line);  // poison cached dir to be empty
   }
+}
+
+static bool PrewarmAndPrepareFilesystem(
+  bant::Session &session, absl::Span<const std::string_view> pos_args) {
+  bool did_prewarm = bant::FilesystemPrewarmCacheInit(session, pos_args);
+  PossiblyApplyBazelIgnore(bant::Filesystem::instance());
+  return did_prewarm;
 }
 
 template <typename OptEnum>
@@ -456,7 +464,8 @@ int main(int argc, char *argv[]) {
   }
 
   // TODO: the various scoped areas below look like they actually want
-  // to be functions.
+  // to be functions. Also the above thing als wants to be a function
+  // filling a session.
 
   bant::Session session(primary_out, info_out, error_out, flags);
   absl::Duration runtime;
@@ -465,16 +474,12 @@ int main(int argc, char *argv[]) {
 
   {
     const bant::ScopedTimer timer(&runtime);
-    // Prepare filesystem
-    did_prewarm = bant::FilesystemPrewarmCacheInit(session, argc, argv);
-    bant::Filesystem &fs = bant::Filesystem::instance();
-    PossiblyApplyBazelIgnore(fs);
-
     std::vector<std::string_view> positional_args;
     for (int i = optind; i < argc; ++i) {
       positional_args.emplace_back(argv[i]);
     }
 
+    did_prewarm = PrewarmAndPrepareFilesystem(session, positional_args);
     result = RunCliCommand(session, positional_args);
     if (result == bant::CliStatus::kExitCommandlineClarification) {
       session.error() << "\n\n";  // A bit more space to let message stand out.

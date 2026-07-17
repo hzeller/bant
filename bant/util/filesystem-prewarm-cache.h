@@ -20,6 +20,7 @@
 
 #include <string_view>
 
+#include "absl/types/span.h"
 #include "bant/session.h"
 
 namespace bant {
@@ -38,12 +39,13 @@ namespace bant {
 
 // Initialize cache. Iff there is a directory ~/.cache/bant, it will store
 // and retrieve files there. If not, caching is disabled.
-// Filenames are based on arguments and the project directory.
+// Filenames are based on arguments and flags and the project directory.
 // If init finds an existing file, it attempts to warm the OS filesystem cache.
 //
 // The prewarm only happens if there is a ~/.cache/bant directory. The return
 // value indicated if prewarm caching was enabled.
-bool FilesystemPrewarmCacheInit(bant::Session &session, int argc, char *argv[]);
+bool FilesystemPrewarmCacheInit(
+  bant::Session &session, absl::Span<const std::string_view> positional_args);
 
 // Tell prewarm cache of future invocations that we just accessed a file.
 bool FilesystemPrewarmCacheRememberFileWasAccessed(std::string_view file);
