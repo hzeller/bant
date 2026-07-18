@@ -58,7 +58,7 @@ TEST(PreprocessUtils, PreprocessRangeIf_0_1) {
 )deftest";
 
   {
-    DefineMap defs;
+    const DefineMap defs;
     NamedLineIndexedContent scanned_src("<text>", kTestContent);
     auto ranges = ExtractCCIncludes(&scanned_src, defs);
     using TI = TaggedInclude;
@@ -81,7 +81,7 @@ hello = "#include <include-inside-string>"
 )deftest";
 
   {
-    DefineMap defs;
+    const DefineMap defs;
     NamedLineIndexedContent scanned_src("<text>", kTestContent);
     auto ranges = ExtractCCIncludes(&scanned_src, defs);
     using TI = TaggedInclude;
@@ -171,7 +171,7 @@ TEST(PreprocessUtils, PreprocessRangeIndirectDefinedInclusion) {
 )deftest";
 
   {
-    DefineMap defs;
+    const DefineMap defs;
     NamedLineIndexedContent scanned_src("<text>", kTestContent);
     auto ranges = ExtractCCIncludes(&scanned_src, defs);
     using TI = TaggedInclude;

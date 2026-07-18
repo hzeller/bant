@@ -311,7 +311,7 @@ std::optional<std::string_view> DWYUGenerator::AvoidDueToVisibility(
   List *visibility_list = found->second.visibility;
   if (!visibility_list) return std::nullopt;
   bool any_valid_visiblity_pattern = false;
-  for (std::string_view vis : query::ExtractStringList(visibility_list)) {
+  for (const std::string_view vis : query::ExtractStringList(visibility_list)) {
     if (vis.empty()) continue;
     std::vector<std::string_view> patterns_to_consider;
 
@@ -326,7 +326,7 @@ std::optional<std::string_view> DWYUGenerator::AvoidDueToVisibility(
     }
 
     BazelPatternBundle vis_bundle;
-    for (std::string_view vis_pattern : patterns_to_consider) {
+    for (const std::string_view vis_pattern : patterns_to_consider) {
       auto vis_or = BazelPattern::ParseVisibility(vis_pattern, dep.package);
       if (!vis_or.has_value()) continue;
       any_valid_visiblity_pattern = true;
@@ -583,7 +583,8 @@ IncludeNeededDepsAlternatives DWYUGenerator::DependenciesNeededBySources(
     // Nasty code-smell thus always show early in verbosity.
     if (!bracket_inc_is_validate || !session_.MinVerbosity(1)) return;
     if (!inc.is_angle_bracket) return;
-    std::string see_also = !session_.MinVerbosity(3) ? " See with -vvv" : "";
+    const std::string see_also =
+      !session_.MinVerbosity(3) ? " See with -vvv" : "";
     Loc(source, inc.include)
       << " source of " << Bold(session_) << target << Norm(session_)
       << ": #include " << Magenta(session_) << "<" << inc.include << ">"
@@ -709,7 +710,7 @@ IncludeNeededDepsAlternatives DWYUGenerator::DependenciesNeededBySources(
       // Check for all include prefices found in includes = [], effectively
       // making includes visible under shorter paths.
       bool found_local_inc = false;
-      for (std::string_view src_prefix : includes_dir_list) {
+      for (const std::string_view src_prefix : includes_dir_list) {
         if (IsHeaderInList(inc_file, sources, src_prefix)) {
           // Only complain if actionable
           if (!source_content->is_generated && session_.MinVerbosity(3)) {

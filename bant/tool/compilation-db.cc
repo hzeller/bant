@@ -532,10 +532,10 @@ void WriteCompilationFlags(Session &session, const BazelTargetMatcher &pattern,
     }
   }
 
-  for (std::string_view incopt : GetAllIncCOpts(session, pattern, project)) {
-    if (incopt.length() < 2) continue;
-    if (!NeedsAdding(&seen, incopt.substr(2))) continue;
-    session.out() << incopt << "\n";
+  for (const std::string_view opt : GetAllIncCOpts(session, pattern, project)) {
+    if (opt.length() < 2) continue;
+    if (!NeedsAdding(&seen, opt.substr(2))) continue;
+    session.out() << opt << "\n";
   }
 }
 

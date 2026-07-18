@@ -251,7 +251,7 @@ static void PossiblyApplyBazelIgnore(bant::Filesystem &fs) {
 
 static bool PrewarmAndPrepareFilesystem(
   bant::Session &session, absl::Span<const std::string_view> pos_args) {
-  bool did_prewarm = bant::FilesystemPrewarmCacheInit(session, pos_args);
+  const bool did_prewarm = bant::FilesystemPrewarmCacheInit(session, pos_args);
   PossiblyApplyBazelIgnore(bant::Filesystem::instance());
   return did_prewarm;
 }
@@ -275,7 +275,7 @@ static OptEnum BestMatchValue(std::string_view value,
     return result;
   };
   for (size_t i = 0; i < options.size(); ++i) {
-    int len = prefix_len(value, options[i]);
+    const int len = prefix_len(value, options[i]);
     if (len >= longest_match) {
       longest_match = len;
       chosen_value = static_cast<OptEnum>(i);

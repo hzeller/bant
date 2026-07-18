@@ -66,7 +66,7 @@ struct Colors {
 static int GetPrecedenceLevel(TokenType op, bool is_unary = false) {
   for (int i = 0; i <= kLowestBinaryPrecedence; ++i) {
     if (kPrecedenceList[i].is_unary != is_unary) continue;
-    for (TokenType t : kPrecedenceList[i].tokens) {
+    for (const TokenType t : kPrecedenceList[i].tokens) {
       if (t == op) return i;
     }
   }
@@ -120,7 +120,7 @@ void PrintVisitor::VisitList(List *l) {
   indent_ += kIndentSpaces;
   bool is_first = true;
 
-  ScopedPrecedence scope(&current_precedence_, kLowestPrecedence, false);
+  const ScopedPrecedence scope(&current_precedence_, kLowestPrecedence, false);
 
   for (Node *node : *l) {
     if (!is_first) out_ << ",\n";
@@ -160,7 +160,7 @@ void PrintVisitor::VisitUnaryExpr(UnaryExpr *e) {
   if (e->op() == TokenType::kNot) out_ << " ";
 
   {
-    ScopedPrecedence scope(&current_precedence_, node_precedence, false);
+    const ScopedPrecedence scope(&current_precedence_, node_precedence, false);
     WalkNonNull(e->node());
   }
 
@@ -171,7 +171,8 @@ void PrintVisitor::VisitAssignment(Assignment *a) {
   if (do_color_) out_ << kColor.assignment_lhs;
 
   {
-    ScopedPrecedence scope(&current_precedence_, kLowestPrecedence, false);
+    const ScopedPrecedence scope(&current_precedence_, kLowestPrecedence,
+                                 false);
     WalkNonNull(a->left());
     if (do_color_) out_ << kColor.reset;
     out_ << " = ";
@@ -220,7 +221,7 @@ void PrintVisitor::VisitListComprehension(ListComprehension *lh) {
     break;
   }
 
-  ScopedPrecedence scope(&current_precedence_, kLowestPrecedence, false);
+  const ScopedPrecedence scope(&current_precedence_, kLowestPrecedence, false);
 
   // Print the inner subject expression
   WalkNonNull(curr);

@@ -194,7 +194,7 @@ const std::optional<std::string> &Filesystem::ReadFileToString(
     }
   }
 
-  std::string filename_as_string(path);
+  const std::string filename_as_string(path);
   std::optional<std::string> result;
   const int fd = open(filename_as_string.c_str(), O_RDONLY);
   if (fd > 0) {

@@ -282,7 +282,7 @@ cc_test(
 TEST_F(MacroSubstituteTest, BuiltinMacrosAreWorking) {
   // Just instantiating a project with builtins enabled to see if they
   // parse properly.
-  ParsedProject project({}, false, /*with_builtin_macros =*/true);
+  const ParsedProject project({}, false, /*with_builtin_macros =*/true);
 }
 }  // namespace
 }  // namespace bant

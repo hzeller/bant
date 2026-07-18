@@ -40,7 +40,7 @@ class PrintVisitorTest : public ::testing::Test {
     NamedLineIndexedContent source("<text>", text);
     Scanner scanner(source);
     Parser parser(&scanner, &arena_, std::cerr);
-    bant::List *ast = parser.parse();
+    const bant::List *const ast = parser.parse();
     if (!ast || parser.parse_error()) {
       return "<parse error>";
     }

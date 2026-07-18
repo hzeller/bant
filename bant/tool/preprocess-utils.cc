@@ -54,19 +54,19 @@ DefineMap GetDefinesFromTarget(const query::Result &target,
     }
   };
   if (include_local_defines) {
-    for (std::string_view opt : query::ExtractStringList(target.copts)) {
+    for (const std::string_view opt : query::ExtractStringList(target.copts)) {
       if (!opt.starts_with("-D")) continue;
       insert_define(opt.substr(2));
     }
 
-    for (std::string_view opt :
+    for (const std::string_view opt :
          query::ExtractStringList(target.local_defines)) {
       insert_define(opt);
     }
   }
   // TODO: we should provide a way to walk the deps=[] graph to collect defines,
   // because these are transitive and we need to follow all of them.
-  for (std::string_view opt : query::ExtractStringList(target.defines)) {
+  for (const std::string_view opt : query::ExtractStringList(target.defines)) {
     insert_define(opt);
   }
   return result;

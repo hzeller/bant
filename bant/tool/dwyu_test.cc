@@ -1768,9 +1768,9 @@ cc_library(
 )
 )");
 
-  for (BracketIncHandling bracket_inc : {BracketIncHandling::kIgnore,       //
-                                         BracketIncHandling::kAcknowledge,  //
-                                         BracketIncHandling::kValidate}) {
+  for (const auto bracket_inc : {BracketIncHandling::kIgnore,       //
+                                 BracketIncHandling::kAcknowledge,  //
+                                 BracketIncHandling::kValidate}) {
     DWYUTestFixture tester(pp.project(),
                            {.verbose = 1, .dwyu_bracket_include = bracket_inc});
     tester.AddSource("some/path/foo.h", "");

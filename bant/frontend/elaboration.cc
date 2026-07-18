@@ -414,7 +414,7 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
   // locataion though.
   static bool IsNone(Node *node) {
     if (node == nullptr) return true;
-    Identifier *const maybe_constant = node->CastAsIdentifier();
+    const Identifier *const maybe_constant = node->CastAsIdentifier();
     if (!maybe_constant) return false;  // So an expression or scalar
     return maybe_constant->id() == "None";
   }

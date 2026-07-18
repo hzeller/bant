@@ -60,7 +60,7 @@ std::unique_ptr<CrossReferenceMap> BuildCrossReferences(
 
         auto srcs_list = query::ExtractStringList(
           {details.srcs_list, details.hdrs_list, details.data_list});
-        for (std::string_view src : srcs_list) {
+        for (const std::string_view src : srcs_list) {
           auto fqn =
             current_package.FullyQualifiedFile(project.workspace(), src);
           if (fs.Exists(fqn)) {
@@ -82,7 +82,7 @@ std::unique_ptr<CrossReferenceMap> BuildCrossReferences(
         // place where these files are defined.
         auto target_refs = query::ExtractStringList(
           {details.deps_list, details.impl_deps_list, details.visibility});
-        for (std::string_view target : target_refs) {
+        for (const std::string_view target : target_refs) {
           auto qualified = current_package.QualifiedTarget(target);
           if (!qualified.has_value()) continue;
           if (auto found = targetLocation.find(*qualified);

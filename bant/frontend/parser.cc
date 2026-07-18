@@ -522,7 +522,7 @@ class Parser::Impl {
     BinOpNode *innermost = nullptr;
 
     while (true) {
-      TokenType peek_type = scanner_->Peek().type;
+      const TokenType peek_type = scanner_->Peek().type;
       if (peek_type == TokenType::kFor) {
         const Token start_of_for = scanner_->Next();
 
@@ -565,8 +565,8 @@ class Parser::Impl {
           return nullptr;
         }
         const Token after_pos = scanner_->Peek();
-        std::string_view text_range{start_of_if.text.begin(),
-                                    after_pos.text.begin()};
+        const std::string_view text_range{start_of_if.text.begin(),
+                                          after_pos.text.begin()};
         BinOpNode *if_node =
           Make<BinOpNode>(innermost->left(), cond, TokenType::kIf, text_range);
         innermost->set_left(if_node);

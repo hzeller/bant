@@ -179,12 +179,12 @@ static TextTemplate::Prepared Prepare(std::string_view tpl,
                                       const HyperlinkBuilder::VarKV &constants,
                                       std::string_view prefix,
                                       std::string_view suffix) {
-  std::string flattened = ReplaceKnownValues(tpl, constants, prefix, suffix);
+  const auto flattened = ReplaceKnownValues(tpl, constants, prefix, suffix);
   TextTemplate t;
   auto vars = t.Preprocess(flattened);
   std::vector<TextTemplate::ValueAccessor> accessors;
   accessors.reserve(vars.size());
-  for (std::string_view v : vars) {
+  for (const std::string_view v : vars) {
     accessors.emplace_back(AccessorForVariable(v));
   }
   return {std::move(t), std::move(accessors)};
@@ -323,7 +323,7 @@ bool HyperlinkBuilder::LinkTo(const BazelPackage &pkg,
   }
 
   FileLocation floc;
-  std::string fqn = pkg.FullyQualifiedFile(workspace_, filename);
+  const std::string fqn = pkg.FullyQualifiedFile(workspace_, filename);
   floc.filename = fqn;
   template_to_use->value().Write(out, &floc);
   return true;

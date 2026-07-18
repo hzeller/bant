@@ -125,12 +125,12 @@ bool FilesystemPrewarmCacheInit(
   const std::filesystem::path cwd = std::filesystem::current_path(err);
   uint64_t argument_dependent_hash = std::hash<std::string>()(cwd.string());
   // Order of positional_args doesn't matter.
-  for (std::string_view arg : positional_args) {
+  for (const std::string_view arg : positional_args) {
     argument_dependent_hash ^= std::hash<std::string_view>()(arg);
   }
 
   const CommandlineFlags &flags = session.flags();
-  for (std::string_view arg : flags.graph_deps) {
+  for (const std::string_view arg : flags.graph_deps) {
     argument_dependent_hash ^= std::hash<std::string_view>()(arg);
   }
 

@@ -279,7 +279,7 @@ Node *StringMethodEval::StartsWith(Node *orig, std::string_view str,
   auto param = StringRangeParam::FromArgs(args);
   if (!param.has_value()) return orig;
   if (param->start_pos > str.size()) return orig;
-  std::string_view active_str = str.substr(param->start_pos, param->len);
+  const std::string_view active_str = str.substr(param->start_pos, param->len);
   const auto &location = f_.project()->GetLocation(str);
   return f_.MakeBoolWithStringRep(location, active_str.starts_with(param->str));
 }
@@ -288,7 +288,7 @@ Node *StringMethodEval::EndsWith(Node *orig, std::string_view str, List *args) {
   auto param = StringRangeParam::FromArgs(args);
   if (!param.has_value()) return orig;
   if (param->start_pos > str.size()) return orig;
-  std::string_view active_str = str.substr(param->start_pos, param->len);
+  const std::string_view active_str = str.substr(param->start_pos, param->len);
   const auto &location = f_.project()->GetLocation(str);
   return f_.MakeBoolWithStringRep(location, active_str.ends_with(param->str));
 }
@@ -418,7 +418,7 @@ Node *StringMethodEval::RemovePrefix(Node *orig, StringScalar *object,
   if (!start_args.has_value() || start_args->size() != 1) return orig;
   const std::string_view prefix = start_args->at(0);
 
-  std::string_view str = object->AsString();
+  const std::string_view str = object->AsString();
   if (!str.starts_with(prefix)) return object;
   return f_.Make<StringScalar>(str.substr(prefix.length()),
                                object->is_triple_quoted(), object->is_raw());
@@ -430,7 +430,7 @@ Node *StringMethodEval::RemoveSuffix(Node *orig, StringScalar *object,
   if (!start_args.has_value() || start_args->size() != 1) return orig;
   const std::string_view suffix = start_args->at(0);
 
-  std::string_view str = object->AsString();
+  const std::string_view str = object->AsString();
   if (!str.ends_with(suffix)) return object;
   return f_.Make<StringScalar>(str.substr(0, str.length() - suffix.length()),
                                object->is_triple_quoted(), object->is_raw());
@@ -483,9 +483,9 @@ Node *StringMethodEval::MakePartitionTuple(std::string_view str,
     result->Append(f_.arena(), empty);
     result->Append(f_.arena(), empty_front ? object : empty);
   } else {
-    std::string_view first = str.substr(0, offset);
-    std::string_view middle = str.substr(offset, sep_len);
-    std::string_view last = str.substr(offset + sep_len);
+    const std::string_view first = str.substr(0, offset);
+    const std::string_view middle = str.substr(offset, sep_len);
+    const std::string_view last = str.substr(offset + sep_len);
     const bool triple = object->is_triple_quoted();
     const bool raw = object->is_raw();
     result->Append(f_.arena(), f_.Make<StringScalar>(first, triple, raw));

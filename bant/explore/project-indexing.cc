@@ -638,7 +638,7 @@ bool ExpandFilegroupsInList(const BazelPackage &context_package,
     if (potential_target.has_value()) {
       if (const auto found = filegropus.find(*potential_target);
           found != filegropus.end()) {
-        for (std::string_view filename : found->second) {
+        for (const std::string_view filename : found->second) {
           collected_files.insert(filename);
         }
         expanded_filegroup = true;

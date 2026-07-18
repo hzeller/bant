@@ -197,7 +197,7 @@ KwMap ExtractKwArgs(FunCall *fun) {
   if (!fun->argument()) return result;
   for (Node *arg : *fun->argument()) {
     if (Assignment *assign = arg->CastAsAssignment()) {
-      Identifier *id = assign->lhs_maybe_identifier();
+      const Identifier *id = assign->lhs_maybe_identifier();
       if (!id || !assign->value()) continue;
       result.emplace(id->id(), assign->value());
     }
@@ -209,7 +209,7 @@ Node *FindKWArg(FunCall *fun, std::string_view keyword) {
   if (!fun->argument()) return nullptr;
   for (Node *arg : *fun->argument()) {
     if (Assignment *assign = arg->CastAsAssignment()) {
-      Identifier *id = assign->lhs_maybe_identifier();
+      const Identifier *id = assign->lhs_maybe_identifier();
       if (id && id->id() == keyword) return assign->value();
     }
   }

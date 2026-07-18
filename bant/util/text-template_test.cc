@@ -79,7 +79,7 @@ TEST(TextTemplate, PreparedTemplate) {
   });
 
   SampleData data;
-  TextTemplate::Prepared prepared(std::move(t), std::move(accessors));
+  const TextTemplate::Prepared prepared(std::move(t), std::move(accessors));
   std::stringstream out;
 
   data.value = 42;
