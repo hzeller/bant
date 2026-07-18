@@ -137,6 +137,7 @@ bool Filesystem::ExistsInDir(std::string_view dir, std::string_view filename) {
                             compare_entry);
 }
 
+namespace {
 struct NameInDir {
   std::string_view dir;
   std::string_view filename;
@@ -151,6 +152,7 @@ static NameInDir SplitPath(std::string_view path) {
     (last_slash == std::string::npos) ? path : path.substr(last_slash + 1);
   return result;
 }
+}  // namespace
 
 bool Filesystem::Exists(std::string_view path) {
   auto dirname = SplitPath(path);
