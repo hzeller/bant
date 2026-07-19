@@ -307,6 +307,10 @@ std::optional<BazelPattern> BazelPattern::ParseFrom(
     }
     target_pattern.target_name.clear();
     kind = MatchKind::kTargetRegex;
+  } else if (pattern.starts_with("...") && pattern.length() > 3) {
+    std::cerr << "Pattern '" << pattern
+              << "' looks like a typo that wanted to be '...' ?\n";
+    return std::nullopt;
   } else if (target_pattern.target_name.empty()) {
     std::cerr << "Pattern '" << pattern << "' looks odd. "
               << "Are you looking for '" << target_pattern.package.path
