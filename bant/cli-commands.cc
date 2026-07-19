@@ -162,6 +162,22 @@ std::optional<CliStatus> RunDebugCommand(Session &session, Command cmd) {
   return CliStatus::kExitSuccess;
 }
 
+static BazelPatternBundle GetDependencyGraphDefiningPatterns(
+  const Session &session, const BazelPatternBundle &start_pattern) {
+  BazelPatternBundle build_graph_pattern;
+  for (const BazelPattern &p : start_pattern.patterns()) {
+    build_graph_pattern.AddPattern(p);
+  }
+
+  // Additional patterns to add to fully build dependency graph.
+  for (const std::string_view graph_dep : session.flags().graph_deps) {
+    if (auto p = BazelPattern::ParseFrom(graph_dep); p.has_value()) {
+      build_graph_pattern.AddPattern(p.value());
+    }
+  }
+  return build_graph_pattern;
+}
+
 CliStatus RunCommand(Session &session, Command cmd,
                      const BazelPatternBundle &patterns) {
   // -- TODO: a lot of the following functionality including choosing what
@@ -189,8 +205,9 @@ CliStatus RunCommand(Session &session, Command cmd,
 
   // Has dependent needs to be able to see all the files to know everything
   // that depends on a specific pattern.
-  const BazelPatternBundle &dep_pattern =
-    (cmd == Command::kHasDependents) ? kMatchAllBundle : patterns;
+  const BazelPatternBundle build_graph_pattern =
+    GetDependencyGraphDefiningPatterns(
+      session, (cmd == Command::kHasDependents) ? kMatchAllBundle : patterns);
 
   CommandlineFlags flags = session.flags();
 
@@ -205,7 +222,8 @@ CliStatus RunCommand(Session &session, Command cmd,
   if (NeedsProjectPopulated(cmd, patterns)) {
     Stat &stats = session.GetStatsFor("Initial load from pattern", "packages");
     const ScopedTimer timer(&stats.duration);
-    const int packages_added = project.FillFromPattern(session, dep_pattern);
+    const int packages_added =
+      project.FillFromPattern(session, build_graph_pattern);
     if (packages_added == 0) {
       session.error() << "Pattern did not match any dir with BUILD file.\n";
     }
@@ -264,16 +282,6 @@ CliStatus RunCommand(Session &session, Command cmd,
   case Command::kHasDependents:
     if (flags.recurse_dependency_depth >= 0) {
       const size_t before_build_files = project.ParsedFiles().size();
-      BazelPatternBundle build_graph_pattern;
-      for (const BazelPattern &p : dep_pattern.patterns()) {
-        build_graph_pattern.AddPattern(p);
-      }
-      // Additional patterns to add to fully build dependency graph.
-      for (const std::string_view graph_dep : session.flags().graph_deps) {
-        if (auto p = BazelPattern::ParseFrom(graph_dep); p.has_value()) {
-          build_graph_pattern.AddPattern(p.value());
-        }
-      }
       graph = bant::BuildDependencyGraph(
         session, build_graph_pattern, flags.recurse_dependency_depth, &project);
       const size_t after_build_files = project.ParsedFiles().size();
