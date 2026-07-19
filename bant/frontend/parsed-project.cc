@@ -129,13 +129,15 @@ int ParsedProject::FillFromPattern(Session &session,
                                    const BazelPatternBundle &bundle,
                                    bool log_error_messages) {
   int count = 0;
-  std::set<FilesystemPath> unique_files;  // bundle might match multiple same
+  std::set<std::string> unique_files;  // bundle might match multiple same
   for (const BazelPattern &pattern : bundle.patterns()) {
     const auto build_files = CollectBuildFiles(session, workspace(), pattern);
     for (const FilesystemPath &build_file : build_files) {
+      std::string_view path = build_file.path();
+      if (path.starts_with("./")) path.remove_prefix(2);
       // TODO: we should have a preference for BUILD.bazel over BUILD,
       // not attempt to load both.
-      if (unique_files.insert(build_file).second) {
+      if (unique_files.insert(std::string{path}).second) {
         ++count;
         AddBuildFile(session, build_file, pattern.project(),
                      log_error_messages);
