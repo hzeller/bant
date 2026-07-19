@@ -87,16 +87,15 @@ class ParsedProject : public SourceLocator {
   // Given a BazelPattern, collect all the matching BUILD files and add to
   // project.
   // Returns number of build-files added.
-  int FillFromPattern(Session &session, const BazelPatternBundle &bundle);
+  int FillFromPattern(Session &session, const BazelPatternBundle &bundle,
+                      bool log_error_messages = true);
 
   // Given package and content, parse. Main workhorse.
   // Content is std::move()'d thus by value.
   // "read_stat" contains information how long it took to aquire content.
-  ParsedBuildFile *AddBuildFileContent(Session &session,
-                                       const BazelPackage &package,
-                                       const FilesystemPath &file,
-                                       std::string content,
-                                       const Stat &read_stat);
+  ParsedBuildFile *AddBuildFileContent(
+    Session &session, const BazelPackage &package, const FilesystemPath &file,
+    std::string content, const Stat &read_stat, bool log_error_messages = true);
 
   // Given a starlark file, provide storage for variables and store their
   // content. If starlark file is not available yet, calls "variable_extractor"
@@ -153,11 +152,13 @@ class ParsedProject : public SourceLocator {
   // TODO: should not be needed, just an artifact of FillFromPattern() workings.
   ParsedBuildFile *AddBuildFile(Session &session,
                                 const FilesystemPath &build_file,
-                                std::string_view project);
+                                std::string_view project,
+                                bool log_error_messages);
   // Parse build file for given package reading from filename.
   ParsedBuildFile *AddBuildFile(Session &session,
                                 const FilesystemPath &build_file,
-                                const BazelPackage &package);
+                                const BazelPackage &package,
+                                bool log_error_messages);
 
   // Set content of bant file defining the macros to be found in FindMacro().
   // Can be called multiple times (e.g. built-in + project-local).

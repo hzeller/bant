@@ -133,7 +133,7 @@ void FindAndParseMissingPackages(ThreadPool *io_thread_pool, Session &session,
     // TODO: but do we need expensive glob() enabled ?
     ParsedBuildFile *file = project->AddBuildFileContent(
       session, *result.package, *result.path, std::move(*result.content),
-      result.read_stats);
+      result.read_stats, false);
     bant::Elaborate(session, project, kAlwaysMaccroExpand, file);
   }
 }

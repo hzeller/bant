@@ -126,7 +126,8 @@ ParsedProject::ParsedProject(BazelWorkspace workspace, bool verbose,
 }
 
 int ParsedProject::FillFromPattern(Session &session,
-                                   const BazelPatternBundle &bundle) {
+                                   const BazelPatternBundle &bundle,
+                                   bool log_error_messages) {
   int count = 0;
   std::set<FilesystemPath> unique_files;  // bundle might match multiple same
   for (const BazelPattern &pattern : bundle.patterns()) {
@@ -136,7 +137,8 @@ int ParsedProject::FillFromPattern(Session &session,
       // not attempt to load both.
       if (unique_files.insert(build_file).second) {
         ++count;
-        AddBuildFile(session, build_file, pattern.project());
+        AddBuildFile(session, build_file, pattern.project(),
+                     log_error_messages);
       }
     }
   }
@@ -145,7 +147,8 @@ int ParsedProject::FillFromPattern(Session &session,
 
 ParsedBuildFile *ParsedProject::AddBuildFile(Session &session,
                                              const FilesystemPath &build_file,
-                                             std::string_view project) {
+                                             std::string_view project,
+                                             bool log_error_messages) {
   std::string_view package_path = build_file.path();
   if (!project.empty()) {
     // Somewhat silly to reconstruct the path by asking the worksapce again,
@@ -161,12 +164,13 @@ ParsedBuildFile *ParsedProject::AddBuildFile(Session &session,
   }
 
   const BazelPackage package(project, TargetPathFromBuildFile(package_path));
-  return AddBuildFile(session, build_file, package);
+  return AddBuildFile(session, build_file, package, log_error_messages);
 }
 
 ParsedBuildFile *ParsedProject::AddBuildFile(Session &session,
                                              const FilesystemPath &build_file,
-                                             const BazelPackage &package) {
+                                             const BazelPackage &package,
+                                             bool log_error_messages) {
   Stat open_and_read_stat;
   std::optional<std::string> content =
     ReadFileToStringUpdateStat(build_file, open_and_read_stat);
@@ -178,14 +182,13 @@ ParsedBuildFile *ParsedProject::AddBuildFile(Session &session,
 
   return AddBuildFileContent(session, package,
                              build_file,  //
-                             std::move(*content), open_and_read_stat);
+                             std::move(*content), open_and_read_stat,
+                             log_error_messages);
 }
 
-ParsedBuildFile *ParsedProject::AddBuildFileContent(Session &session,
-                                                    const BazelPackage &package,
-                                                    const FilesystemPath &file,
-                                                    std::string content,
-                                                    const Stat &read_stat) {
+ParsedBuildFile *ParsedProject::AddBuildFileContent(
+  Session &session, const BazelPackage &package, const FilesystemPath &file,
+  std::string content, const Stat &read_stat, bool log_error_messages) {
   session.GetStatsFor("read(BUILD)      ", "BUILD files").Add(read_stat);
 
   Stat &parse_stat = session.GetStatsFor("Parse & build AST", "BUILD files");
@@ -219,7 +222,7 @@ ParsedBuildFile *ParsedProject::AddBuildFileContent(Session &session,
   parse_result.ast = parser.parse();
   parse_result.errors = error_collect.str();
   if (parser.parse_error()) {
-    session.error() << error_collect.str();
+    if (log_error_messages) session.error() << error_collect.str();
     ++error_count_;
   }
   parse_result.package = package;

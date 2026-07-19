@@ -162,10 +162,22 @@ std::optional<CliStatus> RunDebugCommand(Session &session, Command cmd) {
   return CliStatus::kExitSuccess;
 }
 
+static BazelPatternBundle GetPatternFromRequestedWorkspaceDeps(
+  const BazelWorkspace &workspace) {
+  BazelPatternBundle bundle;
+  for (const auto &[project, _] : workspace.project_location) {
+    if (project.stratum != VersionedProject::kWorkspaceDefined) continue;
+    const std::string pattern = absl::StrCat("@", project.project, "//...");
+    if (auto p = BazelPattern::ParseFrom(pattern); p.has_value()) {
+      bundle.AddPattern(p.value());
+    }
+  }
+  return bundle;
+}
+
 // If workspace is given also augment from all workspace defined projects
 static BazelPatternBundle GetDependencyGraphDefiningPatterns(
-  const Session &session, const BazelPatternBundle &start_pattern,
-  const BazelWorkspace *workspace) {
+  const Session &session, const BazelPatternBundle &start_pattern) {
   BazelPatternBundle build_graph_pattern;
   for (const BazelPattern &p : start_pattern.patterns()) {
     build_graph_pattern.AddPattern(p);
@@ -175,16 +187,6 @@ static BazelPatternBundle GetDependencyGraphDefiningPatterns(
   for (const std::string_view graph_dep : session.flags().graph_deps) {
     if (auto p = BazelPattern::ParseFrom(graph_dep); p.has_value()) {
       build_graph_pattern.AddPattern(p.value());
-    }
-  }
-
-  if (workspace) {
-    for (const auto &[project, _] : workspace->project_location) {
-      if (project.stratum != VersionedProject::kWorkspaceDefined) continue;
-      const std::string pattern = absl::StrCat("@", project.project, "//...");
-      if (auto p = BazelPattern::ParseFrom(pattern); p.has_value()) {
-        build_graph_pattern.AddPattern(p.value());
-      }
     }
   }
 
@@ -222,13 +224,8 @@ CliStatus RunCommand(Session &session, Command cmd,
   const BazelPatternBundle &start_pattern =
     (cmd == Command::kHasDependents) ? kMatchAllBundle : patterns;
 
-  // For DWYU, we want the absolute maximum and also include all the
-  // MODULE-requested dependencies.
-  const BazelWorkspace *augment_from_workspace =
-    (cmd == Command::kDWYU) ? &workspace : nullptr;
   const BazelPatternBundle build_graph_pattern =
-    GetDependencyGraphDefiningPatterns(session, start_pattern,
-                                       augment_from_workspace);
+    GetDependencyGraphDefiningPatterns(session, start_pattern);
 
   CommandlineFlags flags = session.flags();
 
@@ -241,14 +238,31 @@ CliStatus RunCommand(Session &session, Command cmd,
     }
   }
   if (NeedsProjectPopulated(cmd, patterns)) {
-    Stat &stats = session.GetStatsFor("Initial load from pattern", "packages");
-    const ScopedTimer timer(&stats.duration);
-    const int packages_added =
-      project.FillFromPattern(session, build_graph_pattern);
-    if (packages_added == 0) {
-      session.error() << "Pattern did not match any dir with BUILD file.\n";
+    {
+      Stat &stats =
+        session.GetStatsFor("Initial load from pattern", "packages");
+      const ScopedTimer timer(&stats.duration);
+      const int packages_added =
+        project.FillFromPattern(session, build_graph_pattern);
+      if (packages_added == 0) {
+        session.error() << "Pattern did not match any dir with BUILD file.\n";
+      }
+      stats.count += packages_added;
     }
-    stats.count += packages_added;
+
+    // For DWYU, we want the absolute maximum and also include all the
+    // MODULE-requested dependencies.
+    if (cmd == Command::kDWYU) {
+      Stat &stats =
+        session.GetStatsFor("DWYU augment from workspace", "packages");
+      const ScopedTimer timer(&stats.duration);
+      // These additional dependencies we might not be too interested in
+      // parse errors deep iniside, so let's not log these messages.
+      const int packages_added = project.FillFromPattern(
+        session, GetPatternFromRequestedWorkspaceDeps(workspace),
+        /*log_error_messages=*/false);
+      stats.count += packages_added;
+    }
   }
 
   if (flags.recurse_dependency_depth <= 0 &&
