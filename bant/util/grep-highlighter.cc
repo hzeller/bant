@@ -146,10 +146,13 @@ bool GrepHighlighter::Match(std::string_view content,
 }
 
 bool GrepHighlight(const GrepHighlighter &highligher, std::string_view content,
-                   std::ostream &out, std::string_view prefix,
-                   std::string_view suffix) {
+                   std::ostream &out, HighlightWhat action,
+                   std::string_view prefix, std::string_view suffix) {
   TextDecorator decorator;
-  if (!highligher.Match(content, &decorator)) return false;
+  if (!highligher.Match(content, &decorator) &&
+      action == HighlightWhat::kHighlightAndFilter) {
+    return false;
+  }
   out << prefix;
   decorator.Emit(content, out);
   out << suffix;

@@ -53,9 +53,10 @@ TEST(TablePrinter, PlainTable) {
     auto printer = TablePrinter::Create(out, fmt, highlighter, {"foo", "bar"});
     printer->AddRow({"short", "somevalue"});
     printer->AddRow({"somewhatlongtext", "xyz"});
-    printer->Finish();
+    printer->Finish({});
     EXPECT_EQ(expected, out.str()) << static_cast<int>(fmt);
   }
+  // TODO: test with column select.
 }
 
 TEST(TablePrinter, TableWithRepeatedLastCol) {
@@ -98,7 +99,7 @@ TEST(TablePrinter, TableWithRepeatedLastCol) {
     printer->AddRowWithRepeatedLastColumn({"noval"}, {});
     printer->AddRowWithRepeatedLastColumn({"oneval"}, {"somevalue"});
     printer->AddRowWithRepeatedLastColumn({"threeval"}, {"abc", "def", "xyz"});
-    printer->Finish();
+    printer->Finish({});
     EXPECT_EQ(expected, out.str()) << static_cast<int>(fmt);
   }
 }

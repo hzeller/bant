@@ -105,6 +105,7 @@ static int usage(const char *prog, const char *message, int exit_code) {
     -i, --ignore-case  : (with `-g`, `-G`): Treat regex case-insensitively.
     -O, --or        : (with `-g`): 'or' match smentics. Instead of requiring all
                      regexs to match for a record, require at least one of them.
+    -c<n>, --column=<n>  : for list outputs: only output given column.
     -r             : Follow dependencies recursively starting from pattern.
                      Without numeric parameter, follows dependencies to the end.
                      An optional parameter allows to limit the nesting depth,
@@ -326,6 +327,7 @@ int main(int argc, char *argv[]) {
   // NOLINTBEGIN
   static constexpr struct option long_options[] = {
     { "color",         required_argument, nullptr, OPT_COLOR    },
+    { "column",        required_argument, nullptr, 'c' },
     { "links",         required_argument, nullptr, OPT_HYPERLINKS  },
     { "quiet",         no_argument,       nullptr, 'q'          },
     { "grep",          required_argument, nullptr, 'g'          },
@@ -345,7 +347,7 @@ int main(int argc, char *argv[]) {
   int opt;
   int option_index = 0;
   // NOLINTNEXTLINE(misc-include-cleaner)  clang-tidy can't see getopt_long()
-  while ((opt = getopt_long(argc, argv, "C:qo:vhaEF:ecbmf:r::Vkg:G:iT:POdus",
+  while ((opt = getopt_long(argc, argv, "C:qo:vhaEF:ec:bmf:r::Vkg:G:iT:POdus",
                             long_options, &option_index)) != -1) {
     switch (opt) {
     case 'C': {
@@ -458,6 +460,12 @@ int main(int argc, char *argv[]) {
       break;
     case OPT_GRAPH_AUGMENT: {
       flags.graph_deps.emplace_back(optarg);
+    } break;
+    case 'c': {
+      if (optarg && !absl::SimpleAtoi(optarg, &flags.column_select)) {
+        return usage(argv[0], "--column requires a numeric parameter",
+                     EXIT_FAILURE);
+      }
     } break;
     default: return usage(argv[0], nullptr, EXIT_SUCCESS);
     }

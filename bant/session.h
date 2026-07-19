@@ -82,6 +82,7 @@ struct CommandlineFlags {
   std::vector<std::string> grep_exclude_expressions;
   bool regex_case_insesitive = false;
   bool grep_or_semantics = false;
+  int column_select = -1;  // TODO: make set<int>
   bool do_color = false;
   bool do_links = false;
   BracketIncHandling dwyu_bracket_include = BracketIncHandling::kAcknowledge;

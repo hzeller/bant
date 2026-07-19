@@ -422,7 +422,7 @@ DependencyGraph BuildDependencyGraph(Session &session,
       for (const auto &[dep, example] : error_target_example) {
         printer->AddRow({dep.ToString(), example.ToString()});
       }
-      printer->Finish();
+      printer->Finish({});
       session.info() << "\n";
     }
   }

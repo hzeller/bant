@@ -50,7 +50,9 @@ class TablePrinter {
     const std::vector<std::string> &row_prefix,
     const std::vector<std::string> &repeat_col) {}
 
-  virtual void Finish() = 0;
+  // Finish the table. If there is a way to select columns (only the
+  // text table), take "column_selector" into account.
+  virtual void Finish(int column_selector) = 0;
 };
 }  // namespace bant
 

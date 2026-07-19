@@ -105,7 +105,7 @@ void PrintOneToN(bant::Session &session, const BazelTargetMatcher &pattern,
     }
     printer->AddRowWithRepeatedLastColumn({d.first.ToString()}, repeat_print);
   }
-  printer->Finish();
+  printer->Finish(session.flags().column_select);
 }
 
 static bool NeedsProjectPopulated(Command cmd,
@@ -443,7 +443,7 @@ CliStatus RunCommand(Session &session, Command cmd,
     for (const auto &[package, parsed] : project.ParsedFiles()) {
       printer->AddRow({std::string(parsed->name()), package.ToString()});
     }
-    printer->Finish();
+    printer->Finish(session.flags().column_select);
     break;
   }
 
@@ -471,7 +471,7 @@ CliStatus RunCommand(Session &session, Command cmd,
                          target_name->ToString()});
       });
     }
-    printer->Finish();
+    printer->Finish(session.flags().column_select);
     break;
   }
 

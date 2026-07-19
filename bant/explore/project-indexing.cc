@@ -731,7 +731,7 @@ void PrintProvidedSources(Session &session, const std::string &table_header,
     if (!filter.Match(lib)) continue;
     printer->AddRow({provided, lib.ToString()});
   }
-  printer->Finish();
+  printer->Finish(session.flags().column_select);
 }
 
 void PrintProvidedSources(Session &session, const std::string &table_header,
@@ -758,7 +758,7 @@ void PrintProvidedSources(Session &session, const std::string &table_header,
     }
     printer->AddRowWithRepeatedLastColumn({provided}, list);
   }
-  printer->Finish();
+  printer->Finish(session.flags().column_select);
 }
 
 void PrintTargetFileSet(Session &session, const BazelWorkspace &workspace,
@@ -778,7 +778,7 @@ void PrintTargetFileSet(Session &session, const BazelWorkspace &workspace,
     }
     printer->AddRowWithRepeatedLastColumn({target.ToString()}, list);
   }
-  printer->Finish();
+  printer->Finish(session.flags().column_select);
 }
 
 void PrintTargetToN(Session &session, const BazelWorkspace &workspace,
@@ -797,7 +797,7 @@ void PrintTargetToN(Session &session, const BazelWorkspace &workspace,
     }
     printer->AddRowWithRepeatedLastColumn({target.ToString()}, list);
   }
-  printer->Finish();
+  printer->Finish(session.flags().column_select);
 }
 
 void PrintFileToFileSet(Session &session,
@@ -828,6 +828,6 @@ void PrintFileToFileSet(Session &session,
 
     printer->AddRowWithRepeatedLastColumn({std::string{header}}, list);
   }
-  printer->Finish();
+  printer->Finish(session.flags().column_select);
 }
 }  // namespace bant

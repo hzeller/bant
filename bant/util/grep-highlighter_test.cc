@@ -28,7 +28,9 @@ TEST(GrepHighlighterTest, SimpleMatch) {
   std::stringstream sink;
   EXPECT_TRUE(highligher.AddExpressions({"ello"}, false, sink));
 
-  EXPECT_TRUE(GrepHighlight(highligher, "hello world", sink, "start>", "<end"));
+  EXPECT_TRUE(GrepHighlight(highligher, "hello world", sink,
+                            HighlightWhat::kHighlightAndFilter, "start>",
+                            "<end"));
   EXPECT_FALSE(GrepHighlight(highligher, "nothing here", sink));
   EXPECT_EQ(sink.str(), "start>hello world<end");
 }

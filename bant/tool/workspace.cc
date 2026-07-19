@@ -57,7 +57,7 @@ static void PrintExternalRepos(
                      project.version.empty() ? "-" : project.version,
                      file.path(), StratumToString(project.stratum)});
   }
-  printer->Finish();
+  printer->Finish(session.flags().column_select);
 }
 
 BazelWorkspace CreateFilteredWorkspace(Session &session,

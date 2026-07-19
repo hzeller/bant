@@ -24,11 +24,13 @@
 #include <ostream>
 #include <sstream>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "absl/log/check.h"
 #include "absl/strings/escaping.h"
 #include "absl/strings/str_format.h"
+#include "absl/strings/str_join.h"
 #include "bant/output-format.h"
 #include "bant/util/grep-highlighter.h"
 
@@ -48,6 +50,12 @@ class AlignedTextColumnPrinter : public TablePrinter {
 
   void AddRow(const std::vector<std::string> &row) final {
     CHECK_EQ(row.size(), widths_.size());
+    // Filter out early, so that we can have compact column widths.
+    if (highligther_.HasExpressions() &&
+        !highligther_.Match(absl::StrJoin(row, "\t"), nullptr)) {
+      return;
+    }
+
     // We exclude the last column width, as we don't want that to to be padded
     for (size_t i = 0; i < widths_.size() - 1; ++i) {
       widths_[i] = std::max(widths_[i], static_cast<int>(row[i].length()));
@@ -69,14 +77,25 @@ class AlignedTextColumnPrinter : public TablePrinter {
     }
   }
 
-  void Finish() final {
+  void Finish(int column_selector) final {
+    // Print compact, but if it is only one row, keep the space a bit more
+    // as the eye does not have an 'column alignment' hint.
+    const int min_space = buffer_.size() < 2 ? 4 : 1;
     for (const auto &row : buffer_) {
       std::stringstream row_out;
       for (size_t i = 0; i < widths_.size(); ++i) {
-        row_out << absl::StrFormat("%*s", -widths_[i] - 1, row[i]);
+        if (column_selector > 0 && std::cmp_not_equal(i + 1, column_selector)) {
+          continue;
+        }
+        row_out << absl::StrFormat("%*s", -widths_[i] - min_space, row[i]);
       }
       row_out << "\n";
-      GrepHighlight(highligther_, row_out.str(), out_);
+
+      // We already filtered in AddRow(), so here only highlight. Given that
+      // we might have filtered columns that don't have the match criteria
+      // anymore and we want grep-then-column behavor, that is what we do.
+      GrepHighlight(highligther_, row_out.str(), out_,
+                    HighlightWhat::kJustHighlight);
     }
   }
 
@@ -144,7 +163,7 @@ class SExprTablePrinter : public TablePrinter {
     row_printed_ = true;
   }
 
-  void Finish() final { out_ << ")\n"; }
+  void Finish(int) final { out_ << ")\n"; }
 
  private:
   std::ostream &out_;
@@ -188,7 +207,7 @@ class JSonTablePrinter : public TablePrinter {
     out_ << "]}\n";
   }
 
-  void Finish() final {}
+  void Finish(int) final {}
 
  private:
   std::ostream &out_;
@@ -227,7 +246,7 @@ class CSVTablePrinter : public TablePrinter {
     }
   }
 
-  void Finish() final {}
+  void Finish(int) final {}
 
  private:
   std::ostream &out_;

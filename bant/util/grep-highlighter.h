@@ -97,9 +97,14 @@ class GrepHighlighter {
 //
 // Iff content is written also emit prefix and suffix (but prefix and suffix
 // are not subject to match checking).
+enum class HighlightWhat {
+  kJustHighlight,
+  kHighlightAndFilter,
+};
 bool GrepHighlight(const GrepHighlighter &highligher, std::string_view content,
-                   std::ostream &out, std::string_view prefix = "",
-                   std::string_view suffix = "");
+                   std::ostream &out,
+                   HighlightWhat action = HighlightWhat::kHighlightAndFilter,
+                   std::string_view prefix = "", std::string_view suffix = "");
 
 // Convenience factory: create a GrepHighlighter from the flags in the
 // session. Returns a fully constructed GrepHighlighter or nullptr if there
