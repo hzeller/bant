@@ -64,7 +64,7 @@ struct BazelWorkspace {
   // Project to directory.
   Map project_location;
 
-  // TODO: this is only in the mail project. We should have that per project.
+  // TODO: this is only in the main project. We should have that per project.
   // Also todo: these should be std::string_view and point to the original file
   std::string module_version;
   std::string module_name;

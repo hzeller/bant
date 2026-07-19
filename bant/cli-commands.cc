@@ -162,19 +162,32 @@ std::optional<CliStatus> RunDebugCommand(Session &session, Command cmd) {
   return CliStatus::kExitSuccess;
 }
 
+// If workspace is given also augment from all workspace defined projects
 static BazelPatternBundle GetDependencyGraphDefiningPatterns(
-  const Session &session, const BazelPatternBundle &start_pattern) {
+  const Session &session, const BazelPatternBundle &start_pattern,
+  const BazelWorkspace *workspace) {
   BazelPatternBundle build_graph_pattern;
   for (const BazelPattern &p : start_pattern.patterns()) {
     build_graph_pattern.AddPattern(p);
   }
 
-  // Additional patterns to add to fully build dependency graph.
+  // --graph-augment requested to add to fully build dependency graph.
   for (const std::string_view graph_dep : session.flags().graph_deps) {
     if (auto p = BazelPattern::ParseFrom(graph_dep); p.has_value()) {
       build_graph_pattern.AddPattern(p.value());
     }
   }
+
+  if (workspace) {
+    for (const auto &[project, _] : workspace->project_location) {
+      if (project.stratum != VersionedProject::kWorkspaceDefined) continue;
+      const std::string pattern = absl::StrCat("@", project.project, "//...");
+      if (auto p = BazelPattern::ParseFrom(pattern); p.has_value()) {
+        build_graph_pattern.AddPattern(p.value());
+      }
+    }
+  }
+
   return build_graph_pattern;
 }
 
@@ -182,7 +195,8 @@ CliStatus RunCommand(Session &session, Command cmd,
                      const BazelPatternBundle &patterns) {
   // -- TODO: a lot of the following functionality including choosing what
   // data is needed needs to move into each command itself.
-  // We don't have a 'Command' object yet, so linear here.
+  // We don't have a 'Command' object yet, so linear with lots of annoying
+  // conditions here.
   auto workspace_or = bant::LoadWorkspace(session);
   if (!workspace_or.has_value()) {
     session.error()
@@ -205,9 +219,16 @@ CliStatus RunCommand(Session &session, Command cmd,
 
   // Has dependent needs to be able to see all the files to know everything
   // that depends on a specific pattern.
+  const BazelPatternBundle &start_pattern =
+    (cmd == Command::kHasDependents) ? kMatchAllBundle : patterns;
+
+  // For DWYU, we want the absolute maximum and also include all the
+  // MODULE-requested dependencies.
+  const BazelWorkspace *augment_from_workspace =
+    (cmd == Command::kDWYU) ? &workspace : nullptr;
   const BazelPatternBundle build_graph_pattern =
-    GetDependencyGraphDefiningPatterns(
-      session, (cmd == Command::kHasDependents) ? kMatchAllBundle : patterns);
+    GetDependencyGraphDefiningPatterns(session, start_pattern,
+                                       augment_from_workspace);
 
   CommandlineFlags flags = session.flags();
 
