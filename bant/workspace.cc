@@ -182,6 +182,11 @@ static std::optional<int> LoadWorkspaceFromFile(Session &session,
       search_dirs.push_back(absl::StrCat("+_repo_rules+", result.name));
       search_dirs.push_back(absl::StrCat("_main~_repo_rules~", result.name));
 
+      // Hack: ideally this should look at the resolved variable.
+      if (result.rule == "new_local_repository") {
+        search_dirs.push_back(absl::StrCat("+new_local_repository+", result.name));
+      }
+
       FilesystemPath path;
       bool project_dir_found = false;
       for (const std::string_view dir : search_dirs) {
