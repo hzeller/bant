@@ -507,7 +507,7 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
   }
 
   void ReportUnimplementedNode(BinOpNode *bin_op) {
-    if (!bin_op || !session_.MinVerbosity(3)) return;
+    if (!bin_op || !session_.MinVerbosity(4)) return;
     Node *const left = bin_op->left();
     Node *const right = bin_op->right();
     if (!left || !right) return;
@@ -531,7 +531,7 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     }
 
     auto &log = LogLocationWithLink(*project_, bin_op->source_range());
-    if (session_.MinVerbosity(4)) {
+    if (session_.MinVerbosity(5)) {
       // Hi-verbose: show a more noisy full operation that fails eval
       log << " Not implemented Op: (" << left << ")"
           << YellowOnRedBold(session_) << " " << bin_op->op() << " "
@@ -899,7 +899,7 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
 
     // Let's not complain too much about what we stumble over in *.bzl files.
     // This is best effort.
-    const auto reduced_logging = session_.ScopedDepressLogVerbosity(2);
+    const auto reduced_logging = session_.ScopedDepressLogVerbosity(3);
 
     // If not already cached, trigger parsing Starlark file which then
     // is elaborated.

@@ -394,7 +394,12 @@ DependencyGraph BuildDependencyGraph(Session &session,
     deps_to_resolve_todo = next_round_deps_to_resolve_todo;
   } while (!deps_to_resolve_todo.empty() && (nesting_depth-- > 0));
 
-  if (session.MinVerbosity(1)) {
+  // Making this very high verbosity, as currently not super-helpful. What
+  // we should do is to only complain about dependencies mentioned that match
+  // the original pattern the user provided on the command line.
+  // However, dependency graph sees the build_graph_pattern which is alrady
+  // expanded.
+  if (session.MinVerbosity(5)) {
     // Currently, we have a lot of targets that we don't deal with yet, such as
     // genrules or protobuffer rules. Goal: should be zero.
     // But for now: hide behind 'verbose' flag, to not be too noisy.
