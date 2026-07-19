@@ -132,6 +132,8 @@ int ParsedProject::FillFromPattern(Session &session,
   for (const BazelPattern &pattern : bundle.patterns()) {
     const auto build_files = CollectBuildFiles(session, workspace(), pattern);
     for (const FilesystemPath &build_file : build_files) {
+      // TODO: we should have a preference for BUILD.bazel over BUILD,
+      // not attempt to load both.
       if (unique_files.insert(build_file).second) {
         ++count;
         AddBuildFile(session, build_file, pattern.project());
@@ -201,9 +203,12 @@ ParsedBuildFile *ParsedProject::AddBuildFileContent(Session &session,
     ParsedBuildFile *const existing = inserted.first->second.get();
     // Should typically not happen, but maybe both BUILD and BUILD.bazel are
     // there ? Report for the user to figure out.
-    session.info() << Dim(session) << file.path() << ": Package " << package
-                   << " already seen before in "
-                   << existing->source_.source_name() << Norm(session) << "\n";
+    if (session.MinVerbosity(1)) {
+      session.info() << Dim(session) << file.path() << ": Package " << package
+                     << " already seen before in "
+                     << existing->source_.source_name() << Norm(session)
+                     << "\n";
+    }
     return existing;
   }
 
