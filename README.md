@@ -546,6 +546,7 @@ Options
     -i, --ignore-case  : (with `-g`, `-G`): Treat regex case-insensitively.
     -O, --or        : (with `-g`): 'or' match smentics. Instead of requiring all
                      regexs to match for a record, require at least one of them.
+    -c<n>, --column=<n>  : for list outputs: only output given column.
     -r             : Follow dependencies recursively starting from pattern.
                      Without numeric parameter, follows dependencies to the end.
                      An optional parameter allows to limit the nesting depth,
@@ -631,6 +632,8 @@ Commands (unique prefix sufficient):
                         (fix your project to use quotes if you need acknowlege
                          or validate).
                         Default: acknowledge
+                      --graph-augment=<bazel-target> Additioal bazel targets
+                         you'd like the dependency graph know about.
     canonicalize   : Emit rename edits to canonicalize targets.
     compile-flags  : (experimental) Emit compile flags. Redirect or output with
                      -o compile_flags.txt
