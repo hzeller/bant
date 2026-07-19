@@ -133,6 +133,8 @@ static std::optional<int> LoadWorkspaceFromFile(Session &session,
   Node *ast = parser.parse();
   if (!ast) return std::nullopt;
 
+  // TODO: evaluate ? There might be version numbers assembled with variables.
+
   // In a MODULE.bazel, there is a module toplevel with a version.
   // TODO: We should actually collect that per project
   query::FindTargets(ast, {"module"}, [&](const query::Result &result) {
@@ -150,7 +152,7 @@ static std::optional<int> LoadWorkspaceFromFile(Session &session,
   query::FindTargets(
     ast, {"http_archive", "bazel_dep", "new_local_repository"},
     [&](const query::Result &result) {
-      // Sometimes, the version is attached to the dirs (bazel 6), somtimes
+      // Sometimes, the version is attached to the dirs (bazel 6), sometimes
       // not (before bazel 6: plain file, at bazel 7: just ~, at bazel 8 '+')
       // Check for both if we have a version.
       std::vector<std::string> search_dirs;
@@ -184,9 +186,13 @@ static std::optional<int> LoadWorkspaceFromFile(Session &session,
       bool project_dir_found = false;
       for (const std::string_view dir : search_dirs) {
         path = FilesystemPath(workspace->external_dir, dir);
-        if (!path.is_directory()) continue;
-        project_dir_found = true;
-        break;
+        // Note: the external + dir is a symlink in bazel 9, so we can't
+        // just check if is_directory()
+        if (fs.ExistsInDir(workspace->external_dir, dir) &&
+            !fs.ReadDir(path.path()).empty()) {
+          project_dir_found = true;
+          break;
+        }
       }
 
       if (!project_dir_found) {
