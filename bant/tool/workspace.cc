@@ -35,18 +35,27 @@
 // (though maybe better as separate command)
 
 namespace bant {
+static std::string StratumToString(VersionedProject::Stratum s) {
+  switch (s) {
+  case VersionedProject::kRootProject: return "0-root-project";
+  case VersionedProject::kWorkspaceDefined: return "1-workspace-defined";
+  case VersionedProject::kDirectoryFound: return "2-secondary";
+  default: return "4-unknown";
+  }
+}
+
 static void PrintExternalRepos(
   Session &session,
   const OneToOne<VersionedProject, FilesystemPath> &external_repos) {
   auto highlighter = CreateGrepHighlighterFromFlags(session);
   if (!highlighter) return;
-  auto printer =
-    TablePrinter::Create(session.out(), session.flags().output_format,
-                         *highlighter, {"project", "version", "directory"});
+  auto printer = TablePrinter::Create(
+    session.out(), session.flags().output_format, *highlighter,
+    {"project", "version", "directory", "stratum"});
   for (const auto &[project, file] : external_repos) {
     printer->AddRow({project.project,
                      project.version.empty() ? "-" : project.version,
-                     file.path()});
+                     file.path(), StratumToString(project.stratum)});
   }
   printer->Finish();
 }
