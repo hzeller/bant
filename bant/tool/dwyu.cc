@@ -358,6 +358,13 @@ std::optional<std::string_view> DWYUGenerator::AvoidDependencyReason(
         avoid_dep.has_value()) {
       return avoid_dep;  // Original string_view from file.
     }
+
+    // Hack: the gtest_for_library should be avoided as well, but it doesn't
+    // have a tag. Let's manually point to the fact that it is an alias
+    // (as we nee to have a locatable string).
+    if (found->second.name == "gtest_for_library") {
+      return found->second.rule;
+    }
   }
   return AvoidDueToVisibility(self, dep);
 }
