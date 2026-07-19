@@ -184,7 +184,8 @@ static std::optional<int> LoadWorkspaceFromFile(Session &session,
 
       // Hack: ideally this should look at the resolved variable.
       if (result.rule == "new_local_repository") {
-        search_dirs.push_back(absl::StrCat("+new_local_repository+", result.name));
+        search_dirs.push_back(
+          absl::StrCat("+new_local_repository+", result.name));
       }
 
       FilesystemPath path;
