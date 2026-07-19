@@ -1260,7 +1260,7 @@ void DWYUGenerator::PrintGenruleTargetsToRun(std::ostream &out) {
       << Bold(session_)
       << "[ Run the following rules for bant dwyu to see generated files. ]"
       << Norm(session_) << "\n";
-  out << "bazel build --remote_download_outputs=all ";
+  out << "bazel build -k --remote_download_outputs=all ";
   out << absl::StrJoin(suggested_genrules_to_run_, " ");
   out << "\n";
 }
