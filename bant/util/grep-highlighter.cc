@@ -17,8 +17,8 @@
 
 #include "bant/util/grep-highlighter.h"
 
+#include <array>
 #include <cstddef>
-#include <initializer_list>
 #include <memory>
 #include <ostream>
 #include <set>
@@ -32,7 +32,7 @@
 #include "re2/re2.h"
 
 namespace bant {
-static constexpr std::initializer_list<std::string_view> kDefaultColors = {
+inline constexpr std::array<std::string_view, 5> kDefaultColors = {
   "\033[7m",   // Invers
   "\033[41m",  // red background
   // avoid green as that is a typical terminal color
@@ -43,7 +43,7 @@ static constexpr std::initializer_list<std::string_view> kDefaultColors = {
 
 GrepHighlighter::GrepHighlighter(bool do_highlight, bool and_semantics)
     : do_highlight_(do_highlight), and_semantics_(and_semantics) {
-  SetHighlightStart(kDefaultColors);
+  SetHighlightStart({kDefaultColors.begin(), kDefaultColors.end()});
   SetHighlightEnd("\033[0m");
 }
 
