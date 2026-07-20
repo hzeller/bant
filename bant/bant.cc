@@ -246,6 +246,7 @@ static void PossiblyApplyBazelIgnore(bant::Filesystem &fs) {
   if (!input.good()) return;
   std::string line;
   while (std::getline(input, line)) {
+    if (line.empty() || line.starts_with('#')) continue;
     fs.SetAlwaysReportEmptyDirectory(line);  // poison cached dir to be empty
   }
 }
