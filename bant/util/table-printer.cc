@@ -51,8 +51,7 @@ class AlignedTextColumnPrinter : public TablePrinter {
   void AddRow(const std::vector<std::string> &row) final {
     CHECK_EQ(row.size(), widths_.size());
     // Filter out early, so that we can have compact column widths.
-    if (highligther_.HasExpressions() &&
-        !highligther_.Match(absl::StrJoin(row, "\t"), nullptr)) {
+    if (!highligther_.Match(absl::StrJoin(row, "\t"), nullptr)) {
       return;
     }
 

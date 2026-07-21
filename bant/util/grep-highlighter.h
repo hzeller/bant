@@ -50,8 +50,6 @@ class GrepHighlighter {
   bool AddExcludeExpressions(const std::vector<std::string> &regex_list,
                              bool case_insensitive, std::ostream &error_out);
 
-  bool HasExpressions() const { return !matchers_.empty(); }
-
   // Match content and, if decorator is provided, add terminal markups
   // to decorator. If regexp list is empty, by definition this is a match.
   //
