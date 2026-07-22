@@ -47,6 +47,19 @@ class VariableSubstituteCopyTest : public ::testing::Test {
   Arena arena_{4096};
 };
 
+TEST_F(VariableSubstituteCopyTest, DeepCopyOfScalarLiteralsIsSame) {
+  constexpr std::string_view kOriginal = R"(
+foo(
+  name = 1 + 2
+)
+)";
+
+  const query::KwMap no_vars;
+  Node *const original = Parse(kOriginal);
+  Node *const copy = VariableSubstituteCopy(original, arena(), no_vars);
+  EXPECT_EQ(original, copy);  // Deep copy, but all scalar literals.
+}
+
 TEST_F(VariableSubstituteCopyTest, TestVarReplacement) {
   constexpr std::string_view kOriginal = R"(
 foo(
@@ -60,9 +73,10 @@ foo(
 
   {
     const query::KwMap no_vars;
-    const Node *const no_substitue =
+    Node *const no_substitue =
       VariableSubstituteCopy(original, arena(), no_vars);
-    EXPECT_EQ(original, no_substitue);  // No variables, no new nodes.
+    EXPECT_NE(original, no_substitue);  // Deep copy, no same
+    EXPECT_EQ(ToString(original), ToString(no_substitue));
   }
 
   {

@@ -100,7 +100,8 @@ class VariableSubstituteCopyVisitor : public NodeVisitor {
 
   Node *VisitIdentifier(Identifier *i) override {
     auto found = variables_.find(i->id());
-    return found != variables_.end() ? found->second : i;
+    if (found != variables_.end()) return found->second;
+    return Make<Identifier>(i->id());
   }
 
   Node *VisitScalar(Scalar *s) override { return s; }  // identity.
