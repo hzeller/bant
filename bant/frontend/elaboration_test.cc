@@ -93,7 +93,7 @@ class ElaborationTest : public ::testing::Test {
 
     CheckAllStringsLocatableVisitor(pp_.project())
       .WalkNonNull(elaborated_->ast);
-    return {ToString(after_elaboration), ToString(expected_parsed->ast)};
+    return {ToString(expected_parsed->ast), ToString(after_elaboration)};
   }
 
   // Like ElabInPackageAndPrint(), but default package to //elab.

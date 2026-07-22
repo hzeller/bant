@@ -203,6 +203,19 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     BinOpNode *bin_op = post_visit->CastAsBinOp();  // still binop ?
     if (!bin_op) return post_visit;
 
+    // Bin-ops not handled here.
+    if (bin_op->op() == '[') {
+      return HandleArrayOrSliceAccess(bin_op);
+    }
+    if (bin_op->op() == ':') {
+      return bin_op;  // map/slice 'operator'. Not doing anything with it here.
+    }
+
+    // Everyone else requires both operands to be available.
+    if (!bin_op->left() && !bin_op->right()) return bin_op;
+    if (!bin_op->left()) return bin_op->right();
+    if (!bin_op->right()) return bin_op->left();
+
     // Some of the following ops are only partially implemented. If they
     // are, we return from there, otherwise we end up at the bottom to
     // report a worthwhile operation to implement.
@@ -329,9 +342,6 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
       }
       break;
     }
-    case '[': {
-      return HandleArrayOrSliceAccess(bin_op);
-    }
 
     case kLessThan:
     case kLessEqual:
@@ -365,10 +375,6 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
         return f_.MakeBoolWithStringRep(location, result);
       }
     } break;
-
-      // Operations that we don't worry about reporting as non-implmeneted.
-    case ':':  // map element 'operator'. Not doing anything with it.
-      return bin_op;
 
     case kIn:
     case kNotIn: {
