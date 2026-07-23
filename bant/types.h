@@ -22,12 +22,21 @@
 
 #include "absl/container/btree_map.h"
 #include "absl/container/btree_set.h"
+#include "absl/container/flat_hash_map.h"
 
 // Some convenient types to emphasize the relationship rather than the
-// implementation.
+// implementation. The default versions with short names are ordered, which
+// allows some stable outputs on printing.
+// TODO: this should also be encoded in some type-traits, so that we can
+// create compilation issues for anything that iterates and prints.
 
+// A 1:1 relationship with a sorted iteration order.
 template <typename K, typename V>
 using OneToOne = absl::btree_map<K, V>;
+
+// A 1:1 optimized for Look-up, but random iteration order
+template <typename K, typename V>
+using OneToOneForLookup = absl::flat_hash_map<K, V>;
 
 template <typename K, typename V>
 using OneToNSet = absl::btree_map<K, absl::btree_set<V>>;

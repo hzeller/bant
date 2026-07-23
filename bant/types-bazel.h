@@ -61,6 +61,11 @@ struct BazelPackage {
   std::string_view MakeRelative(std::string_view fqn_file) const;
 
   auto operator<=>(const BazelPackage &o) const = default;
+
+  template <typename H>
+  friend H AbslHashValue(H h, const BazelPackage &p) {
+    return H::combine(std::move(h), p.project, p.path);
+  }
 };
 
 inline std::ostream &operator<<(std::ostream &o, const BazelPackage &p) {
@@ -87,6 +92,11 @@ class BazelTarget {
   std::string ToStringRelativeTo(const BazelPackage &other_package) const;
 
   auto operator<=>(const BazelTarget &o) const = default;
+
+  template <typename H>
+  friend H AbslHashValue(H h, const BazelTarget &t) {
+    return H::combine(std::move(h), t.package, t.target_name);
+  }
 
  private:
   friend BazelPackage;

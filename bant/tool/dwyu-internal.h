@@ -25,7 +25,6 @@
 #include <string_view>
 #include <vector>
 
-#include "absl/container/btree_map.h"
 #include "absl/container/btree_set.h"
 #include "bant/explore/project-indexing.h"
 #include "bant/explore/query-utils.h"
@@ -179,16 +178,20 @@ class DWYUGenerator {
   Session &session_;
   const ParsedProject &project_;
   const EditCallback emit_deps_edit_;
+
+  // Local indices.
+  OneToOneForLookup<BazelTarget, query::Result> known_libs_;
   TargetProvidedFiles filegroups_;
   PackageGroups packagegroups_;
   ProvidedFromTargetSet headers_from_libs_;
   ProvidedFromTargetSet protos_from_libs_;
   ProvidedFromTarget files_from_genrules_;
-  using TargetDefineMap = OneToOne<bant::BazelTarget, DefineMap>;
-  TargetDefineMap defines_for_targets_;
-  absl::btree_map<BazelTarget, query::Result> known_libs_;
 
-  // Collected information that is later emitted as summary
+  using TargetDefineMap = OneToOneForLookup<bant::BazelTarget, DefineMap>;
+  TargetDefineMap defines_for_targets_;
+
+  // Collected information that is later emitted as summary, so should be
+  // ordered.
   absl::btree_set<BazelTarget> suggested_genrules_to_run_;
   OneToNSet<std::string, std::string> header_without_provider_;
 };

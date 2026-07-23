@@ -70,7 +70,10 @@ cc_binary(
 cc_library(
     name = "types",
     hdrs = ["types.h"],
-    deps = ["@abseil-cpp//absl/container:btree"],
+    deps = [
+        "@abseil-cpp//absl/container:btree",
+        "@abseil-cpp//absl/container:flat_hash_map",
+    ],
 )
 
 cc_library(
