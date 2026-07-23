@@ -209,6 +209,7 @@ CliStatus RunCommand(Session &session, Command cmd,
     BestEffortAugmentFromExternalDir(session, workspace_or.value());
   }
   const bant::BazelWorkspace &workspace = workspace_or.value();
+  ApplyBazelIgnore(workspace);
 
   // We keep ownership of the link builder to avoid circuclar dependencies.
   // Handing the pointer to the session, as needed deep internally.

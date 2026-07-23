@@ -74,13 +74,17 @@ struct BazelWorkspace {
 // external projects the workspace references.
 std::optional<BazelWorkspace> LoadWorkspace(Session &session);
 
-// Some projects somewhat obfuscate the dependencies (looking at you, XLS),
-// by putting deps in various bzl files instead of a simple toplevel
-// WORKSPACE or MODULE.bazel.
+// Some projects somewhat obfuscate the dependencies by putting deps in various
+// bzl files instead of a simple toplevel WORKSPACE or MODULE.bazel.
 // Do some fallback by checking the directories these projects end up.
 // (Stored with lower stratum kDirectoryFound)
 bool BestEffortAugmentFromExternalDir(Session &session,
                                       BazelWorkspace &workspace);
+
+// For each of the projects in the workspace, look for .bazelignore and
+// prevent future reading of the mentioned directories.
+// Return number of .bazelignore's found in the workspace.
+int ApplyBazelIgnore(const BazelWorkspace &workspace);
 
 }  // namespace bant
 

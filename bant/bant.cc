@@ -59,7 +59,6 @@ extern int optind;    // NOLINT
 // Generated from at compile time from git tag or MODULE.bazel version
 #include "bant/generated-build-version.h"
 #include "bant/util/filesystem-prewarm-cache.h"
-#include "bant/util/filesystem.h"
 
 #define BOLD  "\033[1m"
 #define RED   "\033[1;31m"
@@ -239,23 +238,6 @@ static void ExtractCustomFlags(int *argc, char *argv[],
     argv[out_arg++] = argv[i];
   }
   *argc = out_arg;
-}
-
-static void PossiblyApplyBazelIgnore(bant::Filesystem &fs) {
-  std::fstream input(".bazelignore", std::ios::in | std::ios::binary);
-  if (!input.good()) return;
-  std::string line;
-  while (std::getline(input, line)) {
-    if (line.empty() || line.starts_with('#')) continue;
-    fs.SetAlwaysReportEmptyDirectory(line);  // poison cached dir to be empty
-  }
-}
-
-static bool PrewarmAndPrepareFilesystem(
-  bant::Session &session, absl::Span<const std::string_view> pos_args) {
-  const bool did_prewarm = bant::FilesystemPrewarmCacheInit(session, pos_args);
-  PossiblyApplyBazelIgnore(bant::Filesystem::instance());
-  return did_prewarm;
 }
 
 template <typename OptEnum>
@@ -488,7 +470,7 @@ int main(int argc, char *argv[]) {
       positional_args.emplace_back(argv[i]);
     }
 
-    did_prewarm = PrewarmAndPrepareFilesystem(session, positional_args);
+    did_prewarm = bant::FilesystemPrewarmCacheInit(session, positional_args);
     result = RunCliCommand(session, positional_args);
     if (result == bant::CliStatus::kExitCommandlineClarification) {
       session.error() << "\n\n";  // A bit more space to let message stand out.

@@ -26,7 +26,9 @@
 #include <string_view>
 #include <vector>
 
+#include "absl/strings/ascii.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_split.h"
 #include "bant/explore/query-utils.h"
 #include "bant/frontend/ast.h"
 #include "bant/frontend/named-content.h"
@@ -258,6 +260,32 @@ static void DetermineExternalBaseDirMaybeSymlinked(BazelWorkspace *workspace) {
       break;
     }
   }
+}
+
+// If .bazelignore is in given directory, apply it.
+static bool PossiblyApplyBazelIgnore(bant::Filesystem &fs,
+                                     std::string_view dir) {
+  FilesystemPath bazel_ignore(dir, ".bazelignore");
+  const auto &content = fs.ReadFileToString(bazel_ignore.path());
+  if (!content.has_value()) return false;
+  for (std::string_view line : absl::StrSplit(*content, '\n')) {
+    line = absl::StripAsciiWhitespace(line);
+    if (line.empty() || line.starts_with('#')) continue;
+    const FilesystemPath ignore_dir(dir, line);
+    // Poison cached dir to be empty, so we won't recurse into it.
+    fs.SetAlwaysReportEmptyDirectory(ignore_dir.path());
+  }
+  return true;
+}
+
+int ApplyBazelIgnore(const BazelWorkspace &workspace) {
+  Filesystem &fs = Filesystem::instance();
+  int count = 0;
+  count += PossiblyApplyBazelIgnore(fs, ".");
+  for (const auto &[_, path] : workspace.project_location) {
+    count += PossiblyApplyBazelIgnore(fs, path.path());
+  }
+  return count;
 }
 
 std::optional<BazelWorkspace> LoadWorkspace(Session &session) {
