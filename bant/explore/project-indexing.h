@@ -27,10 +27,8 @@
 
 #include "absl/container/btree_set.h"
 #include "bant/frontend/parsed-project.h"
-#include "bant/session.h"
 #include "bant/types-bazel.h"
 #include "bant/types.h"
-#include "bant/workspace.h"
 
 // Create various useful indexes and collections from the project.
 
@@ -136,30 +134,6 @@ struct FindResult {
 std::optional<FindResult> FindBySuffix(const ProvidedFromTargetSet &index,
                                        std::string_view key,
                                        size_t min_fuzzy_paths = 2);
-
-// Pretty-print provided files and targets they are coming from in two columns.
-void PrintProvidedSources(Session &session, const std::string &table_header,
-                          const BazelTargetMatcher &filter,
-                          const ProvidedFromTarget &provided_from_lib);
-
-void PrintProvidedSources(Session &session, const std::string &table_header,
-                          const BazelTargetMatcher &filter,
-                          const ProvidedFromTargetSet &provided_from_lib);
-
-// Print filegroup-like set, mapping BazelTarget -> filestheyprovide*
-// Makes files fully qualified
-void PrintTargetFileSet(Session &session, const BazelWorkspace &workspace,
-                        const BazelTargetMatcher &filter,
-                        const TargetProvidedFiles &target_to_files);
-
-// Print OneToN package group to list of patterns (cave: currently the table
-// header writes 'pattern')
-void PrintTargetToN(Session &session, const BazelWorkspace &workspace,
-                    const BazelTargetMatcher &filter,
-                    const PackageGroups &pkg_groups);
-
-void PrintFileToFileSet(Session &session,
-                        const HeaderToCanonicalHeader &header_to_headers);
 
 }  // namespace bant
 

@@ -35,13 +35,9 @@
 #include "bant/explore/query-utils.h"
 #include "bant/frontend/ast.h"
 #include "bant/frontend/parsed-project.h"
-#include "bant/session.h"
 #include "bant/types-bazel.h"
 #include "bant/types.h"
 #include "bant/util/filesystem.h"
-#include "bant/util/grep-highlighter.h"
-#include "bant/util/table-printer.h"
-#include "bant/workspace.h"
 
 // The header providers maps header filenames to all the libraries that
 // provide these, including all the alises pointing to these libraries.
@@ -717,117 +713,5 @@ std::optional<FindResult> FindBySuffix(const ProvidedFromTargetSet &index,
     .target_set = &best->second,
     .fuzzy_score = static_cast<int>(best_common_path_elements),
   };
-}
-
-void PrintProvidedSources(Session &session, const std::string &table_header,
-                          const BazelTargetMatcher &filter,
-                          const ProvidedFromTarget &provided_from_lib) {
-  auto highlighter = CreateGrepHighlighterFromFlags(session);
-  if (!highlighter) return;
-  auto printer =
-    TablePrinter::Create(session.out(), session.flags().output_format,
-                         *highlighter, {table_header, "providing-rule"});
-  for (const auto &[provided, lib] : provided_from_lib) {
-    if (!filter.Match(lib)) continue;
-    printer->AddRow({provided, lib.ToString()});
-  }
-  printer->Finish(session.flags().column_select);
-}
-
-void PrintProvidedSources(Session &session, const std::string &table_header,
-                          const BazelTargetMatcher &filter,
-                          const ProvidedFromTargetSet &provided_from_lib) {
-  const auto dup_handling = session.flags().duplicate_handling;
-  auto highlighter = CreateGrepHighlighterFromFlags(session);
-  if (!highlighter) return;
-  auto printer =
-    TablePrinter::Create(session.out(), session.flags().output_format,
-                         *highlighter, {table_header, "providing-rule"});
-  for (const auto &[provided, libs] : provided_from_lib) {
-    if (dup_handling == DuplicateHandling::kOutputOnlyDuplicates &&
-        libs.size() == 1) {
-      continue;
-    }
-    if (dup_handling == DuplicateHandling::kOutputOnlyUnique &&
-        libs.size() != 1) {
-      continue;
-    }
-    std::vector<std::string> list;
-    for (const BazelTarget &target : libs) {
-      if (filter.Match(target)) list.push_back(target.ToString());
-    }
-    printer->AddRowWithRepeatedLastColumn({provided}, list);
-  }
-  printer->Finish(session.flags().column_select);
-}
-
-void PrintTargetFileSet(Session &session, const BazelWorkspace &workspace,
-                        const BazelTargetMatcher &filter,
-                        const TargetProvidedFiles &target_to_files) {
-  auto highlighter = CreateGrepHighlighterFromFlags(session);
-  if (!highlighter) return;
-  auto printer =
-    TablePrinter::Create(session.out(), session.flags().output_format,
-                         *highlighter, {"label", "files"});
-  for (const auto &[target, files] : target_to_files) {
-    if (!filter.Match(target)) continue;
-    std::vector<std::string> list;
-    for (const std::string_view package_relative_file : files) {
-      list.emplace_back(
-        target.package.FullyQualifiedFile(workspace, package_relative_file));
-    }
-    printer->AddRowWithRepeatedLastColumn({target.ToString()}, list);
-  }
-  printer->Finish(session.flags().column_select);
-}
-
-void PrintTargetToN(Session &session, const BazelWorkspace &workspace,
-                    const BazelTargetMatcher &filter,
-                    const PackageGroups &pkg_groups) {
-  auto highlighter = CreateGrepHighlighterFromFlags(session);
-  if (!highlighter) return;
-  auto printer =
-    TablePrinter::Create(session.out(), session.flags().output_format,
-                         *highlighter, {"label", "pattern"});
-  for (const auto &[target, _] : pkg_groups) {
-    if (!filter.Match(target)) continue;
-    std::vector<std::string> list;
-    for (auto p : ResolvePackageGroupPatterns(pkg_groups, target)) {
-      list.emplace_back(p);
-    }
-    printer->AddRowWithRepeatedLastColumn({target.ToString()}, list);
-  }
-  printer->Finish(session.flags().column_select);
-}
-
-void PrintFileToFileSet(Session &session,
-                        const HeaderToCanonicalHeader &header_to_headers) {
-  const auto dup_handling = session.flags().duplicate_handling;
-  const bool suppress_same = session.flags().suppress_same;
-  auto highlighter = CreateGrepHighlighterFromFlags(session);
-  if (!highlighter) return;
-  auto printer =
-    TablePrinter::Create(session.out(), session.flags().output_format,
-                         *highlighter, {"source", "canonical-source"});
-  for (const auto &[header, files] : header_to_headers) {
-    std::vector<std::string> list;
-    for (const std::string &s : files) {
-      if (suppress_same && header == s) continue;
-      list.emplace_back(s);
-    }
-    if (list.empty()) continue;
-
-    if (dup_handling == DuplicateHandling::kOutputOnlyDuplicates &&
-        list.size() == 1) {
-      continue;
-    }
-    if (dup_handling == DuplicateHandling::kOutputOnlyUnique &&
-        list.size() != 1) {
-      continue;
-    }
-
-    printer->AddRowWithRepeatedLastColumn({std::string{header}}, list);
-  }
-  printer->Finish(session.flags().column_select);
 }
 }  // namespace bant

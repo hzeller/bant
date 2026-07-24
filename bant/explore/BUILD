@@ -56,10 +56,12 @@ cc_library(
     name = "project-indexing",
     srcs = [
         "aliased-by.cc",
+        "index-printing.cc",
         "project-indexing.cc",
     ],
     hdrs = [
         "aliased-by.h",
+        "index-printing.h",
         "project-indexing.h",
     ],
     deps = [
