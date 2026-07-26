@@ -77,7 +77,7 @@ void FilesystemPrewarmCache::InitCacheFile(bant::Session &session,
   Filesystem &fs = Filesystem::instance();
 
   if (input.good()) {
-    auto &stat = session.GetStatsFor("Filesystem pre-warm", "files/dirs");
+    auto &stat = session.GetStatsFor("Filesystem cache populate", "files/dirs");
     const ScopedTimer timer(&stat.duration);
     pool_ = std::make_unique<ThreadPool>(kPrewarmParallelism);
     std::string line;
