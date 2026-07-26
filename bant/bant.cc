@@ -318,6 +318,8 @@ int main(int argc, char *argv[]) {
     { "color",         required_argument, nullptr, OPT_COLOR    },
     { "column",        required_argument, nullptr, 'c' },
     { "links",         required_argument, nullptr, OPT_HYPERLINKS  },
+    { "duplicate",     no_argument,       nullptr, 'd'          },
+    { "unique",        no_argument,       nullptr, 'u'          },
     { "quiet",         no_argument,       nullptr, 'q'          },
     { "grep",          required_argument, nullptr, 'g'          },
     { "exclude-match", required_argument, nullptr, 'G'          },
