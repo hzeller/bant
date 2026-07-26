@@ -911,7 +911,7 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     const VariableBundle &bzl_variables = project_->GetOrAddStarlarkContent(
       session_, starlark_reference, *bazel_ref,
       [&](List *ast, VariableBundle *bundle) {
-        ElaborationOptions starlark_options;
+        ElaborationOptions starlark_options(options_);
         starlark_options.expand_load_functions = false;  // Don't chase further
         starlark_options.builtin_macro_expansion = false;
         // Elaborate that file and extract variables.
