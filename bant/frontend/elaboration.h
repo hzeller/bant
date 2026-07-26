@@ -34,6 +34,10 @@ struct ElaborationOptions {
   bool builtin_macro_expansion = false;
   bool expand_load_functions = true;
   absl::flat_hash_set<BazelTarget> enabled_configurations;
+
+  // TODO: an option that chooses to evaluate _all_ configurations, e.g. if
+  // there is a select, follow all of them. This can be helpful in building
+  // the dependency graph by including a superset of potential options.
 };
 
 // Elaborate and modify given AST in the context of the parsed project.
