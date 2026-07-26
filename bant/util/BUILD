@@ -40,6 +40,7 @@ cc_library(
     hdrs = ["table-printer.h"],
     deps = [
         ":grep-highlighter",
+        ":term-color",
         "//bant:session",
         "@abseil-cpp//absl/log:check",
         "@abseil-cpp//absl/strings",

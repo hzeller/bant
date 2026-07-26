@@ -612,7 +612,8 @@ CliStatus RunCliCommand(Session &session, std::span<std::string_view> args) {
     return *dbg_result;
   }
 
-  if (cmd != Command::kCompilationDB && cmd != Command::kCompileFlags) {
+  if (cmd != Command::kCompilationDB && cmd != Command::kCompileFlags &&
+      cmd != Command::kListWorkkspace) {
     if (!patterns.HasFilter()) {
       session.error() << "Please provide a bazel pattern for this command.\n"
                       << "Examples: //... or //foo/bar:baz\n";

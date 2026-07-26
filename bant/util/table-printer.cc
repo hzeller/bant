@@ -17,8 +17,11 @@
 
 #include "bant/util/table-printer.h"
 
+#include <unistd.h>
+
 #include <algorithm>
 #include <cstddef>
+#include <iostream>
 #include <iterator>
 #include <memory>
 #include <ostream>
@@ -33,6 +36,7 @@
 #include "absl/strings/str_join.h"
 #include "bant/output-format.h"
 #include "bant/util/grep-highlighter.h"
+#include "bant/util/term-color.h"
 
 namespace bant {
 namespace {
@@ -44,9 +48,17 @@ class AlignedTextColumnPrinter : public TablePrinter {
                            const GrepHighlighter &highligther,
                            const std::vector<std::string> &headers)
       : out_(out),
+        // TODO: the print table header should be chosen by flag do_color.
+        print_table_header_(isatty(STDOUT_FILENO)),
         highligther_(highligther),
         headers_(headers),
-        widths_(headers.size()) {}
+        widths_(headers.size()) {
+    if (print_table_header_) {
+      for (size_t i = 0; i < headers.size(); ++i) {
+        widths_[i] = headers[i].length();
+      }
+    }
+  }
 
   void AddRow(const std::vector<std::string> &row) final {
     CHECK_EQ(row.size(), widths_.size());
@@ -80,6 +92,19 @@ class AlignedTextColumnPrinter : public TablePrinter {
     // Print compact, but if it is only one row, keep the space a bit more
     // as the eye does not have an 'column alignment' hint.
     const int min_space = buffer_.size() < 2 ? 4 : 1;
+
+    if (print_table_header_) {
+      std::cerr << Dim(true);
+      for (size_t i = 0; i < headers_.size(); ++i) {
+        if (column_selector > 0 && std::cmp_not_equal(i + 1, column_selector)) {
+          continue;
+        }
+        std::cerr << absl::StrFormat("%*s", -widths_[i] - min_space,
+                                     headers_[i]);
+      }
+      std::cerr << Norm(true) << "\n";
+    }
+
     for (const auto &row : buffer_) {
       std::stringstream row_out;
       for (size_t i = 0; i < widths_.size(); ++i) {
@@ -100,6 +125,7 @@ class AlignedTextColumnPrinter : public TablePrinter {
 
  private:
   std::ostream &out_;
+  const bool print_table_header_;
   const GrepHighlighter &highligther_;
   const std::vector<std::string> headers_;
   // Buffer to keep while determining the print width;
