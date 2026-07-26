@@ -746,9 +746,9 @@ static bool AllFlagValuesInMap(Node *flag_value_node, const FlagValueMap &flags,
 }
 
 static absl::flat_hash_map<std::string, std::string> SplitFlagNameValue(
-  const Session &session) {
+  const CommandlineFlags &flags) {
   absl::flat_hash_map<std::string, std::string> result;
-  for (const std::string &flag : session.flags().custom_flags) {
+  for (const std::string &flag : flags.custom_flags) {
     std::pair<std::string, std::string> kv =
       absl::StrSplit(flag, absl::MaxSplits('=', 1));
     result.emplace(kv);
@@ -756,9 +756,9 @@ static absl::flat_hash_map<std::string, std::string> SplitFlagNameValue(
   return result;
 }
 
-FlagValueMap ExtractConfigFlagValues(const Session &session,
+FlagValueMap ExtractConfigFlagValues(const CommandlineFlags &flags,
                                      const ParsedProject &project) {
-  const auto cmdline_flags = SplitFlagNameValue(session);
+  const auto cmdline_flags = SplitFlagNameValue(flags);
   FlagValueMap result;
   for (const auto &[_, file_content] : project.ParsedFiles()) {
     if (!file_content->ast) continue;
@@ -802,10 +802,10 @@ FlagValueMap ExtractConfigFlagValues(const Session &session,
   return result;
 }
 
-ConfigSettings ExtractConfigSettings(const Session &session,
+ConfigSettings ExtractConfigSettings(const CommandlineFlags &flags,
                                      const ParsedProject &project) {
   // Settings provided on the command line take precedence
-  const FlagValueMap flag_values = ExtractConfigFlagValues(session, project);
+  const FlagValueMap flag_values = ExtractConfigFlagValues(flags, project);
 
   ConfigSettings result;
   for (const auto &[_, file_content] : project.ParsedFiles()) {

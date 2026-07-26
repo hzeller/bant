@@ -94,12 +94,8 @@ struct ReadFileResult {
 void FindAndParseMissingPackages(ThreadPool *io_thread_pool, Session &session,
                                  const std::set<BazelPackage> &want,
                                  std::set<BazelPackage> *error_packages,
+                                 const ElaborationOptions &elab_base_options,
                                  ParsedProject *project) {
-  // TODO: we should get this handed down when calling dependency graph as
-  // we might have interesting configuration options.
-  static ElaborationOptions kAlwaysMaccroExpand{
-    .builtin_macro_expansion = true,
-  };
   const BazelWorkspace &workspace = project->workspace();
 
   // Enqueue file reading into thread pool, then collect results in bottom half.
@@ -121,6 +117,9 @@ void FindAndParseMissingPackages(ThreadPool *io_thread_pool, Session &session,
     async_resolved.emplace_back(io_thread_pool->ExecAsync(fun));
   }
 
+  ElaborationOptions elab_options(elab_base_options);
+  elab_options.builtin_macro_expansion = true;
+
   // Harvest all the results. NB: This is single threaded, so all operations
   // on session, project and arena are safe without mutexes.
   for (auto &processed : async_resolved) {
@@ -136,7 +135,7 @@ void FindAndParseMissingPackages(ThreadPool *io_thread_pool, Session &session,
     ParsedBuildFile *file = project->AddBuildFileContent(
       session, *result.package, *result.path, std::move(*result.content),
       result.read_stats, false);
-    bant::Elaborate(session, project, kAlwaysMaccroExpand, file);
+    bant::Elaborate(session, project, elab_options, file);
   }
 }
 
@@ -219,6 +218,7 @@ static OneToOne<std::string, std::string> FlattenTargetsToString(
 DependencyGraph BuildDependencyGraph(Session &session,
                                      const BazelTargetMatcher &pattern,
                                      int nesting_depth, ParsedProject *project,
+                                     const ElaborationOptions &elab_options,
                                      const TargetInGraphCallback &walk_cb) {
   ThreadPool io_thread_pool(session.flags().io_threads);
   // Follow all rules for now.
@@ -288,7 +288,7 @@ DependencyGraph BuildDependencyGraph(Session &session,
 
     // Make sure that we have parsed all packages we're looking through.
     FindAndParseMissingPackages(&io_thread_pool, session, scan_package,
-                                &error_packages, project);
+                                &error_packages, elab_options, project);
 
     NeedDependencyWithOneExample next_round_deps_to_resolve_todo;
     for (const BazelPackage &current_package : scan_package) {

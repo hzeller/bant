@@ -144,13 +144,13 @@ struct FlagConfig {
 using FlagValueMap = OneToOne<BazelTarget, FlagConfig>;
 // Extract available flags and their defaults in project, and set active_value
 // depending on command line flags.
-FlagValueMap ExtractConfigFlagValues(const Session &session,
+FlagValueMap ExtractConfigFlagValues(const CommandlineFlags &flags,
                                      const ParsedProject &project);
 
 using ConfigSettings = OneToOne<BazelTarget, bool>;
 // Extract available config settings, and if they are currently set.
 // Uses the flags provided in the session.
-ConfigSettings ExtractConfigSettings(const Session &session,
+ConfigSettings ExtractConfigSettings(const CommandlineFlags &flags,
                                      const ParsedProject &project);
 
 }  // namespace bant

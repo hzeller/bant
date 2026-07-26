@@ -36,6 +36,7 @@
 #include "absl/strings/str_split.h"
 #include "bant/explore/dependency-graph.h"
 #include "bant/explore/query-utils.h"
+#include "bant/frontend/elaboration.h"
 #include "bant/frontend/parsed-project.h"
 #include "bant/session.h"
 #include "bant/types-bazel.h"
@@ -235,11 +236,14 @@ std::vector<std::string> CollectIncDirs(Session &session,
   result.emplace_back("bazel-bin");  // Generated files.
   result.emplace_back(kBazelRoot);   // Root for all external/
 
+  // TODO: once we have a 'walk all branches of a select()' config,
+  // set that. In the compilation db we want the superset of needed deps.
+  ElaborationOptions elab_options{.builtin_macro_expansion = true};
   // All the -I (or more precisely: -iquote) directories.
   const BazelWorkspace &workspace = project->workspace();
   DuplicationCheckSet already_seen;
   BuildDependencyGraph(
-    session, pattern, 30, project,
+    session, pattern, 30, project, elab_options,
     [&](const BazelTarget &target, const query::Result &details) {
       const BazelPackage &current_package = target.package;
       // If we're one of those targets that come with the own -I prefix,

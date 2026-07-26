@@ -21,6 +21,7 @@
 #include <functional>
 
 #include "bant/explore/query-utils.h"
+#include "bant/frontend/elaboration.h"
 #include "bant/frontend/parsed-project.h"
 #include "bant/session.h"
 #include "bant/types-bazel.h"
@@ -47,6 +48,7 @@ using TargetInGraphCallback =
 DependencyGraph BuildDependencyGraph(Session &session,
                                      const BazelTargetMatcher &pattern,
                                      int nesting_depth, ParsedProject *project,
+                                     const ElaborationOptions &elab_options,
                                      const TargetInGraphCallback &cb = nullptr);
 }  // namespace bant
 

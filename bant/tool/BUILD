@@ -151,6 +151,7 @@ cc_library(
         "//bant:workspace",
         "//bant/explore:dependency-graph",
         "//bant/explore:query-utils",
+        "//bant/frontend:elaboration",
         "//bant/frontend:parsed-project",
         "//bant/util:file-utils",
         "@abseil-cpp//absl/container:flat_hash_set",

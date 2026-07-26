@@ -655,35 +655,29 @@ int_flag(
 )
 )");
   {
-    std::stringstream log;
-    Session session(&log, &log, &log, {.custom_flags = {}});
-    auto configs = ExtractConfigSettings(session, pp.project());
+    const CommandlineFlags flags{.custom_flags = {}};
+    auto configs = ExtractConfigSettings(flags, pp.project());
     EXPECT_THAT(configs, Contains(Pair(T("//package:foo_config"), false)));
     EXPECT_THAT(configs, Contains(Pair(T("//package:bar_config"), false)));
   }
   {
-    std::stringstream log;
-    Session session(&log, &log, &log,
-                    {.custom_flags = {"//package:foo_flag=false",  //
-                                      "//package:bar_flag=43"}});
-    auto configs = ExtractConfigSettings(session, pp.project());
+    const CommandlineFlags flags{
+      .custom_flags = {"//package:foo_flag=false", "//package:bar_flag=43"}};
+    auto configs = ExtractConfigSettings(flags, pp.project());
     EXPECT_THAT(configs, Contains(Pair(T("//package:foo_config"), false)));
     EXPECT_THAT(configs, Contains(Pair(T("//package:bar_config"), false)));
   }
   {
-    std::stringstream log;
-    Session session(&log, &log, &log,
-                    {.custom_flags = {"//package:foo_flag=true",  //
-                                      "//package:bar_flag=42"}});
-    auto configs = ExtractConfigSettings(session, pp.project());
+    const CommandlineFlags flags{.custom_flags = {"//package:foo_flag=true",  //
+                                                  "//package:bar_flag=42"}};
+    auto configs = ExtractConfigSettings(flags, pp.project());
     EXPECT_THAT(configs, Contains(Pair(T("//package:foo_config"), true)));
     EXPECT_THAT(configs, Contains(Pair(T("//package:bar_config"), true)));
   }
   {
     // A boolean flag without a given value is considered 'true'
-    std::stringstream log;
-    Session session(&log, &log, &log, {.custom_flags = {"//package:foo_flag"}});
-    auto configs = ExtractConfigSettings(session, pp.project());
+    const CommandlineFlags flags{.custom_flags = {"//package:foo_flag"}};
+    auto configs = ExtractConfigSettings(flags, pp.project());
     EXPECT_THAT(configs, Contains(Pair(T("//package:foo_config"), true)));
   }
 }

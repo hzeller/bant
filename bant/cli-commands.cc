@@ -120,6 +120,19 @@ static bool NeedsProjectPopulated(Command cmd,
   return true;
 }
 
+static ElaborationOptions GetElaborationOptionsFrom(
+  const CommandlineFlags &flags, const ParsedProject &project) {
+  ElaborationOptions options{.builtin_macro_expansion =
+                               flags.bant_macro_expand};
+  const auto config_settings = ExtractConfigSettings(flags, project);
+  for (const auto &[target, is_enabled] : config_settings) {
+    if (is_enabled) {
+      options.enabled_configurations.emplace(target);
+    }
+  }
+  return options;
+}
+
 // Not supported commands for debuggingg
 // If this is a debug command, run this here.
 // Right now, this is just a bare parsing/printing of a file (-F <filename>)
@@ -151,8 +164,7 @@ std::optional<CliStatus> RunDebugCommand(Session &session, Command cmd) {
   }
 
   if (session.flags().elaborate) {
-    const ElaborationOptions options{.builtin_macro_expansion =
-                                       session.flags().bant_macro_expand};
+    const auto options = GetElaborationOptionsFrom(session.flags(), project);
     Elaborate(session, &project, options, parsed);
   }
   if (cmd == Command::kPrint && parsed->ast) {
@@ -294,18 +306,9 @@ CliStatus RunCommand(Session &session, Command cmd,
     flags.bant_macro_expand = true;
   }
 
+  const auto elab_options = GetElaborationOptionsFrom(flags, project);
   if (flags.elaborate) {
-    ElaborationOptions options{.builtin_macro_expansion =
-                                 flags.bant_macro_expand};
-    const auto config_settings = ExtractConfigSettings(session, project);
-    for (const auto &[target, is_enabled] : config_settings) {
-      if (is_enabled) {
-        options.enabled_configurations.emplace(target);
-      }
-    }
-    // TODO: below, for the dependency graph expansion, we should use the
-    // same elab options.
-    bant::Elaborate(session, &project, options);
+    bant::Elaborate(session, &project, elab_options);
   }
 
   // TODO: move dependency graph creation to interested tools once they are
@@ -329,8 +332,9 @@ CliStatus RunCommand(Session &session, Command cmd,
   case Command::kHasDependents:
     if (flags.recurse_dependency_depth >= 0) {
       const size_t before_build_files = project.ParsedFiles().size();
-      graph = bant::BuildDependencyGraph(
-        session, build_graph_pattern, flags.recurse_dependency_depth, &project);
+      graph = bant::BuildDependencyGraph(session, build_graph_pattern,
+                                         flags.recurse_dependency_depth,
+                                         &project, elab_options);
       const size_t after_build_files = project.ParsedFiles().size();
       if (session.MinVerbosity(1)) {
         session.info()
@@ -527,11 +531,11 @@ CliStatus RunCommand(Session &session, Command cmd,
     break;
 
   case Command::kListConfigFlags:
-    PrintFlagValues(session, ExtractConfigFlagValues(session, project));
+    PrintFlagValues(session, ExtractConfigFlagValues(flags, project));
     break;
 
   case Command::kListConfigSettings:
-    PrintConfigSettings(session, ExtractConfigSettings(session, project));
+    PrintConfigSettings(session, ExtractConfigSettings(flags, project));
     break;
 
   case Command::kNone:  // nop (implicitly done by parsing)
