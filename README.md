@@ -281,14 +281,13 @@ fully qualified name of the target, as well as visibility.
 
 ![print grep output](img/grep-print.png)
 
-Evaluation of [custom flags] in `select()` also works (partially: see note in
-[synopsis](#synopsis) output), and similar to
+Evaluation of [custom flags] in `select()` also works; similar to
 `bazel`, you pass these options with `--//...` to bant; let's use that
 to evaluate the effective content of the following rule:
 
 
 ```bash
-bant -e --//bant:static_linked_executables print bant:bant
+bant -e --//bant:create_static_linked_executables print bant:bant
 ```
 
 ### Workspace
@@ -530,7 +529,7 @@ overhead.
 ```
 bant v0.2.xx <http://bant.build/>
 Copyright (c) 2024-2026 Henner Zeller. This program is free software; GPL 3.0.
-Usage: bazel-bin/bant/bant [options] <command> [bazel-target-pattern...]
+Usage: bant [options] <command> [bazel-target-pattern...]
 Options
     -C <directory> : Change to this project directory first (default = '.')
     -q, --quiet    : Quiet: don't print info messages to stderr.
@@ -555,8 +554,7 @@ Options
     -v             : Verbose; print some stats. Multiple times: more verbose.
     -h             : This help.
     --//<option>   : configurable flag attribute to be used in select() and
-                     picked up by elaboration (-e) (experimental; does not yet
-                     read config_setting(), but flag value is used directly).
+                     picked up by elaboration (-e)
     --color=<opt>  : enable colored output. One of "auto", "never", "always"
                      Default "auto" or from environment variable BANT_COLOR
     --links=<opt>  : enable hyperlinks. One of "auto", "never", "always"
@@ -589,6 +587,11 @@ Commands (unique prefix sufficient):
                      → 3 column table: (buildfile:location, ruletype, target)
     list-filegroups: List all filegroups/genrule and the files they provide
                      → 2 column table: (target, file*)
+    list-flags     : List all config flags provided in build files.
+                     (active values will change if flag provided with --//)
+                     → 4 column table: (target, type, default_value, active)
+    list-settings: List all config settings and if they are enabled
+                     → 2 column table: (target, is_enabled)
     aliased-by     : List targets and the various aliases pointing to it.
                      → 2 column table: (actual, alias*)
     depends-on     : List cc library targets and the libraries they depend on

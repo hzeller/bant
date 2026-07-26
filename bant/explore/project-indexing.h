@@ -27,6 +27,7 @@
 
 #include "absl/container/btree_set.h"
 #include "bant/frontend/parsed-project.h"
+#include "bant/session.h"
 #include "bant/types-bazel.h"
 #include "bant/types.h"
 
@@ -134,6 +135,23 @@ struct FindResult {
 std::optional<FindResult> FindBySuffix(const ProvidedFromTargetSet &index,
                                        std::string_view key,
                                        size_t min_fuzzy_paths = 2);
+
+struct FlagConfig {
+  std::string_view flag_type;  // booL_flag, int_flag, ... ; locatable string
+  std::string default_value;
+  std::string active_value;
+};
+using FlagValueMap = OneToOne<BazelTarget, FlagConfig>;
+// Extract available flags and their defaults in project, and set active_value
+// depending on command line flags.
+FlagValueMap ExtractConfigFlagValues(const Session &session,
+                                     const ParsedProject &project);
+
+using ConfigSettings = OneToOne<BazelTarget, bool>;
+// Extract available config settings, and if they are currently set.
+// Uses the flags provided in the session.
+ConfigSettings ExtractConfigSettings(const Session &session,
+                                     const ParsedProject &project);
 
 }  // namespace bant
 

@@ -49,6 +49,9 @@ void PrintTargetToN(Session &session, const BazelWorkspace &workspace,
 
 void PrintFileToFileSet(Session &session,
                         const HeaderToCanonicalHeader &header_to_headers);
+
+void PrintFlagValues(Session &session, const FlagValueMap &flag_map);
+void PrintConfigSettings(Session &session, const ConfigSettings &configs);
 }  // namespace bant
 
 #endif  // BANT_PROJECT_INDEXING_PRINTING_

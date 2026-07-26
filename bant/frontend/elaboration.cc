@@ -81,12 +81,11 @@ using VariableBundle = ParsedProject::VariableBundle;
 class SimpleElaborator : public BaseNodeReplacementVisitor {
  public:
   SimpleElaborator(Session &session, ParsedProject *project,
-                   const BazelPackage &package,
-                   const ElaborationOptions &options,
+                   const BazelPackage &package, ElaborationOptions options,
                    VariableBundle *variable_storage)
       : session_(session),
         project_(project),
-        options_(options),
+        options_(std::move(options)),
         package_(package),
         f_(project),
         string_method_eval_(f_),
@@ -942,8 +941,11 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
         if (!map_item || map_item->op() != ':' || !map_item->left()) continue;
         const Scalar *const key = map_item->left()->CastAsScalar();
         if (!key) continue;
-        if (session_.flags().custom_flags.contains(key->AsString())) {
-          return map_item->right();
+        if (auto key_config = BazelTarget::ParseFrom(key->AsString(), package_);
+            key_config.has_value()) {
+          if (options_.enabled_configurations.contains(*key_config)) {
+            return map_item->right();  // configuration matches.
+          }
         }
         if (key->AsString() == "//conditions:default") {
           default_node = map_item->right();

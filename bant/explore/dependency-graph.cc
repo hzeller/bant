@@ -95,7 +95,9 @@ void FindAndParseMissingPackages(ThreadPool *io_thread_pool, Session &session,
                                  const std::set<BazelPackage> &want,
                                  std::set<BazelPackage> *error_packages,
                                  ParsedProject *project) {
-  static constexpr ElaborationOptions kAlwaysMaccroExpand{
+  // TODO: we should get this handed down when calling dependency graph as
+  // we might have interesting configuration options.
+  static ElaborationOptions kAlwaysMaccroExpand{
     .builtin_macro_expansion = true,
   };
   const BazelWorkspace &workspace = project->workspace();

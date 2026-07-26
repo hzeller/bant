@@ -22,6 +22,7 @@
 #ifndef BANT_ELABORATION_H
 #define BANT_ELABORATION_H
 
+#include "absl/container/flat_hash_set.h"
 #include "bant/frontend/ast.h"
 #include "bant/frontend/parsed-project.h"
 #include "bant/session.h"
@@ -32,6 +33,7 @@ namespace bant {
 struct ElaborationOptions {
   bool builtin_macro_expansion = false;
   bool expand_load_functions = true;
+  absl::flat_hash_set<BazelTarget> enabled_configurations;
 };
 
 // Elaborate and modify given AST in the context of the parsed project.

@@ -74,6 +74,8 @@ enum class Command {
   kListFilegroups,
   kListPackageGroups,
   kListWorkkspace,
+  kListConfigFlags,
+  kListConfigSettings,
   kTargetHdrs,
   kTargetSrcs,
   kTargetData,
@@ -293,8 +295,16 @@ CliStatus RunCommand(Session &session, Command cmd,
   }
 
   if (flags.elaborate) {
-    const ElaborationOptions options{.builtin_macro_expansion =
-                                       flags.bant_macro_expand};
+    ElaborationOptions options{.builtin_macro_expansion =
+                                 flags.bant_macro_expand};
+    const auto config_settings = ExtractConfigSettings(session, project);
+    for (const auto &[target, is_enabled] : config_settings) {
+      if (is_enabled) {
+        options.enabled_configurations.emplace(target);
+      }
+    }
+    // TODO: below, for the dependency graph expansion, we should use the
+    // same elab options.
     bant::Elaborate(session, &project, options);
   }
 
@@ -516,6 +526,14 @@ CliStatus RunCommand(Session &session, Command cmd,
 
     break;
 
+  case Command::kListConfigFlags:
+    PrintFlagValues(session, ExtractConfigFlagValues(session, project));
+    break;
+
+  case Command::kListConfigSettings:
+    PrintConfigSettings(session, ExtractConfigSettings(session, project));
+    break;
+
   case Command::kNone:  // nop (implicitly done by parsing)
     ;
   }
@@ -535,6 +553,8 @@ CliStatus RunCliCommand(Session &session, std::span<std::string_view> args) {
     {"list-leafs", Command::kListLeafs},
     {"list-filegroups", Command::kListFilegroups},
     {"list-packagegroups", Command::kListPackageGroups},
+    {"list-flags", Command::kListConfigFlags},
+    {"list-settings", Command::kListConfigSettings},
     {"workspace", Command::kListWorkkspace},
     {"target-hdrs", Command::kTargetHdrs},
     {"target-data", Command::kTargetData},
@@ -592,9 +612,7 @@ CliStatus RunCliCommand(Session &session, std::span<std::string_view> args) {
     return *dbg_result;
   }
 
-  // Don't look through everything for these.
-  if (cmd == Command::kCanonicalizeDeps || cmd == Command::kDWYU ||
-      cmd == Command::kPrint) {
+  if (cmd != Command::kCompilationDB && cmd != Command::kCompileFlags) {
     if (!patterns.HasFilter()) {
       session.error() << "Please provide a bazel pattern for this command.\n"
                       << "Examples: //... or //foo/bar:baz\n";

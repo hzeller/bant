@@ -141,4 +141,30 @@ void PrintFileToFileSet(Session &session,
   }
   printer->Finish(session.flags().column_select);
 }
+
+void PrintConfigSettings(Session &session, const ConfigSettings &configs) {
+  auto highlighter = CreateGrepHighlighterFromFlags(session);
+  if (!highlighter) return;
+  auto printer =
+    TablePrinter::Create(session.out(), session.flags().output_format,
+                         *highlighter, {"setting", "is_enabled"});
+  for (const auto &[target, is_enabled] : configs) {
+    printer->AddRow({target.ToString(), is_enabled ? "true" : "false"});
+  }
+  printer->Finish(session.flags().column_select);
+}
+
+void PrintFlagValues(Session &session, const FlagValueMap &flag_map) {
+  auto highlighter = CreateGrepHighlighterFromFlags(session);
+  if (!highlighter) return;
+  auto printer =
+    TablePrinter::Create(session.out(), session.flags().output_format,
+                         *highlighter, {"label", "type", "default", "active"});
+  for (const auto &[target, value] : flag_map) {
+    printer->AddRow({target.ToString(), std::string(value.flag_type),
+                     value.default_value, value.active_value});
+  }
+  printer->Finish(session.flags().column_select);
+}
+
 }  // namespace bant

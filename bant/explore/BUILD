@@ -76,6 +76,7 @@ cc_library(
         "//bant/util:grep-highlighter",
         "//bant/util:table-printer",
         "@abseil-cpp//absl/container:btree",
+        "@abseil-cpp//absl/container:flat_hash_map",
         "@abseil-cpp//absl/strings",
     ],
 )
@@ -85,6 +86,7 @@ cc_test(
     srcs = ["project-indexing_test.cc"],
     deps = [
         ":project-indexing",
+        "//bant:session",
         "//bant:types-bazel",
         "//bant/frontend:parsed-project_testutil",
         "@abseil-cpp//absl/log:check",

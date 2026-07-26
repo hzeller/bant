@@ -113,8 +113,7 @@ static int usage(const char *prog, const char *message, int exit_code) {
     -v             : Verbose; print some stats. Multiple times: more verbose.
     -h             : This help.
     --//<option>   : configurable flag attribute to be used in select() and
-                     picked up by elaboration (-e) (experimental; does not yet
-                     read config_setting(), but flag value is used directly).
+                     picked up by elaboration (-e)
     --color=<opt>  : enable colored output. One of "auto", "never", "always"
                      Default "auto" or from environment variable BANT_COLOR
     --links=<opt>  : enable hyperlinks. One of "auto", "never", "always"
@@ -147,6 +146,11 @@ Commands (unique prefix sufficient):
                      → 3 column table: (buildfile:location, ruletype, target)
     list-filegroups: List all filegroups/genrule and the files they provide
                      → 2 column table: (target, file*)
+    list-flags     : List all config flags provided in build files.
+                     (active values will change if flag provided with --//)
+                     → 4 column table: (target, type, default_value, active)
+    list-settings: List all config settings and if they are enabled
+                     → 2 column table: (target, is_enabled)
     aliased-by     : List targets and the various aliases pointing to it.
                      → 2 column table: (actual, alias*)
     depends-on     : List cc library targets and the libraries they depend on

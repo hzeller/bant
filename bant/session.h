@@ -87,7 +87,10 @@ struct CommandlineFlags {
   bool do_links = false;
   BracketIncHandling dwyu_bracket_include = BracketIncHandling::kAcknowledge;
   std::vector<std::string> graph_deps;  // augment dependency graph with these
+
   // https://bazel.build/docs/configurable-attributes#custom-flags
+  // all raw flags given on the command-line starting with --// including
+  // the =value part.
   absl::flat_hash_set<std::string> custom_flags;
   std::string direct_filename;  // internal debugging feature: just parse file
 };

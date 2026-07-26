@@ -24,6 +24,7 @@
 
 #include "absl/log/check.h"
 #include "bant/frontend/parsed-project_testutil.h"
+#include "bant/session.h"
 #include "bant/types-bazel.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -631,6 +632,60 @@ TEST(HeaderProviders, FindBySuffixTest) {
     ASSERT_HAS_VALUE(FindBySuffix(test_index, "hello/foo/bar/baz/qux.h"));
   EXPECT_EQ(result.fuzzy_score, 4);
   EXPECT_THAT(*result.target_set, ElementsAre(T("//foo")));
+}
+
+TEST(ConfigSetting, Extraction) {
+  ParsedProjectTestUtil pp;
+  pp.Add("//package", R"(
+config_setting(
+    name = "foo_config",
+    flag_values = {"//package:foo_flag" : "true"},  # fully qualified
+)
+config_setting(
+    name = "bar_config",
+    flag_values = {":bar_flag" : "42"},  # local qualified
+)
+bool_flag(
+   name = "foo_flag",
+   build_setting_default = False
+)
+int_flag(
+   name = "bar_flag",
+   build_setting_default = 0,
+)
+)");
+  {
+    std::stringstream log;
+    Session session(&log, &log, &log, {.custom_flags = {}});
+    auto configs = ExtractConfigSettings(session, pp.project());
+    EXPECT_THAT(configs, Contains(Pair(T("//package:foo_config"), false)));
+    EXPECT_THAT(configs, Contains(Pair(T("//package:bar_config"), false)));
+  }
+  {
+    std::stringstream log;
+    Session session(&log, &log, &log,
+                    {.custom_flags = {"//package:foo_flag=false",  //
+                                      "//package:bar_flag=43"}});
+    auto configs = ExtractConfigSettings(session, pp.project());
+    EXPECT_THAT(configs, Contains(Pair(T("//package:foo_config"), false)));
+    EXPECT_THAT(configs, Contains(Pair(T("//package:bar_config"), false)));
+  }
+  {
+    std::stringstream log;
+    Session session(&log, &log, &log,
+                    {.custom_flags = {"//package:foo_flag=true",  //
+                                      "//package:bar_flag=42"}});
+    auto configs = ExtractConfigSettings(session, pp.project());
+    EXPECT_THAT(configs, Contains(Pair(T("//package:foo_config"), true)));
+    EXPECT_THAT(configs, Contains(Pair(T("//package:bar_config"), true)));
+  }
+  {
+    // A boolean flag without a given value is considered 'true'
+    std::stringstream log;
+    Session session(&log, &log, &log, {.custom_flags = {"//package:foo_flag"}});
+    auto configs = ExtractConfigSettings(session, pp.project());
+    EXPECT_THAT(configs, Contains(Pair(T("//package:foo_config"), true)));
+  }
 }
 
 // Needs test:

@@ -26,15 +26,19 @@
 #include <ostream>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include "absl/container/btree_set.h"
+#include "absl/container/flat_hash_map.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_split.h"
 #include "bant/explore/aliased-by.h"
 #include "bant/explore/query-utils.h"
 #include "bant/frontend/ast.h"
 #include "bant/frontend/parsed-project.h"
+#include "bant/session.h"
 #include "bant/types-bazel.h"
 #include "bant/types.h"
 #include "bant/util/filesystem.h"
@@ -714,4 +718,111 @@ std::optional<FindResult> FindBySuffix(const ProvidedFromTargetSet &index,
     .fuzzy_score = static_cast<int>(best_common_path_elements),
   };
 }
+
+static bool AllFlagValuesInMap(Node *flag_value_node, const FlagValueMap &flags,
+                               const BazelPackage &context_package) {
+  if (!flag_value_node) return false;
+  List *const as_value_map = flag_value_node->CastAsList();
+  if (!as_value_map || as_value_map->type() != List::Type::kMap) return false;
+
+  for (Node *element : *as_value_map) {
+    BinOpNode *kv = element->CastAsBinOp();
+    if (!kv || kv->op() != ':') continue;
+    const Scalar *const key = kv->left()->CastAsScalar();
+    if (!key) continue;
+    const Scalar *const expected_value_node = kv->right()->CastAsScalar();
+    if (!expected_value_node) continue;
+    auto flag_target = context_package.QualifiedTarget(key->AsString());
+    if (!flag_target.has_value()) continue;  // TODO: log message, ret false ?
+
+    auto found = flags.find(*flag_target);
+    if (found == flags.end()) return false;
+    const FlagConfig &flag = found->second;
+    // The first that is not matching decides the fate.
+    if (flag.active_value != expected_value_node->AsString()) return false;
+  }
+
+  return true;
+}
+
+static absl::flat_hash_map<std::string, std::string> SplitFlagNameValue(
+  const Session &session) {
+  absl::flat_hash_map<std::string, std::string> result;
+  for (const std::string &flag : session.flags().custom_flags) {
+    std::pair<std::string, std::string> kv =
+      absl::StrSplit(flag, absl::MaxSplits('=', 1));
+    result.emplace(kv);
+  }
+  return result;
+}
+
+FlagValueMap ExtractConfigFlagValues(const Session &session,
+                                     const ParsedProject &project) {
+  const auto cmdline_flags = SplitFlagNameValue(session);
+  FlagValueMap result;
+  for (const auto &[_, file_content] : project.ParsedFiles()) {
+    if (!file_content->ast) continue;
+    query::FindTargets(
+      file_content->ast, {"bool_flag", "int_flag", "string_flag"},
+      [&](const query::Result &params) {
+        auto target = file_content->package.QualifiedTarget(params.name);
+        if (!target.has_value()) return;
+        FlagConfig &flag = result.emplace(*target, FlagConfig{}).first->second;
+        flag.flag_type = params.rule;
+
+        // Now modify value if we find a default.
+        std::string &value = flag.default_value;
+        Node *const flag_default_node =
+          query::FindKWArg(params.node, "build_setting_default");
+        if (!flag_default_node) return;
+        Scalar *const flag_default = flag_default_node->CastAsScalar();
+        if (!flag_default) return;
+
+        if (params.rule == "bool_flag") {
+          value = flag_default->AsInt() ? "true" : "false";
+        } else if (params.rule == "int_flag") {
+          value = std::to_string(flag_default->AsInt());
+        } else {
+          value = flag_default->AsString();
+        }
+
+        // If the flag is provided on the command line, use that as active.
+        if (const auto from_cmdline = cmdline_flags.find(target->ToString());
+            from_cmdline != cmdline_flags.end()) {
+          flag.active_value = from_cmdline->second;
+          if (flag.active_value.empty() && params.rule == "bool_flag") {
+            flag.active_value = "true";  // Empty flag considered 'true'
+          }
+        } else {
+          flag.active_value = value;
+        }
+      });
+  }
+
+  return result;
+}
+
+ConfigSettings ExtractConfigSettings(const Session &session,
+                                     const ParsedProject &project) {
+  // Settings provided on the command line take precedence
+  const FlagValueMap flag_values = ExtractConfigFlagValues(session, project);
+
+  ConfigSettings result;
+  for (const auto &[_, file_content] : project.ParsedFiles()) {
+    if (!file_content->ast) continue;
+    const BazelPackage &context_package = file_content->package;
+    query::FindTargets(
+      file_content->ast, {"config_setting"}, [&](const query::Result &params) {
+        auto config_target = context_package.QualifiedTarget(params.name);
+        if (!config_target.has_value()) return;
+        Node *const flag_match = query::FindKWArg(params.node, "flag_values");
+        const bool is_set =
+          AllFlagValuesInMap(flag_match, flag_values, context_package);
+        result.emplace(*config_target, is_set);
+      });
+  }
+
+  return result;
+}
+
 }  // namespace bant

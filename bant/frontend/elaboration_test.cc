@@ -22,6 +22,7 @@
 #include <string_view>
 #include <utility>
 
+#include "absl/container/flat_hash_set.h"
 #include "absl/strings/str_format.h"
 #include "bant/explore/query-utils.h"
 #include "bant/frontend/ast.h"
@@ -29,6 +30,7 @@
 #include "bant/frontend/parsed-project_testutil.h"
 #include "bant/frontend/source-locator.h"
 #include "bant/session.h"
+#include "bant/types-bazel.h"
 #include "bant/util/file-test-util.h"
 #include "gtest/gtest.h"
 
@@ -72,18 +74,22 @@ class ElaborationTest : public ::testing::Test {
   std::pair<std::string, std::string> ElabInPackageAndPrint(
     std::string_view package, std::string_view to_elaborate,
     std::string_view expected,
+    const absl::flat_hash_set<BazelTarget> &configurations = {}) {
     const CommandlineFlags &flags = CommandlineFlags{
       .verbose = 1,
       .bant_macro_expand = true,
-    }) {
+    };
+
     elaborated_ = pp_.Add(package, to_elaborate);
 
     const ParsedBuildFile *expected_parsed = pp_.Add("//expected", expected);
 
     EXPECT_EQ(pp_.project().error_count(), 0) << "invalid test inputs.";
 
-    const ElaborationOptions elab_options{.builtin_macro_expansion =
-                                            flags.bant_macro_expand};
+    const ElaborationOptions elab_options{
+      .builtin_macro_expansion = flags.bant_macro_expand,
+      .enabled_configurations = configurations,
+    };
     Session session(&std::cerr, &std::cerr, &std::cerr, flags);
     Node *const after_elaboration =
       bant::Elaborate(session, &pp_.project(), elaborated_->package,
@@ -99,11 +105,13 @@ class ElaborationTest : public ::testing::Test {
   // Like ElabInPackageAndPrint(), but default package to //elab.
   std::pair<std::string, std::string> ElabAndPrint(
     std::string_view to_elaborate, std::string_view expected,
+    const absl::flat_hash_set<BazelTarget> &configurations = {}) {
     const CommandlineFlags &flags = CommandlineFlags{
       .verbose = 1,
       .bant_macro_expand = true,
-    }) {
-    return ElabInPackageAndPrint("//elab", to_elaborate, expected, flags);
+    };
+    return ElabInPackageAndPrint("//elab", to_elaborate, expected,
+                                 configurations);
   }
 
   // Returns the last elaborated file.
@@ -368,8 +376,10 @@ cc_library(
 }
 
 TEST_F(ElaborationTest, SelectWithChosenOption) {
-  CommandlineFlags flags = CommandlineFlags{.verbose = 1};
-  flags.custom_flags.emplace("//:foo");
+  absl::flat_hash_set<BazelTarget> configurations;
+  if (auto config = BazelTarget::ParseFrom("//:foo", {}); config.has_value()) {
+    configurations.emplace(config.value());
+  }
   auto result = ElabAndPrint(
     R"(
 cc_library(
@@ -387,7 +397,7 @@ cc_library(
   srcs = ["abc.cc"]
 )
 )",
-    flags);
+    configurations);
 
   EXPECT_EQ(result.first, result.second);
 }
