@@ -112,8 +112,8 @@ static int usage(const char *prog, const char *message, int exit_code) {
                      pattern. Default for most commands is -r5
     -v             : Verbose; print some stats. Multiple times: more verbose.
     -h             : This help.
-    --//<option>   : configurable flag attribute to be used in select() and
-                     picked up by elaboration (-e)
+    --//<flag>     : configurable flag attribute to be used in select() and
+    --@<flag>        picked up by elaboration (-e)
     --color=<opt>  : enable colored output. One of "auto", "never", "always"
                      Default "auto" or from environment variable BANT_COLOR
     --links=<opt>  : enable hyperlinks. One of "auto", "never", "always"
@@ -235,7 +235,9 @@ static void ExtractCustomFlags(int *argc, char *argv[],
   int out_arg = 1;
   for (int i = 1; i < *argc; ++i) {
     const std::string_view arg = argv[i];
-    if (arg.starts_with("--//")) {
+    // Flags are always fully qualified bazel labels, so they either start
+    // with '//' or '@'
+    if (arg.starts_with("--//") || arg.starts_with("--@")) {
       result->emplace(arg.substr(2));
       continue;
     }

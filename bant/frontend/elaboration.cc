@@ -941,12 +941,16 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
         if (!map_item || map_item->op() != ':' || !map_item->left()) continue;
         const Scalar *const key = map_item->left()->CastAsScalar();
         if (!key) continue;
+
         if (auto key_config = BazelTarget::ParseFrom(key->AsString(), package_);
             key_config.has_value()) {
           if (options_.enabled_configurations.contains(*key_config)) {
             return map_item->right();  // configuration matches.
           }
         }
+
+        // If we encounter this one, just remember for now, but if we never
+        // return, this will be the one.
         if (key->AsString() == "//conditions:default") {
           default_node = map_item->right();
         }

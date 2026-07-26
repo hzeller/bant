@@ -257,6 +257,8 @@ DependencyGraph BuildDependencyGraph(Session &session,
                        });
   }
 
+  // TODO: if we come accross configuration setting labels in selects,
+  // follow these as well, because we need to know the defaults.
   std::set<BazelPackage> extra_visibility_packages;
   DependencyGraph graph;
   do {

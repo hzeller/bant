@@ -553,8 +553,8 @@ Options
                      pattern. Default for most commands is -r5
     -v             : Verbose; print some stats. Multiple times: more verbose.
     -h             : This help.
-    --//<option>   : configurable flag attribute to be used in select() and
-                     picked up by elaboration (-e)
+    --//<flag>     : configurable flag attribute to be used in select() and
+    --@<flag>        picked up by elaboration (-e)
     --color=<opt>  : enable colored output. One of "auto", "never", "always"
                      Default "auto" or from environment variable BANT_COLOR
     --links=<opt>  : enable hyperlinks. One of "auto", "never", "always"
