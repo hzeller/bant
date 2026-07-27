@@ -43,6 +43,7 @@ cc_binary(
         ":workspace",
         "//bant/explore:dependency-graph",
         "//bant/explore:project-indexing",
+        "//bant/explore:project-walker",
         "//bant/explore:query-utils",
         "//bant/frontend:elaboration",
         "//bant/frontend:node-printer",

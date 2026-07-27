@@ -20,6 +20,7 @@
 #include <memory>
 #include <string_view>
 
+#include "bant/explore/project-walker.h"
 #include "bant/explore/query-utils.h"
 #include "bant/frontend/parsed-project.h"
 #include "bant/frontend/source-locator.h"
@@ -31,16 +32,13 @@ namespace bant {
 using TargetToLocation = OneToOne<BazelTarget, FileLocation>;
 static TargetToLocation ExtractTargetToLocation(const ParsedProject &project) {
   TargetToLocation result;
-  for (const auto &[_, parsed_package] : project.ParsedFiles()) {
-    const BazelPackage &current_package = parsed_package->package;
-    query::FindTargets(
-      parsed_package->ast, {}, [&](const query::Result &target) {
-        if (target.name.empty()) return;
-        auto self = current_package.QualifiedTarget(target.name);
-        if (!self.has_value()) return;
-        result.emplace(*self, project.GetLocation(target.name));
-      });
-  }
+  const ProjectWalker walker(project);
+  walker.FindTargets(
+    {},
+    [&](const BazelPackage &package, const BazelTarget &target,
+        const query::Result &query_target) {
+      result.emplace(target, project.GetLocation(query_target.name));
+    });
   return result;
 }
 
@@ -49,14 +47,14 @@ std::unique_ptr<CrossReferenceMap> BuildCrossReferences(
   auto result = std::make_unique<CrossReferenceMap>();
   const TargetToLocation targetLocation = ExtractTargetToLocation(project);
   Filesystem &fs = Filesystem::instance();
-  for (const auto &[_, parsed_package] : project.ParsedFiles()) {
-    const BazelPackage &current_package = parsed_package->package;
-    query::FindTargets(
-      parsed_package->ast, {}, [&](const query::Result &details) {
-        // If it has a name, just point to that location.
-        if (!details.name.empty()) {
-          result->Insert(details.name, project.GetLocation(details.name));
-        }
+
+  const ProjectWalker walker(project);
+  walker.FindTargets(
+    {},
+    [&](const BazelPackage &current_package, const BazelTarget &target,
+        const query::Result &details) {
+      // If it has a name, just point to that location.
+      result->Insert(details.name, project.GetLocation(details.name));
 
         // TODO: here, we're somewhat particular in looking at some attributes
         // if they contain targets or files. We should probably just go through
@@ -97,7 +95,6 @@ std::unique_ptr<CrossReferenceMap> BuildCrossReferences(
           }
         }
       });
-  }
 
   return result;
 }

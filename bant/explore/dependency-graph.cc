@@ -30,6 +30,7 @@
 #include <vector>
 
 #include "bant/explore/project-indexing.h"
+#include "bant/explore/project-walker.h"
 #include "bant/explore/query-utils.h"
 #include "bant/frontend/ast.h"
 #include "bant/frontend/elaboration.h"
@@ -245,17 +246,15 @@ DependencyGraph BuildDependencyGraph(Session &session,
 
   // Build the initial set of targets to follow from the pattern.
   const BazelTarget root_request;
-  for (const auto &[_, parsed] : project->ParsedFiles()) {
-    const BazelPackage &current_package = parsed->package;
-    if (!pattern.Match(parsed->package)) continue;
-    query::FindTargets(parsed->ast, kRulesOfInterest,  //
-                       [&](const query::Result &result) {
-                         auto target_or =
-                           current_package.QualifiedTarget(result.name);
-                         if (!target_or || !pattern.Match(*target_or)) return;
-                         deps_to_resolve_todo[*target_or] = root_request;
-                       });
-  }
+  const ProjectWalker walker(*project);
+  walker.FindTargets(
+    kRulesOfInterest,
+    [&](const BazelPackage &current_package, const BazelTarget &target,
+        const query::Result &result) {
+      if (!pattern.Match(current_package)) return;
+      if (!pattern.Match(target)) return;
+      deps_to_resolve_todo[target] = root_request;
+    });
 
   // TODO: if we come accross configuration setting labels in selects,
   // follow these as well, because we need to know the defaults.

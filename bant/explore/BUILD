@@ -11,6 +11,7 @@ cc_library(
     hdrs = ["dependency-graph.h"],
     deps = [
         ":project-indexing",
+        ":project-walker",
         ":query-utils",
         "//bant:session",
         "//bant:types",
@@ -112,6 +113,7 @@ cc_library(
     srcs = ["cross-reference.cc"],
     hdrs = ["cross-reference.h"],
     deps = [
+        ":project-walker",
         ":query-utils",
         "//bant:types",
         "//bant:types-bazel",

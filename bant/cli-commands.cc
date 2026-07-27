@@ -32,6 +32,7 @@
 #include "bant/explore/dependency-graph.h"
 #include "bant/explore/index-printing.h"
 #include "bant/explore/project-indexing.h"
+#include "bant/explore/project-walker.h"
 #include "bant/explore/query-utils.h"
 #include "bant/frontend/elaboration.h"
 #include "bant/frontend/node-printer.h"
@@ -470,23 +471,20 @@ CliStatus RunCommand(Session &session, Command cmd,
     auto printer =
       TablePrinter::Create(session.out(), session.flags().output_format,
                            *highlighter, {"file-location", "rule", "target"});
-    for (const auto &[package, parsed] : project.ParsedFiles()) {
-      FindTargets(parsed->ast, {}, [&](const Result &target) {
-        auto target_name =
-          BazelTarget::ParseFrom(absl::StrCat(":", target.name), package);
-        if (!target_name.has_value()) {
-          return;
-        }
-        if (!print_pattern.Match(*target_name)) return;
+    const ProjectWalker walker(project);
+    walker.FindTargets(
+      {},
+      [&](const BazelPackage &package, const BazelTarget &target_name,
+          const query::Result &target) {
+        if (!print_pattern.Match(target_name)) return;
         if (cmd == Command::kListLeafs &&
-            graph.has_dependents.contains(*target_name)) {
+            graph.has_dependents.contains(target_name)) {
           return;
         }
         printer->AddRow({project.Loc(target.name),
                          std::string(target.rule),  //
-                         target_name->ToString()});
+                         target_name.ToString()});
       });
-    }
     printer->Finish(session.flags().column_select);
     break;
   }

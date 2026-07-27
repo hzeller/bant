@@ -35,6 +35,7 @@
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_split.h"
 #include "bant/explore/dependency-graph.h"
+#include "bant/explore/project-walker.h"
 #include "bant/explore/query-utils.h"
 #include "bant/frontend/elaboration.h"
 #include "bant/frontend/parsed-project.h"
@@ -435,23 +436,16 @@ void WriteCompilationDB(Session &session, const BazelTargetMatcher &pattern,
 
   DuplicationCheckSet already_written;
   out << "[\n";
-  for (const auto &[_, parsed_package] : project->ParsedFiles()) {
-    const BazelPackage &current_package = parsed_package->package;
-    if (!pattern.Match(current_package)) {
-      continue;
-    }
-
-    query::FindTargets(
-      parsed_package->ast, {"cc_library", "cc_binary", "cc_test"},
-      [&](const query::Result &details) {
-        auto target = current_package.QualifiedTarget(details.name);
-        if (!target.has_value() || !pattern.Match(*target)) {
-          return;
-        }
-        WriteCompilationDBEntry(*project, current_package, details,  //
-                                cwd, external_inc_json, &already_written, out);
-      });
-  }
+  const ProjectWalker walker(*project);
+  walker.FindTargets(
+    {"cc_library", "cc_binary", "cc_test"},
+    [&](const BazelPackage &current_package, const BazelTarget &target,
+        const query::Result &details) {
+      if (!pattern.Match(current_package)) return;
+      if (!pattern.Match(target)) return;
+      WriteCompilationDBEntry(*project, current_package, details,  //
+                              cwd, external_inc_json, &already_written, out);
+    });
   out << "]\n";
 }
 
@@ -496,21 +490,20 @@ std::set<std::string> GetAllIncCOpts(Session &session,
                                      ParsedProject *project) {
   const BazelWorkspace &ws = project->workspace();
   std::set<std::string> result;
-  for (const auto &[_, parsed_build] : project->ParsedFiles()) {
-    const BazelPackage &package = parsed_build->package;
-    query::FindTargets(
-      parsed_build->ast, {"cc_library", "cc_binary", "cc_test"},
-      [&](const query::Result &target) {
-        if (!target.copts) return;
-        for (const auto flag : query::ExtractStringList(target.copts)) {
-          if (absl::StartsWith(flag, "-I")) {
-            result.emplace(ReplaceMakeVariables(ws, package, flag));
-          }
-          // Not collecting -D as it would be used for all targets and might
-          // mess with thigns. We should do this for compile_commands.json
+  const ProjectWalker walker(*project);
+  walker.FindTargets(
+    {"cc_library", "cc_binary", "cc_test"},
+    [&](const BazelPackage &package, const BazelTarget &bazel_target,
+        const query::Result &target) {
+      if (!target.copts) return;
+      for (const auto flag : query::ExtractStringList(target.copts)) {
+        if (absl::StartsWith(flag, "-I")) {
+          result.emplace(ReplaceMakeVariables(ws, package, flag));
         }
-      });
-  }
+        // Not collecting -D as it would be used for all targets and might
+        // mess with thigns. We should do this for compile_commands.json
+      }
+    });
   return result;
 }
 

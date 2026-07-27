@@ -21,6 +21,7 @@
 #include <ostream>
 #include <string_view>
 
+#include "bant/explore/project-walker.h"
 #include "bant/explore/query-utils.h"
 #include "bant/frontend/parsed-project.h"
 #include "bant/session.h"
@@ -37,20 +38,13 @@ size_t CreateCanonicalizeEdits(Session &session, const ParsedProject &project,
   Stat &stats = session.GetStatsFor("Canonicalization checked", "dependencies");
   const ScopedTimer timer(&stats.duration);
 
-  for (const auto &[_, parsed_package] : project.ParsedFiles()) {
-    if (!pattern.Match(parsed_package->package)) {
-      continue;
-    }
-    const BazelPackage &current_package = parsed_package->package;
-    query::FindTargets(
-      parsed_package->ast, {}, [&](const query::Result &target) {
-        auto self = current_package.QualifiedTarget(target.name);
-        if (!self.has_value()) {
-          return;
-        }
-        if (!pattern.Match(*self)) {
-          return;
-        }
+  const ProjectWalker walker(project);
+  walker.FindTargets(
+    {},
+    [&](const BazelPackage &current_package, const BazelTarget &self,
+        const query::Result &target) {
+      if (!pattern.Match(current_package)) return;
+      if (!pattern.Match(self)) return;
 
         const auto deps =
           query::ExtractStringList({target.deps_list, target.impl_deps_list});
@@ -64,12 +58,11 @@ size_t CreateCanonicalizeEdits(Session &session, const ParsedProject &project,
           }
           if (dep_str != dep_target->ToStringRelativeTo(current_package)) {
             ++edit_counts;
-            emit_canon_edit(EditRequest::kRename, *self, dep_str,
+            emit_canon_edit(EditRequest::kRename, self, dep_str,
                             dep_target->ToStringRelativeTo(current_package));
           }
         }
       });
-  }
   return edit_counts;
 }
 }  // namespace bant
