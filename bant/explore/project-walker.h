@@ -39,6 +39,12 @@ class ProjectWalker {
   void FindTargets(std::initializer_list<std::string_view> rules_of_interest,
                    const Callback &callback) const;
 
+  // Like FindTargets, but skips packages and targets that don't match the pattern.
+  void FindTargetsWithPattern(
+    const BazelTargetMatcher &pattern,
+    std::initializer_list<std::string_view> rules_of_interest,
+    const Callback &callback) const;
+
  private:
   const ParsedProject &project_;
 };

@@ -247,12 +247,10 @@ DependencyGraph BuildDependencyGraph(Session &session,
   // Build the initial set of targets to follow from the pattern.
   const BazelTarget root_request;
   const ProjectWalker walker(*project);
-  walker.FindTargets(
-    kRulesOfInterest,
+  walker.FindTargetsWithPattern(
+    pattern, kRulesOfInterest,
     [&](const BazelPackage &current_package, const BazelTarget &target,
         const query::Result &result) {
-      if (!pattern.Match(current_package)) return;
-      if (!pattern.Match(target)) return;
       deps_to_resolve_todo[target] = root_request;
     });
 

@@ -39,12 +39,10 @@ size_t CreateCanonicalizeEdits(Session &session, const ParsedProject &project,
   const ScopedTimer timer(&stats.duration);
 
   const ProjectWalker walker(project);
-  walker.FindTargets(
-    {},
+  walker.FindTargetsWithPattern(
+    pattern, {},
     [&](const BazelPackage &current_package, const BazelTarget &self,
         const query::Result &target) {
-      if (!pattern.Match(current_package)) return;
-      if (!pattern.Match(self)) return;
 
         const auto deps =
           query::ExtractStringList({target.deps_list, target.impl_deps_list});

@@ -1228,12 +1228,10 @@ DWYUGenerator::DWYUGenerator(Session &session, const ParsedProject &project,
 size_t DWYUGenerator::CreateEditsForPattern(const BazelTargetMatcher &pattern) {
   size_t matching_patterns = 0;
   const ProjectWalker walker(project_);
-  walker.FindTargets(
-    {"cc_library", "cc_binary", "cc_test", "proto_library"},
+  walker.FindTargetsWithPattern(
+    pattern, {"cc_library", "cc_binary", "cc_test", "proto_library"},
     [&](const BazelPackage &current_package, const BazelTarget &target,
         const query::Result &details) {
-      if (!pattern.Match(current_package)) return;
-      if (!pattern.Match(target)) return;
       
       const auto *parsed_package = project_.FindParsedOrNull(current_package);
       if (!parsed_package) return;

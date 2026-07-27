@@ -472,11 +472,10 @@ CliStatus RunCommand(Session &session, Command cmd,
       TablePrinter::Create(session.out(), session.flags().output_format,
                            *highlighter, {"file-location", "rule", "target"});
     const ProjectWalker walker(project);
-    walker.FindTargets(
-      {},
+    walker.FindTargetsWithPattern(
+      print_pattern, {},
       [&](const BazelPackage &package, const BazelTarget &target_name,
           const query::Result &target) {
-        if (!print_pattern.Match(target_name)) return;
         if (cmd == Command::kListLeafs &&
             graph.has_dependents.contains(target_name)) {
           return;

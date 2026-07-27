@@ -437,12 +437,10 @@ void WriteCompilationDB(Session &session, const BazelTargetMatcher &pattern,
   DuplicationCheckSet already_written;
   out << "[\n";
   const ProjectWalker walker(*project);
-  walker.FindTargets(
-    {"cc_library", "cc_binary", "cc_test"},
+  walker.FindTargetsWithPattern(
+    pattern, {"cc_library", "cc_binary", "cc_test"},
     [&](const BazelPackage &current_package, const BazelTarget &target,
         const query::Result &details) {
-      if (!pattern.Match(current_package)) return;
-      if (!pattern.Match(target)) return;
       WriteCompilationDBEntry(*project, current_package, details,  //
                               cwd, external_inc_json, &already_written, out);
     });

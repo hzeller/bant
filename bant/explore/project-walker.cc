@@ -39,4 +39,22 @@ void ProjectWalker::FindTargets(
                        });
   }
 }
+
+void ProjectWalker::FindTargetsWithPattern(
+  const BazelTargetMatcher &pattern,
+  std::initializer_list<std::string_view> rules_of_interest,
+  const ProjectWalker::Callback &callback) const {
+  for (const auto &[_, build_file] : project_.ParsedFiles()) {
+    if (!build_file->ast) continue;
+    const BazelPackage &package = build_file->package;
+    if (!pattern.Match(package)) continue;
+    query::FindTargets(build_file->ast, rules_of_interest,
+                       [&](const query::Result &param) {
+                         auto rule_label = package.QualifiedTarget(param.name);
+                         if (!rule_label.has_value()) return;
+                         if (!pattern.Match(*rule_label)) return;
+                         callback(package, *rule_label, param);
+                       });
+  }
+}
 }  // namespace bant
