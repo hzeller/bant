@@ -35,6 +35,7 @@
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_split.h"
 #include "bant/explore/aliased-by.h"
+#include "bant/explore/project-walker.h"
 #include "bant/explore/query-utils.h"
 #include "bant/frontend/ast.h"
 #include "bant/frontend/parsed-project.h"
@@ -453,37 +454,31 @@ ProvidedFromTargetSet ExtractComponentToTargetMapping(
   auto &fs = Filesystem::instance();
   ProvidedFromTargetSet result;
 
-  for (const auto &[_, build_file] : project.ParsedFiles()) {
-    if (!build_file->ast) continue;
-
-    query::FindTargets(
-      build_file->ast, {"cc_library", "cc_binary"},
-      [&](const query::Result &cc_lib) {
-        const BazelPackage &package = build_file->package;
-        auto cc_library = package.QualifiedTarget(cc_lib.name);
-        if (!cc_library.has_value()) return;
-
-        List *search_list = nullptr;
-        switch (which) {
-        case ExtractComponent::kHdrs: search_list = cc_lib.hdrs_list; break;
-        case ExtractComponent::kSrcs: search_list = cc_lib.srcs_list; break;
-        case ExtractComponent::kData: search_list = cc_lib.data_list; break;
+  const ProjectWalker walker(project);
+  walker.FindTargets(
+    {"cc_library", "cc_binary"},
+    [&](const BazelPackage &package, const BazelTarget &cc_library,
+        const query::Result &cc_lib) {
+      List *search_list = nullptr;
+      switch (which) {
+      case ExtractComponent::kHdrs: search_list = cc_lib.hdrs_list; break;
+      case ExtractComponent::kSrcs: search_list = cc_lib.srcs_list; break;
+      case ExtractComponent::kData: search_list = cc_lib.data_list; break;
+      }
+      auto srcs = query::ExtractStringList(search_list);
+      int max_rounds = 2;
+      while (ExpandFilegroupsInList(package, filegroups, &srcs) &&
+             --max_rounds > 0) {
+      }
+      for (const std::string_view src : srcs) {
+        // TODO: ParsedProject::GetPackageFor() as we might have mixed
+        // packages due to filegroups.
+        const std::string src_fqn = package.QualifiedFile(src);
+        if (!only_physical_files || fs.Exists(src_fqn)) {
+          result[src_fqn].emplace(cc_library);
         }
-        auto srcs = query::ExtractStringList(search_list);
-        int max_rounds = 2;
-        while (ExpandFilegroupsInList(package, filegroups, &srcs) &&
-               --max_rounds > 0) {
-        }
-        for (const std::string_view src : srcs) {
-          // TODO: ParsedProject::GetPackageFor() as we might have mixed
-          // packages due to filegroups.
-          const std::string src_fqn = package.QualifiedFile(src);
-          if (!only_physical_files || fs.Exists(src_fqn)) {
-            result[src_fqn].emplace(*cc_library);
-          }
-        }
-      });
-  }
+      }
+    });
 
   return result;
 }

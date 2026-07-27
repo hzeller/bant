@@ -76,6 +76,7 @@ cc_library(
         "project-indexing.h",
     ],
     deps = [
+        ":project-walker",
         ":query-utils",
         "//bant:session",
         "//bant:types",
