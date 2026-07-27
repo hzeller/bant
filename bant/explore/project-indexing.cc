@@ -127,11 +127,12 @@ struct HelperIndex {
 
 // Go through cc_library()s and call callback for each header file it exports.
 using FindHeaderCallback =
-  std::function<void(const BazelTarget &library,      // Lbrary defining
+  std::function<void(const BazelPackage &package,
+                     const BazelTarget &library,      // Lbrary defining
                      std::string_view lib_hdrs_name,  // name in hdrs = []
                      std::string_view reachable_name  // reachable name
                      )>;
-static void IterateCCLibraryHeaders(const ParsedBuildFile &build_file,
+static void IterateCCLibraryHeaders(const ParsedProject &project,
                                     const TargetProvidedFiles &filegroups,
                                     bool include_sources,
                                     const FindHeaderCallback &callback) {
@@ -139,85 +140,84 @@ static void IterateCCLibraryHeaders(const ParsedBuildFile &build_file,
     "cc_library",
   };
 
-  const BazelPackage &package = build_file.package;
-  query::FindTargets(
-    build_file.ast, kInterestingLibRules, [&](const query::Result &cc_lib) {
-      auto cc_library = package.QualifiedTarget(cc_lib.name);
-      if (!cc_library.has_value()) return;
+  const ProjectWalker walker(project);
+  walker.FindTargets(kInterestingLibRules, [&](const BazelPackage &package,
+                                               const BazelTarget &cc_library,
+                                               const query::Result &cc_lib) {
+    auto hdrs = query::ExtractStringList(cc_lib.hdrs_list);
+    const auto textual_hdrs = query::ExtractStringList(cc_lib.textual_hdrs);
 
-      auto hdrs = query::ExtractStringList(cc_lib.hdrs_list);
-      const auto textual_hdrs = query::ExtractStringList(cc_lib.textual_hdrs);
+    // ABSL HACK...
+    // In absl/strings:string_view, there is the string_view.h exported.
+    // But it is _also_ exported by absl/strings:strings but with the remark
+    // that this is only there for backward compatibility. In fact, it is
+    // mentioned twice, in hdrs and in textual_hdrs.
+    // We use this fact below to skip headers mentiond in hdrs and _also_
+    // mentioned in textual_hdrs to essentially disregard them.
+    // This way, we get the desired behavior of bant suggesting to use
+    // the :string_view library.
+    // Narrow this hack to the very specific library.
+    bool absl_string_view_skip = (package.path.ends_with("absl/strings"));
+    if (absl_string_view_skip) {
+      absl_string_view_skip =
+        std::find(hdrs.begin(), hdrs.end(), "string_view.h") != hdrs.end() &&
+        std::find(textual_hdrs.begin(), textual_hdrs.end(), "string_view.h") !=
+          textual_hdrs.end();
+    }
 
-      // ABSL HACK...
-      // In absl/strings:string_view, there is the string_view.h exported.
-      // But it is _also_ exported by absl/strings:strings but with the remark
-      // that this is only there for backward compatibility. In fact, it is
-      // mentioned twice, in hdrs and in textual_hdrs.
-      // We use this fact below to skip headers mentiond in hdrs and _also_
-      // mentioned in textual_hdrs to essentially disregard them.
-      // This way, we get the desired behavior of bant suggesting to use
-      // the :string_view library.
-      // Narrow this hack to the very specific library.
-      bool absl_string_view_skip = (package.path.ends_with("absl/strings"));
-      if (absl_string_view_skip) {
-        absl_string_view_skip =
-          std::find(hdrs.begin(), hdrs.end(), "string_view.h") != hdrs.end() &&
-          std::find(textual_hdrs.begin(), textual_hdrs.end(),
-                    "string_view.h") != textual_hdrs.end();
+    hdrs.insert(hdrs.end(), textual_hdrs.begin(), textual_hdrs.end());
+
+    if (include_sources) {  // for hdrs-canonical we want a global view
+      query::AppendStringList(cc_lib.srcs_list, hdrs);
+    }
+
+    // If there are references to filegroups, exand these to files first.
+    int max_rounds = 2;
+    while (ExpandFilegroupsInList(package, filegroups, &hdrs) &&
+           --max_rounds > 0) {
+    }
+    const auto incdirs = query::ExtractStringList(cc_lib.includes_list);
+    for (const std::string_view header : hdrs) {
+      if (absl_string_view_skip && header == "string_view.h") continue;
+
+      const auto strip_include_prefix = cc_lib.strip_include_prefix;
+      const bool is_abs_inc_prefix = strip_include_prefix.starts_with('/');
+      const std::string header_abs = package.QualifiedFile(header);
+      const std::string_view stripped =
+        StripIfNeeded(header, header_abs, strip_include_prefix);
+      if (!cc_lib.include_prefix.empty()) {  // cc_library() dictates path.
+        callback(package, cc_library, header,
+                 absl::StrCat(cc_lib.include_prefix, "/", stripped));
+        continue;
       }
 
-      hdrs.insert(hdrs.end(), textual_hdrs.begin(), textual_hdrs.end());
-
-      if (include_sources) {  // for hdrs-canonical we want a global view
-        query::AppendStringList(cc_lib.srcs_list, hdrs);
+      // Assemble the header filename as it can be #include'ed in sources.
+      const std::string header_fqn = package.QualifiedFile(stripped);
+      if (!is_abs_inc_prefix) {
+        callback(package, cc_library, header, header_fqn);
+      } else {
+        callback(package, cc_library, header, stripped);
       }
 
-      // If there are references to filegroups, exand these to files first.
-      int max_rounds = 2;
-      while (ExpandFilegroupsInList(package, filegroups, &hdrs) &&
-             --max_rounds > 0) {
-      }
-      const auto incdirs = query::ExtractStringList(cc_lib.includes_list);
-      for (const std::string_view header : hdrs) {
-        if (absl_string_view_skip && header == "string_view.h") continue;
+      // The same header could also show up with different prefixes, all of
+      // them valid. e.g zlib.h and zlib/include/zlib.h. Emit all of these.
 
-        const auto strip_include_prefix = cc_lib.strip_include_prefix;
-        const bool is_abs_inc_prefix = strip_include_prefix.starts_with('/');
-        const std::string header_abs = package.QualifiedFile(header);
-        const std::string_view stripped =
-          StripIfNeeded(header, header_abs, strip_include_prefix);
-        if (!cc_lib.include_prefix.empty()) {  // cc_library() dictates path.
-          callback(*cc_library, header,
-                   absl::StrCat(cc_lib.include_prefix, "/", stripped));
-          continue;
+      // TODO: double check that the following is what incdirs is supposed to
+      // do. Looks like it works for zlib.
+      // Could also show up under shorter path with -I
+      for (const std::string_view dir : incdirs) {
+        const std::string_view incdir = (dir == ".") ? "" : dir;
+        std::string prefix(package.QualifiedFile(incdir));
+        if (!prefix.ends_with('/')) {
+          prefix.append("/");
         }
-
-        // Assemble the header filename as it can be #include'ed in sources.
-        const std::string header_fqn = package.QualifiedFile(stripped);
-        if (!is_abs_inc_prefix) {
-          callback(*cc_library, header, header_fqn);
-        } else {
-          callback(*cc_library, header, stripped);
-        }
-
-        // The same header could also show up with different prefixes, all of
-        // them valid. e.g zlib.h and zlib/include/zlib.h. Emit all of these.
-
-        // TODO: double check that the following is what incdirs is supposed to
-        // do. Looks like it works for zlib.
-        // Could also show up under shorter path with -I
-        for (const std::string_view dir : incdirs) {
-          const std::string_view incdir = (dir == ".") ? "" : dir;
-          std::string prefix(build_file.package.QualifiedFile(incdir));
-          if (!prefix.ends_with('/')) {
-            prefix.append("/");
-          }
-          if (header_fqn.starts_with(prefix)) {
-            callback(*cc_library, header, header_fqn.substr(prefix.length()));
-          }
+        if (header_fqn.starts_with(prefix)) {
+          callback(package, cc_library, header,
+                   header_fqn.substr(prefix.length()));
         }
       }
-    });
+    }
+  });
 }
 
 // Innsert (key, target_value) into result, but also insert all alises
@@ -236,14 +236,14 @@ static void InsertLibAndAliasesToTargetSet(
   }
 }
 
-static void AppendCCLibraryHeaders(const ParsedBuildFile &build_file,
+static void AppendCCLibraryHeaders(const ParsedProject &project,
                                    const HelperIndex &idx,
                                    std::ostream &info_out, bool suffix_index,
                                    ProvidedFromTargetSet &result) {
   IterateCCLibraryHeaders(
-    build_file, idx.filegroups, false,
-    [&](const BazelTarget &cc_library, std::string_view lib_hdrs_name,
-        std::string_view reachable_name) {
+    project, idx.filegroups, false,
+    [&](const BazelPackage &package, const BazelTarget &cc_library,
+        std::string_view lib_hdrs_name, std::string_view reachable_name) {
       const auto canonicalized = LightCanonicalizePath(reachable_name);
       const std::string key = KeyTransform(canonicalized, suffix_index);
       InsertLibAndAliasesToTargetSet(key, cc_library, idx.alias_index, result);
@@ -262,11 +262,9 @@ static void AppendCCLibraryHeaders(const ParsedBuildFile &build_file,
 //  2. find all used proto_library()s that are mentioned in cc_proto_library()s,
 //     derive the header file from the *.proto file and store the mapping
 //     header->cc_library that we're after.
-static void AppendProtoLibraryHeaders(const ParsedBuildFile &build_file,
+static void AppendProtoLibraryHeaders(const ParsedProject &project,
                                       const HelperIndex &idx, bool reverse,
                                       ProvidedFromTargetSet &result) {
-  const BazelPackage &package = build_file.package;
-
   // TODO: once we wire the DependencyGraph through, we can make the look-up
   // in one go. Also we wouldn't be limited to proto_library() and
   // cc_proto_library() having to reside in one package.
@@ -281,92 +279,88 @@ static void AppendProtoLibraryHeaders(const ParsedBuildFile &build_file,
   // this is only ever a 1:1 relationship.
   // We have two of these: one regular (index:false), one for grpc(index:true)
   OneToOne<BazelTarget, BazelTarget> proto_lib2cc_proto_lib[2];
-  query::FindTargets(
-    build_file.ast, kInterestingLibRules, [&](const query::Result &cc_plib) {
-      auto target = package.QualifiedTarget(cc_plib.name);
-      if (!target.has_value()) return;
+  const ProjectWalker walker(project);
+  walker.FindTargets(kInterestingLibRules, [&](const BazelPackage &package,
+                                               const BazelTarget &target,
+                                               const query::Result &cc_plib) {
+    const bool is_grpc = (cc_plib.rule == "cc_grpc_library");
 
-      const bool is_grpc = (cc_plib.rule == "cc_grpc_library");
+    // cc_proto_library has deps in deps, cc_grpc_library in srcs.
+    auto cc_proto_deps = is_grpc ? query::ExtractStringList(cc_plib.srcs_list)
+                                 : query::ExtractStringList(cc_plib.deps_list);
 
-      // cc_proto_library has deps in deps, cc_grpc_library in srcs.
-      auto cc_proto_deps = is_grpc
-                             ? query::ExtractStringList(cc_plib.srcs_list)
-                             : query::ExtractStringList(cc_plib.deps_list);
-
-      for (const std::string_view dep : cc_proto_deps) {
-        auto proto_library = BazelTarget::ParseFrom(dep, package);
-        if (!proto_library.has_value()) continue;
-        proto_lib2cc_proto_lib[is_grpc].insert({*proto_library, *target});
-      }
-    });
+    for (const std::string_view dep : cc_proto_deps) {
+      auto proto_library = BazelTarget::ParseFrom(dep, package);
+      if (!proto_library.has_value()) continue;
+      proto_lib2cc_proto_lib[is_grpc].insert({*proto_library, target});
+    }
+  });
 
   // We now know proto cc libraries that can be linked, but we don't know the
   // name of the headers yet. They are derived from the *.proto filename,
   // which are only known to proto_library()s.
   // Looking at the proto_library(), we can derive the header from the *.proto.
   // Putting it all together.
-  query::FindTargets(
-    build_file.ast, {"proto_library"}, [&](const query::Result &proto_lib) {
-      auto target = package.QualifiedTarget(proto_lib.name);
-      if (!target.has_value()) return;
+  walker.FindTargets({"proto_library"}, [&](const BazelPackage &package,
+                                            const BazelTarget &target,
+                                            const query::Result &proto_lib) {
+    for (const bool is_grpc : {false, true}) {
+      const auto &lookup_lib = proto_lib2cc_proto_lib[is_grpc];
+      // Is there a cc_{proto,grpc}_library() waiting for our info ?
+      auto found_cc_proto_lib = lookup_lib.find(target);
+      if (found_cc_proto_lib == lookup_lib.end()) {
+        continue;
+      }
 
-      for (const bool is_grpc : {false, true}) {
-        const auto &lookup_lib = proto_lib2cc_proto_lib[is_grpc];
-        // Is there a cc_{proto,grpc}_library() waiting for our info ?
-        auto found_cc_proto_lib = lookup_lib.find(*target);
-        if (found_cc_proto_lib == lookup_lib.end()) {
+      const BazelTarget &cc_proto_lib = found_cc_proto_lib->second;
+
+      // proto buffer headers for grpc have .grpc.pb.h suffix.
+      const std::string_view middle_name = is_grpc ? ".grpc" : "";
+
+      // Now, look through all *.proto files this proto_library() gets,
+      // assemble the header filename from it and record in our result.
+      auto proto_srcs = query::ExtractStringList(proto_lib.srcs_list);
+      if (proto_srcs.empty()) {
+        // Special case: a proto library that has no sources, just acts
+        // as a filegroup for all the sources in deps.
+        query::AppendStringList(proto_lib.deps_list, proto_srcs);
+      }
+      int max_rounds = 2;
+      while (ExpandFilegroupsInList(package, idx.filegroups, &proto_srcs) &&
+             --max_rounds > 0) {
+      }
+
+      for (std::string_view proto : proto_srcs) {
+        auto dot_pos = proto.find_last_of('.');
+        if (dot_pos == std::string_view::npos) continue;
+
+        const std::string_view stem = proto.substr(0, dot_pos);
+        const std::string_view suffix = proto.substr(dot_pos + 1);
+
+        if (!absl::StrContains(suffix, "proto")) {
+          // possibly file list. Not handling that yet.
           continue;
         }
-
-        const BazelTarget &cc_proto_lib = found_cc_proto_lib->second;
-
-        // proto buffer headers for grpc have .grpc.pb.h suffix.
-        const std::string_view middle_name = is_grpc ? ".grpc" : "";
-
-        // Now, look through all *.proto files this proto_library() gets,
-        // assemble the header filename from it and record in our result.
-        auto proto_srcs = query::ExtractStringList(proto_lib.srcs_list);
-        if (proto_srcs.empty()) {
-          // Special case: a proto library that has no sources, just acts
-          // as a filegroup for all the sources in deps.
-          query::AppendStringList(proto_lib.deps_list, proto_srcs);
-        }
-        int max_rounds = 2;
-        while (ExpandFilegroupsInList(package, idx.filegroups, &proto_srcs) &&
-               --max_rounds > 0) {
+        if (proto.starts_with(':')) {  // Also a way to name a local
+          proto.remove_prefix(1);
         }
 
-        for (std::string_view proto : proto_srcs) {
-          auto dot_pos = proto.find_last_of('.');
-          if (dot_pos == std::string_view::npos) continue;
-
-          const std::string_view stem = proto.substr(0, dot_pos);
-          const std::string_view suffix = proto.substr(dot_pos + 1);
-
-          if (!absl::StrContains(suffix, "proto")) {
-            // possibly file list. Not handling that yet.
-            continue;
-          }
-          if (proto.starts_with(':')) {  // Also a way to name a local
-            proto.remove_prefix(1);
-          }
-
-          // Create a header file out of it. foo.proto becomes foo.pb.h or, in
-          // some environments, foo.proto.h
-          for (const std::string_view suffix : {".pb.h", ".proto.h"}) {
-            std::string proto_header = absl::StrCat(stem, middle_name, suffix);
-            proto_header = package.QualifiedFile(proto_header);
-            // What is strip_include_prefix is called strip_import_prefix
-            // for proto_library().
-            const std::string_view maybe_stripped = StripIfNeeded(
-              proto_header, TODO_IMPL_FOR_PROTO, proto_lib.strip_import_prefix);
-            const std::string key = KeyTransform(maybe_stripped, reverse);
-            InsertLibAndAliasesToTargetSet(key, cc_proto_lib, idx.alias_index,
-                                           result);
-          }
+        // Create a header file out of it. foo.proto becomes foo.pb.h or, in
+        // some environments, foo.proto.h
+        for (const std::string_view suffix : {".pb.h", ".proto.h"}) {
+          std::string proto_header = absl::StrCat(stem, middle_name, suffix);
+          proto_header = package.QualifiedFile(proto_header);
+          // What is strip_include_prefix is called strip_import_prefix
+          // for proto_library().
+          const std::string_view maybe_stripped = StripIfNeeded(
+            proto_header, TODO_IMPL_FOR_PROTO, proto_lib.strip_import_prefix);
+          const std::string key = KeyTransform(maybe_stripped, reverse);
+          InsertLibAndAliasesToTargetSet(key, cc_proto_lib, idx.alias_index,
+                                         result);
         }
       }
-    });
+    }
+  });
 }
 }  // namespace
 
@@ -379,16 +373,12 @@ ProvidedFromTargetSet ExtractExpandedHeaderToLibMapping(
     .filegroups = ExtractFilegroupTargets(project),
   };
 
-  for (const auto &[_, build_file] : project.ParsedFiles()) {
-    if (!build_file->ast) continue;
-
-    // There are multiple rule types that behave like a cc library and
-    // provide header files.
-    AppendCCLibraryHeaders(*build_file, idx,  //
-                           info_out, suffix_index, result);
-    AppendProtoLibraryHeaders(*build_file, idx,  //
-                              suffix_index, result);
-  }
+  // There are multiple rule types that behave like a cc library and
+  // provide header files.
+  AppendCCLibraryHeaders(project, idx,  //
+                         info_out, suffix_index, result);
+  AppendProtoLibraryHeaders(project, idx,  //
+                            suffix_index, result);
 
   return result;
 }
@@ -397,19 +387,14 @@ HeaderToCanonicalHeader CanonicalHeaderMapping(const ParsedProject &project,
                                                std::ostream &info_out) {
   auto filegroups = ExtractFilegroupTargets(project);
   HeaderToCanonicalHeader result;
-  for (const auto &[_, build_file] : project.ParsedFiles()) {
-    if (!build_file->ast) continue;
-
-    const BazelPackage &package = build_file->package;
-    IterateCCLibraryHeaders(
-      *build_file, filegroups, true,
-      [&](const BazelTarget &cc_library, std::string_view lib_hdrs_name,
-          std::string_view reachable_name) {
-        const auto canonicalized = LightCanonicalizePath(reachable_name);
-        const std::string header_fqn = package.QualifiedFile(lib_hdrs_name);
-        result[canonicalized].insert(header_fqn);
-      });
-  }
+  IterateCCLibraryHeaders(
+    project, filegroups, true,
+    [&](const BazelPackage &package, const BazelTarget &cc_library,
+        std::string_view lib_hdrs_name, std::string_view reachable_name) {
+      const auto canonicalized = LightCanonicalizePath(reachable_name);
+      const std::string header_fqn = package.QualifiedFile(lib_hdrs_name);
+      result[canonicalized].insert(header_fqn);
+    });
 
   return result;
 }
@@ -420,29 +405,22 @@ ProvidedFromTargetSet ExtractProtoToProtoLibMapping(
 
   const auto aliased_by_index = ExtractAliasedBy(project);
 
-  for (const auto &[_, build_file] : project.ParsedFiles()) {
-    if (!build_file->ast) continue;
+  const ProjectWalker walker(project);
+  walker.FindTargets({"proto_library"}, [&](const BazelPackage &package,
+                                            const BazelTarget &target,
+                                            const query::Result &proto_lib) {
+    const auto proto_srcs = query::ExtractStringList(proto_lib.srcs_list);
+    for (std::string_view proto : proto_srcs) {
+      if (!proto.ends_with(".proto")) continue;
+      if (proto.starts_with(':')) proto.remove_prefix(1);
 
-    query::FindTargets(
-      build_file->ast, {"proto_library"}, [&](const query::Result &proto_lib) {
-        auto target = build_file->package.QualifiedTarget(proto_lib.name);
-        if (!target.has_value()) return;
-
-        const auto proto_srcs = query::ExtractStringList(proto_lib.srcs_list);
-        for (std::string_view proto : proto_srcs) {
-          if (!proto.ends_with(".proto")) continue;
-          if (proto.starts_with(':')) proto.remove_prefix(1);
-
-          const std::string proto_fqn =
-            build_file->package.QualifiedFile(proto);
-          const std::string_view maybe_stripped = StripIfNeeded(
-            proto_fqn, TODO_IMPL_FOR_PROTO, proto_lib.strip_import_prefix);
-          const std::string key = KeyTransform(maybe_stripped, suffix_index);
-          InsertLibAndAliasesToTargetSet(key, *target, aliased_by_index,
-                                         result);
-        }
-      });
-  }
+      const std::string proto_fqn = package.QualifiedFile(proto);
+      const std::string_view maybe_stripped = StripIfNeeded(
+        proto_fqn, TODO_IMPL_FOR_PROTO, proto_lib.strip_import_prefix);
+      const std::string key = KeyTransform(maybe_stripped, suffix_index);
+      InsertLibAndAliasesToTargetSet(key, target, aliased_by_index, result);
+    }
+  });
 
   return result;
 }
@@ -487,61 +465,52 @@ ProvidedFromTarget ExtractGeneratedFromGenrule(const ParsedProject &project,
                                                std::ostream &info_out,
                                                bool suffix_index) {
   ProvidedFromTarget result;
-  for (const auto &[_, file_content] : project.ParsedFiles()) {
-    if (!file_content->ast) continue;
-    query::FindTargets(
-      file_content->ast, {"genrule"}, [&](const query::Result &params) {
-        const auto genfiles = query::ExtractStringList(params.outs_list);
+  const ProjectWalker walker(project);
+  walker.FindTargets({"genrule"}, [&](const BazelPackage &package,
+                                      const BazelTarget &target,
+                                      const query::Result &params) {
+    const auto genfiles = query::ExtractStringList(params.outs_list);
 
-        auto target = file_content->package.QualifiedTarget(params.name);
-        if (!target.has_value()) return;
-
-        for (const std::string_view generated : genfiles) {
-          const auto gen_fqn = file_content->package.QualifiedFile(generated);
-          const auto &inserted =
-            result.insert({KeyTransform(gen_fqn, suffix_index), *target});
-          if (!inserted.second && target != inserted.first->second) {
-            // TODO: differentiate between info-log (external projects) and
-            // error-log (current project, as these are actionable).
-            // For now: just report errors.
-            const bool is_error = file_content->package.project.empty();
-            if (is_error) {
-              // TODO: Get file-position from other target which might be
-              // in a different file.
-              project.Loc(info_out, generated)
-                << " '" << gen_fqn << "' in " << target->ToString()
-                << " also created by " << inserted.first->second.ToString()
-                << "\n";
-            }
-          }
+    for (const std::string_view generated : genfiles) {
+      const auto gen_fqn = package.QualifiedFile(generated);
+      const auto &inserted =
+        result.insert({KeyTransform(gen_fqn, suffix_index), target});
+      if (!inserted.second && target != inserted.first->second) {
+        // TODO: differentiate between info-log (external projects) and
+        // error-log (current project, as these are actionable).
+        // For now: just report errors.
+        const bool is_error = package.project.empty();
+        if (is_error) {
+          // TODO: Get file-position from other target which might be
+          // in a different file.
+          project.Loc(info_out, generated)
+            << " '" << gen_fqn << "' in " << target.ToString()
+            << " also created by " << inserted.first->second.ToString() << "\n";
         }
-      });
-  }
+      }
+    }
+  });
   return result;
 }
 
 PackageGroups ExtractPackageGroups(const ParsedProject &project) {
   PackageGroups result;
-  for (const auto &[_, file_content] : project.ParsedFiles()) {
-    if (!file_content->ast) continue;
-    query::FindTargets(
-      file_content->ast, {"package_group"}, [&](const query::Result &params) {
-        auto group_name = file_content->package.QualifiedTarget(params.name);
-        if (!group_name.has_value()) return;
+  const ProjectWalker walker(project);
+  walker.FindTargets({"package_group"}, [&](const BazelPackage &package,
+                                            const BazelTarget &group_name,
+                                            const query::Result &params) {
+    PackageGroup group;
+    group.packages = query::ExtractStringList(params.packages);
 
-        PackageGroup group;
-        group.packages = query::ExtractStringList(params.packages);
-
-        // Besides the direct patterns, we can have references to other groups
-        // in includes = [].
-        for (auto group_ref : query::ExtractStringList(params.includes_list)) {
-          auto inc_group = file_content->package.QualifiedTarget(group_ref);
-          if (!inc_group.has_value()) continue;
-          group.includes.emplace_back(*inc_group);
-        }
-        result[*group_name] = group;
-      });
-  }
+    // Besides the direct patterns, we can have references to other groups
+    // in includes = [].
+    for (auto group_ref : query::ExtractStringList(params.includes_list)) {
+      auto inc_group = package.QualifiedTarget(group_ref);
+      if (!inc_group.has_value()) continue;
+      group.includes.emplace_back(*inc_group);
+    }
+    result[group_name] = group;
+  });
   return result;
 }
 
@@ -577,41 +546,37 @@ std::vector<std::string_view> ResolvePackageGroupPatterns(
 
 TargetProvidedFiles ExtractFilegroupTargets(const ParsedProject &project) {
   TargetProvidedFiles result;
-  for (const auto &[_, file_content] : project.ParsedFiles()) {
-    if (!file_content->ast) continue;
-    query::FindTargets(
-      file_content->ast, {"genrule", "filegroup", "proto_library"},
-      [&](const query::Result &params) {
-        auto target = file_content->package.QualifiedTarget(params.name);
-        if (!target.has_value()) return;
+  const ProjectWalker walker(project);
+  walker.FindTargets(
+    {"genrule", "filegroup", "proto_library"},
+    [&](const BazelPackage &package, const BazelTarget &target,
+        const query::Result &params) {
+      std::vector<std::string_view> file_list;
+      // filegroups and proto_library have sources.
+      if (params.rule == "filegroup" || params.rule == "proto_library") {
+        query::AppendStringList(params.srcs_list, file_list);
+      }
 
-        std::vector<std::string_view> file_list;
-        // filegroups and proto_library have sources.
-        if (params.rule == "filegroup" || params.rule == "proto_library") {
-          query::AppendStringList(params.srcs_list, file_list);
-        }
+      // Genrule outputs are used in other context as if
+      // they were a filegroup.
+      if (params.rule == "genrule") {
+        query::AppendStringList(params.outs_list, file_list);
+      }
 
-        // Genrule outputs are used in other context as if
-        // they were a filegroup.
-        if (params.rule == "genrule") {
-          query::AppendStringList(params.outs_list, file_list);
-        }
+      // proto library deps just point to other proto files,
+      // but otherwise has no srcs, behaves like a filegroup
+      if (params.rule == "proto_library" &&
+          (!params.srcs_list || params.srcs_list->empty())) {
+        query::AppendStringList(params.deps_list, file_list);
+      }
 
-        // proto library deps just point to other proto files,
-        // but otherwise has no srcs, behaves like a filegroup
-        if (params.rule == "proto_library" &&
-            (!params.srcs_list || params.srcs_list->empty())) {
-          query::AppendStringList(params.deps_list, file_list);
-        }
-
-        auto &file_collect = result[*target];
-        for (const std::string_view file : file_list) {
-          // Note, we don't do fully qualification here, so that we preserve
-          // the original string_view that points to the original BUILD file.
-          file_collect.insert(file);
-        }
-      });
-  }
+      auto &file_collect = result[target];
+      for (const std::string_view file : file_list) {
+        // Note, we don't do fully qualification here, so that we preserve
+        // the original string_view that points to the original BUILD file.
+        file_collect.insert(file);
+      }
+    });
   return result;
 }
 
@@ -755,44 +720,41 @@ FlagValueMap ExtractConfigFlagValues(const CommandlineFlags &flags,
                                      const ParsedProject &project) {
   const auto cmdline_flags = SplitFlagNameValue(flags);
   FlagValueMap result;
-  for (const auto &[_, file_content] : project.ParsedFiles()) {
-    if (!file_content->ast) continue;
-    query::FindTargets(
-      file_content->ast, {"bool_flag", "int_flag", "string_flag"},
-      [&](const query::Result &params) {
-        auto target = file_content->package.QualifiedTarget(params.name);
-        if (!target.has_value()) return;
-        FlagConfig &flag = result.emplace(*target, FlagConfig{}).first->second;
-        flag.flag_type = params.rule;
+  const ProjectWalker walker(project);
+  walker.FindTargets(
+    {"bool_flag", "int_flag", "string_flag"},
+    [&](const BazelPackage &package, const BazelTarget &target,
+        const query::Result &params) {
+      FlagConfig &flag = result.emplace(target, FlagConfig{}).first->second;
+      flag.flag_type = params.rule;
 
-        // Now modify value if we find a default.
-        std::string &value = flag.default_value;
-        Node *const flag_default_node =
-          query::FindKWArg(params.node, "build_setting_default");
-        if (!flag_default_node) return;
-        Scalar *const flag_default = flag_default_node->CastAsScalar();
-        if (!flag_default) return;
+      // Now modify value if we find a default.
+      std::string &value = flag.default_value;
+      Node *const flag_default_node =
+        query::FindKWArg(params.node, "build_setting_default");
+      if (!flag_default_node) return;
+      Scalar *const flag_default = flag_default_node->CastAsScalar();
+      if (!flag_default) return;
 
-        if (params.rule == "bool_flag") {
-          value = flag_default->AsInt() ? "true" : "false";
-        } else if (params.rule == "int_flag") {
-          value = std::to_string(flag_default->AsInt());
-        } else {
-          value = flag_default->AsString();
+      if (params.rule == "bool_flag") {
+        value = flag_default->AsInt() ? "true" : "false";
+      } else if (params.rule == "int_flag") {
+        value = std::to_string(flag_default->AsInt());
+      } else {
+        value = flag_default->AsString();
+      }
+
+      // If the flag is provided on the command line, use that as active.
+      if (const auto from_cmdline = cmdline_flags.find(target.ToString());
+          from_cmdline != cmdline_flags.end()) {
+        flag.active_value = from_cmdline->second;
+        if (flag.active_value.empty() && params.rule == "bool_flag") {
+          flag.active_value = "true";  // Empty flag considered 'true'
         }
-
-        // If the flag is provided on the command line, use that as active.
-        if (const auto from_cmdline = cmdline_flags.find(target->ToString());
-            from_cmdline != cmdline_flags.end()) {
-          flag.active_value = from_cmdline->second;
-          if (flag.active_value.empty() && params.rule == "bool_flag") {
-            flag.active_value = "true";  // Empty flag considered 'true'
-          }
-        } else {
-          flag.active_value = value;
-        }
-      });
-  }
+      } else {
+        flag.active_value = value;
+      }
+    });
 
   return result;
 }
@@ -803,19 +765,16 @@ ConfigSettings ExtractConfigSettings(const CommandlineFlags &flags,
   const FlagValueMap flag_values = ExtractConfigFlagValues(flags, project);
 
   ConfigSettings result;
-  for (const auto &[_, file_content] : project.ParsedFiles()) {
-    if (!file_content->ast) continue;
-    const BazelPackage &context_package = file_content->package;
-    query::FindTargets(
-      file_content->ast, {"config_setting"}, [&](const query::Result &params) {
-        auto config_target = context_package.QualifiedTarget(params.name);
-        if (!config_target.has_value()) return;
-        Node *const flag_match = query::FindKWArg(params.node, "flag_values");
-        const bool is_set =
-          AllFlagValuesInMap(flag_match, flag_values, context_package);
-        result.emplace(*config_target, is_set);
-      });
-  }
+  const ProjectWalker walker(project);
+  walker.FindTargets(
+    {"config_setting"},
+    [&](const BazelPackage &context_package, const BazelTarget &config_target,
+        const query::Result &params) {
+      Node *const flag_match = query::FindKWArg(params.node, "flag_values");
+      const bool is_set =
+        AllFlagValuesInMap(flag_match, flag_values, context_package);
+      result.emplace(config_target, is_set);
+    });
 
   return result;
 }
