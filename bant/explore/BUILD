@@ -53,6 +53,17 @@ cc_test(
 )
 
 cc_library(
+    name = "project-walker",
+    srcs = ["project-walker.cc"],
+    hdrs = ["project-walker.h"],
+    deps = [
+        ":query-utils",
+        "//bant:types-bazel",
+        "//bant/frontend:parsed-project",
+    ],
+)
+
+cc_library(
     name = "project-indexing",
     srcs = [
         "aliased-by.cc",
