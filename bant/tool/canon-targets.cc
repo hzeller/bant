@@ -43,24 +43,23 @@ size_t CreateCanonicalizeEdits(Session &session, const ParsedProject &project,
     pattern, {},
     [&](const BazelPackage &current_package, const BazelTarget &self,
         const query::Result &target) {
-
-        const auto deps =
-          query::ExtractStringList({target.deps_list, target.impl_deps_list});
-        for (const std::string_view dep_str : deps) {
-          stats.count++;
-          auto dep_target = BazelTarget::ParseFrom(dep_str, current_package);
-          if (!dep_target.has_value()) {
-            project.Loc(info_out, dep_str)
-              << " Invalid target name '" << dep_str << "'\n";
-            continue;
-          }
-          if (dep_str != dep_target->ToStringRelativeTo(current_package)) {
-            ++edit_counts;
-            emit_canon_edit(EditRequest::kRename, self, dep_str,
-                            dep_target->ToStringRelativeTo(current_package));
-          }
+      const auto deps =
+        query::ExtractStringList({target.deps_list, target.impl_deps_list});
+      for (const std::string_view dep_str : deps) {
+        stats.count++;
+        auto dep_target = BazelTarget::ParseFrom(dep_str, current_package);
+        if (!dep_target.has_value()) {
+          project.Loc(info_out, dep_str)
+            << " Invalid target name '" << dep_str << "'\n";
+          continue;
         }
-      });
+        if (dep_str != dep_target->ToStringRelativeTo(current_package)) {
+          ++edit_counts;
+          emit_canon_edit(EditRequest::kRename, self, dep_str,
+                          dep_target->ToStringRelativeTo(current_package));
+        }
+      }
+    });
   return edit_counts;
 }
 }  // namespace bant

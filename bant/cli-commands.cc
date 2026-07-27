@@ -56,7 +56,6 @@
 #include "bant/tool/workspace.h"
 
 namespace bant {
-using ::bant::query::FindTargets;
 using ::bant::query::Result;
 
 namespace {

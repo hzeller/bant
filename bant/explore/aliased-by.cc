@@ -28,9 +28,8 @@ OneToN<BazelTarget, BazelTarget> ExtractAliasedBy(const ParsedProject &p) {
   OneToN<BazelTarget, BazelTarget> aliased_by;
   const ProjectWalker walker(p);
   walker.FindTargets(
-    {"alias"},
-    [&](const BazelPackage &package, const BazelTarget &alias,
-        const query::Result &details) {
+    {"alias"}, [&](const BazelPackage &package, const BazelTarget &alias,
+                   const query::Result &details) {
       auto actual = BazelTarget::ParseFrom(details.actual, package);
       if (!actual.has_value()) return;
       aliased_by[*actual].push_back(alias);

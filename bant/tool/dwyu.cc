@@ -199,15 +199,14 @@ std::optional<DWYUGenerator::SourceFile> DWYUGenerator::TryOpenFile(
 // existence in the project. If not, be cautious.
 void DWYUGenerator::InitKnownLibraries() {
   const ProjectWalker walker(project_);
-  walker.FindTargets(
-    {"cc_library", "alias",  // The common ones
-     "cc_proto_library", "grpc_cc_library",  // specialized
-     "proto_library",                        // proto DWYU
-     "cc_test"},  // also indexing test for testonly check.
-    [&](const BazelPackage &package, const BazelTarget &target,
-        const query::Result &details) {
-      known_libs_.insert({target, details});
-    });
+  walker.FindTargets({"cc_library", "alias",                  // The common ones
+                      "cc_proto_library", "grpc_cc_library",  // specialized
+                      "proto_library",                        // proto DWYU
+                      "cc_test"},  // also indexing test for testonly check.
+                     [&](const BazelPackage &package, const BazelTarget &target,
+                         const query::Result &details) {
+                       known_libs_.insert({target, details});
+                     });
 }
 
 // Test if tags list contains a tag with given context; if so, return its
@@ -1214,9 +1213,8 @@ DWYUGenerator::DWYUGenerator(Session &session, const ParsedProject &project,
   // The following is a utility that should probably go to project-indexing.h
   const ProjectWalker walker(project);
   walker.FindTargets(
-    {"cc_library"},
-    [&](const BazelPackage &package, const BazelTarget &target,
-        const query::Result &cc_lib) {
+    {"cc_library"}, [&](const BazelPackage &package, const BazelTarget &target,
+                        const query::Result &cc_lib) {
       if (cc_lib.defines == nullptr || cc_lib.defines->empty()) return;
       defines_for_targets_[target] = GetDefinesFromTarget(cc_lib, false);
     });
@@ -1232,10 +1230,9 @@ size_t DWYUGenerator::CreateEditsForPattern(const BazelTargetMatcher &pattern) {
     pattern, {"cc_library", "cc_binary", "cc_test", "proto_library"},
     [&](const BazelPackage &current_package, const BazelTarget &target,
         const query::Result &details) {
-      
       const auto *parsed_package = project_.FindParsedOrNull(current_package);
       if (!parsed_package) return;
-      
+
       ++matching_patterns;
       CreateEditsForTarget(target, details, *parsed_package);
     });
