@@ -28,9 +28,8 @@ namespace bant {
 void ProjectWalker::FindTargets(
   std::initializer_list<std::string_view> rules_of_interest,
   const ProjectWalker::Callback &callback) const {
-  for (const auto &[_, build_file] : project_.ParsedFiles()) {
+  for (const auto &[package, build_file] : project_.ParsedFiles()) {
     if (!build_file->ast) continue;
-    const BazelPackage &package = build_file->package;
     query::FindTargets(build_file->ast, rules_of_interest,
                        [&](const query::Result &param) {
                          auto rule_label = package.QualifiedTarget(param.name);
@@ -44,9 +43,8 @@ void ProjectWalker::FindTargetsWithPattern(
   const BazelTargetMatcher &pattern,
   std::initializer_list<std::string_view> rules_of_interest,
   const ProjectWalker::Callback &callback) const {
-  for (const auto &[_, build_file] : project_.ParsedFiles()) {
+  for (const auto &[package, build_file] : project_.ParsedFiles()) {
     if (!build_file->ast) continue;
-    const BazelPackage &package = build_file->package;
     if (!pattern.Match(package)) continue;
     query::FindTargets(build_file->ast, rules_of_interest,
                        [&](const query::Result &param) {
