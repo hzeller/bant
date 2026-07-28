@@ -124,7 +124,7 @@ class DWYUGenerator {
   // target.
   // (these are too many parameters. Refactor)
   IncludeNeededDepsAlternatives DependenciesNeededBySources(
-    const BazelTarget &target, const ParsedBuildFile &build_file,
+    const BazelTarget &target, const BazelPackage &package,
     const std::vector<std::string_view> &sources,
     const std::vector<std::string_view> &includes_dir_list,
     const DefineMap &defines, const TargetToFileLocation &declared_deps,
@@ -135,19 +135,19 @@ class DWYUGenerator {
   // Reads .proto source files and extracts import statements to determine
   // which proto_library deps are actually needed.
   IncludeNeededDepsAlternatives DependenciesNeededByProtoSources(
-    const BazelTarget &target, const ParsedBuildFile &build_file,
+    const BazelTarget &target, const BazelPackage &package,
     const std::vector<std::string_view> &sources,
     bool *all_imports_accounted_for);
 
   void CreateEditsForTarget(const BazelTarget &target,
                             const query::Result &details,
-                            const ParsedBuildFile &build_file);
+                            const BazelPackage &package);
 
   // Read a source file and update stats. Returns nullopt on failure after
   // logging the issue and setting *all_accounted = false.
   std::optional<SourceFile> ReadSourceForDWYU(std::string_view src_name,
                                               const BazelTarget &target,
-                                              const ParsedBuildFile &build_file,
+                                              const BazelPackage &package,
                                               Stat &read_stats,
                                               bool *all_accounted);
 

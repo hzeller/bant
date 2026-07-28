@@ -395,11 +395,11 @@ int DWYUGenerator::GetStratum(const BazelTarget &target) const {
 
 std::optional<DWYUGenerator::SourceFile> DWYUGenerator::ReadSourceForDWYU(
   std::string_view src_name, const BazelTarget &target,
-  const ParsedBuildFile &build_file, Stat &read_stats, bool *all_accounted) {
+  const BazelPackage &package, Stat &read_stats, bool *all_accounted) {
   // TODO: ParsedProject::GetPackageFor() as we might have filenames coming
   // from different packages due to filegroups.
   const std::string source_file =
-    build_file.package.FullyQualifiedFile(project_.workspace(), src_name);
+    package.FullyQualifiedFile(project_.workspace(), src_name);
   std::optional<SourceFile> source_content;
   source_content = TryOpenFile(source_file, read_stats);
   if (!source_content.has_value()) {
@@ -533,7 +533,7 @@ static bool AnyAlternativeInProvidedDeps(
 // HeaderIsMentionedInOwnSourceWithIncludePath() etc.
 // That way we avoid the various unnamed blocks in a huge loop.
 IncludeNeededDepsAlternatives DWYUGenerator::DependenciesNeededBySources(
-  const BazelTarget &target, const ParsedBuildFile &build_file,
+  const BazelTarget &target, const BazelPackage &package,
   const std::vector<std::string_view> &sources,            // srcs, hdrs
   const std::vector<std::string_view> &includes_dir_list,  // includes = []
   const DefineMap &defines, const TargetToFileLocation &declared_deps,
@@ -659,9 +659,8 @@ IncludeNeededDepsAlternatives DWYUGenerator::DependenciesNeededBySources(
   IncludeNeededDepsAlternatives result;
   for (const std::string_view src_name : sources) {
     source_headline_logged_already = false;
-    auto source_content =
-      ReadSourceForDWYU(src_name, target, build_file, source_read_stats,
-                        all_headers_accounted_for);
+    auto source_content = ReadSourceForDWYU(
+      src_name, target, package, source_read_stats, all_headers_accounted_for);
     if (!source_content.has_value()) continue;
 
     ++source_grep_stats.count;
@@ -788,7 +787,7 @@ IncludeNeededDepsAlternatives DWYUGenerator::DependenciesNeededBySources(
 
       // Possible refactor-name FindDependencyFromHeaderNameFuzzyDirMatch()
       // Maybe include is not provided with path relative to project root ?
-      const std::string abs_header = build_file.package.QualifiedFile(inc_file);
+      const std::string abs_header = package.QualifiedFile(inc_file);
       if (const auto &found = FindBySuffix(headers_from_libs_, abs_header);
           found.has_value()) {
         if (found->target_set->contains(target)) continue;  // found self
@@ -889,7 +888,7 @@ IncludeNeededDepsAlternatives DWYUGenerator::DependenciesNeededBySources(
 }
 
 IncludeNeededDepsAlternatives DWYUGenerator::DependenciesNeededByProtoSources(
-  const BazelTarget &target, const ParsedBuildFile &build_file,
+  const BazelTarget &target, const BazelPackage &package,
   const std::vector<std::string_view> &sources,
   bool *all_imports_accounted_for) {
   Stat &source_read_stats =
@@ -917,9 +916,8 @@ IncludeNeededDepsAlternatives DWYUGenerator::DependenciesNeededByProtoSources(
 
   for (const std::string_view src_name : sources) {
     source_logged_already = false;
-    auto source_content =
-      ReadSourceForDWYU(src_name, target, build_file, source_read_stats,
-                        all_imports_accounted_for);
+    auto source_content = ReadSourceForDWYU(
+      src_name, target, package, source_read_stats, all_imports_accounted_for);
     if (!source_content.has_value()) continue;
 
     ++source_grep_stats.count;
@@ -965,7 +963,7 @@ IncludeNeededDepsAlternatives DWYUGenerator::DependenciesNeededByProtoSources(
 
 void DWYUGenerator::CreateEditsForTarget(const BazelTarget &target,
                                          const query::Result &details,
-                                         const ParsedBuildFile &build_file) {
+                                         const BazelPackage &package) {
   if (details.bant_skip_dependency_check ||
       TagContains(details.tags, "nofixdeps").has_value()) {
     return;
@@ -1036,9 +1034,9 @@ void DWYUGenerator::CreateEditsForTarget(const BazelTarget &target,
   // Grep for all includes/imports they use to determine which deps we need
   auto deps_needed = is_proto_library
                        ? DependenciesNeededByProtoSources(
-                           target, build_file, sources, &all_header_deps_known)
+                           target, package, sources, &all_header_deps_known)
                        : DependenciesNeededBySources(
-                           target, build_file, sources, includes_list, defines,
+                           target, package, sources, includes_list, defines,
                            all_declared_dependencies, &conservatively_no_remove,
                            &all_header_deps_known);
 
@@ -1230,11 +1228,8 @@ size_t DWYUGenerator::CreateEditsForPattern(const BazelTargetMatcher &pattern) {
     pattern, {"cc_library", "cc_binary", "cc_test", "proto_library"},
     [&](const BazelPackage &current_package, const BazelTarget &target,
         const query::Result &details) {
-      const auto *parsed_package = project_.FindParsedOrNull(current_package);
-      if (!parsed_package) return;
-
       ++matching_patterns;
-      CreateEditsForTarget(target, details, *parsed_package);
+      CreateEditsForTarget(target, details, current_package);
     });
   return matching_patterns;
 }
