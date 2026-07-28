@@ -20,6 +20,7 @@
 #include <memory>
 #include <string_view>
 
+#include "bant/explore/project-walker.h"
 #include "bant/explore/query-utils.h"
 #include "bant/frontend/parsed-project.h"
 #include "bant/frontend/source-locator.h"
@@ -31,16 +32,12 @@ namespace bant {
 using TargetToLocation = OneToOne<BazelTarget, FileLocation>;
 static TargetToLocation ExtractTargetToLocation(const ParsedProject &project) {
   TargetToLocation result;
-  for (const auto &[_, parsed_package] : project.ParsedFiles()) {
-    const BazelPackage &current_package = parsed_package->package;
-    query::FindTargets(
-      parsed_package->ast, {}, [&](const query::Result &target) {
-        if (target.name.empty()) return;
-        auto self = current_package.QualifiedTarget(target.name);
-        if (!self.has_value()) return;
-        result.emplace(*self, project.GetLocation(target.name));
-      });
-  }
+  const ProjectWalker walker(project);
+  walker.FindTargets(
+    {}, [&](const BazelPackage &package, const BazelTarget &target,
+            const query::Result &query_target) {
+      result.emplace(target, project.GetLocation(query_target.name));
+    });
   return result;
 }
 
@@ -49,55 +46,52 @@ std::unique_ptr<CrossReferenceMap> BuildCrossReferences(
   auto result = std::make_unique<CrossReferenceMap>();
   const TargetToLocation targetLocation = ExtractTargetToLocation(project);
   Filesystem &fs = Filesystem::instance();
-  for (const auto &[_, parsed_package] : project.ParsedFiles()) {
-    const BazelPackage &current_package = parsed_package->package;
-    query::FindTargets(
-      parsed_package->ast, {}, [&](const query::Result &details) {
-        // If it has a name, just point to that location.
-        if (!details.name.empty()) {
-          result->Insert(details.name, project.GetLocation(details.name));
+
+  const ProjectWalker walker(project);
+  walker.FindTargets(
+    {}, [&](const BazelPackage &current_package, const BazelTarget &target,
+            const query::Result &details) {
+      // If it has a name, just point to that location.
+      result->Insert(details.name, project.GetLocation(details.name));
+
+      // TODO: here, we're somewhat particular in looking at some attributes
+      // if they contain targets or files. We should probably just go through
+      // all attributes and link everything that can be shown to be a target
+      // or file.
+
+      auto srcs_list =
+        query::ExtractStringList({details.srcs_list, details.hdrs_list,
+                                  details.data_list, details.textual_hdrs});
+      for (const std::string_view src : srcs_list) {
+        auto fqn = current_package.FullyQualifiedFile(project.workspace(), src);
+        if (fs.Exists(fqn)) {
+          // Actual file that is existing ? Then link to that.
+          result->Insert(src, fqn);
+          continue;
         }
-
-        // TODO: here, we're somewhat particular in looking at some attributes
-        // if they contain targets or files. We should probably just go through
-        // all attributes and link everything that can be shown to be a target
-        // or file.
-
-        auto srcs_list =
-          query::ExtractStringList({details.srcs_list, details.hdrs_list,
-                                    details.data_list, details.textual_hdrs});
-        for (const std::string_view src : srcs_list) {
-          auto fqn =
-            current_package.FullyQualifiedFile(project.workspace(), src);
-          if (fs.Exists(fqn)) {
-            // Actual file that is existing ? Then link to that.
-            result->Insert(src, fqn);
-            continue;
-          }
-          // Ok, not a file, maybe some sort of target, e.g. genrule ref ?
-          auto qualified = current_package.QualifiedTarget(src);
-          if (qualified.has_value()) {
-            if (auto found = targetLocation.find(*qualified);
-                found != targetLocation.end()) {
-              result->Insert(src, found->second);
-            }
-          }
-        }
-
-        // Things that can point to targets. There, we want to link to the
-        // place where these files are defined.
-        auto target_refs = query::ExtractStringList(
-          {details.deps_list, details.impl_deps_list, details.visibility});
-        for (const std::string_view target : target_refs) {
-          auto qualified = current_package.QualifiedTarget(target);
-          if (!qualified.has_value()) continue;
+        // Ok, not a file, maybe some sort of target, e.g. genrule ref ?
+        auto qualified = current_package.QualifiedTarget(src);
+        if (qualified.has_value()) {
           if (auto found = targetLocation.find(*qualified);
               found != targetLocation.end()) {
-            result->Insert(target, found->second);
+            result->Insert(src, found->second);
           }
         }
-      });
-  }
+      }
+
+      // Things that can point to targets. There, we want to link to the
+      // place where these files are defined.
+      auto target_refs = query::ExtractStringList(
+        {details.deps_list, details.impl_deps_list, details.visibility});
+      for (const std::string_view target : target_refs) {
+        auto qualified = current_package.QualifiedTarget(target);
+        if (!qualified.has_value()) continue;
+        if (auto found = targetLocation.find(*qualified);
+            found != targetLocation.end()) {
+          result->Insert(target, found->second);
+        }
+      }
+    });
 
   return result;
 }

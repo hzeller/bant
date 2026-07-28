@@ -17,6 +17,7 @@
 
 #include "bant/explore/aliased-by.h"
 
+#include "bant/explore/project-walker.h"
 #include "bant/explore/query-utils.h"
 #include "bant/frontend/parsed-project.h"
 #include "bant/types-bazel.h"
@@ -25,16 +26,14 @@
 namespace bant {
 OneToN<BazelTarget, BazelTarget> ExtractAliasedBy(const ParsedProject &p) {
   OneToN<BazelTarget, BazelTarget> aliased_by;
-  for (const auto &[_, build_file] : p.ParsedFiles()) {
-    query::FindTargets(
-      build_file->ast, {"alias"}, [&](const query::Result &details) {
-        auto alias = build_file->package.QualifiedTarget(details.name);
-        auto actual =
-          BazelTarget::ParseFrom(details.actual, build_file->package);
-        if (!alias.has_value() || !actual.has_value()) return;
-        aliased_by[*actual].push_back(*alias);
-      });
-  }
+  const ProjectWalker walker(p);
+  walker.FindTargets(
+    {"alias"}, [&](const BazelPackage &package, const BazelTarget &alias,
+                   const query::Result &details) {
+      auto actual = BazelTarget::ParseFrom(details.actual, package);
+      if (!actual.has_value()) return;
+      aliased_by[*actual].push_back(alias);
+    });
   return aliased_by;
 }
 }  // namespace bant
