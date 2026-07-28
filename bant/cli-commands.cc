@@ -56,7 +56,6 @@
 #include "bant/tool/workspace.h"
 
 namespace bant {
-using ::bant::query::Result;
 
 namespace {
 // TODO: make flag ? This is needed for projects that don't use a plain
