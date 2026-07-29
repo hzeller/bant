@@ -187,6 +187,9 @@ xls_dslx_ir_wrapper = cc_library(
     bant_skip_dependency_check = True,
 )
 
+# close enough: this has hdrs and is a library to link against
+xls_codegen_pass = bant_forward_args(cc_library())
+
 # Looks like the following two are the same from bant's point of view.
 xls_ir_cc_library_macro = (
     genrule(
