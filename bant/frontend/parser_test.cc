@@ -477,6 +477,37 @@ TEST_F(ParserTest, ParseListComprehension) {
 )")));
 }
 
+TEST_F(ParserTest, ParseListComprehensionTuple) {
+  Node *const expected = List({
+    // Nested tuple in for-loop variables
+    ListComprehension(
+      List::Type::kList,
+      For(Op('+', Id("a"), Id("b")),
+          In(Tuple({Id("a"), Tuple({Id("b"), Id("c")})}),
+             Id("LIST_WITH_TUPLES")))),
+  });
+
+  EXPECT_EQ(Print(expected), Print(Parse(R"(
+  [a + b for a, (b, c) in LIST_WITH_TUPLES]
+)")));
+}
+
+TEST_F(ParserTest, ParseListComprehensionDeeplyNestedTuple) {
+  Node *const expected = List({
+    // Deeply nested tuple in for-loop variables
+    ListComprehension(
+      List::Type::kList,
+      For(Op('+', Id("a"), Id("e")),
+          In(Tuple({Tuple({Id("a"), Tuple({Id("b"), Id("c")})}),
+                    Tuple({Id("d"), Id("e")})}),
+             Id("DEEPLY_NESTED_TUPLES")))),
+  });
+
+  EXPECT_EQ(Print(expected), Print(Parse(R"(
+  [a + e for (a, (b, c)), (d, e) in DEEPLY_NESTED_TUPLES]
+)")));
+}
+
 TEST_F(ParserTest, ParseListComprehensionIf) {
   Node *const expected = List({
     // Simple filter

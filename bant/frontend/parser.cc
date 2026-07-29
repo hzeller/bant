@@ -551,21 +551,17 @@ class Parser::Impl {
       if (peek_type == TokenType::kFor) {
         const Token start_of_for = scanner_->Next();
 
-        List *variable_tuple = nullptr;
-        if (scanner_->Peek().type == '(') {  // (i, j, k) case.
-          scanner_->Next();                  // Consume open tuple '('
-          variable_tuple = ParseList(        // .. parse until we see close ')'
-            Make<List>(List::Type::kTuple),
-            [&]() { return ParseOptionalIdentifierOrTuple(); },
-            TokenType::kCloseParen);
-          const Token expected_in = scanner_->Next();
-          if (expected_in.type != TokenType::kIn) {
-            ErrAt(expected_in) << "expected 'in' after variable tuple\n";
+        List *variable_tuple = ParseList(
+          Make<List>(List::Type::kTuple),
+          [&]() { return ParseOptionalIdentifierOrTuple(); }, TokenType::kIn);
+
+        // If the entire variable tuple was enclosed in parentheses, e.g. for (a, b) in ...,
+        // ParseList will return a list of size 1 where the only element is a tuple.
+        // We unwrap it to match the flat structure [a, b].
+        if (variable_tuple->size() == 1) {
+          if (List *inner_tuple = (*variable_tuple->begin())->CastAsList()) {
+            variable_tuple = inner_tuple;
           }
-        } else {  // i, j, k case. Here the expected list end token is 'in'
-          variable_tuple = ParseList(
-            Make<List>(List::Type::kTuple),
-            [&]() { return ParseOptionalIdentifierOrTuple(); }, TokenType::kIn);
         }
 
         Node *const values_to_iterate_over = ParseExpression(false, false);

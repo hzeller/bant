@@ -352,6 +352,21 @@ OUT = [ "hello b=3, c=4", "world b=5, c=6" ]
   EXPECT_EQ(result.first, result.second);
 }
 
+TEST_F(ElaborationTest, ListComprehensionDeeplyNestedTuple) {
+  auto result = ElabAndPrint(
+    R"lc-in(
+DEEP_LIST = [ (("a", (1, 2)), ("x", 9)),
+              (("b", (3, 4)), ("y", 8)) ]
+OUT = [ "{}_{} {}_{}_{}".format(a, d, b, c, e) for (a, (b, c)), (d, e) in DEEP_LIST ]
+)lc-in",
+    R"lc-result(
+DEEP_LIST = [ (("a", (1, 2)), ("x", 9)),
+              (("b", (3, 4)), ("y", 8)) ]
+OUT = [ "a_x 1_2_9", "b_y 3_4_8" ]
+)lc-result");
+  EXPECT_EQ(result.first, result.second);
+}
+
 TEST_F(ElaborationTest, ListComprehensionIf) {
   auto result = ElabAndPrint(
     R"lc-in(
