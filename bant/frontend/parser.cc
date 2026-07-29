@@ -555,9 +555,9 @@ class Parser::Impl {
           Make<List>(List::Type::kTuple),
           [&]() { return ParseOptionalIdentifierOrTuple(); }, TokenType::kIn);
 
-        // If the entire variable tuple was enclosed in parentheses, e.g. for (a, b) in ...,
-        // ParseList will return a list of size 1 where the only element is a tuple.
-        // We unwrap it to match the flat structure [a, b].
+        // If the entire variable tuple was enclosed in parentheses, e.g. for
+        // (a, b) in ..., ParseList will return a list of size 1 where the only
+        // element is a tuple. We unwrap it to match the flat structure [a, b].
         if (variable_tuple->size() == 1) {
           if (List *inner_tuple = (*variable_tuple->begin())->CastAsList()) {
             variable_tuple = inner_tuple;

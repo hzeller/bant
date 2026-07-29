@@ -480,11 +480,10 @@ TEST_F(ParserTest, ParseListComprehension) {
 TEST_F(ParserTest, ParseListComprehensionTuple) {
   Node *const expected = List({
     // Nested tuple in for-loop variables
-    ListComprehension(
-      List::Type::kList,
-      For(Op('+', Id("a"), Id("b")),
-          In(Tuple({Id("a"), Tuple({Id("b"), Id("c")})}),
-             Id("LIST_WITH_TUPLES")))),
+    ListComprehension(List::Type::kList,
+                      For(Op('+', Id("a"), Id("b")),
+                          In(Tuple({Id("a"), Tuple({Id("b"), Id("c")})}),
+                             Id("LIST_WITH_TUPLES")))),
   });
 
   EXPECT_EQ(Print(expected), Print(Parse(R"(
@@ -495,12 +494,11 @@ TEST_F(ParserTest, ParseListComprehensionTuple) {
 TEST_F(ParserTest, ParseListComprehensionDeeplyNestedTuple) {
   Node *const expected = List({
     // Deeply nested tuple in for-loop variables
-    ListComprehension(
-      List::Type::kList,
-      For(Op('+', Id("a"), Id("e")),
-          In(Tuple({Tuple({Id("a"), Tuple({Id("b"), Id("c")})}),
-                    Tuple({Id("d"), Id("e")})}),
-             Id("DEEPLY_NESTED_TUPLES")))),
+    ListComprehension(List::Type::kList,
+                      For(Op('+', Id("a"), Id("e")),
+                          In(Tuple({Tuple({Id("a"), Tuple({Id("b"), Id("c")})}),
+                                    Tuple({Id("d"), Id("e")})}),
+                             Id("DEEPLY_NESTED_TUPLES")))),
   });
 
   EXPECT_EQ(Print(expected), Print(Parse(R"(

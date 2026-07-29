@@ -335,7 +335,6 @@ LIST_WITH_TUPLES = [ ("hello", (2, 3)),
 OUT = [ "hello b=2, c=3", "world b=5, c=6" ]
 )lc-result");
   EXPECT_EQ(result.first, result.second);
-
 }
 TEST_F(ElaborationTest, ListComprehensionTupleFromMap) {
   auto result = ElabAndPrint(

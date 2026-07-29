@@ -21,6 +21,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <functional>
 #include <initializer_list>
 #include <optional>
 #include <ostream>
@@ -595,10 +596,10 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
       iterate_over = ExtractMapItems(iterate_over, MapExtract::kKeys);
     }
 
-    std::function<bool(Node*)> verify_vars = [&](Node* n) -> bool {
+    std::function<bool(Node *)> verify_vars = [&](Node *n) -> bool {
       if (n->CastAsIdentifier()) return true;
-      if (List* l = n->CastAsList()) {
-        for (Node* c : *l) {
+      if (List *l = n->CastAsList()) {
+        for (Node *c : *l) {
           if (!verify_vars(c)) return false;
         }
         return true;
@@ -610,23 +611,25 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
       if (!verify_vars(is_var)) return for_node;  // verify all variables
     }
 
-    std::function<void(Node*, Node*, query::KwMap*)> unpack = [&](Node* target, Node* value, query::KwMap* map) {
-      if (Identifier* id = target->CastAsIdentifier()) {
-        (*map)[id->id()] = value;
-        return;
-      }
-      if (List* target_list = target->CastAsList()) {
-        if (List* value_list = value->CastAsList()) {
-          List::iterator target_it = target_list->begin();
-          List::iterator value_it = value_list->begin();
-          while (target_it != target_list->end() && value_it != value_list->end()) {
-            unpack(*target_it, *value_it, map);
-            ++target_it;
-            ++value_it;
+    std::function<void(Node *, Node *, query::KwMap *)> unpack =
+      [&](Node *target, Node *value, query::KwMap *map) {
+        if (Identifier *id = target->CastAsIdentifier()) {
+          (*map)[id->id()] = value;
+          return;
+        }
+        if (List *target_list = target->CastAsList()) {
+          if (List *value_list = value->CastAsList()) {
+            List::iterator target_it = target_list->begin();
+            List::iterator value_it = value_list->begin();
+            while (target_it != target_list->end() &&
+                   value_it != value_list->end()) {
+              unpack(*target_it, *value_it, map);
+              ++target_it;
+              ++value_it;
+            }
           }
         }
-      }
-    };
+      };
 
     query::KwMap varmap;
     for (Node *element : *iterate_over) {
@@ -641,7 +644,8 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
           ++name_it;
           ++value_it;
         }
-      } else if (var_tuple->size() == 1) {  // Single value case for (a) in [1, 2, 3]
+      } else if (var_tuple->size() == 1) {
+        // Single value case for (a) in [1, 2, 3]
         unpack(*name_it, element, &varmap);
       }
 
