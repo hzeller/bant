@@ -44,51 +44,48 @@ static TargetToLocation ExtractTargetToLocation(const ParsedProject &project) {
 std::unique_ptr<CrossReferenceMap> BuildCrossReferences(
   const ParsedProject &project) {
   auto result = std::make_unique<CrossReferenceMap>();
-  const TargetToLocation targetLocation = ExtractTargetToLocation(project);
-  Filesystem &fs = Filesystem::instance();
 
+  // In the DependencyGraph building, we only looked at one recusion level
+  // down following deps, but there might be more targets that we have not
+  // seen, as we are looking at all values here that might have bazel labels
+  // in non standard places. Simple solution is for the user to use
+  // --graph-augment=..., but ideally we would load build-files on demand.
+  const TargetToLocation targetLocation = ExtractTargetToLocation(project);
+
+  Filesystem &fs = Filesystem::instance();
   const ProjectWalker walker(project);
   walker.FindTargets(
     {}, [&](const BazelPackage &current_package, const BazelTarget &target,
             const query::Result &details) {
-      // If it has a name, just point to that location.
+      // Point name to location itself.
       result->Insert(details.name, project.GetLocation(details.name));
 
-      // TODO: here, we're somewhat particular in looking at some attributes
-      // if they contain targets or files. We should probably just go through
-      // all attributes and link everything that can be shown to be a target
-      // or file.
-
-      auto srcs_list =
-        query::ExtractStringList({details.srcs_list, details.hdrs_list,
-                                  details.data_list, details.textual_hdrs});
-      for (const std::string_view src : srcs_list) {
-        auto fqn = current_package.FullyQualifiedFile(project.workspace(), src);
-        if (fs.Exists(fqn)) {
-          // Actual file that is existing ? Then link to that.
-          result->Insert(src, fqn);
-          continue;
-        }
-        // Ok, not a file, maybe some sort of target, e.g. genrule ref ?
-        auto qualified = current_package.QualifiedTarget(src);
-        if (qualified.has_value()) {
-          if (auto found = targetLocation.find(*qualified);
-              found != targetLocation.end()) {
-            result->Insert(src, found->second);
-          }
+      // Everything else is looked at if it is a target or file
+      std::vector<std::string_view> candiates;
+      query::KwMap all_fun_values = query::ExtractKwArgs(details.node);
+      for (const auto &[_, rhs] : all_fun_values) {
+        if (Scalar *scalar = rhs->CastAsScalar(); scalar) {
+          candiates.emplace_back(scalar->AsString());
+        } else if (List *list = rhs->CastAsList(); list) {
+          query::AppendStringList(list, candiates);
         }
       }
 
-      // Things that can point to targets. There, we want to link to the
-      // place where these files are defined.
-      auto target_refs = query::ExtractStringList(
-        {details.deps_list, details.impl_deps_list, details.visibility});
-      for (const std::string_view target : target_refs) {
-        auto qualified = current_package.QualifiedTarget(target);
-        if (!qualified.has_value()) continue;
-        if (auto found = targetLocation.find(*qualified);
-            found != targetLocation.end()) {
-          result->Insert(target, found->second);
+      for (std::string_view maybe_xrefable : candiates) {
+        auto as_file = current_package.FullyQualifiedFile(project.workspace(),
+                                                          maybe_xrefable);
+        if (fs.Exists(as_file)) {
+          // Actual file that is existing ? Then link to that.
+          result->Insert(maybe_xrefable, as_file);
+          continue;
+        }
+
+        auto as_target = current_package.QualifiedTarget(maybe_xrefable);
+        if (as_target.has_value()) {
+          if (auto found = targetLocation.find(*as_target);
+              found != targetLocation.end()) {
+            result->Insert(maybe_xrefable, found->second);
+          }
         }
       }
     });
