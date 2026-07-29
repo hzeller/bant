@@ -434,9 +434,8 @@ ProvidedFromTargetSet ExtractComponentToTargetMapping(
 
   const ProjectWalker walker(project);
   walker.FindTargets(
-    {"cc_library", "cc_binary"},
-    [&](const BazelPackage &package, const BazelTarget &cc_library,
-        const query::Result &cc_lib) {
+    {}, [&](const BazelPackage &package, const BazelTarget &cc_library,
+            const query::Result &cc_lib) {
       List *search_list = nullptr;
       switch (which) {
       case ExtractComponent::kHdrs: search_list = cc_lib.hdrs_list; break;
