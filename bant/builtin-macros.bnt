@@ -40,7 +40,7 @@ dict = {k: v for (k, v) in _arg_0}
 #
 # Note: these only need to be 'approximate', enough for bant to know what files
 # and libraries are provided, broken down into bazel building blocks.
-# Use bant_skip_dependency_check = True in cc_library() to skip dwyu there.
+# Use tags = ["nofixdeps"] in cc_library() to skip dwyu there.
 #
 # Genrules often have the same name as corresponding cc_library(); this allows
 # to accurately report where something is coming from. Same name for different
@@ -86,7 +86,7 @@ gentbl_cc_library = (
     cc_library(
         name = name,
         hdrs = tbl_outs.keys(),
-        bant_skip_dependency_check = True,
+        tags = ["nofixdeps"],
     ),
 )
 
@@ -166,7 +166,7 @@ cc_xls_ir_jit_wrapper = cc_library(
     name = name,
     srcs = [name + ".cc"],
     hdrs = [name + ".h"],
-    bant_skip_dependency_check = True,
+    tags = ["nofixdeps"],
 )
 
 xls_dslx_cpp_type_library = (
@@ -177,18 +177,37 @@ xls_dslx_cpp_type_library = (
     cc_library(
         name = name,
         hdrs = [name + ".h"],
-        bant_skip_dependency_check = True,
+        tags = ["nofixdeps"],
     ),
 )
 
 xls_dslx_ir_wrapper = cc_library(
     name = name + "_wrapper",
     hdrs = [name + "_wrapper.h"],
-    bant_skip_dependency_check = True,
+    tags = ["nofixdeps"],
 )
 
-# close enough: this has hdrs and is a library to link against
-xls_codegen_pass = bant_forward_args(cc_library())
+xls_codegen_pass = (
+    # From the dependency point of view, this is just a regular library
+    cc_library(
+        name = name,
+        srcs = srcs,
+        hdrs = hdrs,
+        deps = deps,
+    ),
+    # There is also an _impl library which provides exactly the same
+    # headers. Just mentioned here so that we can apply the avoid_deps
+    # tag and lead bant to suggest the other library instead.
+    cc_library(
+        name = name + "_impl",
+        srcs = srcs,
+        hdrs = hdrs,
+        tags = [
+            "avoid_dep",  # use the other one instead
+            "nofixdeps",  # not interested in bant looking for dependendencies
+        ],
+    ),
+)
 
 # Looks like the following two are the same from bant's point of view.
 xls_ir_cc_library_macro = (
@@ -199,7 +218,7 @@ xls_ir_cc_library_macro = (
     cc_library(
         name = name,
         hdrs = [name + ".h"],
-        bant_skip_dependency_check = True,
+        tags = ["nofixdeps"],
     ),
 )
 
@@ -211,7 +230,7 @@ xls_ir_cc_library = (
     cc_library(
         name = name,
         hdrs = [name + ".h"],
-        bant_skip_dependency_check = True,
+        tags = ["nofixdeps"],
     ),
 )
 
@@ -246,7 +265,7 @@ xls_cc_embed_data = (
     cc_library(
         name = name,
         hdrs = [name + "_embedded.h"],
-        bant_skip_dependency_check = True,
+        tags = ["nofixdeps"],
     ),
 )
 
