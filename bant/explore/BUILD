@@ -118,6 +118,7 @@ cc_library(
         "//bant:types",
         "//bant:types-bazel",
         "//bant/frontend:parsed-project",
+        "//bant/frontend:parser",
         "//bant/frontend:source-locator",
         "//bant/util:disjoint-range-map",
         "//bant/util:file-utils",

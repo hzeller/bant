@@ -19,9 +19,11 @@
 
 #include <memory>
 #include <string_view>
+#include <vector>
 
 #include "bant/explore/project-walker.h"
 #include "bant/explore/query-utils.h"
+#include "bant/frontend/ast.h"
 #include "bant/frontend/parsed-project.h"
 #include "bant/frontend/source-locator.h"
 #include "bant/types-bazel.h"
@@ -54,41 +56,41 @@ std::unique_ptr<CrossReferenceMap> BuildCrossReferences(
 
   Filesystem &fs = Filesystem::instance();
   const ProjectWalker walker(project);
-  walker.FindTargets(
-    {}, [&](const BazelPackage &current_package, const BazelTarget &target,
-            const query::Result &details) {
-      // Point name to location itself.
-      result->Insert(details.name, project.GetLocation(details.name));
+  walker.FindTargets({}, [&](const BazelPackage &current_package,
+                             const BazelTarget &target,
+                             const query::Result &details) {
+    // Point name to location itself.
+    result->Insert(details.name, project.GetLocation(details.name));
 
-      // Everything else is looked at if it is a target or file
-      std::vector<std::string_view> candiates;
-      query::KwMap all_fun_values = query::ExtractKwArgs(details.node);
-      for (const auto &[_, rhs] : all_fun_values) {
-        if (Scalar *scalar = rhs->CastAsScalar(); scalar) {
-          candiates.emplace_back(scalar->AsString());
-        } else if (List *list = rhs->CastAsList(); list) {
-          query::AppendStringList(list, candiates);
-        }
+    // Everything else is looked at if it is a target or file
+    std::vector<std::string_view> candiates;
+    query::KwMap all_fun_values = query::ExtractKwArgs(details.node);
+    for (const auto &[_, rhs] : all_fun_values) {
+      if (Scalar *scalar = rhs->CastAsScalar(); scalar) {
+        candiates.emplace_back(scalar->AsString());
+      } else if (List *list = rhs->CastAsList(); list) {
+        query::AppendStringList(list, candiates);
+      }
+    }
+
+    for (std::string_view maybe_xrefable : candiates) {
+      auto as_file =
+        current_package.FullyQualifiedFile(project.workspace(), maybe_xrefable);
+      if (fs.Exists(as_file)) {
+        // Actual file that is existing ? Then link to that.
+        result->Insert(maybe_xrefable, as_file);
+        continue;
       }
 
-      for (std::string_view maybe_xrefable : candiates) {
-        auto as_file = current_package.FullyQualifiedFile(project.workspace(),
-                                                          maybe_xrefable);
-        if (fs.Exists(as_file)) {
-          // Actual file that is existing ? Then link to that.
-          result->Insert(maybe_xrefable, as_file);
-          continue;
-        }
-
-        auto as_target = current_package.QualifiedTarget(maybe_xrefable);
-        if (as_target.has_value()) {
-          if (auto found = targetLocation.find(*as_target);
-              found != targetLocation.end()) {
-            result->Insert(maybe_xrefable, found->second);
-          }
+      auto as_target = current_package.QualifiedTarget(maybe_xrefable);
+      if (as_target.has_value()) {
+        if (auto found = targetLocation.find(*as_target);
+            found != targetLocation.end()) {
+          result->Insert(maybe_xrefable, found->second);
         }
       }
-    });
+    }
+  });
 
   return result;
 }
