@@ -204,7 +204,7 @@ xls_codegen_pass = (
         hdrs = hdrs,
         tags = [
             "avoid_dep",  # use the other one instead
-            "nofixdeps",  # not interested in bant looking for dependendencies
+            "nofixdeps",  # not interested in bant to fix dependencies here
         ],
     ),
 )
