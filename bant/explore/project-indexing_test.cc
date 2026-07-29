@@ -682,6 +682,51 @@ int_flag(
   }
 }
 
+TEST(ConfigSetting, MultipleBooleanInterpretation) {
+  ParsedProjectTestUtil pp;
+  pp.Add("//package", R"(
+config_setting(
+    name = "foo_config",
+    flag_values = {"//package:foo_flag" : "true"},
+)
+config_setting(
+    name = "bar_config",
+    flag_values = {"//package:foo_flag" : "True"},
+)
+config_setting(
+    name = "baz_config",
+    flag_values = {"//package:foo_flag" : "1"},
+)
+config_setting(
+    name = "qux_config",
+    flag_values = {"//package:foo_flag" : "T"},
+)
+config_setting(
+    name = "quux_config",
+    flag_values = {"//package:foo_flag" : "on"},
+)
+config_setting(
+    name = "foobar_config",
+    flag_values = {"//package:foo_flag" : "yes"},
+)
+
+bool_flag(
+   name = "foo_flag",
+   build_setting_default = False
+)
+)");
+  {
+    const CommandlineFlags flags{.custom_flags = {"//package:foo_flag=true"}};
+    auto configs = ExtractConfigSettings(flags, pp.project());
+    EXPECT_THAT(configs, Contains(Pair(T("//package:foo_config"), true)));
+    EXPECT_THAT(configs, Contains(Pair(T("//package:bar_config"), true)));
+    EXPECT_THAT(configs, Contains(Pair(T("//package:baz_config"), true)));
+    EXPECT_THAT(configs, Contains(Pair(T("//package:qux_config"), true)));
+    EXPECT_THAT(configs, Contains(Pair(T("//package:quux_config"), true)));
+    EXPECT_THAT(configs, Contains(Pair(T("//package:foobar_config"), true)));
+  }
+}
+
 // Needs test:
 // strip_import_prefix
 // aliases for proto libraries.

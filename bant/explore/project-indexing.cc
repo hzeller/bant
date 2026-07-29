@@ -678,6 +678,16 @@ std::optional<FindResult> FindBySuffix(const ProvidedFromTargetSet &index,
   };
 }
 
+static bool ParseBooleanFlagValue(std::string_view value) {
+  if (value.empty()) return true;  // not providing a value: just switch on.
+  if (absl::EqualsIgnoreCase(value, "true")) return true;
+  if (absl::EqualsIgnoreCase(value, "T")) return true;
+  if (absl::EqualsIgnoreCase(value, "on")) return true;
+  if (absl::EqualsIgnoreCase(value, "yes")) return true;
+  if (value == "1") return true;
+  return false;
+}
+
 static bool AllFlagValuesInMap(Node *flag_value_node, const FlagValueMap &flags,
                                const BazelPackage &context_package) {
   if (!flag_value_node) return false;
@@ -697,8 +707,15 @@ static bool AllFlagValuesInMap(Node *flag_value_node, const FlagValueMap &flags,
     auto found = flags.find(*flag_target);
     if (found == flags.end()) return false;
     const FlagConfig &flag = found->second;
+
+    const bool is_match =
+      ((flag.flag_type == "bool_flag" &&
+        ParseBooleanFlagValue(flag.active_value) ==
+          ParseBooleanFlagValue(expected_value_node->AsString())) ||
+       (flag.active_value == expected_value_node->AsString()));
+
     // The first that is not matching decides the fate.
-    if (flag.active_value != expected_value_node->AsString()) return false;
+    if (!is_match) return false;
   }
 
   return true;
@@ -746,9 +763,11 @@ FlagValueMap ExtractConfigFlagValues(const CommandlineFlags &flags,
       // If the flag is provided on the command line, use that as active.
       if (const auto from_cmdline = cmdline_flags.find(target.ToString());
           from_cmdline != cmdline_flags.end()) {
-        flag.active_value = from_cmdline->second;
-        if (flag.active_value.empty() && params.rule == "bool_flag") {
-          flag.active_value = "true";  // Empty flag considered 'true'
+        if (params.rule == "bool_flag") {
+          flag.active_value =
+            ParseBooleanFlagValue(from_cmdline->second) ? "true" : "false";
+        } else {
+          flag.active_value = from_cmdline->second;
         }
       } else {
         flag.active_value = value;
