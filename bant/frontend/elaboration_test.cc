@@ -322,6 +322,36 @@ E = [11, 12, 20, 21, 22, 40]
   EXPECT_EQ(result.first, result.second);
 }
 
+TEST_F(ElaborationTest, ListComprehensionTuple) {
+  auto result = ElabAndPrint(
+    R"lc-in(
+LIST_WITH_TUPLES = [ ("hello", (2, 3)),
+                     ("world", (5, 6)) ]
+OUT = [ "{} b={}, c={}".format(a, b, c) for a, (b, c) in LIST_WITH_TUPLES ]
+)lc-in",
+    R"lc-result(
+LIST_WITH_TUPLES = [ ("hello", (2, 3)),
+                     ("world", (5, 6)) ]
+OUT = [ "hello b=2, c=3", "world b=5, c=6" ]
+)lc-result");
+  EXPECT_EQ(result.first, result.second);
+
+}
+TEST_F(ElaborationTest, ListComprehensionTupleFromMap) {
+  auto result = ElabAndPrint(
+    R"lc-in(
+MAP = { "hello" : (3, 4),
+        "world" : (5, 6) }
+OUT = [ "{} b={}, c={}".format(a, b, c) for a, (b, c) in MAP.items() ]
+)lc-in",
+    R"lc-result(
+MAP = { "hello" : (3, 4),
+        "world" : (5, 6) }
+OUT = [ "hello b=3, c=4", "world b=5, c=6" ]
+)lc-result");
+  EXPECT_EQ(result.first, result.second);
+}
+
 TEST_F(ElaborationTest, ListComprehensionIf) {
   auto result = ElabAndPrint(
     R"lc-in(

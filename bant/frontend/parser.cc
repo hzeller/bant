@@ -512,6 +512,31 @@ class Parser::Impl {
     return nullptr;
   }
 
+  // Parse next thing if it is an identifier, or a tuple/list of identifiers.
+  Node *ParseOptionalIdentifierOrTuple() {
+    LOG_ENTER();
+    const TokenType type = scanner_->Peek().type;
+    if (type == TokenType::kIdentifier) {
+      const Token tok = scanner_->Next();
+      return Make<Identifier>(tok.text);
+    }
+    if (type == '(') {
+      scanner_->Next();
+      return ParseList(
+        Make<List>(List::Type::kTuple),
+        [&]() { return ParseOptionalIdentifierOrTuple(); },
+        TokenType::kCloseParen);
+    }
+    if (type == '[') {
+      scanner_->Next();
+      return ParseList(
+        Make<List>(List::Type::kList),
+        [&]() { return ParseOptionalIdentifierOrTuple(); },
+        TokenType::kCloseSquare);
+    }
+    return nullptr;
+  }
+
   // Read for-in constructs until we hit expected_end_token.
   // Creates a left-recursive tree of 'for' BinOpNodes in which the thing
   // to iterate over is on the left, and the variable-tuple in-expression
@@ -531,7 +556,7 @@ class Parser::Impl {
           scanner_->Next();                  // Consume open tuple '('
           variable_tuple = ParseList(        // .. parse until we see close ')'
             Make<List>(List::Type::kTuple),
-            [&]() { return ParseOptionalIdentifier(); },
+            [&]() { return ParseOptionalIdentifierOrTuple(); },
             TokenType::kCloseParen);
           const Token expected_in = scanner_->Next();
           if (expected_in.type != TokenType::kIn) {
@@ -540,7 +565,7 @@ class Parser::Impl {
         } else {  // i, j, k case. Here the expected list end token is 'in'
           variable_tuple = ParseList(
             Make<List>(List::Type::kTuple),
-            [&]() { return ParseOptionalIdentifier(); }, TokenType::kIn);
+            [&]() { return ParseOptionalIdentifierOrTuple(); }, TokenType::kIn);
         }
 
         Node *const values_to_iterate_over = ParseExpression(false, false);
