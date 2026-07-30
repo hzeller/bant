@@ -23,6 +23,7 @@
 #include <utility>
 
 #include "bant/frontend/ast.h"
+#include "bant/frontend/elaboration.h"
 #include "bant/frontend/parsed-project.h"
 #include "bant/frontend/parsed-project_testutil.h"
 #include "bant/session.h"
@@ -34,19 +35,25 @@ namespace {
 class MacroSubstituteTest : public ::testing::Test {
  public:
   std::pair<std::string, std::string> MacroSubstituteAndPrint(
-    std::string_view to_substitute, std::string_view expected) {
+    std::string_view to_substitute, std::string_view expected,
+    bool elab = false) {
     const CommandlineFlags flags = CommandlineFlags{.verbose = 1};
     const auto &substitute_parsed = pp_.Add("//substitute", to_substitute);
 
     Session session(&std::cerr, &std::cerr, &std::cerr, flags);
-    const std::string sub_print = ToString(
-      MacroSubstitute(session, &pp_.project(), substitute_parsed->ast));
+    Node *macro_substited =
+      MacroSubstitute(session, &pp_.project(), substitute_parsed->ast);
+    if (elab) {
+      macro_substited =
+        Elaborate(session, &pp_.project(), {}, {}, macro_substited);
+    }
+    const std::string sub_print = ToString(macro_substited);
 
     // Parse and re-print expected to get same formatting.
     const std::string expect_print =
       ToString(pp_.Add("//expect", expected)->ast);
 
-    return {sub_print, expect_print};
+    return {expect_print, sub_print};
   }
 
   void SetMacroContent(std::string_view macros) { pp_.SetMacroContent(macros); }
@@ -76,6 +83,38 @@ cc_library(
     deps = ["a", "b", "baz"] + ["x", "y", "z"],
 )
 )expanded");
+
+  EXPECT_EQ(result.first, result.second);
+}
+
+TEST_F(MacroSubstituteTest, MacroBodyEvaluatesListComprehension) {
+  SetMacroContent(R"(
+some_macro_rule = [
+   foo(name = "generated-{}".format(x))
+   for x in macro_parameter
+]
+)");
+
+  const auto result = MacroSubstituteAndPrint(R"input(
+SOME_LIST=["a", "b", "c"]
+some_macro_rule(macro_parameter = SOME_LIST)
+some_macro_rule(macro_parameter = ["d", "e", "f"])
+)input",
+                                              R"expanded(
+SOME_LIST=["a", "b", "c"]
+[
+  foo(name = "generated-a"),
+  foo(name = "generated-b"),
+  foo(name = "generated-c"),
+]
+
+[
+  foo(name = "generated-d"),
+  foo(name = "generated-e"),
+  foo(name = "generated-f"),
+]
+)expanded",
+                                              /* elab= */ true);
 
   EXPECT_EQ(result.first, result.second);
 }
@@ -279,7 +318,7 @@ cc_test(
   EXPECT_EQ(result.first, result.second);
 }
 
-TEST_F(MacroSubstituteTest, BuiltinMacrosAreWorking) {
+TEST_F(MacroSubstituteTest, BuiltinMacrosAreParsing) {
   // Just instantiating a project with builtins enabled to see if they
   // parse properly.
   const ParsedProject project({}, false, /*with_builtin_macros =*/true);

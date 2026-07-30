@@ -277,6 +277,7 @@ cc_test(
     name = "macro-substitutor_test",
     srcs = ["macro-substitutor_test.cc"],
     deps = [
+        ":elaboration",
         ":macro-substitutor",
         ":parsed-project",
         ":parsed-project_testutil",
