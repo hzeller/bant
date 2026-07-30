@@ -366,6 +366,49 @@ OUT = [ "a_x 1_2_9", "b_y 3_4_8" ]
   EXPECT_EQ(result.first, result.second);
 }
 
+TEST_F(ElaborationTest, ListComprehensionOverComplexType) {
+  auto result = ElabAndPrint(
+    R"lc-in(
+LIST_OF_MAPS = [ { "name" : "foo" },
+                 { "name" : "bar" } ]
+OUT = [ foo(value = "{}".format(m["name"])) for m in LIST_OF_MAPS ]
+)lc-in",
+    R"lc-result(
+LIST_OF_MAPS = [ { "name" : "foo" },
+                 { "name" : "bar" } ]
+OUT = [
+   foo(value = "foo"),
+   foo(value = "bar"),
+]
+)lc-result");
+
+  EXPECT_EQ(result.first, result.second);
+}
+
+TEST_F(ElaborationTest, ListComprehensionUnnestingMap) {
+  auto result = ElabAndPrint(
+    R"lc-in(
+LIST_OF_MAPS = [ { "key" : "value",
+                   "foo" : "bar" },
+                 { "name" : "baz" } ]
+OUT = [ "inner_map['{}']='{}'".format(key, map[key])
+        for map in LIST_OF_MAPS
+        for key in map.keys() ]
+)lc-in",
+    R"lc-result(
+LIST_OF_MAPS = [ { "key" : "value",
+                   "foo" : "bar" },
+                 { "name" : "baz" } ]
+OUT = [
+   "inner_map['key']='value'",
+   "inner_map['foo']='bar'",
+   "inner_map['name']='baz'",
+]
+)lc-result");
+
+  EXPECT_EQ(result.first, result.second);
+}
+
 TEST_F(ElaborationTest, ListComprehensionIf) {
   auto result = ElabAndPrint(
     R"lc-in(
