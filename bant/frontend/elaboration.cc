@@ -995,6 +995,7 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     // Extract arguments. include_list is allowed to be a positional parameter.
     List *include_list = nullptr;
     List *exclude_list = nullptr;
+    int limit_per_dir = 0;
     for (Node *arg : *fun->argument()) {
       if (List *as_list = arg->CastAsList()) {
         include_list = as_list;  // include_list is positional parameter.
@@ -1007,6 +1008,10 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
           include_list = kwarg->value()->CastAsList();
         } else if (kw == "exclude") {
           exclude_list = kwarg->value()->CastAsList();
+        } else if (kw == "bant_limit_per_dir") {
+          if (Scalar *value = kwarg->value()->CastAsScalar(); value) {
+            limit_per_dir = value->AsInt();
+          }
         }
       }
     }
@@ -1021,7 +1026,7 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
 
     const std::vector<FilesystemPath> glob_result =
       MultiGlob(root_dir, query::ExtractStringList(include_list),
-                query::ExtractStringList(exclude_list));
+                query::ExtractStringList(exclude_list), limit_per_dir);
 
     // Allocate buffer enough to hold all the strings; we don't need the
     // root_dir prefix, so don't account for that part.
@@ -1061,11 +1066,12 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
   }
 
   // Globbing that allows for include and exclude lists, as well as ** glob
-  // characters. Combining GlobMatchBuilder and CollectFilesRecursive().
+  // characters; won't recurse into other bazel packages.
+  // Combining GlobMatchBuilder and CollectFilesRecursive().
   std::vector<FilesystemPath> MultiGlob(
     std::string_view start_dir,  //
     const std::vector<std::string_view> &include,
-    const std::vector<std::string_view> &exclude) {
+    const std::vector<std::string_view> &exclude, int limit_per_dir) {
     CHECK(!start_dir.empty());
     bant::Filesystem &fs = bant::Filesystem::instance();
 
@@ -1088,6 +1094,7 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     const size_t skip_prefix =
       start_dir.length() + (start_dir.ends_with("/") ? 0 : 1);
 
+    absl::flat_hash_map<std::string, int> per_dir_count;
     size_t checked_files = 0;
     auto result = CollectFilesRecursive(
       FilesystemPath(start_dir, match_builder.CommonDirectoryPrefix()),
@@ -1107,7 +1114,15 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
       [&](const FilesystemPath &file) {
         ++checked_files;
         if (file.is_directory()) return false;  // only interested in files.
-        return file_matcher(std::string_view(file.path()).substr(skip_prefix));
+        const bool want =
+          file_matcher(std::string_view(file.path()).substr(skip_prefix));
+
+        if (!want) return false;
+        if (limit_per_dir > 0 &&
+            ++per_dir_count[file.parent_path()] > limit_per_dir) {
+          return false;
+        }
+        return true;
       });
     glob_stats.count += checked_files;
     return result;

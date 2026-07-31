@@ -1457,8 +1457,15 @@ TEST_F(ElaborationTest, GlobDirKnownPrefixInSubpackage) {
 
 TEST_F(ElaborationTest, GlobMultipleFilesInSudirectory) {
   auto result = TestGlobFile("GlobMultipleFilesInSubdirectory", this, "",  //
-                             {"foo.txt", "bar/baz.txt"}, "**/*.txt",
-                             {"foo.txt", "bar/baz.txt"});
+                             {"foo.txt", "bar/a.txt", "bar/b.txt"}, "**/*.txt",
+                             {"foo.txt", "bar/a.txt", "bar/b.txt"});
+  EXPECT_EQ(result.first, result.second);
+}
+
+TEST_F(ElaborationTest, GlobMultipleFilesInSudirectoryLimitDir) {
+  auto result = TestGlobFile("GlobMultipleFilesInSubdirectory", this, "",  //
+                             {"foo.txt", "bar/a.txt", "bar/b.txt"}, "**/*.txt",
+                             {"foo.txt", "bar/a.txt"}, ",bant_limit_per_dir=1");
   EXPECT_EQ(result.first, result.second);
 }
 
