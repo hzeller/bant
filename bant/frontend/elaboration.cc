@@ -95,11 +95,12 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
   Node *VisitFunCall(FunCall *f) final {
     const NestCounter c(&nest_level_);
     BaseNodeReplacementVisitor::VisitFunCall(f);
+
     if (options_.builtin_macro_expansion) {
       if (Node *maybe_macro = MacroSubstitute(session_, project_, f);
           maybe_macro != f) {
-        maybe_macro->Accept(this);  // expr. eval. TODO: limit features to that.
-        return maybe_macro;
+        // TODO: limit recursive expansion inside the eval ?
+        return maybe_macro->Accept(this);
       }
     }
 
