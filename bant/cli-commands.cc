@@ -367,6 +367,7 @@ CliStatus RunCommand(Session &session, Command cmd,
     if (flags.print_ast || cmd == Command::kPrint || flags.print_only_errors) {
       const auto [count, total] =
         bant::PrintProject(session, patterns, project);
+      session.info() << Dim(session);
       if (count == 0) {
         session.info() << "No";
       } else {
@@ -380,7 +381,7 @@ CliStatus RunCommand(Session &session, Command cmd,
       if (!flags.elaborate) {
         session.info() << "; use -e to evaluate first";
       }
-      session.info() << ")\n";
+      session.info() << ")" << Norm(session) << "\n";
     }
     break;
   }
