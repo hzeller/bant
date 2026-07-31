@@ -250,6 +250,7 @@ cc_test(
         "//bant/explore:query-utils",
         "//bant/util:file-test-util",
         "@abseil-cpp//absl/container:flat_hash_set",
+        "@abseil-cpp//absl/strings",
         "@abseil-cpp//absl/strings:str_format",
         "@googletest//:gtest",
         "@googletest//:gtest_main",

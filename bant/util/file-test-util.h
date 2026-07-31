@@ -25,7 +25,9 @@
 
 namespace bant::test {
 
-// Change to a temporary test directory and
+// Change to a temporary test directory and allow to create files there.
+// TODO: this can be entirely simulated in the bant::Filesystem without any
+// need to create physical files.
 class ChangeToTmpDir {
  public:
   explicit ChangeToTmpDir(std::string_view base)

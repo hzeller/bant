@@ -21,9 +21,11 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 #include "absl/container/flat_hash_set.h"
 #include "absl/strings/str_format.h"
+#include "absl/strings/str_join.h"
 #include "bant/explore/query-utils.h"
 #include "bant/frontend/ast.h"
 #include "bant/frontend/parsed-project.h"
@@ -1390,46 +1392,58 @@ SBAZ = struct(green = '#00FF00', "should skip", blue = '#0000FF').noexist
 
 static std::pair<std::string, std::string> TestGlobFile(
   std::string_view test_name, ElaborationTest *test, std::string_view package,
-  std::string_view filename, std::string_view glob_pattern) {
+  const std::vector<std::string_view> &filenames, std::string_view glob_pattern,
+  const std::vector<std::string_view> &expected = {},
+  std::string_view extra_arg = "") {
   bant::test::ChangeToTmpDir tmpdir(test_name);
 
   // Creating the file relative to the package path, as we glob relative to it.
-  tmpdir.touch(package, filename);
+  for (std::string_view file : filenames) {
+    tmpdir.touch(package, file);
+  }
+
+  // Caller might provide the epxecgted list
+  const std::string expected_list = !expected.empty()
+                                      ? absl::StrJoin(expected, "\",\"")
+                                      : absl::StrJoin(filenames, "\",\"");
 
   return test->ElabInPackageAndPrint(
     package.empty() ? "//" : package,
-    absl::StrFormat(R"(foo = glob(include = ["%s"]))", glob_pattern),
-    absl::StrFormat(R"(foo = ["%s"])", filename));
+    // glob call
+    absl::StrFormat(R"(foo = glob(include = ["%s"] %s))", glob_pattern,
+                    extra_arg),
+    // expected outcome
+    absl::StrFormat(R"(foo = ["%s"])", expected_list));
 }
 
 TEST_F(ElaborationTest, GlobInToplevel) {
   auto result = TestGlobFile("GlobInToplevel", this, "",  //
-                             "foo.txt", "*.txt");
+                             {"foo.txt"}, "*.txt");
   EXPECT_EQ(result.first, result.second);
 }
 
 TEST_F(ElaborationTest, GlobInSubpackage) {
   auto result = TestGlobFile("GlobInSubpackage", this, "some/pkg",  //
-                             "foo.txt", "*.txt");
+                             {"foo.txt", "bar.cc"}, "*.txt", {"foo.txt"});
   EXPECT_EQ(result.first, result.second);
 }
 
 TEST_F(ElaborationTest, GlobDirInToplevel) {
   auto result = TestGlobFile("GlobDirInToplevel", this, "",  //
-                             "abc/foo.xyz", "**/*.xyz");
+                             {"abc/foo.xyz"}, "**/*.xyz");
   EXPECT_EQ(result.first, result.second);
 }
 
 TEST_F(ElaborationTest, GlobDirKnownPrefixInToplevel) {
   // Test common prefix optimization - search only needs to start in abc/
   auto result = TestGlobFile("GlobDirKnownPrefixInToplevel", this, "",  //
-                             "abc/foo.xyz", "abc/*.xyz");
+                             {"abc/foo.xyz"}, "abc/*.xyz");
   EXPECT_EQ(result.first, result.second);
 }
 
 TEST_F(ElaborationTest, GlobDirInSubpackage) {
   auto result = TestGlobFile("GlobDirInSubpackage", this, "some/pkg",  //
-                             "abc/foo.xyz", "**/*.xyz");
+                             {"abc/foo.xyz"}, "**/*.xyz");
   EXPECT_EQ(result.first, result.second);
 }
 
@@ -1437,7 +1451,14 @@ TEST_F(ElaborationTest, GlobDirKnownPrefixInSubpackage) {
   // Test common prefix optimization - search only needs to start in abc/
   auto result =
     TestGlobFile("GlobDirKnownPrefixInSubpackage", this, "some/pkg",  //
-                 "abc/foo.xyz", "abc/*.xyz");
+                 {"abc/foo.xyz"}, "abc/*.xyz");
+  EXPECT_EQ(result.first, result.second);
+}
+
+TEST_F(ElaborationTest, GlobMultipleFilesInSudirectory) {
+  auto result = TestGlobFile("GlobMultipleFilesInSubdirectory", this, "",  //
+                             {"foo.txt", "bar/baz.txt"}, "**/*.txt",
+                             {"foo.txt", "bar/baz.txt"});
   EXPECT_EQ(result.first, result.second);
 }
 
