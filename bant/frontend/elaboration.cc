@@ -47,6 +47,7 @@
 #include "bant/frontend/substitute-copy.h"
 #include "bant/session.h"
 #include "bant/types-bazel.h"
+#include "bant/types.h"
 #include "bant/util/file-utils.h"
 #include "bant/util/filesystem.h"
 #include "bant/util/glob-match-builder.h"
@@ -126,6 +127,9 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     }
     if (fun_name == "select") {
       return HandleSelect(f);
+    }
+    if (fun_name == "set") {
+      return HandleSet(f);
     }
     if (fun_name == "len") {
       return HandleLen(f);
@@ -877,6 +881,30 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     if (scalar->type() == Scalar::ScalarType::kString) return scalar;
     auto loc = project_->GetLocation(scalar->AsString());
     return f_.MakeNewStringScalarFrom(scalar->AsString(), loc);
+  }
+
+  Node *HandleSet(FunCall *fun) {
+    if (fun->argument()->size() != 1) return fun;
+    Node *arg = fun->argument()->at(0);
+    if (!arg) return fun;
+    List *list = arg->CastAsList();
+    if (!list) return fun;
+
+    OneToOne<std::string_view, Node *> first_uniq;
+    bool all_unique = true;
+    for (Node *n : *list) {
+      if (!n) continue;
+      const Scalar *const scalar = n->CastAsScalar();
+      if (!scalar) continue;  // skipping raw other nodes
+      all_unique &= first_uniq.emplace(scalar->AsString(), n).second;
+    }
+    if (all_unique) return list;  // already unique
+
+    List *result = f_.Make<List>(List::Type::kList);
+    for (const auto &[_, node] : first_uniq) {
+      result->Append(project_->arena(), node);
+    }
+    return result;
   }
 
   Node *HandleLen(FunCall *fun) {

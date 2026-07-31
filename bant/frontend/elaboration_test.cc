@@ -1278,6 +1278,23 @@ BAR_4  = ["a", "b"]
   EXPECT_EQ(result.first, result.second);
 }
 
+TEST_F(ElaborationTest, SetOfValues) {
+  auto result = ElabAndPrint(
+    R"(
+FOO = set(["d", "a", "b", "a", "c", "b", "a", "d", "c"])
+BAR = set(["unique", "already"])
+BAZ = set([3, 2, 2+2, 1, unknown_fun(42), 3])
+QUX = set([1, 2, 3, 1, 2, 3, 10])
+)",
+    R"(
+FOO = ["a", "b", "c", "d"]
+BAR = ["unique", "already"]  # not sorted, as we get back the original
+BAZ = [1, 2, 3, 4]           # non-evaluated fun-call node is excluded
+QUX = [1, 10, 2, 3]          # impl artifact: ordered lexiographically
+)");
+  EXPECT_EQ(result.first, result.second);
+}
+
 TEST_F(ElaborationTest, MapAccess) {
   auto result = ElabAndPrint(
     R"(

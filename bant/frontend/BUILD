@@ -219,6 +219,7 @@ cc_library(
         ":source-locator",
         ":substitute-copy",
         "//bant:session",
+        "//bant:types",
         "//bant:types-bazel",
         "//bant/explore:query-utils",
         "//bant/util:file-utils",
