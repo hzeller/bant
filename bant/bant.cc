@@ -190,9 +190,9 @@ Commands (unique prefix sufficient):
                         instead of "zlib.h") for considering deps for them.
                         ignore     : bracket inclues ignored, deps removed.
                         acknowldege: will not remove deps, but also no add.
-                        validate   : will also add deps providing that header.
-                        (fix your project to use quotes if you need acknowlege
-                         or validate).
+                        accept     : will also add deps providing that header.
+                        (fix your project to use quotes if you need 'acknowlege'
+                         or 'accept').
                         Default: acknowledge
                       --graph-augment=<bazel-target> Additioal bazel targets
                          you'd like the dependency graph know about.
@@ -446,7 +446,7 @@ int main(int argc, char *argv[]) {
     } break;
     case OPT_BRACKET_INC:
       flags.dwyu_bracket_include =
-        BestMatchValue(optarg, {"ignore", "acknowledge", "validate"},
+        BestMatchValue(optarg, {"ignore", "acknowledge", "accept"},
                        bant::BracketIncHandling::kAcknowledge);
       break;
     case OPT_GRAPH_AUGMENT: {
