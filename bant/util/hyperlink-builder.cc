@@ -45,7 +45,7 @@ Constants extracted from project
   ${external_root}   // Absolute root dir where all the external projets are
   ${repo_url}        // if available: this is the base-url for ${project_file}s
 
-Variables used within links
+Variables used within links. Only one of these is set.
   ${project_file}    // filename relative to ${project_root}
   ${external_file}   // filename relative to ${external_root}
   ${generated_file}  // filename that is generated; relative to ${project_root}
@@ -309,7 +309,11 @@ bool HyperlinkBuilder::LinkTo(const BazelPackage &pkg,
                               std::ostream &out) const {
   const std::optional<TextTemplate::Prepared> *template_to_use = nullptr;
   if (pkg.project.empty()) {
-    template_to_use = &project_file_;
+    if (LooksLikeGeneratedProjectSource(filename)) {
+      template_to_use = &generated_file_;
+    } else {
+      template_to_use = &project_file_;
+    }
   } else {
     template_to_use = &external_file_;
   }
