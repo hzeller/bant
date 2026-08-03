@@ -23,12 +23,12 @@
 
 #include "bant/explore/project-walker.h"
 #include "bant/explore/query-utils.h"
+#include "bant/explore/source-finder.h"
 #include "bant/frontend/ast.h"
 #include "bant/frontend/parsed-project.h"
 #include "bant/frontend/source-locator.h"
 #include "bant/types-bazel.h"
 #include "bant/types.h"
-#include "bant/util/filesystem.h"
 
 namespace bant {
 using TargetToLocation = OneToOne<BazelTarget, FileLocation>;
@@ -54,7 +54,6 @@ std::unique_ptr<CrossReferenceMap> BuildCrossReferences(
   // --graph-augment=..., but ideally we would load build-files on demand.
   const TargetToLocation targetLocation = ExtractTargetToLocation(project);
 
-  Filesystem &fs = Filesystem::instance();
   const ProjectWalker walker(project);
   walker.FindTargets({}, [&](const BazelPackage &current_package,
                              const BazelTarget &target,
@@ -76,9 +75,9 @@ std::unique_ptr<CrossReferenceMap> BuildCrossReferences(
     for (std::string_view maybe_xrefable : candiates) {
       auto as_file =
         current_package.FullyQualifiedFile(project.workspace(), maybe_xrefable);
-      if (fs.Exists(as_file)) {
+      if (auto file_exist = PathForProjectSource(as_file); file_exist) {
         // Actual file that is existing ? Then link to that.
-        result->Insert(maybe_xrefable, as_file);
+        result->Insert(maybe_xrefable, file_exist->path.path());
         continue;
       }
 

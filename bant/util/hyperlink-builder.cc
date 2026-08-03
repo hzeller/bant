@@ -33,6 +33,7 @@
 #include "absl/log/log.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
+#include "bant/explore/source-finder.h"
 #include "bant/frontend/source-locator.h"
 #include "bant/types-bazel.h"
 #include "bant/util/text-template.h"
@@ -283,11 +284,6 @@ bool HyperlinkBuilder::Build(const VarKV &constants, std::string_view prefix,
   return success;
 }
 
-static bool LooksLikeGeneratedPath(std::string_view path) {
-  // TODO: use the same criteria as kSourceLocations in dwyu
-  return path.starts_with("bazel-");
-}
-
 bool HyperlinkBuilder::LinkTo(const FileLocation &location,
                               std::ostream &out) const {
   FileLocation print_location = location;
@@ -295,7 +291,7 @@ bool HyperlinkBuilder::LinkTo(const FileLocation &location,
   if (location.filename.starts_with(workspace_.external_dir)) {
     template_to_use = &external_file_with_loc_;
     print_location.filename.remove_prefix(workspace_.external_dir.length());
-  } else if (LooksLikeGeneratedPath(location.filename)) {
+  } else if (LooksLikeGeneratedProjectSource(location.filename)) {
     template_to_use = &generated_file_with_loc_;
   } else {
     template_to_use = &project_file_with_loc_;

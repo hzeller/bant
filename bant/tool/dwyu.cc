@@ -37,6 +37,7 @@
 #include "bant/explore/project-indexing.h"
 #include "bant/explore/project-walker.h"
 #include "bant/explore/query-utils.h"
+#include "bant/explore/source-finder.h"
 #include "bant/frontend/ast.h"
 #include "bant/frontend/named-content.h"
 #include "bant/frontend/parsed-project.h"
@@ -58,19 +59,6 @@
 // This file is a dense bowl of spaghetti as a result of ad-hoc adding features.
 // Refactor.
 // A lot of 'noise' comes from the extensive logging for debug reasons.
-
-// Looking for source files directly in the source tree, but if not found
-// in the various locations generated files could be.
-#define LINK_PREFIX "bazel-"
-// clang-format off
-static constexpr std::string_view kSourceLocations[] = {
-  "",
-  (LINK_PREFIX "out/host/bin/"),
-  (LINK_PREFIX "bin/"),
-  (LINK_PREFIX "genfiles/"),  // Before bazel 1.1
-};
-// clang-format on
-#undef LINK_PREFIX
 
 namespace bant {
 
@@ -177,19 +165,17 @@ static IncludeNeededDepsAlternatives MinimizeDependencySet(
 // not found.
 std::optional<DWYUGenerator::SourceFile> DWYUGenerator::TryOpenFile(
   std::string_view source_file, Stat &read_stats) {
-  SourceFile result;
-  // File could come from multiple locations, primary or generated.
-  result.is_generated = false;
-  std::optional<std::string> src_content;
-  for (const std::string_view search_path : kSourceLocations) {
-    result.path = absl::StrCat(search_path, source_file);
-    src_content =
-      ReadFileToStringUpdateStat(FilesystemPath(result.path), read_stats);
-    if (src_content.has_value()) {
-      result.content = std::move(*src_content);
-      return result;
-    }
-    result.is_generated = true;  // Only the first in list is direct source
+  const auto physical_location = PathForProjectSource(source_file);
+  if (!physical_location.has_value()) return std::nullopt;
+
+  if (auto src_content =
+        ReadFileToStringUpdateStat(physical_location->path, read_stats);
+      src_content.has_value()) {
+    return SourceFile{
+      .content = std::move(*src_content),
+      .path = physical_location->path.path(),
+      .is_generated = physical_location->is_generated,
+    };
   }
   return std::nullopt;
 }

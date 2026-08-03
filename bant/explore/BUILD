@@ -115,12 +115,19 @@ cc_library(
     deps = [
         ":project-walker",
         ":query-utils",
+        ":source-finder",
         "//bant:types",
         "//bant:types-bazel",
         "//bant/frontend:parsed-project",
         "//bant/frontend:parser",
         "//bant/frontend:source-locator",
         "//bant/util:disjoint-range-map",
-        "//bant/util:file-utils",
     ],
+)
+
+cc_library(
+    name = "source-finder",
+    srcs = ["source-finder.cc"],
+    hdrs = ["source-finder.h"],
+    deps = ["//bant/util:file-utils"],
 )

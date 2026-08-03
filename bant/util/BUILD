@@ -238,6 +238,7 @@ cc_library(
         ":text-template",
         "//bant:types-bazel",
         "//bant:workspace",
+        "//bant/explore:source-finder",
         "//bant/frontend:source-locator",
         "@abseil-cpp//absl/container:flat_hash_map",
         "@abseil-cpp//absl/log",

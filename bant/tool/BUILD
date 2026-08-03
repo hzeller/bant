@@ -78,6 +78,7 @@ cc_library(
         "//bant/explore:project-indexing",
         "//bant/explore:project-walker",
         "//bant/explore:query-utils",
+        "//bant/explore:source-finder",
         "//bant/frontend:named-content",
         "//bant/frontend:parsed-project",
         "//bant/frontend:parser",
