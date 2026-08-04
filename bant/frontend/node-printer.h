@@ -23,7 +23,6 @@
 #include <string_view>
 #include <utility>
 
-#include "bant/explore/cross-reference.h"
 #include "bant/frontend/ast.h"
 #include "bant/frontend/parsed-project.h"
 #include "bant/session.h"
@@ -36,8 +35,7 @@ namespace bant {
 // GrepHighlighter is passed in as creating it can be expensive.
 // Returns true if this was printed and not filtered out.
 bool PrintNode(Session &session, const GrepHighlighter &highlighter,
-               std::string_view headline, Node *node,
-               const CrossReferenceMap *xrefs = nullptr);
+               std::string_view headline, Node *node);
 
 // Convenience function to print a fully parsed project, recreated from the
 // AST. Takes grep_regex into account for filtering.

@@ -109,23 +109,6 @@ cc_test(
 )
 
 cc_library(
-    name = "cross-reference",
-    srcs = ["cross-reference.cc"],
-    hdrs = ["cross-reference.h"],
-    deps = [
-        ":project-walker",
-        ":query-utils",
-        "//bant:types",
-        "//bant:types-bazel",
-        "//bant/frontend:parsed-project",
-        "//bant/frontend:parser",
-        "//bant/frontend:source-locator",
-        "//bant/util:disjoint-range-map",
-        "//bant/util:file-utils",
-    ],
-)
-
-cc_library(
     name = "source-finder",
     srcs = ["source-finder.cc"],
     hdrs = ["source-finder.h"],

@@ -26,18 +26,22 @@
 #include <string>
 #include <string_view>
 #include <utility>
-#include <variant>
 
-#include "bant/explore/cross-reference.h"
+#include "bant/explore/project-walker.h"
 #include "bant/explore/query-utils.h"
+#include "bant/explore/source-finder.h"
 #include "bant/frontend/ast.h"
 #include "bant/frontend/parsed-project.h"
 #include "bant/frontend/print-visitor.h"
+#include "bant/frontend/source-locator.h"
 #include "bant/session.h"
 #include "bant/types-bazel.h"
+#include "bant/types.h"
+#include "bant/util/filesystem.h"
 #include "bant/util/grep-highlighter.h"
 #include "bant/util/hyperlink-builder.h"
 #include "bant/util/text-decorator.h"
+#include "bant/workspace.h"
 
 namespace bant {
 // If we have an arbitrary node, find the fist string or identifier to latch
@@ -73,48 +77,101 @@ std::optional<std::string_view> FindFirstLocatableString(Node *ast) {
   return finder.found();
 }
 
-bool PrintNode(Session &session, const GrepHighlighter &highlighter,
-               std::string_view headline, Node *node,
-               const CrossReferenceMap *xrefs) {
+namespace {
+class PackageLocator {
+ public:
+  explicit PackageLocator(const ParsedProject &project)
+      : project_(project), index_(BuildIndex(project)) {}
+
+  std::optional<FileLocation> GetLocationFor(const BazelTarget &target) const {
+    if (const auto &found = index_.find(target); found != index_.end()) {
+      return found->second;
+    }
+    // TODO: on-demand loading of BUILD file.
+    return std::nullopt;
+  }
+
+  const BazelWorkspace &workspace() const { return project_.workspace(); }
+
+ private:
+  using TargetToLocation = OneToOne<BazelTarget, FileLocation>;
+  static TargetToLocation BuildIndex(const ParsedProject &project) {
+    TargetToLocation result;
+    const ProjectWalker walker(project);
+    walker.FindTargets(
+      {}, [&](const BazelPackage &package, const BazelTarget &target,
+              const query::Result &query_target) {
+        result.emplace(target, project.GetLocation(query_target.name));
+      });
+    return result;
+  }
+
+  const ParsedProject &project_;
+  const TargetToLocation index_;
+};
+}  // namespace
+
+// TODO: need package.
+// TargetToLocation; should look up project, get build file as needed
+// and return either location to BUILD file or location to thing.
+static bool PrintNodeInternal(Session &session,
+                              const GrepHighlighter &highlighter,
+                              std::string_view headline, Node *node,
+                              const BazelPackage &context,
+                              const PackageLocator *package_locator) {
   if (!node) return false;
 
   static constexpr std::string_view kHeadlineColor = "\033[2;37m";
   static constexpr std::string_view kHeadlineReset = "\033[0m";
 
-  const bool make_hyperlinks = session.linkgen() && xrefs;
+  const bool make_hyperlinks = session.linkgen() && package_locator;
   const CommandlineFlags &flags = session.flags();
   std::stringstream ast_out;
   PrintVisitor printer(ast_out, flags.do_color);
 
-  // somewhat hacky: remmeber if the link anntation start actually was
-  // succesful, so when we get to the close-link annoation we know to emit the
-  // corresponding end anchor text.
-  bool last_print_link_success = false;
+  // Only if we actually could print a link, use that to close the anchor.
+  // Since there are no overlapping links, a simple boolean is sufficient.
+  bool link_emitted = false;
 
+  Filesystem &fs = Filesystem::instance();
   TextDecorator text_decorator;
   if (make_hyperlinks) {
     // Whenever the node printer comes accross a string view scalar, it
     // informs us, and we might want to add a decoration later at wherever
     // the current stream position is.
     auto stringview_print_observer = [&](std::string_view s) {
-      auto found = xrefs->FindBySubrange(s);
-      if (found == xrefs->end()) return;
-      std::visit(
-        [&](const auto &linkable) {
-          const size_t current_offset = ast_out.tellp();
-          text_decorator.AddDecoration(
-            current_offset, s.length(),
-            [&](std::ostream &out) {
-              last_print_link_success =
-                session.linkgen()->LinkTo(linkable, out);
-            },
-            [&](std::ostream &out) {
-              if (last_print_link_success) {
-                out << HyperlinkBuilder::kTerminalEndAnchorText;
-              }
-            });
+      if (s.empty() || s[0] == '-') return;  // some sort of flag.
+      if (s.find_first_of(" \t\n") != std::string_view::npos) return;
+      const size_t current_offset = ast_out.tellp();  // where are we at output
+      // Note: content of 's' is still valid when decorator is called, as it
+      // is backed by AST.
+      text_decorator.AddDecoration(
+        current_offset, s.length(),
+        [&, s](std::ostream &out) {
+          // We only go through the effort of
+          // attempting to resolve and link these
+          // when actually printed.
+          auto target = context.QualifiedTarget(s);
+          if (target.has_value()) {
+            if (auto loc = package_locator->GetLocationFor(*target);
+                loc.has_value()) {
+              link_emitted = session.linkgen()->LinkTo(*loc, out);
+              return;
+            }
+          }
+
+          const std::string maybe_file =
+            context.FullyQualifiedFile(package_locator->workspace(), s);
+          for (const auto &p : PossibleSourceLocations(maybe_file)) {
+            if (fs.Exists(p.path.path())) {
+              link_emitted = session.linkgen()->LinkTo(p.path.path(), out);
+              return;
+            }
+          }
         },
-        *found);
+        [&](std::ostream &out) {
+          if (link_emitted) out << HyperlinkBuilder::kTerminalEndAnchorText;
+        });
     };
     printer.RegisterStringScalarCallback(stringview_print_observer);
   }
@@ -132,6 +189,11 @@ bool PrintNode(Session &session, const GrepHighlighter &highlighter,
   text_decorator.Emit(ast_print, session.out());
   session.out() << "\n";
   return true;
+}
+
+bool PrintNode(Session &session, const GrepHighlighter &highlighter,
+               std::string_view headline, Node *node) {
+  return PrintNodeInternal(session, highlighter, headline, node, {}, nullptr);
 }
 
 // Print visibility, but not regular print walk, but put in one line.
@@ -157,9 +219,9 @@ std::pair<size_t, size_t> PrintProject(Session &session,
   if (!highlighter) {
     return {count, total};  // Issue building the highligher.
   }
-  std::unique_ptr<CrossReferenceMap> xrefs;
+  std::unique_ptr<PackageLocator> xrefs;
   if (session.linkgen()) {
-    xrefs = BuildCrossReferences(project);
+    xrefs = std::make_unique<PackageLocator>(project);
   }
   for (const auto &[package, file_content] : project.ParsedFiles()) {
     if (flags.print_only_errors && file_content->errors.empty()) {
@@ -179,8 +241,8 @@ std::pair<size_t, size_t> PrintProject(Session &session,
         if (position_or.has_value()) {
           headline << project.Loc(*position_or);
         }
-        if (PrintNode(session, *highlighter, headline.str(), item,
-                      xrefs.get())) {
+        if (PrintNodeInternal(session, *highlighter, headline.str(), item,
+                              package, xrefs.get())) {
           ++count;
         }
       }
@@ -208,8 +270,8 @@ std::pair<size_t, size_t> PrintProject(Session &session,
         }
         MaybePrintVisibility(result.visibility, headline);
 
-        if (PrintNode(session, *highlighter, headline.str(), result.node,
-                      xrefs.get())) {
+        if (PrintNodeInternal(session, *highlighter, headline.str(),
+                              result.node, package, xrefs.get())) {
           ++count;
         }
       });
