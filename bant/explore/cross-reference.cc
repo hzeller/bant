@@ -23,14 +23,15 @@
 
 #include "bant/explore/project-walker.h"
 #include "bant/explore/query-utils.h"
-#include "bant/explore/source-finder.h"
 #include "bant/frontend/ast.h"
 #include "bant/frontend/parsed-project.h"
 #include "bant/frontend/source-locator.h"
 #include "bant/types-bazel.h"
 #include "bant/types.h"
+#include "bant/util/filesystem.h"
 
 namespace bant {
+
 using TargetToLocation = OneToOne<BazelTarget, FileLocation>;
 static TargetToLocation ExtractTargetToLocation(const ParsedProject &project) {
   TargetToLocation result;
@@ -47,6 +48,7 @@ std::unique_ptr<CrossReferenceMap> BuildCrossReferences(
   const ParsedProject &project) {
   auto result = std::make_unique<CrossReferenceMap>();
 
+  Filesystem &fs = Filesystem::instance();
   // In the DependencyGraph building, we only looked at one recusion level
   // down following deps, but there might be more targets that we have not
   // seen, as we are looking at all values here that might have bazel labels
@@ -75,9 +77,9 @@ std::unique_ptr<CrossReferenceMap> BuildCrossReferences(
     for (std::string_view maybe_xrefable : candiates) {
       auto as_file =
         current_package.FullyQualifiedFile(project.workspace(), maybe_xrefable);
-      if (auto file_exist = PathForProjectSource(as_file); file_exist) {
+      if (fs.Exists(as_file)) {
         // Actual file that is existing ? Then link to that.
-        result->Insert(maybe_xrefable, file_exist->path.path());
+        result->Insert(maybe_xrefable, as_file);
         continue;
       }
 

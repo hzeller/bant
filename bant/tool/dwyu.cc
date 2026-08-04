@@ -165,17 +165,15 @@ static IncludeNeededDepsAlternatives MinimizeDependencySet(
 // not found.
 std::optional<DWYUGenerator::SourceFile> DWYUGenerator::TryOpenFile(
   std::string_view source_file, Stat &read_stats) {
-  const auto physical_location = PathForProjectSource(source_file);
-  if (!physical_location.has_value()) return std::nullopt;
-
-  if (auto src_content =
-        ReadFileToStringUpdateStat(physical_location->path, read_stats);
-      src_content.has_value()) {
-    return SourceFile{
-      .content = std::move(*src_content),
-      .path = physical_location->path.path(),
-      .is_generated = physical_location->is_generated,
-    };
+  for (const PhysicalSourcePath &p : PossibleSourceLocations(source_file)) {
+    if (auto src_content = ReadFileToStringUpdateStat(p.path, read_stats);
+        src_content.has_value()) {
+      return SourceFile{
+        .content = std::move(*src_content),
+        .path = p.path.path(),
+        .is_generated = p.is_generated,
+      };
+    }
   }
   return std::nullopt;
 }

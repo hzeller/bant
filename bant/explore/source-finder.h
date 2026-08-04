@@ -17,8 +17,8 @@
 #ifndef BANT_SOURCE_FINDER_H
 #define BANT_SOURCE_FINDER_H
 
-#include <optional>
 #include <string_view>
+#include <vector>
 
 #include "bant/util/file-utils.h"
 
@@ -28,10 +28,9 @@ struct PhysicalSourcePath {
   bool is_generated;
 };
 
-// Given a source file mentioned in the project, determine physical path
-// and if this is a generated one.
-// If file does not exist, this returns a nullopt.
-std::optional<PhysicalSourcePath> PathForProjectSource(std::string_view src);
+// Given a source file mentioned in the project, return all physical paths this
+// can be in.
+std::vector<PhysicalSourcePath> PossibleSourceLocations(std::string_view src);
 
 // Given a path to a source file, determine if it looks generated, i.e.
 // has one of the telling prefices.

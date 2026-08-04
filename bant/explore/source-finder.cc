@@ -17,41 +17,49 @@
 
 #include "bant/explore/source-finder.h"
 
-#include <optional>
 #include <string_view>
+#include <vector>
 
 #include "bant/util/file-utils.h"
 #include "bant/util/filesystem.h"
 
-#define LINK_PREFIX "bazel-"
 // clang-format off
-static constexpr std::string_view kSourceLocations[] = {
-  "",
-  (LINK_PREFIX "bin/"),
-  (LINK_PREFIX "out/host/bin/"),
-  (LINK_PREFIX "genfiles/"),  // Before bazel 1.1
+static constexpr std::string_view kGeneratedLocations[] = {
+  "bazel-bin/",
+  "bazel-out/host/bin/",
+  "bazel-genfiles/",  // Before bazel 1.1
 };
 // clang-format on
-#undef LINK_PREFIX
 
 namespace bant {
-std::optional<PhysicalSourcePath> PathForProjectSource(std::string_view src) {
+
+// Depending on bazel version, there might be a different set of directories
+// available that can contain generated files.
+static std::vector<std::string_view> AvailableLocations() {
+  std::vector<std::string_view> existing;
+  existing.emplace_back("");  // We always look at toplevel.
   Filesystem &fs = Filesystem::instance();
-  PhysicalSourcePath result;
-  result.is_generated = false;
-  for (const std::string_view search_path : kSourceLocations) {
-    result.path = FilesystemPath(search_path, src);
-    if (fs.Exists(result.path.path())) {
-      return result;
+  for (const std::string_view search_path : kGeneratedLocations) {
+    if (!fs.ReadDir(search_path).empty()) {
+      existing.emplace_back(search_path);
     }
-    result.is_generated = true;  // Only the first in list is direct source
   }
-  return std::nullopt;
+  return existing;
+}
+
+std::vector<PhysicalSourcePath> PossibleSourceLocations(std::string_view src) {
+  static const auto sValidLocations = AvailableLocations();
+  std::vector<PhysicalSourcePath> result;
+  bool is_generated = false;
+  for (const std::string_view search_path : sValidLocations) {
+    result.emplace_back(FilesystemPath(search_path, src), is_generated);
+    is_generated = true;  // Only the first in list is direct source
+  }
+  return result;
 }
 
 bool LooksLikeGeneratedProjectSource(std::string_view path) {
-  for (const std::string_view possible_src_prefix : kSourceLocations) {
-    if (possible_src_prefix.empty()) continue;  // First one is _not_ generated
+  for (const std::string_view possible_src_prefix : kGeneratedLocations) {
     if (path.starts_with(possible_src_prefix)) return true;
   }
   return false;
