@@ -121,8 +121,10 @@ static bool NeedsProjectPopulated(Command cmd,
 
 static ElaborationOptions GetElaborationOptionsFrom(
   const CommandlineFlags &flags, const ParsedProject &project) {
-  ElaborationOptions options{.builtin_macro_expansion =
-                               flags.bant_macro_expand};
+  ElaborationOptions options{
+    .builtin_macro_expansion = flags.bant_macro_expand,
+    .evaluate_glob_call = flags.elaborate_do_globbing,
+  };
   const auto config_settings = ExtractConfigSettings(flags, project);
   for (const auto &[target, is_enabled] : config_settings) {
     if (is_enabled) {
@@ -331,9 +333,15 @@ CliStatus RunCommand(Session &session, Command cmd,
   case Command::kHasDependents:
     if (flags.recurse_dependency_depth >= 0) {
       const size_t before_build_files = project.ParsedFiles().size();
+      ElaborationOptions sub_elab = elab_options;
+      if (cmd == Command::kPrint) {
+        // Until we do on-demand load of packages, limit expensiveness of direct
+        // dependency loading.
+        sub_elab.evaluate_glob_call = false;
+      }
       graph = bant::BuildDependencyGraph(session, build_graph_pattern,
                                          flags.recurse_dependency_depth,
-                                         &project, elab_options);
+                                         &project, sub_elab);
       const size_t after_build_files = project.ParsedFiles().size();
       if (session.MinVerbosity(1)) {
         session.info()

@@ -31,8 +31,9 @@
 namespace bant {
 
 struct ElaborationOptions {
-  bool builtin_macro_expansion = false;
-  bool expand_load_functions = true;
+  bool builtin_macro_expansion = false;  // built-in or user-provided macros
+  bool expand_load_functions = true;     // load *.bzl, extract scalars
+  bool evaluate_glob_call = true;        // Can be expensive on slow fileystems.
   absl::flat_hash_set<BazelTarget> enabled_configurations;
 
   // TODO: an option that chooses to evaluate _all_ configurations, e.g. if

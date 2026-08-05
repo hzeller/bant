@@ -122,7 +122,7 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
       tagged_tuple_to_be_struct->set_type(List::Type::kStruct);
       return tagged_tuple_to_be_struct;
     }
-    if (fun_name == "glob") {
+    if (fun_name == "glob" && options_.evaluate_glob_call) {
       return HandleGlob(f);
     }
     if (fun_name == "select") {

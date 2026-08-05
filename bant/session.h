@@ -72,6 +72,7 @@ struct CommandlineFlags {
   DuplicateHandling duplicate_handling = DuplicateHandling::kOutputAll;
   bool suppress_same = false;  // Don't print if col1==col2
   bool elaborate = false;
+  bool elaborate_do_globbing = true;  // Last recourse in slow filesystems
   bool bant_macro_expand = false;
   bool ignore_keep_comment = false;
   bool only_physical_files = false;  // for target-{srcs,hdrs,data}

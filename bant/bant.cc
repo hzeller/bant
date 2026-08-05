@@ -310,6 +310,7 @@ int main(int argc, char *argv[]) {
     OPT_BRACKET_INC = 1001,
     OPT_GRAPH_AUGMENT = 1002,
     OPT_HYPERLINKS = 1003,
+    OPT_DISALLOW_GLOBBING = 1004,  // Experimental. Not documented for now.
   };
 
   // clang-format off
@@ -327,6 +328,7 @@ int main(int argc, char *argv[]) {
     { "or",            no_argument,       nullptr, 'O'          },
     { "macro-expand",  no_argument,       nullptr, 'm'          },
     { "elaborate",     no_argument,       nullptr, 'e'          },
+    { "disallow-globbing",no_argument,    nullptr, OPT_DISALLOW_GLOBBING},
     { "directory",     required_argument, nullptr, 'C'          },
     { "bracket-include", required_argument, nullptr, OPT_BRACKET_INC },
     { "graph-augment", required_argument, nullptr, OPT_GRAPH_AUGMENT },
@@ -449,9 +451,8 @@ int main(int argc, char *argv[]) {
         BestMatchValue(optarg, {"ignore", "acknowledge", "accept"},
                        bant::BracketIncHandling::kAcknowledge);
       break;
-    case OPT_GRAPH_AUGMENT: {
-      flags.graph_deps.emplace_back(optarg);
-    } break;
+    case OPT_GRAPH_AUGMENT: flags.graph_deps.emplace_back(optarg); break;
+    case OPT_DISALLOW_GLOBBING: flags.elaborate_do_globbing = false; break;
     case 'c': {
       if (optarg && !absl::SimpleAtoi(optarg, &flags.column_select)) {
         return usage(argv[0], "--column requires a numeric parameter",
