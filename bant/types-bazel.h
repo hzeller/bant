@@ -53,9 +53,9 @@ struct BazelPackage {
   std::string QualifiedFile(std::string_view relative_file) const;
 
   // Assemble filename including potential prefix if it is located in an
-  // external project.
-  std::string FullyQualifiedFile(const BazelWorkspace &workspace,
-                                 std::string_view relative_file) const;
+  // external project. Can fail if no such external project can be located.
+  std::optional<std::string> FullyQualifiedFile(
+    const BazelWorkspace &workspace, std::string_view relative_file) const;
 
   // Given a fully qualified name and make relative.
   std::string_view MakeRelative(std::string_view fqn_file) const;

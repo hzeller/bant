@@ -84,8 +84,11 @@ void PrintTargetFileSet(Session &session, const BazelWorkspace &workspace,
     if (!filter.Match(target)) continue;
     std::vector<std::string> list;
     for (const std::string_view package_relative_file : files) {
-      list.emplace_back(
-        target.package.FullyQualifiedFile(workspace, package_relative_file));
+      auto fq_file =
+        target.package.FullyQualifiedFile(workspace, package_relative_file);
+      if (fq_file.has_value()) {
+        list.emplace_back(*fq_file);
+      }
     }
     printer->AddRowWithRepeatedLastColumn({target.ToString()}, list);
   }

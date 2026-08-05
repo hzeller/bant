@@ -1045,9 +1045,11 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     }
 
     // Find directory to start the glob()-ing.
-    std::string root_dir =
+    std::optional<std::string> maybe_root_dir =
       package_.FullyQualifiedFile(project_->workspace(), ".");
+    if (!maybe_root_dir.has_value()) return fun;
 
+    std::string root_dir = std::move(*maybe_root_dir);
     // Remove trailing dot. Also make sure it does end with slash.
     if (root_dir.ends_with("/.")) root_dir.resize(root_dir.size() - 1);
     if (!root_dir.ends_with("/")) root_dir.append("/");

@@ -251,22 +251,23 @@ std::vector<std::string> CollectIncDirs(Session &session,
       // add all these.
       const auto inc_dirs = query::ExtractStringList(details.includes_list);
       for (const std::string_view inc_dir : inc_dirs) {
-        const std::string inc_path =
+        const std::optional<std::string> inc_path =
           current_package.FullyQualifiedFile(workspace, inc_dir);
-        if (!NeedsAdding(&already_seen, inc_path)) {
+        if (!inc_path.has_value()) continue;
+        if (!NeedsAdding(&already_seen, *inc_path)) {
           continue;
         }
-        result.emplace_back(inc_path);
+        result.emplace_back(*inc_path);
         // HACK: We also need to output the corresponding build path as that
         // might be a generated include.
-        if (inc_path.starts_with(kExternalPrefix)) {
+        if (inc_path->starts_with(kExternalPrefix)) {
           result.emplace_back(absl::StrCat(
-            "bazel-bin/external", inc_path.substr(kExternalPrefix.length())));
+            "bazel-bin/external", inc_path->substr(kExternalPrefix.length())));
         } else {
           // Not external: then our own possible build path.
           // TODO: only emit if we know there is a genrule outputting something
           // here.
-          result.emplace_back(absl::StrCat("bazel-bin/", inc_path));
+          result.emplace_back(absl::StrCat("bazel-bin/", *inc_path));
         }
       }
 
@@ -395,11 +396,12 @@ void WriteCompilationDBEntry(const ParsedProject &project,
   }
 
   for (const auto src : sources) {
-    const std::string abs_src =
+    const std::optional<std::string> abs_src =
       package.FullyQualifiedFile(project.workspace(), src);
-    if (!NeedsAdding(already_written, abs_src)) continue;
+    if (!abs_src.has_value()) continue;
+    if (!NeedsAdding(already_written, *abs_src)) continue;
     out << "  {\n";
-    out << "    " << q{"file"} << ": " << q{abs_src} << ",\n";
+    out << "    " << q{"file"} << ": " << q{*abs_src} << ",\n";
     out << "    " << q{"arguments"} << ": [\n";
     out << "      " << q{"gcc"} << ",\n";
     for (const std::string_view option : AddDefaultOptions(already_written)) {
@@ -413,7 +415,7 @@ void WriteCompilationDBEntry(const ParsedProject &project,
       out << "      " << q{incopt} << ",\n";
     }
 
-    out << "      " << q{"-c"} << ", " << q{abs_src} << ",\n";
+    out << "      " << q{"-c"} << ", " << q{*abs_src} << ",\n";
     out << "     ],\n";
     out << "     " << q{"directory"} << ": " << q{cwd} << "\n";
     out << "  },\n";

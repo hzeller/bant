@@ -323,8 +323,9 @@ bool HyperlinkBuilder::LinkTo(const BazelPackage &pkg,
   }
 
   FileLocation floc;
-  const std::string fqn = pkg.FullyQualifiedFile(workspace_, filename);
-  floc.filename = fqn;
+  const auto fqn = pkg.FullyQualifiedFile(workspace_, filename);
+  if (!fqn.has_value()) return false;
+  floc.filename = *fqn;
   template_to_use->value().Write(out, &floc);
   return true;
 }

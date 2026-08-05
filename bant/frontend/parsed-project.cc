@@ -249,12 +249,21 @@ const ParsedProject::VariableBundle &ParsedProject::GetOrAddStarlarkContent(
     starlark_variables_.emplace(starlark, new VariableBundle());
   CHECK(var_inserted.second) << starlark << " inserted twice ?";
   VariableBundle *const bundle = var_inserted.first->second.get();
-  auto file_name =
+  std::optional<std::string> file_name =
     starlark.package.FullyQualifiedFile(workspace(), starlark.target_name);
+  if (!file_name.has_value()) {
+    if (session.MinVerbosity(3)) {  // starlark reading is best effort.
+      Loc(session.info(), starlark_ref)
+        << " Could not resolve " << starlark << " (" << starlark.target_name
+        << ")\n";
+    }
+    ++error_count_;
+    return *bundle;
+  }
 
   // TODO: these parsing things are very similar to BUILD-file parsing.
   // Unify.
-  const FilesystemPath starlark_file(file_name);
+  const FilesystemPath starlark_file(*file_name);
   Stat open_and_read_stat;
   std::optional<std::string> content =
     ReadFileToStringUpdateStat(starlark_file, open_and_read_stat);
@@ -272,7 +281,7 @@ const ParsedProject::VariableBundle &ParsedProject::GetOrAddStarlarkContent(
   const ScopedTimer timer(&parse_stat.duration);
 
   auto inserted = starlark_to_parsed_.emplace(
-    starlark, new ParsedBuildFile(file_name, std::move(*content)));
+    starlark, new ParsedBuildFile(*file_name, std::move(*content)));
   CHECK(inserted.second) << "Same starlark twice? " << starlark;
 
   ParsedBuildFile &parse_result = *inserted.first->second;

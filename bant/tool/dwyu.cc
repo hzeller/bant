@@ -382,16 +382,17 @@ std::optional<DWYUGenerator::SourceFile> DWYUGenerator::ReadSourceForDWYU(
   const BazelPackage &package, Stat &read_stats, bool *all_accounted) {
   // TODO: ParsedProject::GetPackageFor() as we might have filenames coming
   // from different packages due to filegroups.
-  const std::string source_file =
+  const std::optional<std::string> source_file =
     package.FullyQualifiedFile(project_.workspace(), src_name);
+  if (!source_file.has_value()) return std::nullopt;
   std::optional<SourceFile> source_content;
-  source_content = TryOpenFile(source_file, read_stats);
+  source_content = TryOpenFile(*source_file, read_stats);
   if (!source_content.has_value()) {
     std::ostream &info_out = session_.info();
     Loc(project_, src_name) << " Can not read source '" << Magenta(session_)
-                            << source_file << Norm(session_) << "' for target "
+                            << *source_file << Norm(session_) << "' for target "
                             << Bold(session_) << target << Norm(session_);
-    const auto from_genrule = files_from_genrules_.find(source_file);
+    const auto from_genrule = files_from_genrules_.find(*source_file);
     if (from_genrule != files_from_genrules_.end()) {
       info_out << "; Run generating `bazel build " << from_genrule->second
                << "` first.\n";

@@ -75,22 +75,20 @@ std::string BazelPackage::QualifiedFile(std::string_view relative_file) const {
   return WeaklyCanonicalizePath(absl::StrCat(path, "/", file_part));
 }
 
-std::string BazelPackage::FullyQualifiedFile(
+std::optional<std::string> BazelPackage::FullyQualifiedFile(
   const BazelWorkspace &workspace, std::string_view relative_file) const {
+  // Already an absolute reference ? Use that insteadl.
   if (relative_file.starts_with("//") || relative_file.starts_with("@")) {
     auto target = BazelTarget::ParseFrom(relative_file, *this);
-    if (target.has_value()) {
-      return target->package.FullyQualifiedFile(workspace, target->target_name);
-    }
-    // else: continue with best efffort. Consider return std::optional instead.
+    if (!target.has_value()) return std::nullopt;
+    return target->package.FullyQualifiedFile(workspace, target->target_name);
   }
 
   std::string root_dir;
   if (!project.empty()) {
     auto package_path = workspace.FindPathByProject(project);
-    if (package_path.has_value()) {
-      root_dir = package_path->path();
-    }
+    if (!package_path.has_value()) return std::nullopt;
+    root_dir = package_path->path();
   }
   if (!root_dir.empty()) root_dir.append("/");
   return root_dir.append(QualifiedFile(relative_file));

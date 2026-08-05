@@ -160,9 +160,10 @@ static bool PrintNodeInternal(Session &session,
             }
           }
 
-          const std::string maybe_file =
+          const auto maybe_file =
             context.FullyQualifiedFile(package_locator->workspace(), s);
-          for (const auto &p : PossibleSourceLocations(maybe_file)) {
+          if (!maybe_file) return;
+          for (const auto &p : PossibleSourceLocations(*maybe_file)) {
             if (fs.Exists(p.path.path())) {
               link_emitted = session.linkgen()->LinkTo(p.path.path(), out);
               return;

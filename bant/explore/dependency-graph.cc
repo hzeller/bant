@@ -51,28 +51,22 @@
 namespace bant {
 namespace {
 
+// TODO: this on-demand loading of BUILD files should move closer to or into
+// ParsedProject. We also need that in other places and it would actuallly
+// be good if we can load packages lazily on-demand.
+
 std::optional<FilesystemPath> PathForPackage(const BazelWorkspace &workspace,
                                              const BazelPackage &package) {
-  std::string start_path;
-  if (!package.project.empty()) {
-    auto project_path_or = workspace.FindPathByProject(package.project);
-    if (!project_path_or.has_value()) {
-      // The following message would be too noisy right now as we attempt to
-      // read more dependencies than we need.
-      // info_out << "Can't find referenced " << package.project << "\n";
-      return std::nullopt;
-    }
-    start_path = project_path_or.value().path();
-  }
-
-  if (!package.path.empty()) {
-    if (!start_path.empty()) start_path.append("/");
-    start_path.append(package.path);
-  }
   Filesystem &fs = Filesystem::instance();
   for (const std::string_view build_file : {"BUILD", "BUILD.bazel"}) {
-    FilesystemPath test_path(start_path, build_file);
-    if (fs.Exists(test_path.path())) return test_path;
+    const auto maybe_file = package.FullyQualifiedFile(workspace, build_file);
+    if (!maybe_file.has_value()) {
+      // The following message would be too noisy right now as we attempt to
+      // read more dependencies than we need.
+      // std::cerr << "Can't resolve referenced " << package << "\n";
+      return std::nullopt;  // bail now: first file will tell issue w/ package.
+    }
+    if (fs.Exists(*maybe_file)) return FilesystemPath(*maybe_file);
   }
   return std::nullopt;
 }
@@ -132,7 +126,8 @@ void FindAndParseMissingPackages(ThreadPool *io_thread_pool, Session &session,
 
     // Always elaborate new packages that we add as part of dependency graph
     // building, as it might expand more dpendencies.
-    // TODO: but do we need expensive glob() enabled ?
+    // TODO: we possibly need expensive glob() enabled if that is providing
+    //       header files. Consider some sort of lazy eval of these.
     ParsedBuildFile *file = project->AddBuildFileContent(
       session, *result.package, *result.path, std::move(*result.content),
       result.read_stats, false);
@@ -169,9 +164,9 @@ static void AppendPossibleFileDependencies(
                                   &generated_by_target,
                                   fallback_is_target]() -> MaybeDependency {
       Filesystem &fs = Filesystem::instance();
-      const std::string as_filename =
+      const std::optional<std::string> as_filename =
         context_package.FullyQualifiedFile(workspace, path_or_label);
-      if (fs.Exists(as_filename)) {
+      if (as_filename.has_value() && fs.Exists(*as_filename)) {
         return std::nullopt;  // physical file existing in source tree.
       }
 
@@ -216,6 +211,7 @@ static OneToOne<std::string, std::string> FlattenTargetsToString(
 }
 }  // namespace
 
+// TODO: this is getting long. Needs refactor.
 DependencyGraph BuildDependencyGraph(Session &session,
                                      const BazelTargetMatcher &pattern,
                                      int nesting_depth, ParsedProject *project,
