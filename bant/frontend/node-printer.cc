@@ -88,6 +88,8 @@ class PackageLocator {
       return found->second;
     }
     // TODO: on-demand loading of BUILD file.
+    // if just package with :__pkg__ or :__subpackages__ just point to file.
+    // otherwise: locate file
     return std::nullopt;
   }
 

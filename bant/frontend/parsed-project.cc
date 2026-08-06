@@ -238,6 +238,51 @@ ParsedBuildFile *ParsedProject::AddBuildFileContent(
   return inserted.first->second.get();
 }
 
+static std::optional<FilesystemPath> PathForPackage(
+  const BazelWorkspace &workspace, const BazelPackage &package, bool do_log) {
+  Filesystem &fs = Filesystem::instance();
+  for (const std::string_view build_file : {"BUILD", "BUILD.bazel"}) {
+    const auto maybe_file = package.FullyQualifiedFile(workspace, build_file);
+    if (!maybe_file.has_value()) {
+      if (do_log) {
+        // TODO: log on session.error
+        std::cerr << "Can't resolve referenced " << package << "\n";
+      }
+      return std::nullopt;  // bail now: first file will tell issue w/ package.
+    }
+    if (fs.Exists(*maybe_file)) return FilesystemPath(*maybe_file);
+  }
+  return std::nullopt;
+}
+
+ParsedBuildFile *ParsedProject::GetOrAddPackage(Session &session,
+                                                const BazelPackage &package,
+                                                bool log_error_messages) {
+  // TODO: make thread safe. Essentially only access to package_to_parsed
+  // and AddBuildFileContent() is protected by mutex (relatively fast, even
+  // the parsing), but IO operations to PathForPackage() and read file
+  // are outsid of mutex. This can make the async resolving in dependency
+  // graph a whole lot simpler.
+  if (auto found = package_to_parsed_.find(package);
+      found != package_to_parsed_.end()) {
+    return found->second.get();
+  }
+
+  // IO operations to get content. Might be slow.
+  const auto build_file =
+    PathForPackage(workspace_, package, log_error_messages);
+  if (!build_file.has_value()) return nullptr;
+
+  Stat read_stats;
+  std::optional<std::string> content =
+    ReadFileToStringUpdateStat(*build_file, read_stats);
+  if (!content.has_value()) return nullptr;
+
+  // Actual parsing; usually pretty fast.
+  return AddBuildFileContent(session, package, *build_file, std::move(*content),
+                             read_stats, log_error_messages);
+}
+
 const ParsedProject::VariableBundle &ParsedProject::GetOrAddStarlarkContent(
   Session &session, std::string_view starlark_ref, const BazelTarget &starlark,
   const std::function<void(List *ast, VariableBundle *)> &variable_extractor) {

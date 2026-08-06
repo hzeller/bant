@@ -51,9 +51,8 @@
 namespace bant {
 namespace {
 
-// TODO: this on-demand loading of BUILD files should move closer to or into
-// ParsedProject. We also need that in other places and it would actuallly
-// be good if we can load packages lazily on-demand.
+// TODO: this on-demand loading of BUILD files should use
+// ParsedProject::GetOrAddPackage.
 
 std::optional<FilesystemPath> PathForPackage(const BazelWorkspace &workspace,
                                              const BazelPackage &package) {

@@ -92,10 +92,19 @@ class ParsedProject : public SourceLocator {
 
   // Given package and content, parse. Main workhorse.
   // Content is std::move()'d thus by value.
-  // "read_stat" contains information how long it took to aquire content.
+  // "read_stat" contains information how long it took to aquire content and
+  // is added to the corresponding stats.
+  // TODO: can most of the external use-cases be GetOrAddPackage() ?
+  // Will always return a ParsedBuildFile
   ParsedBuildFile *AddBuildFileContent(
     Session &session, const BazelPackage &package, const FilesystemPath &file,
     std::string content, const Stat &read_stat, bool log_error_messages = true);
+
+  // Given a package, load BUILD file and add to project.
+  // Can return nullptr if the build file can not be loaded.
+  ParsedBuildFile *GetOrAddPackage(Session &session,
+                                   const BazelPackage &package,
+                                   bool log_error_messages = true);
 
   // Given a starlark file, provide storage for variables and store their
   // content. If starlark file is not available yet, calls "variable_extractor"
@@ -119,13 +128,6 @@ class ParsedProject : public SourceLocator {
 
   const BazelWorkspace &workspace() const { return workspace_; }
 
-  // Register the "source_locator" for given given string-view range.
-  // Range must be disjoint from all other ranges. Ownership of
-  // "source_locator" is not taken over, ParsedProject just keeps track of
-  // what ranges to delegate to for our own GetLocation() implementation.
-  void RegisterLocationRange(std::string_view range,
-                             const SourceLocator *source_locator);
-
   // Load project-local macro definitions from a .bant-macros file.
   // Returns NotFoundError if the file doesn't exist (caller can ignore).
   absl::Status LoadMacrosFromFile(Session &session,
@@ -136,6 +138,13 @@ class ParsedProject : public SourceLocator {
   // (So VariableSubstituteCopy(), careful if it ends up in Elaboration with
   // modifying content such as glob()).
   Node *FindMacro(std::string_view name) const;
+
+  // Register the "source_locator" for given given string-view range.
+  // Range must be disjoint from all other ranges. Ownership of
+  // "source_locator" is not taken over, ParsedProject just keeps track of
+  // what ranges to delegate to for our own GetLocation() implementation.
+  void RegisterLocationRange(std::string_view range,
+                             const SourceLocator *source_locator);
 
   // -- SourceLocator implementation
   FileLocation GetLocation(std::string_view text) const final;
