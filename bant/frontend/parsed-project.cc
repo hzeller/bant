@@ -17,6 +17,7 @@
 
 #include "bant/frontend/parsed-project.h"
 
+#include <array>
 #include <cstdlib>
 #include <functional>
 #include <iostream>
@@ -33,6 +34,7 @@
 #include "absl/log/check.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
+#include "absl/synchronization/mutex.h"
 #include "bant/builtin-macros.h"
 #include "bant/frontend/ast.h"
 #include "bant/frontend/named-content.h"
@@ -49,6 +51,11 @@
 
 namespace bant {
 namespace {
+
+static std::array<std::string_view, 2> kDesiredBuildLoadingSequence = {
+  "BUILD.bazel",
+  "BUILD",
+};
 
 // Given a BUILD, BUILD.bazel filename, return the bare project path with
 // no prefix or suffix.
@@ -136,7 +143,7 @@ int ParsedProject::FillFromPattern(Session &session,
       std::string_view path = build_file.path();
       if (path.starts_with("./")) path.remove_prefix(2);
       // TODO: we should have a preference for BUILD.bazel over BUILD,
-      // not attempt to load both.
+      // not attempt to load both. Use kDesiredBuildLoadingSequence
       if (unique_files.insert(std::string{path}).second) {
         ++count;
         AddBuildFile(session, build_file, pattern.project(),
@@ -191,6 +198,7 @@ ParsedBuildFile *ParsedProject::AddBuildFile(Session &session,
 ParsedBuildFile *ParsedProject::AddBuildFileContent(
   Session &session, const BazelPackage &package, const FilesystemPath &file,
   std::string content, const Stat &read_stat, bool log_error_messages) {
+  const absl::MutexLock scoped_lock(package_to_parsed_mutex_);
   session.GetStatsFor("read(BUILD)      ", "BUILD files").Add(read_stat);
 
   Stat &parse_stat = session.GetStatsFor("Parse & build AST", "BUILD files");
@@ -241,7 +249,7 @@ ParsedBuildFile *ParsedProject::AddBuildFileContent(
 static std::optional<FilesystemPath> PathForPackage(
   const BazelWorkspace &workspace, const BazelPackage &package, bool do_log) {
   Filesystem &fs = Filesystem::instance();
-  for (const std::string_view build_file : {"BUILD", "BUILD.bazel"}) {
+  for (const std::string_view build_file : kDesiredBuildLoadingSequence) {
     const auto maybe_file = package.FullyQualifiedFile(workspace, build_file);
     if (!maybe_file.has_value()) {
       if (do_log) {
@@ -258,14 +266,12 @@ static std::optional<FilesystemPath> PathForPackage(
 ParsedBuildFile *ParsedProject::GetOrAddPackage(Session &session,
                                                 const BazelPackage &package,
                                                 bool log_error_messages) {
-  // TODO: make thread safe. Essentially only access to package_to_parsed
-  // and AddBuildFileContent() is protected by mutex (relatively fast, even
-  // the parsing), but IO operations to PathForPackage() and read file
-  // are outsid of mutex. This can make the async resolving in dependency
-  // graph a whole lot simpler.
-  if (auto found = package_to_parsed_.find(package);
-      found != package_to_parsed_.end()) {
-    return found->second.get();
+  {
+    const absl::MutexLock scoped_lock(package_to_parsed_mutex_);
+    if (auto found = package_to_parsed_.find(package);
+        found != package_to_parsed_.end()) {
+      return found->second.get();
+    }
   }
 
   // IO operations to get content. Might be slow.
@@ -365,10 +371,12 @@ const ParsedProject::VariableBundle &ParsedProject::GetOrAddStarlarkContent(
 
 void ParsedProject::RegisterLocationRange(std::string_view range,
                                           const SourceLocator *source_locator) {
+  absl::MutexLock lock(location_map_lock_);
   location_maps_.Insert(range, source_locator);
 }
 
 FileLocation ParsedProject::GetLocation(std::string_view text) const {
+  absl::MutexLock lock(location_map_lock_);
   auto found = location_maps_.FindBySubrange(text);
   CHECK_NE(found, location_maps_.end())
     << "Not in any of the files managed by ParsedProject '" << text << "'";
@@ -377,6 +385,7 @@ FileLocation ParsedProject::GetLocation(std::string_view text) const {
 
 std::string_view ParsedProject::GetSurroundingLine(
   std::string_view text) const {
+  absl::MutexLock lock(location_map_lock_);
   auto found = location_maps_.FindBySubrange(text);
   CHECK_NE(found, location_maps_.end())
     << "Not in any of the files managed by ParsedProject '" << text << "'";
@@ -385,9 +394,15 @@ std::string_view ParsedProject::GetSurroundingLine(
 
 const ParsedBuildFile *ParsedProject::FindParsedOrNull(
   const BazelPackage &package) const {
+  const absl::ReaderMutexLock scoped_lock(package_to_parsed_mutex_);
   auto found = package_to_parsed_.find(package);
   if (found == package_to_parsed_.end()) return nullptr;
   return found->second.get();
+}
+
+size_t ParsedProject::size() const {
+  const absl::ReaderMutexLock scoped_lock(package_to_parsed_mutex_);
+  return package_to_parsed_.size();
 }
 
 Node *ParsedProject::FindMacro(std::string_view name) const {

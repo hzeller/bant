@@ -18,6 +18,7 @@
 #ifndef BANT_PROJECT_PARDER_
 #define BANT_PROJECT_PARDER_
 
+#include <cstddef>
 #include <functional>
 #include <memory>
 #include <ostream>
@@ -26,8 +27,10 @@
 #include <utility>
 #include <vector>
 
+#include "absl/base/thread_annotations.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
+#include "absl/synchronization/mutex.h"
 #include "bant/frontend/ast.h"
 #include "bant/frontend/named-content.h"
 #include "bant/frontend/source-locator.h"
@@ -114,10 +117,18 @@ class ParsedProject : public SourceLocator {
     const BazelTarget &starlark,
     const std::function<void(List *ast, VariableBundle *)> &variable_extractor);
 
-  // A map of Package -> ParsedBuildFile
-  const Package2Parsed &ParsedFiles() const { return package_to_parsed_; }
+  // Iterate through project in a thread-safe way. No addition of new packages
+  // file is allowed while iterating.
+  void ForEach(const std::function<void(const BazelPackage &,
+                                        ParsedBuildFile &)> &cb) const {
+    const absl::MutexLock scoped_lock(package_to_parsed_mutex_);
+    for (const auto &[package, file] : package_to_parsed_) {
+      cb(package, *file);
+    }
+  }
 
   // Look up parse file given the package, or nullptr, if not parsed (yet).
+  // Caller is responsible to not modify returned object in multiple threads.
   const ParsedBuildFile *FindParsedOrNull(const BazelPackage &package) const;
 
   // Some stats.
@@ -125,6 +136,9 @@ class ParsedProject : public SourceLocator {
 
   // Arena all Nodes and intermediate data is allocated in.
   Arena *arena() { return &arena_; }
+
+  // Number of packages loaded.
+  size_t size() const;
 
   const BazelWorkspace &workspace() const { return workspace_; }
 
@@ -181,14 +195,21 @@ class ParsedProject : public SourceLocator {
 
   Arena arena_{1 << 20};
   const BazelWorkspace workspace_;
+  int error_count_ = 0;
+
+  mutable absl::Mutex package_to_parsed_mutex_;
+  Package2Parsed package_to_parsed_ ABSL_GUARDED_BY(package_to_parsed_mutex_);
+
+  mutable absl::Mutex location_map_lock_;
+  DisjointRangeMap<std::string_view, const SourceLocator *> location_maps_
+    ABSL_GUARDED_BY(location_map_lock_);
+
   std::vector<std::unique_ptr<NamedLineIndexedContent>> macro_contents_;
   std::vector<std::unique_ptr<std::string>> macro_owned_content_;
-  int error_count_ = 0;
-  Package2Parsed package_to_parsed_;  // BUILD files.
+  absl::flat_hash_map<std::string_view, Node *> macros_;
+
   Target2Parsed starlark_to_parsed_;  // Starlark files.
   OneToOne<BazelTarget, std::unique_ptr<VariableBundle>> starlark_variables_;
-  absl::flat_hash_map<std::string_view, Node *> macros_;
-  DisjointRangeMap<std::string_view, const SourceLocator *> location_maps_;
 };
 
 }  // namespace bant

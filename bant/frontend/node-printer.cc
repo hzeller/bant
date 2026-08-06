@@ -226,19 +226,20 @@ std::pair<size_t, size_t> PrintProject(Session &session,
   if (session.linkgen()) {
     xrefs = std::make_unique<PackageLocator>(project);
   }
-  for (const auto &[package, file_content] : project.ParsedFiles()) {
-    if (flags.print_only_errors && file_content->errors.empty()) {
-      continue;
+  project.ForEach([&](const BazelPackage &package,
+                      ParsedBuildFile &file_content) {
+    if (flags.print_only_errors && file_content.errors.empty()) {
+      return;
     }
     if (!pattern.Match(package)) {
-      continue;
+      return;
     }
 
-    total += file_content->ast->size();
+    total += file_content.ast->size();
 
     // Detailed print of package if requested with -a (all)
     if (flags.print_ast) {
-      for (Node *item : *file_content->ast) {
+      for (Node *item : *file_content.ast) {
         std::stringstream headline;
         auto position_or = FindFirstLocatableString(item);
         if (position_or.has_value()) {
@@ -249,12 +250,12 @@ std::pair<size_t, size_t> PrintProject(Session &session,
           ++count;
         }
       }
-      continue;
+      return;
     }
 
     // ... otherwise just print matching rules.
     query::FindTargetsAllowEmptyName(
-      file_content->ast, {}, [&](const query::Result &result) {
+      file_content.ast, {}, [&](const query::Result &result) {
         std::optional<BazelTarget> maybe_target;
         if (!result.name.empty()) {
           maybe_target = package.QualifiedTarget(result.name);
@@ -278,7 +279,7 @@ std::pair<size_t, size_t> PrintProject(Session &session,
           ++count;
         }
       });
-  }
+  });
   return {count, total};
 }
 

@@ -332,7 +332,7 @@ CliStatus RunCommand(Session &session, Command cmd,
   case Command::kDependsOn:
   case Command::kHasDependents:
     if (flags.recurse_dependency_depth >= 0) {
-      const size_t before_build_files = project.ParsedFiles().size();
+      const size_t before_build_files = project.size();
       ElaborationOptions sub_elab = elab_options;
       if (cmd == Command::kPrint) {
         // Until we do on-demand load of packages, limit expensiveness of direct
@@ -342,7 +342,7 @@ CliStatus RunCommand(Session &session, Command cmd,
       graph = bant::BuildDependencyGraph(session, build_graph_pattern,
                                          flags.recurse_dependency_depth,
                                          &project, sub_elab);
-      const size_t after_build_files = project.ParsedFiles().size();
+      const size_t after_build_files = project.size();
       if (session.MinVerbosity(1)) {
         session.info()
           << "Dependency graph expanded parsed BUILD file from initial "
@@ -464,9 +464,9 @@ CliStatus RunCommand(Session &session, Command cmd,
     auto printer =
       TablePrinter::Create(session.out(), session.flags().output_format,
                            *highlighter, {"bazel-file", "package"});
-    for (const auto &[package, parsed] : project.ParsedFiles()) {
-      printer->AddRow({std::string(parsed->name()), package.ToString()});
-    }
+    project.ForEach([&](const BazelPackage &package, ParsedBuildFile &parsed) {
+      printer->AddRow({std::string(parsed.name()), package.ToString()});
+    });
     printer->Finish(session.flags().column_select);
     break;
   }

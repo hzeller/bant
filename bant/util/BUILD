@@ -11,6 +11,7 @@ cc_library(
         "arena.h",
         "arena-container.h",
     ],
+    deps = ["@abseil-cpp//absl/synchronization"],
 )
 
 cc_library(

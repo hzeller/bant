@@ -28,31 +28,31 @@ namespace bant {
 void ProjectWalker::FindTargets(
   std::initializer_list<std::string_view> rules_of_interest,
   const ProjectWalker::Callback &callback) const {
-  for (const auto &[package, build_file] : project_.ParsedFiles()) {
-    if (!build_file->ast) continue;
-    query::FindTargets(build_file->ast, rules_of_interest,
+  project_.ForEach([&](const BazelPackage &package, ParsedBuildFile &build) {
+    if (!build.ast) return;
+    query::FindTargets(build.ast, rules_of_interest,
                        [&](const query::Result &param) {
                          auto rule_label = package.QualifiedTarget(param.name);
                          if (!rule_label.has_value()) return;
                          callback(package, *rule_label, param);
                        });
-  }
+  });
 }
 
 void ProjectWalker::FindTargetsWithPattern(
   const BazelTargetMatcher &pattern,
   std::initializer_list<std::string_view> rules_of_interest,
   const ProjectWalker::Callback &callback) const {
-  for (const auto &[package, build_file] : project_.ParsedFiles()) {
-    if (!build_file->ast) continue;
-    if (!pattern.Match(package)) continue;
-    query::FindTargets(build_file->ast, rules_of_interest,
+  project_.ForEach([&](const BazelPackage &package, ParsedBuildFile &build) {
+    if (!build.ast) return;
+    if (!pattern.Match(package)) return;
+    query::FindTargets(build.ast, rules_of_interest,
                        [&](const query::Result &param) {
                          auto rule_label = package.QualifiedTarget(param.name);
                          if (!rule_label.has_value()) return;
                          if (!pattern.Match(*rule_label)) return;
                          callback(package, *rule_label, param);
                        });
-  }
+  });
 }
 }  // namespace bant

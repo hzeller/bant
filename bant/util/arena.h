@@ -25,6 +25,8 @@
 #include <deque>
 #include <utility>
 
+#include "absl/synchronization/mutex.h"
+
 namespace bant {
 // Arena: Provide allocation of memory that can be deallocated at once.
 // Fast, but does not call any destructors so content better be PODs.
@@ -45,7 +47,7 @@ class Arena {
 
  public:
   explicit Arena(int block_size) : block_size_(block_size) {}
-  Arena(Arena &&) noexcept = default;
+  Arena(Arena &&) noexcept = delete;
   Arena(const Arena &) = delete;
 
   void *Alloc(size_t size) {
@@ -53,6 +55,8 @@ class Arena {
     // TODO: instead of a fixed alignment, take alignof() of type to allocate
     // into account.
     size += kAlignment - (size % kAlignment);
+
+    absl::MutexLock l(lock_);
     total_allocations_++;
     total_bytes_ += size;
 
@@ -104,6 +108,7 @@ class Arena {
     pos_ = buffer;
   }
 
+  absl::Mutex lock_;
   const size_t block_size_;
   std::deque<void *> blocks_;
 

@@ -67,13 +67,12 @@ BazelWorkspace CreateFilteredWorkspace(Session &session,
 
   const BazelWorkspace &global_workspace = project.workspace();
   BazelWorkspace matching_workspace_subset;
-  for (const auto &[_, parsed_package] : project.ParsedFiles()) {
-    const BazelPackage &current_package = parsed_package->package;
-    if (!pattern.Match(current_package)) {
-      continue;
+  project.ForEach([&](const BazelPackage &package, ParsedBuildFile &file) {
+    if (!pattern.Match(package)) {
+      return;
     }
     query::FindTargetsAllowEmptyName(
-      parsed_package->ast, {}, [&](const query::Result &details) {
+      file.ast, {}, [&](const query::Result &details) {
         std::vector<std::string_view> potential_external_refs;
         if (details.rule == "load") {  // load() calls at package level.
           // load() has positional arguments (and no 'name').
@@ -81,7 +80,7 @@ BazelWorkspace CreateFilteredWorkspace(Session &session,
             query::ExtractStringList(details.node->argument());
         } else {
           // Classical cc_library(), cc_binary() etc that has dependencies.
-          auto target = current_package.QualifiedTarget(details.name);
+          auto target = package.QualifiedTarget(details.name);
           if (!target.has_value() || !pattern.Match(*target)) {
             return;
           }
@@ -95,12 +94,12 @@ BazelWorkspace CreateFilteredWorkspace(Session &session,
 
         // Alright, now let's check these if they reference external projects.
         for (const std::string_view ref : potential_external_refs) {
-          const auto ref_target = BazelTarget::ParseFrom(ref, current_package);
+          const auto ref_target = BazelTarget::ParseFrom(ref, package);
           if (!ref_target.has_value()) continue;  // could not parse.
 
           // We're only interested in printing projects other than our own.
           const std::string &project = ref_target->package.project;
-          if (project.empty() || project == current_package.project) continue;
+          if (project.empty() || project == package.project) continue;
 
           // If available in global workspace, transfer to our filtered subset.
           const auto found = global_workspace.FindEntryByProject(project);
@@ -110,7 +109,7 @@ BazelWorkspace CreateFilteredWorkspace(Session &session,
           matching_workspace_subset.project_location.insert(*found);
         }
       });
-  }
+  });
   return matching_workspace_subset;
 }
 

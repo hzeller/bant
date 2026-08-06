@@ -51,38 +51,6 @@
 namespace bant {
 namespace {
 
-// TODO: this on-demand loading of BUILD files should use
-// ParsedProject::GetOrAddPackage.
-
-std::optional<FilesystemPath> PathForPackage(const BazelWorkspace &workspace,
-                                             const BazelPackage &package) {
-  Filesystem &fs = Filesystem::instance();
-  for (const std::string_view build_file : {"BUILD", "BUILD.bazel"}) {
-    const auto maybe_file = package.FullyQualifiedFile(workspace, build_file);
-    if (!maybe_file.has_value()) {
-      // The following message would be too noisy right now as we attempt to
-      // read more dependencies than we need.
-      // std::cerr << "Can't resolve referenced " << package << "\n";
-      return std::nullopt;  // bail now: first file will tell issue w/ package.
-    }
-    if (fs.Exists(*maybe_file)) return FilesystemPath(*maybe_file);
-  }
-  return std::nullopt;
-}
-
-// Result of async read file.
-struct ReadFileResult {
-  explicit ReadFileResult(const BazelPackage *package) : package(package) {}
-
-  ReadFileResult(ReadFileResult &&other) = default;      // only allow move
-  ReadFileResult(const ReadFileResult &other) = delete;  // ... not copy
-
-  const BazelPackage *package;
-  std::optional<FilesystemPath> path;
-  std::optional<std::string> content;
-  Stat read_stats;
-};
-
 // Opening new files can be slow on network filesystems, so make an effort
 // of using threads if requested.
 void FindAndParseMissingPackages(ThreadPool *io_thread_pool, Session &session,
@@ -90,47 +58,24 @@ void FindAndParseMissingPackages(ThreadPool *io_thread_pool, Session &session,
                                  std::set<BazelPackage> *error_packages,
                                  const ElaborationOptions &elab_base_options,
                                  ParsedProject *project) {
-  const BazelWorkspace &workspace = project->workspace();
-
-  // Enqueue file reading into thread pool, then collect results in bottom half.
-  std::vector<std::future<ReadFileResult>> async_resolved;
+  std::vector<std::future<ParsedBuildFile *>> async_loaded;
   for (const BazelPackage &package : want) {
     if (project->FindParsedOrNull(package) != nullptr) {
       continue;  // have it already.
     }
-    // Note: pointer to BazelPackage is stable during the lifetime.
-    const std::function<ReadFileResult()> fun = [&]() {
-      ReadFileResult res(&package);
-      res.path = PathForPackage(workspace, package);
-      if (!res.path.has_value()) {
-        return res;
-      }
-      res.content = ReadFileToStringUpdateStat(*res.path, res.read_stats);
-      return res;
+    const std::function<ParsedBuildFile *()> fun = [&]() {
+      return project->GetOrAddPackage(session, package, false);
     };
-    async_resolved.emplace_back(io_thread_pool->ExecAsync(fun));
+    async_loaded.emplace_back(io_thread_pool->ExecAsync(fun));
   }
 
   ElaborationOptions elab_options(elab_base_options);
   elab_options.builtin_macro_expansion = true;
 
-  // Harvest all the results. NB: This is single threaded, so all operations
-  // on session, project and arena are safe without mutexes.
-  for (auto &processed : async_resolved) {
-    ReadFileResult result = processed.get();
-    if (!result.path.has_value() || !result.content.has_value()) {
-      error_packages->insert(*result.package);
-      continue;
-    }
-
-    // Always elaborate new packages that we add as part of dependency graph
-    // building, as it might expand more dpendencies.
-    // TODO: we possibly need expensive glob() enabled if that is providing
-    //       header files. Consider some sort of lazy eval of these.
-    ParsedBuildFile *file = project->AddBuildFileContent(
-      session, *result.package, *result.path, std::move(*result.content),
-      result.read_stats, false);
-    bant::Elaborate(session, project, elab_options, file);
+  for (auto &loaded_file : async_loaded) {
+    ParsedBuildFile *const build_file = loaded_file.get();
+    if (!build_file) continue;
+    bant::Elaborate(session, project, elab_options, build_file);
   }
 }
 

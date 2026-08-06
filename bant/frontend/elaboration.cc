@@ -25,7 +25,6 @@
 #include <initializer_list>
 #include <optional>
 #include <ostream>
-#include <ranges>
 #include <stack>
 #include <string>
 #include <string_view>
@@ -1200,8 +1199,8 @@ void Elaborate(Session &session, ParsedProject *project,
 
 void Elaborate(Session &session, ParsedProject *project,
                const ElaborationOptions &options) {
-  for (const auto &[package, build_file] : project->ParsedFiles()) {
-    Elaborate(session, project, options, build_file.get());
-  }
+  project->ForEach([&](const BazelPackage &, ParsedBuildFile &build_file) {
+    Elaborate(session, project, options, &build_file);
+  });
 }
 }  // namespace bant

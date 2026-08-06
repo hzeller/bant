@@ -159,10 +159,12 @@ cc_library(
         "//bant/util:memory",
         "//bant/util:stat",
         "//bant/util:term-color",
+        "@abseil-cpp//absl/base:core_headers",
         "@abseil-cpp//absl/container:flat_hash_map",
         "@abseil-cpp//absl/log:check",
         "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/synchronization",
     ],
 )
 
