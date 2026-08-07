@@ -127,10 +127,10 @@ Node *MacroSubstitute(Session &session, ParsedProject *project, Node *ast) {
   if (!ast) return ast;
   bant::Stat &substitute_stats =
     session.GetStatsFor("  - substituting", "macros");
-  const ScopedTimer timer(&substitute_stats.duration);
+  const ScopedTimer timer(substitute_stats);
   MacroSubstitutor substitutor(project);
   Node *const result = ast->Accept(&substitutor);
-  substitute_stats.count += substitutor.substitution_count();
+  substitute_stats.AddCount(substitutor.substitution_count());
   return result;
 }
 }  // namespace bant

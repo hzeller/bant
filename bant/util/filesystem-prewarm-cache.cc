@@ -78,18 +78,18 @@ void FilesystemPrewarmCache::InitCacheFile(bant::Session &session,
 
   if (input.good()) {
     auto &stat = session.GetStatsFor("Filesystem cache populate", "files/dirs");
-    const ScopedTimer timer(&stat.duration);
+    const ScopedTimer timer(stat);
     pool_ = std::make_unique<ThreadPool>(kPrewarmParallelism);
     std::string line;
     while (std::getline(input, line)) {
       if (line.length() < 2) continue;
       const char type = line[0];
       if (type == 'F') {
-        stat.count++;
+        stat.IncCount();
         pool_->ExecAsync(
           [line, &fs]() { fs.ReadFileToString(line.c_str() + 1); });
       } else if (type == 'D') {
-        stat.count++;
+        stat.IncCount();
         pool_->ExecAsync([line, &fs]() { fs.ReadDir(line.c_str() + 1); });
       }
     }

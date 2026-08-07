@@ -95,18 +95,18 @@ std::vector<FilesystemPath> CollectBuildFiles(Session &session,
                                               const BazelPattern &pattern) {
   bant::Stat &walk_stats =
     session.GetStatsFor("BUILD file glob walk", "files/directories");
-  const ScopedTimer timer(&walk_stats.duration);
+  const ScopedTimer timer(walk_stats);
 
   // Predicates to decide if files should be included.
   const bool allow_recursive_walking = pattern.is_recursive();
   const auto is_build_file_predicate = [&](const FilesystemPath &file) {
     const std::string_view basename = file.filename();
-    walk_stats.count++;
+    walk_stats.IncCount();
     return basename == "BUILD" || basename == "BUILD.bazel";
   };
 
   const auto dir_predicate = [&](const FilesystemPath &dir) {
-    walk_stats.count++;
+    walk_stats.IncCount();
     if (!allow_recursive_walking) return false;  // Only looking at one level.
     if (dir.is_symlink()) return false;
     const std::string_view filename = dir.filename();
@@ -202,7 +202,7 @@ ParsedBuildFile *ParsedProject::AddBuildFileContent(
   session.GetStatsFor("read(BUILD)      ", "BUILD files").Add(read_stat);
 
   Stat &parse_stat = session.GetStatsFor("Parse & build AST", "BUILD files");
-  const ScopedTimer timer(&parse_stat.duration);
+  const ScopedTimer timer(parse_stat);
 
   std::string_view build_file_path = file.path();
   if (build_file_path.starts_with("./")) {
@@ -239,7 +239,7 @@ ParsedBuildFile *ParsedProject::AddBuildFileContent(
 
   RegisterLocationRange(parse_result.source_.content(), &parse_result.source_);
 
-  ++parse_stat.count;
+  parse_stat.IncCount();
   const size_t processed = parse_result.source_.size();
   parse_stat.AddBytesProcessed(processed);
 
@@ -329,7 +329,7 @@ const ParsedProject::VariableBundle &ParsedProject::GetOrAddStarlarkContent(
   }
 
   Stat &parse_stat = session.GetStatsFor("  - parse & elab", "Starlark files");
-  const ScopedTimer timer(&parse_stat.duration);
+  const ScopedTimer timer(parse_stat);
 
   auto inserted = starlark_to_parsed_.emplace(
     starlark, new ParsedBuildFile(*file_name, std::move(*content)));
@@ -354,7 +354,7 @@ const ParsedProject::VariableBundle &ParsedProject::GetOrAddStarlarkContent(
     variable_extractor(parse_result.ast, bundle);
   }
 
-  ++parse_stat.count;
+  parse_stat.IncCount();
   const size_t processed = parse_result.source_.size();
   parse_stat.AddBytesProcessed(processed);
 

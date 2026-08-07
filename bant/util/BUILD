@@ -20,6 +20,7 @@ cc_library(
     hdrs = ["stat.h"],
     deps = [
         "@abseil-cpp//absl/strings:str_format",
+        "@abseil-cpp//absl/synchronization",
         "@abseil-cpp//absl/time",
     ],
 )

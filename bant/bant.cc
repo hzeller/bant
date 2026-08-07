@@ -468,12 +468,12 @@ int main(int argc, char *argv[]) {
   // filling a session.
 
   bant::Session session(primary_out, info_out, error_out, flags);
-  absl::Duration runtime;
+  bant::Stat runtime_stat;  // Just to get duration.
   bool did_prewarm;
   bant::CliStatus result;
 
   {
-    const bant::ScopedTimer timer(&runtime);
+    const bant::ScopedTimer timer(runtime_stat);
     std::vector<std::string_view> positional_args;
     for (int i = optind; i < argc; ++i) {
       positional_args.emplace_back(argv[i]);
@@ -487,7 +487,8 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  const bool unusually_long_runtime = (runtime > absl::Seconds(30));
+  const bool unusually_long_runtime =
+    (runtime_stat.duration() > absl::Seconds(30));
   if (flags.verbose || (unusually_long_runtime && !be_quiet)) {
     // If verbose explicitly chosen, we want to print this even if -q.
     // So not to info_out (which is null-stream then), but std::cerr
@@ -508,7 +509,7 @@ int main(int argc, char *argv[]) {
         "%-32s %s\n", subsystem,
         session.stat(subsystem)->ToString(flags.do_color));
     }
-    std::cerr << "Total walltime " << runtime << "\n";
+    std::cerr << "Total walltime " << runtime_stat.duration() << "\n";
   }
   return static_cast<int>(result);
 }

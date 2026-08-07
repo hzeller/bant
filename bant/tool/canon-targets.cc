@@ -36,7 +36,7 @@ size_t CreateCanonicalizeEdits(Session &session, const ParsedProject &project,
   size_t edit_counts = 0;
   std::ostream &info_out = session.info();
   Stat &stats = session.GetStatsFor("Canonicalization checked", "dependencies");
-  const ScopedTimer timer(&stats.duration);
+  const ScopedTimer timer(stats);
 
   const ProjectWalker walker(project);
   walker.FindTargetsWithPattern(
@@ -46,7 +46,7 @@ size_t CreateCanonicalizeEdits(Session &session, const ParsedProject &project,
       const auto deps =
         query::ExtractStringList({target.deps_list, target.impl_deps_list});
       for (const std::string_view dep_str : deps) {
-        stats.count++;
+        stats.IncCount();
         auto dep_target = BazelTarget::ParseFrom(dep_str, current_package);
         if (!dep_target.has_value()) {
           project.Loc(info_out, dep_str)

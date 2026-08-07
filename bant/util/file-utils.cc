@@ -141,11 +141,11 @@ std::vector<FilesystemPath> Glob(std::string_view glob_pattern) {
 
 const std::optional<std::string> &ReadFileToStringUpdateStat(
   const FilesystemPath &filename, Stat &fread_stat) {
-  const ScopedTimer timer(&fread_stat.duration);
+  const ScopedTimer timer(fread_stat);
   const auto &maybe_content =
     Filesystem::instance().ReadFileToString(filename.path());
   if (maybe_content.has_value()) {
-    ++fread_stat.count;
+    fread_stat.IncCount();
     fread_stat.AddBytesProcessed(maybe_content->size());
   }
   return maybe_content;

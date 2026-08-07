@@ -24,42 +24,46 @@
 #include <string>
 #include <string_view>
 
+#include "absl/synchronization/mutex.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 
 namespace bant {
 
-// Add time encountered in the scope to duration.
-class ScopedTimer {
+class Stat {
  public:
-  explicit ScopedTimer(absl::Duration *to_update)
-      : to_update_(to_update), start_(absl::Now()) {}
-  ~ScopedTimer() { *to_update_ += absl::Now() - start_; }
-
- private:
-  absl::Duration *const to_update_;
-  const absl::Time start_;
-};
-
-struct Stat {
-  explicit Stat(std::string_view subject) : subject(subject) {}
+  explicit Stat(std::string_view subject) : subject_(subject) {}
 
   // Stat constructor without parameter should only be used for intermediate
   // stats to be Add()-ed later.
   Stat() : Stat("no-stat-subject") {}
-  const std::string_view subject;  // Descriptive name this stat is counting.
-
-  int count = 0;
-  absl::Duration duration;
-  std::optional<size_t> bytes_processed;
 
   // Add processed bytes, implicitly un-optionaling bytes_processed.
   void AddBytesProcessed(size_t byte_count) {
-    if (bytes_processed.has_value()) {
-      bytes_processed = *bytes_processed + byte_count;
+    if (bytes_processed_.has_value()) {
+      bytes_processed_ = *bytes_processed_ + byte_count;
     } else {
-      bytes_processed = byte_count;
+      bytes_processed_ = byte_count;
     }
+  }
+
+  void AddCount(int c) {
+    const absl::MutexLock l(mu_);
+    count_ += c;
+  }
+  void IncCount() { AddCount(1); }
+  int count() const {
+    const absl::MutexLock l(mu_);
+    return count_;
+  }
+
+  void AddDuration(const absl::Duration &d) {
+    const absl::MutexLock l(mu_);
+    duration_ += d;
+  }
+  absl::Duration duration() const {
+    const absl::MutexLock l(mu_);
+    return duration_;
   }
 
   // Add a stat collected separately.
@@ -67,6 +71,27 @@ struct Stat {
 
   // Print readable string with "subject" used to describe the count.
   std::string ToString(bool with_hightlight = true) const;
+
+ private:
+  const std::string_view subject_;  // Descriptive name this stat is counting.
+
+  mutable absl::Mutex mu_;
+  int count_ = 0;
+  absl::Duration duration_;
+  std::optional<size_t> bytes_processed_;
+};
+
+// Add time encountered in the scope to duration.
+class ScopedTimer {
+ public:
+  explicit ScopedTimer(Stat &to_update)
+      : to_update_(to_update), start_(absl::Now()) {}
+
+  ~ScopedTimer() { to_update_.AddDuration(absl::Now() - start_); }
+
+ private:
+  Stat &to_update_;
+  const absl::Time start_;
 };
 
 inline std::ostream &operator<<(std::ostream &out, const Stat &stat) {

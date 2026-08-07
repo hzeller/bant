@@ -1105,7 +1105,7 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     bant::Filesystem &fs = bant::Filesystem::instance();
 
     bant::Stat &glob_stats = session_.GetStatsFor("  - glob() walk ", "files");
-    const ScopedTimer timer(&glob_stats.duration);
+    const ScopedTimer timer(glob_stats);
 
     GlobMatchBuilder match_builder;
     for (const std::string_view i : include) {
@@ -1153,7 +1153,7 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
         }
         return true;
       });
-    glob_stats.count += checked_files;
+    glob_stats.AddCount(checked_files);
     return result;
   }
 
@@ -1189,8 +1189,8 @@ void Elaborate(Session &session, ParsedProject *project,
   if (!build_file->errors.empty()) return;
 
   bant::Stat &elab_stats = session.GetStatsFor("Elaborated", "packages");
-  const ScopedTimer timer(&elab_stats.duration);
-  ++elab_stats.count;
+  const ScopedTimer timer(elab_stats);
+  elab_stats.IncCount();
 
   const Node *const result =
     Elaborate(session, project, build_file->package, options, build_file->ast);

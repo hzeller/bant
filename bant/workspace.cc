@@ -88,7 +88,7 @@ bool BestEffortAugmentFromExternalDir(Session &session,
 
   bant::Stat &workspace_stats =
     session.GetStatsFor("Augment workspace from ext. dir", "directories");
-  const ScopedTimer timer(&workspace_stats.duration);
+  const ScopedTimer timer(workspace_stats);
 
   int found_count = 0;
   const std::string pattern = absl::StrCat(workspace.external_dir, "/*");
@@ -113,7 +113,7 @@ bool BestEffortAugmentFromExternalDir(Session &session,
       workspace.project_location[*project_or] = project_dir;
     }
   }
-  workspace_stats.count += found_count;
+  workspace_stats.AddCount(found_count);
   return found_count > 0;
 }
 
@@ -291,7 +291,7 @@ int ApplyBazelIgnore(const BazelWorkspace &workspace) {
 std::optional<BazelWorkspace> LoadWorkspace(Session &session) {
   bant::Stat &workspace_stats =
     session.GetStatsFor("Load workspace from file       ", "modules");
-  const ScopedTimer timer(&workspace_stats.duration);
+  const ScopedTimer timer(workspace_stats);
 
   int workspace_found = 0;
   BazelWorkspace workspace;
@@ -327,7 +327,7 @@ std::optional<BazelWorkspace> LoadWorkspace(Session &session) {
                       "to extract external projects\n";
   }
   if (!any_success) return std::nullopt;
-  workspace_stats.count += workspace_found;
+  workspace_stats.AddCount(workspace_found);
   return workspace;
 }
 }  // namespace bant

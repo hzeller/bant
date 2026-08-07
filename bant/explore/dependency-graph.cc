@@ -175,7 +175,7 @@ DependencyGraph BuildDependencyGraph(Session &session,
 
   Stat &stat =
     session.GetStatsFor("Dependency follow iterations", "rounds w/ elab");
-  const ScopedTimer timer(&stat.duration);
+  const ScopedTimer timer(stat);
 
   // TODO: the genrules should be expanded as we widen to other packages
   // but typically they are in the same package as the targets we request the
@@ -199,7 +199,7 @@ DependencyGraph BuildDependencyGraph(Session &session,
   std::set<BazelPackage> extra_visibility_packages;
   DependencyGraph graph;
   do {
-    ++stat.count;
+    stat.IncCount();
 
     // Only need to look in a subset of packages requested by our target todo.
     // All these targets boil down to a set of packages that we need
@@ -212,15 +212,15 @@ DependencyGraph BuildDependencyGraph(Session &session,
     }
 
     if (session.MinVerbosity(2) && !deps_to_resolve_todo.empty()) {
-      if (stat.count == 1) {
+      if (stat.count() == 1) {
         session.info() << Magenta(session)
                        << "Dependency BFS graph expand round" << Norm(session)
                        << "\n";
       }
-      session.info() << "\t" << std::setw(2) << (stat.count - 1) << ". resolve "
-                     << std::setw(5) << deps_to_resolve_todo.size()
-                     << " new deps in " << std::setw(4) << scan_package.size()
-                     << " packages\n";
+      session.info() << "\t" << std::setw(2) << (stat.count() - 1)
+                     << ". resolve " << std::setw(5)
+                     << deps_to_resolve_todo.size() << " new deps in "
+                     << std::setw(4) << scan_package.size() << " packages\n";
     }
 
     // Make sure that we have parsed all packages we're looking through.
@@ -268,12 +268,12 @@ DependencyGraph BuildDependencyGraph(Session &session,
           }
 
           session.GetStatsFor("  - deps[] dependencies follow  ", "labels")
-            .count += to_follow.size();
+            .AddCount(to_follow.size());
 
           {
             Stat &all = session.GetStatsFor("  - checked srcs[],hdrs[],data[]",
                                             "elements");
-            const ScopedTimer timer(&all.duration);
+            const ScopedTimer timer(all);
             AsyncDepenedencyResults async_checked_deps;
             // Possible file dependencies, maybe provided by genrules.
             for (List *possible_dep : {result.hdrs_list, result.srcs_list}) {
@@ -292,7 +292,7 @@ DependencyGraph BuildDependencyGraph(Session &session,
                 /*fallback_is_target=*/true, async_checked_deps);
             }
 
-            all.count += async_checked_deps.size();
+            all.AddCount(async_checked_deps.size());
 
             // Harvest the result of async determined need to add dependency.
             Stat &file_add =
@@ -301,7 +301,7 @@ DependencyGraph BuildDependencyGraph(Session &session,
               std::optional<std::string_view> maybe_add = async_result.get();
               if (maybe_add.has_value()) {
                 to_follow.push_back(*maybe_add);
-                ++file_add.count;
+                file_add.IncCount();
               }
             }
           }

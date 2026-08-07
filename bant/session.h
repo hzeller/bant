@@ -27,6 +27,7 @@
 
 #include "absl/base/attributes.h"
 #include "absl/container/flat_hash_set.h"
+#include "absl/synchronization/mutex.h"
 #include "bant/output-format.h"
 #include "bant/types.h"
 #include "bant/util/stat.h"
@@ -124,8 +125,9 @@ class Session {
   // Both strings needs to outlive this session object, so typically a regular
   // compile-time string constant.
   Stat &GetStatsFor(std::string_view subsystem_name, std::string_view subject) {
+    absl::MutexLock lock(mu_);
     auto inserted =
-      stats_.insert({subsystem_name, std::make_unique<Stat>(subject)});
+      stats_.emplace(subsystem_name, std::make_unique<Stat>(subject));
     if (inserted.second) {
       stat_init_key_order_.push_back(subsystem_name);
     }
@@ -172,8 +174,10 @@ class Session {
   void SetLinkBuilder(const HyperlinkBuilder *b) { hyperlink_builder_ = b; }
 
  private:
+  absl::Mutex mu_;
   StatMap stats_;
   std::vector<std::string_view> stat_init_key_order_;
+
   SessionStreams streams_;
   CommandlineFlags flags_;
   const HyperlinkBuilder *hyperlink_builder_ = nullptr;

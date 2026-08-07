@@ -21,36 +21,39 @@
 #include <string>
 
 #include "absl/strings/str_format.h"
+#include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
 
 namespace bant {
 void Stat::Add(const Stat &other) {
-  count += other.count;
-  duration += other.duration;
-  if (other.bytes_processed.has_value()) {
-    AddBytesProcessed(*other.bytes_processed);
+  const absl::MutexLock l(mu_);
+  count_ += other.count_;
+  duration_ += other.duration_;
+  if (other.bytes_processed_.has_value()) {
+    AddBytesProcessed(*other.bytes_processed_);
   }
 }
 
 std::string Stat::ToString(bool with_highlight) const {
-  const int64_t duration_usec = absl::ToInt64Microseconds(duration);
+  const absl::MutexLock l(mu_);
+  const int64_t duration_usec = absl::ToInt64Microseconds(duration_);
   static constexpr int kSubjectWidth = 17;
   static constexpr float kMiB = 1 << 20;
   const char *mark = with_highlight ? "\033[1m" : "";
   const char *reset = with_highlight ? "\033[0m" : "";
-  if (bytes_processed.has_value() && duration_usec > 0) {
+  if (bytes_processed_.has_value() && duration_usec > 0) {
     const float megabyte_per_sec =
-      1e6f * *bytes_processed / kMiB / duration_usec;
+      1e6f * *bytes_processed_ / kMiB / duration_usec;
     return absl::StrFormat(
-      "%s%6d%s %-*s in %s%8.3fms%s (%7.1f KiB; %s%8.2f MiB/sec%s)", mark, count,
-      reset, kSubjectWidth, subject, mark, duration_usec / 1000.0, reset,
-      *bytes_processed / 1024, mark, megabyte_per_sec, reset);
+      "%s%6d%s %-*s in %s%8.3fms%s (%7.1f KiB; %s%8.2f MiB/sec%s)", mark,
+      count_, reset, kSubjectWidth, subject_, mark, duration_usec / 1000.0,
+      reset, *bytes_processed_ / 1024, mark, megabyte_per_sec, reset);
   }
   if (duration_usec > 0) {
-    return absl::StrFormat("%s%6d%s %-*s in %s%8.3fms%s", mark, count, reset,
-                           kSubjectWidth, subject, mark, duration_usec / 1000.0,
-                           reset);
+    return absl::StrFormat("%s%6d%s %-*s in %s%8.3fms%s", mark, count_, reset,
+                           kSubjectWidth, subject_, mark,
+                           duration_usec / 1000.0, reset);
   }
-  return absl::StrFormat("%s%6d%s %s", mark, count, reset, subject);
+  return absl::StrFormat("%s%6d%s %s", mark, count_, reset, subject_);
 }
 }  // namespace bant

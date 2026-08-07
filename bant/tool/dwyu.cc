@@ -648,7 +648,7 @@ IncludeNeededDepsAlternatives DWYUGenerator::DependenciesNeededBySources(
       src_name, target, package, source_read_stats, all_headers_accounted_for);
     if (!source_content.has_value()) continue;
 
-    ++source_grep_stats.count;
+    source_grep_stats.IncCount();
     total_size += source_content->content.size();
 
     // Here we should create a struct PerSourceFileDWYU getting source_content
@@ -656,7 +656,7 @@ IncludeNeededDepsAlternatives DWYUGenerator::DependenciesNeededBySources(
                                    source_content->content);
     std::vector<TaggedInclude> pound_includes;
     {
-      const ScopedTimer timer(&source_grep_stats.duration);
+      const ScopedTimer timer(source_grep_stats);
       pound_includes = ExtractCCIncludes(&source, defines);
     }
     // Now for all includes, we need to make sure we can account for it.
@@ -905,13 +905,13 @@ IncludeNeededDepsAlternatives DWYUGenerator::DependenciesNeededByProtoSources(
       src_name, target, package, source_read_stats, all_imports_accounted_for);
     if (!source_content.has_value()) continue;
 
-    ++source_grep_stats.count;
+    source_grep_stats.IncCount();
     total_size += source_content->content.size();
     NamedLineIndexedContent source(source_content->path,
                                    source_content->content);
     std::vector<std::string_view> imports;
     {
-      const ScopedTimer timer(&source_grep_stats.duration);
+      const ScopedTimer timer(source_grep_stats);
       imports = ExtractProtoImports(&source);
     }
 
@@ -1176,7 +1176,7 @@ DWYUGenerator::DWYUGenerator(Session &session, const ParsedProject &project,
       project_(project),
       emit_deps_edit_(std::move(emit_deps_edit)) {
   Stat &stats = session_.GetStatsFor("  - DWYU preparation", "indexed targets");
-  const ScopedTimer timer(&stats.duration);
+  const ScopedTimer timer(stats);
 
   // TODO: we create this filegroups multiple times: here, but then the
   // ExtractExpandedHeaderToLibMapping() also internally does the same thing.
@@ -1203,7 +1203,7 @@ DWYUGenerator::DWYUGenerator(Session &session, const ParsedProject &project,
     });
 
   InitKnownLibraries();
-  stats.count = known_libs_.size();
+  stats.AddCount(known_libs_.size());
 }
 
 size_t DWYUGenerator::CreateEditsForPattern(const BazelTargetMatcher &pattern) {
@@ -1260,7 +1260,7 @@ size_t CreateDependencyEdits(Session &session, const ParsedProject &project,
                              const BazelTargetMatcher &pattern,
                              const EditCallback &emit_deps_edit) {
   Stat &dwyu_stats = session.GetStatsFor("DWYU Operation", "targets");
-  const ScopedTimer timer(&dwyu_stats.duration);
+  const ScopedTimer timer(dwyu_stats);
 
   size_t edits_requested = 0;
   size_t post_filter_edits = 0;
@@ -1274,7 +1274,7 @@ size_t CreateDependencyEdits(Session &session, const ParsedProject &project,
     };
   DWYUGenerator gen(session, project, edit_counting_forwarder);
   const size_t target_count = gen.CreateEditsForPattern(pattern);
-  dwyu_stats.count += target_count;
+  dwyu_stats.AddCount(target_count);
   session.info() << Dim(session) << "Checked DWYU on " << target_count
                  << " targets." << Norm(session);
   if (target_count == 0 && pattern.HasFilter()) {

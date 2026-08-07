@@ -258,13 +258,13 @@ CliStatus RunCommand(Session &session, Command cmd,
     {
       Stat &stats =
         session.GetStatsFor("Initial load from pattern", "packages");
-      const ScopedTimer timer(&stats.duration);
+      const ScopedTimer timer(stats);
       const int packages_added =
         project.FillFromPattern(session, build_graph_pattern);
       if (packages_added == 0) {
         session.error() << "Pattern did not match any dir with BUILD file.\n";
       }
-      stats.count += packages_added;
+      stats.AddCount(packages_added);
     }
 
     // For DWYU, we want the absolute maximum and also include all the
@@ -272,13 +272,13 @@ CliStatus RunCommand(Session &session, Command cmd,
     if (cmd == Command::kDWYU) {
       Stat &stats =
         session.GetStatsFor("DWYU augment from workspace", "packages");
-      const ScopedTimer timer(&stats.duration);
+      const ScopedTimer timer(stats);
       // These additional dependencies we might not be too interested in
       // parse errors deep iniside, so let's not log these messages.
       const int packages_added = project.FillFromPattern(
         session, GetPatternFromRequestedWorkspaceDeps(workspace),
         /*log_error_messages=*/false);
-      stats.count += packages_added;
+      stats.AddCount(packages_added);
     }
   }
 
