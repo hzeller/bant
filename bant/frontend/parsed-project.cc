@@ -240,8 +240,7 @@ ParsedBuildFile *ParsedProject::AddBuildFileContent(
   RegisterLocationRange(parse_result.source_.content(), &parse_result.source_);
 
   parse_stat.IncCount();
-  const size_t processed = parse_result.source_.size();
-  parse_stat.AddBytesProcessed(processed);
+  parse_stat.AddBytesProcessed(parse_result.source_.size());
 
   return inserted.first->second.get();
 }

@@ -93,16 +93,6 @@ class ParsedProject : public SourceLocator {
   int FillFromPattern(Session &session, const BazelPatternBundle &bundle,
                       bool log_error_messages = true);
 
-  // Given package and content, parse. Main workhorse.
-  // Content is std::move()'d thus by value.
-  // "read_stat" contains information how long it took to aquire content and
-  // is added to the corresponding stats.
-  // TODO: can most of the external use-cases be GetOrAddPackage() ?
-  // Will always return a ParsedBuildFile
-  ParsedBuildFile *AddBuildFileContent(
-    Session &session, const BazelPackage &package, const FilesystemPath &file,
-    std::string content, const Stat &read_stat, bool log_error_messages = true);
-
   // Given a package, load BUILD file and add to project.
   // Can return nullptr if the build file can not be loaded.
   ParsedBuildFile *GetOrAddPackage(Session &session,
@@ -171,6 +161,17 @@ class ParsedProject : public SourceLocator {
  private:
   friend class ParsedProjectTestUtil;
 
+  // Given package and content, parse. Main workhorse.
+  // Content is std::move()'d thus by value.
+  // "read_stat" contains information how long it took to aquire content and
+  // is added to the corresponding stats.
+  // Will always return a ParsedBuildFile
+ public:  // Should not be public, but used in debug output in cli-commands.cc
+  ParsedBuildFile *AddBuildFileContent(
+    Session &session, const BazelPackage &package, const FilesystemPath &file,
+    std::string content, const Stat &read_stat, bool log_error_messages = true);
+
+ private:
   // like AddBuildFile(..package), but extract package from (workspace, path).
   // TODO: should not be needed, just an artifact of FillFromPattern() workings.
   ParsedBuildFile *AddBuildFile(Session &session,
