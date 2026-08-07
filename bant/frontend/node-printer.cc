@@ -81,23 +81,24 @@ namespace {
 class PackageLocator {
  public:
   explicit PackageLocator(const ParsedProject &project)
-      : project_(project), index_(BuildIndex(project)) {}
+      : project_(project),
+        supplemental_project_(project_.workspace(), false, false),
+        index_(InitialIndex(project)) {}
 
-  std::optional<FileLocation> GetLocationFor(const BazelTarget &target) const {
+  std::optional<FileLocation> GetLocationFor(Session &session,
+                                             const BazelTarget &target) {
+    // TODO: if target is __pkg__ of sorts, just return location to BUILD
     if (const auto &found = index_.find(target); found != index_.end()) {
       return found->second;
     }
-    // TODO: on-demand loading of BUILD file.
-    // if just package with :__pkg__ or :__subpackages__ just point to file.
-    // otherwise: locate file
-    return std::nullopt;
+    return FindInSupplemental(session, target);
   }
 
   const BazelWorkspace &workspace() const { return project_.workspace(); }
 
  private:
   using TargetToLocation = OneToOne<BazelTarget, FileLocation>;
-  static TargetToLocation BuildIndex(const ParsedProject &project) {
+  static TargetToLocation InitialIndex(const ParsedProject &project) {
     TargetToLocation result;
     const ProjectWalker walker(project);
     walker.FindTargets(
@@ -108,8 +109,26 @@ class PackageLocator {
     return result;
   }
 
+  std::optional<FileLocation> FindInSupplemental(Session &session,
+                                                 const BazelTarget &target) {
+    const BazelPackage &package = target.package;
+    ParsedBuildFile *file =
+      supplemental_project_.GetOrAddPackage(session, package);
+    if (!file) return std::nullopt;
+    query::FindTargets(file->ast, {}, [&](const query::Result &param) {
+      auto label = package.QualifiedTarget(param.name);
+      if (!label.has_value()) return;
+      index_.emplace(*label, supplemental_project_.GetLocation(param.name));
+    });
+    if (const auto &found = index_.find(target); found != index_.end()) {
+      return found->second;
+    }
+    return std::nullopt;
+  }
+
   const ParsedProject &project_;
-  const TargetToLocation index_;
+  ParsedProject supplemental_project_;
+  TargetToLocation index_;
 };
 }  // namespace
 
@@ -120,7 +139,7 @@ static bool PrintNodeInternal(Session &session,
                               const GrepHighlighter &highlighter,
                               std::string_view headline, Node *node,
                               const BazelPackage &context,
-                              const PackageLocator *package_locator) {
+                              PackageLocator *package_locator) {
   if (!node) return false;
 
   static constexpr std::string_view kHeadlineColor = "\033[2;37m";
@@ -155,7 +174,7 @@ static bool PrintNodeInternal(Session &session,
           // when actually printed.
           auto target = context.QualifiedTarget(s);
           if (target.has_value()) {
-            if (auto loc = package_locator->GetLocationFor(*target);
+            if (auto loc = package_locator->GetLocationFor(session, *target);
                 loc.has_value()) {
               link_emitted = session.linkgen()->LinkTo(*loc, out);
               return;

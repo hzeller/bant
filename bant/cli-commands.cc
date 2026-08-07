@@ -288,16 +288,6 @@ CliStatus RunCommand(Session &session, Command cmd,
     flags.recurse_dependency_depth = kReasonableDefaultDependencyDepth;
   }
 
-  if (flags.recurse_dependency_depth <= 0 && (cmd == Command::kPrint) &&
-      flags.do_links) {
-    // if we print, and also have links enabled, we need to be able to determine
-    // the positions of where the direct dependencies are defined to be able
-    // to produce FileLocations for these; so we need to go at least
-    // one level deep.
-    constexpr int kFollowDirectDependencies = 1;
-    flags.recurse_dependency_depth = kFollowDirectDependencies;
-  }
-
   // For many operations and least surprises, we want to elaborate, others
   // should be given the option to choose manually.
   if (cmd != Command::kParse && cmd != Command::kPrint &&
@@ -333,15 +323,9 @@ CliStatus RunCommand(Session &session, Command cmd,
   case Command::kHasDependents:
     if (flags.recurse_dependency_depth >= 0) {
       const size_t before_build_files = project.size();
-      ElaborationOptions sub_elab = elab_options;
-      if (cmd == Command::kPrint) {
-        // Until we do on-demand load of packages, limit expensiveness of direct
-        // dependency loading.
-        sub_elab.evaluate_glob_call = false;
-      }
       graph = bant::BuildDependencyGraph(session, build_graph_pattern,
                                          flags.recurse_dependency_depth,
-                                         &project, sub_elab);
+                                         &project, elab_options);
       const size_t after_build_files = project.size();
       if (session.MinVerbosity(1)) {
         session.info()
