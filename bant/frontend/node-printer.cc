@@ -27,6 +27,7 @@
 #include <string_view>
 #include <utility>
 
+#include "absl/container/flat_hash_set.h"
 #include "bant/explore/project-walker.h"
 #include "bant/explore/query-utils.h"
 #include "bant/explore/source-finder.h"
@@ -78,16 +79,17 @@ std::optional<std::string_view> FindFirstLocatableString(Node *ast) {
 }
 
 namespace {
-class PackageLocator {
+// Given a target, return location to hyperlink to. Special targets
+// __pkg__ and __subpackages__ are linked to the beginning of the BUILD file.
+class TargetLocator {
  public:
-  explicit PackageLocator(const ParsedProject &project)
+  explicit TargetLocator(const ParsedProject &project)
       : project_(project),
         supplemental_project_(project_.workspace(), false, false),
         index_(InitialIndex(project)) {}
 
   std::optional<FileLocation> GetLocationFor(Session &session,
                                              const BazelTarget &target) {
-    // TODO: if target is __pkg__ of sorts, just return location to BUILD
     if (const auto &found = index_.find(target); found != index_.end()) {
       return found->second;
     }
@@ -98,15 +100,34 @@ class PackageLocator {
 
  private:
   using TargetToLocation = OneToOne<BazelTarget, FileLocation>;
+
   static TargetToLocation InitialIndex(const ParsedProject &project) {
     TargetToLocation result;
+    absl::flat_hash_set<BazelPackage> all_packages;
     const ProjectWalker walker(project);
     walker.FindTargets(
       {}, [&](const BazelPackage &package, const BazelTarget &target,
               const query::Result &query_target) {
+        all_packages.emplace(package);
         result.emplace(target, project.GetLocation(query_target.name));
       });
+    for (const BazelPackage &p : all_packages) {
+      AddPackageLocationToIndex(p, project, &result);
+    }
     return result;
+  }
+
+  static void AddPackageLocationToIndex(const BazelPackage &package,
+                                        const ParsedProject &project,
+                                        TargetToLocation *index) {
+    const ParsedBuildFile *file = project.FindParsedOrNull(package);
+    if (!file) return;  // should not happen.
+    FileLocation loc{.filename = file->name()};
+    for (std::string_view pkg_name : {"__pkg__", "__subpackages__"}) {
+      auto package_target = BazelTarget::ParseFrom(pkg_name, package);
+      if (!package_target.has_value()) continue;  // should not happen.
+      index->emplace(*package_target, loc);
+    }
   }
 
   std::optional<FileLocation> FindInSupplemental(Session &session,
@@ -115,6 +136,7 @@ class PackageLocator {
     ParsedBuildFile *file =
       supplemental_project_.GetOrAddPackage(session, package);
     if (!file) return std::nullopt;
+    AddPackageLocationToIndex(package, supplemental_project_, &index_);
     query::FindTargets(file->ast, {}, [&](const query::Result &param) {
       auto label = package.QualifiedTarget(param.name);
       if (!label.has_value()) return;
@@ -127,7 +149,10 @@ class PackageLocator {
   }
 
   const ParsedProject &project_;
+  // Since we can't modify the project we're currently iterating through,
+  // we keep all the on-demand loaded packages in supplemental_project_
   ParsedProject supplemental_project_;
+
   TargetToLocation index_;
 };
 }  // namespace
@@ -139,7 +164,7 @@ static bool PrintNodeInternal(Session &session,
                               const GrepHighlighter &highlighter,
                               std::string_view headline, Node *node,
                               const BazelPackage &context,
-                              PackageLocator *package_locator) {
+                              TargetLocator *package_locator) {
   if (!node) return false;
 
   static constexpr std::string_view kHeadlineColor = "\033[2;37m";
@@ -241,9 +266,9 @@ std::pair<size_t, size_t> PrintProject(Session &session,
   if (!highlighter) {
     return {count, total};  // Issue building the highligher.
   }
-  std::unique_ptr<PackageLocator> xrefs;
+  std::unique_ptr<TargetLocator> xrefs;
   if (session.linkgen()) {
-    xrefs = std::make_unique<PackageLocator>(project);
+    xrefs = std::make_unique<TargetLocator>(project);
   }
   project.ForEach([&](const BazelPackage &package,
                       ParsedBuildFile &file_content) {

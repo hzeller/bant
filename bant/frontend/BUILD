@@ -98,6 +98,7 @@ cc_library(
         "//bant/util:grep-highlighter",
         "//bant/util:hyperlink-builder",
         "//bant/util:text-decorator",
+        "@abseil-cpp//absl/container:flat_hash_set",
     ],
 )
 

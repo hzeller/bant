@@ -25,8 +25,8 @@
 namespace bant {
 // Zero-based line and column.
 struct LineColumn {
-  int line;
-  int col;
+  int line = 0;
+  int col = 0;
 
   bool operator==(const LineColumn &) const = default;
 };
