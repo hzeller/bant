@@ -17,6 +17,7 @@
 
 #include "bant/util/hyperlink-builder.h"
 
+#include <cstdlib>
 #include <filesystem>
 #include <iostream>
 #include <memory>
@@ -39,50 +40,86 @@
 #include "bant/util/text-template.h"
 
 namespace bant {
-/*
-Constants extracted from project
+/* ----------------------------------------------------------------------
+
+## Constants
+
+Extracted from project or provided via environment variable. They
+may or may not be available
+
+The *_root variables always start with a slash
   ${project_root}    // Absolute root of dir of the project on local filesystem
   ${external_root}   // Absolute root dir where all the external projets are
-  ${repo_url}        // if available: this is the base-url for ${project_file}s
+                     //
+  ${repo_url}        // If available: this is the base-url for ${project_file}s
+                     // Currently via environment variable BANT_LINKS_REPO_URL
+                     // (e.g. for bant, the following would be a good
+                     // repo_url https://github.com/hzeller/bant/blob/main )
 
-Variables used within links. Only one of these is set.
+  ${hostname}        // To build RFC8089-correct file://-urls including
+                     // hostname.
+                     // This is extracted from BANT_LINKS_HOSTNAME environment
+                     // variable and should be a fully qualified name.
+                     //
+                     // If not available, it is an empty string, and this seems
+                     // to be the best choice currently as terminals often
+                     // don't understand the hostname despite the plea at
+https://gist.github.com/egmontkob/eb114294efbcd5adb1944c9f3cb5feda#file-uris-and-the-hostname
+
+## Destination type choice
+
+Variables used within links. This is an exlusive list: Only one of these is set.
+This allows to build different URLs based on the type, e.g. you can build a
+URL to a repository web URL with a ${project_file} but have a local
+filesystem URL with a generated file or external file.
+
   ${project_file}    // filename relative to ${project_root}
   ${external_file}   // filename relative to ${external_root}
   ${generated_file}  // filename that is generated; relative to ${project_root}
 
-  // range from-to as line and column information, as zero and one based.
+## Location within files
+
+Range from-to as line and column information, provided as zero and one based.
+These are set for URLs that are not only files but files with locations.
+
   ${line_start_0} ${col_start_0} and ${line_start_1} ${col_start_1}
   ${line_end_0}   ${col_end_0}   and ${line_end_1}   ${col_end_1}
-*/
 
-// Our starting templates. TODO: read templates from file if user has a better
-// way to view files locally. Then, these are the fallback templates.
-// The first pattern that has all the variables needed in a particular context
-// is chosen. So, go from specific (e.g. with line numbers) to unspecific to
-// fallback.
+-------------------------------------------------------------------- */
+
+// Our starting templates. TODO: read templates from file to allow user to
+// provide better suited local viewer URLs. Then, the following list provide
+// the fallback templates.
+
+// Templates have a hierachy: the first pattern that has all the variables
+// available in a particular context is chosen.
+// So, the following need to go from specific (e.g. with line numbers) to
+// unspecific to fallback.
+
 // clang-format off
 static constexpr std::string_view kUrlTemplates[] = {
   // Use repo_urls (if available) to assemble a link directly to the repo.
   // This can only be done on project paths, as external and generated are
-  // only available locally.
+  // only available locally. Template below assumes lines in URL-fragments
   "${repo_url}/${project_file}#L${line_start_1}-L${line_end_1}",
   "${repo_url}/${project_file}",
 
   // Fallbacks: just plain file URLs to local filesystem. Unfortunately, in
-  // that case we never can give location, as browsers don't support jumping
-  // to these typically.
-  // However, some editors can deal with line/column links, so we also provide
-  // specific versions. If anything it shows the users that there might be
+  // that case we can not give line/column-location, as browsers don't support
+  // jumping to these typically.
+  // However, terminals are often configured to open local files with editors,
+  // and some editors can deal with line/column links, so we also provide
+  // specific URLs with hostnames (tested on KDE, which by default opens Kate).
+  // If anything it shows the users that there might be
   // a chance to configure their terminal+editor combination to do the jump.
-  "file://${project_root}/${project_file}?line=${line_start_1}&column=${col_start_1}",
+  "file://${hostname}${project_root}/${project_file}?line=${line_start_1}&column=${col_start_1}",
+  "file://${hostname}${project_root}/${project_file}",
 
-  "file://${project_root}/${project_file}",
+  "file://${hostname}${project_root}/${generated_file}?line=${line_start_1}&column=${col_start_1}",
+  "file://${hostname}${project_root}/${generated_file}",
 
-  "file://${project_root}/${generated_file}?line=${line_start_1}&column=${col_start_1}",
-  "file://${project_root}/${generated_file}",
-
-  "file://${external_root}/${external_file}?line=${line_start_1}&column=${col_start_1}",
-  "file://${external_root}/${external_file}",
+  "file://${hostname}${external_root}/${external_file}?line=${line_start_1}&column=${col_start_1}",
+  "file://${hostname}${external_root}/${external_file}",
 };
 // clang-format on
 
@@ -195,8 +232,8 @@ bool HyperlinkBuilder::Build(const VarKV &constants, std::string_view prefix,
                              std::string_view suffix) {
   using StringSet = std::set<std::string_view>;
   static const StringSet kAllowedBaseVariables{
-    "project_root",  "external_root", "repo_url",        // constants
-    "external_file", "project_file",  "generated_file",  // runtime
+    "hostname",      "project_root", "external_root",  "repo_url",  // constants
+    "external_file", "project_file", "generated_file",              // runtime
   };
   static const StringSet kLocVars{
     "line_start_0", "col_start_0", "line_start_1", "col_start_1",  // start..
@@ -349,16 +386,30 @@ std::unique_ptr<HyperlinkBuilder> MakeLinkBuilder(
   auto link_builder = std::make_unique<HyperlinkBuilder>(workspace);
   if (enable_links) {
     HyperlinkBuilder::VarKV constants;
+
     const std::string project_root = std::filesystem::current_path().string();
     constants["project_root"] = project_root;
+
     std::string external_abs_dir;
     if (absl::StrContains(workspace.external_dir, "../")) {
       external_abs_dir = MakeAbsolute(workspace.external_dir);
     } else {
+      // If the project chooses to have the external/ symbolic link, thsee
+      // URLs are shorter
       external_abs_dir =
         absl::StrCat(project_root, "/", workspace.external_dir);
     }
     constants["external_root"] = external_abs_dir;
+
+    // Tested terminals have trouble with hostnames in file:// URLs, so
+    // we do it here strictly based on an environment variable and fall back to
+    // an empty string instead of what gethostname() would return.
+    const char *hostname = getenv("BANT_LINKS_HOSTNAME");
+    constants["hostname"] = hostname ? hostname : "";
+
+    const char *repo_url = getenv("BANT_LINKS_REPO_URL");
+    if (repo_url) constants["repo_url"] = repo_url;
+
     link_builder->Build(constants);
   }
   return link_builder;

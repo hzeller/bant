@@ -46,6 +46,7 @@ TEST(HyperlinkBuilder, SimpleLinkBuilding) {
       {"repo_url", "https://repo.com/user/project"},
       {"project_root", "/abs/project/dir"},
       {"external_root", "/abs/external/dir"},
+      {"hostname", "LoCalHost"},
     },
     "<a href='", "'>"));
 
@@ -63,22 +64,25 @@ TEST(HyperlinkBuilder, SimpleLinkBuilding) {
       },
   };
 
+  // A regular file will be routed to the first ${project_root} template.
   loc.filename = "foo/bar/baz.cc";
   EXPECT_EQ(PrintHyperlinked(b, loc),
             "<a href='https://repo.com/user/project/foo/bar/baz.cc#L43-L46'>"
             "foo/bar/baz.cc:43:11:46:7:</a>");
 
+  // A file to an external repo: routed to first ${external_root} template.
   loc.filename = "my_external_prefix/some-project/foo.h";
-  EXPECT_EQ(
-    PrintHyperlinked(b, loc),
-    "<a href='file:///abs/external/dir/some-project/foo.h?line=43&column=11'>"
-    "my_external_prefix/some-project/foo.h:43:11:46:7:</a>");
+  EXPECT_EQ(PrintHyperlinked(b, loc),
+            "<a href='file://LoCalHost/abs/external/dir/"
+            "some-project/foo.h?line=43&column=11'>"
+            "my_external_prefix/some-project/foo.h:43:11:46:7:</a>");
 
+  // ... and finally: a generated file to ${generated_file} template
   loc.filename = "bazel-bin/some/generated.cc";
   EXPECT_EQ(PrintHyperlinked(b, loc),
             "<a "
-            "href='file:///abs/project/dir/bazel-bin/some/"
-            "generated.cc?line=43&column=11'>"
+            "href='file://LoCalHost/abs/project/dir/"
+            "bazel-bin/some/generated.cc?line=43&column=11'>"
             "bazel-bin/some/generated.cc:43:11:46:7:</a>");
 }
 
