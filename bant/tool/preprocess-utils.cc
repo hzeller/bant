@@ -80,7 +80,7 @@ std::vector<TaggedInclude> ExtractCCIncludes(NamedLineIndexedContent *src,
     // We only need to fill the location_mapper up to the location the last
     // element was found.
     const std::string_view range(
-      src->content().begin(),
+      src->content().data() + 0,
       result.back().include.end() - src->content().begin());
     src->mutable_line_index()->InitializeFromStringView(range);
   }
@@ -106,7 +106,7 @@ std::vector<std::string_view> ExtractProtoImports(
   }
 
   if (!result.empty()) {
-    const std::string_view range(src->content().begin(),
+    const std::string_view range(src->content().data() + 0,
                                  result.back().end() - src->content().begin());
     src->mutable_line_index()->InitializeFromStringView(range);
   }

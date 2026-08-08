@@ -73,7 +73,7 @@ static std::string_view FindReturnSubstr(std::string_view needle,
                                          std::string_view haystack) {
   const size_t found = haystack.find(needle);
   CHECK_NE(found, std::string_view::npos);
-  return std::string_view{haystack.begin() + found, needle.length()};
+  return std::string_view{haystack.data() + found, needle.length()};
 }
 
 TEST(LineColumnTextTest, InitializeFromRange) {

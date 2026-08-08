@@ -25,12 +25,12 @@
 #include "bant/frontend/source-locator.h"
 
 namespace bant {
-void LineColumnMap::PushNewline(std::string_view::const_iterator newline_pos) {
+void LineColumnMap::PushNewline(const char *newline_pos) {
   CHECK(line_map_.empty() || line_map_.back() <= newline_pos);
   line_map_.push_back(newline_pos);
 }
 
-LineColumn LineColumnMap::GetPos(std::string_view::const_iterator pos) const {
+LineColumn LineColumnMap::GetPos(const char *pos) const {
   auto start = std::upper_bound(line_map_.begin(), line_map_.end(), pos);
   CHECK(start - line_map_.begin() > 0);
   --start;
@@ -42,20 +42,20 @@ LineColumn LineColumnMap::GetPos(std::string_view::const_iterator pos) const {
 
 LineColumnRange LineColumnMap::GetRange(std::string_view text) const {
   LineColumnRange result;
-  result.start = GetPos(text.begin());
-  result.end = GetPos(text.end());
+  result.start = GetPos(text.data() + 0);
+  result.end = GetPos(text.data() + text.size());
   return result;
 }
 
 void LineColumnMap::InitializeFromStringView(std::string_view str) {
   CHECK(empty());  // Can only initialize once.
-  PushNewline(str.begin());
+  PushNewline(str.data() + 0);
   const size_t end_of_string = str.end() - str.begin();
   for (size_t pos = 0; pos < end_of_string; /**/) {
     pos = str.find_first_of('\n', pos);
     if (pos == std::string_view::npos) break;
     pos = pos + 1;
-    PushNewline(str.begin() + pos);
+    PushNewline(str.data() + pos);
   }
 }
 }  // namespace bant

@@ -88,8 +88,8 @@ std::ostream &operator<<(std::ostream &o, const Token t) {
 
 Scanner::Scanner(NamedLineIndexedContent &source)
     : source_(source),
-      end_(source.content().end()),
-      pos_(source.content().begin()) {
+      end_(source.content().data() + source.content().size()),
+      pos_(source.content().data()) {
   CHECK(source.mutable_line_index()->empty());  // Already used ?
   source.mutable_line_index()->PushNewline(pos_);
 }

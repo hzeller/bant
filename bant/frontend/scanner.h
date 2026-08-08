@@ -115,7 +115,7 @@ class Scanner {
   const NamedLineIndexedContent &source() { return source_; }
 
  private:
-  using ContentPointer = std::string_view::const_iterator;
+  using ContentPointer = const char *;
 
   inline ContentPointer SkipSpace();
 

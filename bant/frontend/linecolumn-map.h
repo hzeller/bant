@@ -42,19 +42,19 @@ class LineColumnMap {
   void InitializeFromStringView(std::string_view s);
 
   // Push the position after the last newline. Typically done by the scanner.
-  void PushNewline(std::string_view::const_iterator newline_pos);
+  void PushNewline(const char *newline_pos);
 
   bool empty() const { return line_map_.empty(); }
   size_t lines() const { return line_map_.size(); }
 
   // Return position of given text that needs to be within content of
   // tokens already seen.
-  LineColumn GetPos(std::string_view::const_iterator) const;
+  LineColumn GetPos(const char *at_pos) const;
   LineColumnRange GetRange(std::string_view text) const;
 
  private:
   // Contains position at the beginning of each line. Stricly ordered.
-  std::vector<std::string_view::const_iterator> line_map_;
+  std::vector<const char *> line_map_;
 };
 }  // namespace bant
 
