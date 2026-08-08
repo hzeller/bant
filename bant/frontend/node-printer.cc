@@ -85,13 +85,18 @@ class TargetLocator {
  public:
   explicit TargetLocator(const ParsedProject &project)
       : project_(project),
-        supplemental_project_(project_.workspace(), false, false),
-        index_(InitialIndex(project)) {}
+        supplemental_project_(project_.workspace(), false, false) {
+    BuildInitialIndex(project_);
+  }
 
   std::optional<FileLocation> GetLocationFor(Session &session,
                                              const BazelTarget &target) {
     if (const auto &found = index_.find(target); found != index_.end()) {
       return found->second;
+    }
+    if (known_packages_.contains(target.package)) {
+      // Package, already known but just not that target. Don't supplement.
+      return std::nullopt;
     }
     return FindInSupplemental(session, target);
   }
@@ -100,22 +105,6 @@ class TargetLocator {
 
  private:
   using TargetToLocation = OneToOne<BazelTarget, FileLocation>;
-
-  static TargetToLocation InitialIndex(const ParsedProject &project) {
-    TargetToLocation result;
-    absl::flat_hash_set<BazelPackage> all_packages;
-    const ProjectWalker walker(project);
-    walker.FindTargets(
-      {}, [&](const BazelPackage &package, const BazelTarget &target,
-              const query::Result &query_target) {
-        all_packages.emplace(package);
-        result.emplace(target, project.GetLocation(query_target.name));
-      });
-    for (const BazelPackage &p : all_packages) {
-      AddPackageLocationToIndex(p, project, &result);
-    }
-    return result;
-  }
 
   static void AddPackageLocationToIndex(const BazelPackage &package,
                                         const ParsedProject &project,
@@ -130,12 +119,30 @@ class TargetLocator {
     }
   }
 
+  // Create an initial index by looking what is already in our existing project
+  void BuildInitialIndex(const ParsedProject &project) {
+    TargetToLocation result;
+    absl::flat_hash_set<BazelPackage> all_packages;
+    const ProjectWalker walker(project);
+    walker.FindTargets(
+      {}, [&](const BazelPackage &package, const BazelTarget &target,
+              const query::Result &query_target) {
+        known_packages_.emplace(package);
+        index_.emplace(target, project.GetLocation(query_target.name));
+      });
+    for (const BazelPackage &p : all_packages) {
+      AddPackageLocationToIndex(p, project, &index_);
+    }
+  }
+
+  // Look in suplemental project, and possibly fill it.
   std::optional<FileLocation> FindInSupplemental(Session &session,
                                                  const BazelTarget &target) {
     const BazelPackage &package = target.package;
     const ParsedBuildFile *file =
       supplemental_project_.GetOrAddPackage(session, package);
     if (!file) return std::nullopt;
+    known_packages_.emplace(package);
     AddPackageLocationToIndex(package, supplemental_project_, &index_);
     query::FindTargets(file->ast, {}, [&](const query::Result &param) {
       auto label = package.QualifiedTarget(param.name);
@@ -149,10 +156,12 @@ class TargetLocator {
   }
 
   const ParsedProject &project_;
+
   // Since we can't modify the project we're currently iterating through,
   // we keep all the on-demand loaded packages in supplemental_project_
   ParsedProject supplemental_project_;
 
+  absl::flat_hash_set<BazelPackage> known_packages_;
   TargetToLocation index_;
 };
 }  // namespace
@@ -183,8 +192,12 @@ static bool PrintNodeInternal(Session &session,
   TextDecorator text_decorator;
   if (make_hyperlinks) {
     // Whenever the node printer comes accross a string view scalar, it
-    // informs us, and we might want to add a decoration later at wherever
-    // the current stream position is.
+    // informs us, and we use that to remember to add a decoration later at
+    // wherever the current stream position, thus later output position, is.
+    //
+    // Note, the decorators will only do work (i.e. finding a location,
+    // possibly hitting disk), if Emit() is called and the output
+    // is actually printed (i.e. depends on what the grep match decides).
     auto stringview_print_observer = [&](std::string_view s) {
       if (s.empty() || s[0] == '-') return;  // some sort of flag.
       if (s.find_first_of(" \t\n") != std::string_view::npos) return;
