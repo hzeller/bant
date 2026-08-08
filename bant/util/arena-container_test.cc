@@ -17,11 +17,23 @@
 
 #include "bant/util/arena-container.h"
 
+#include <cstddef>
+#include <cstdint>
+
 #include "bant/util/arena.h"
 #include "gtest/gtest.h"
 
 namespace bant {
 namespace {
+TEST(Arena, Alignment) {
+  Arena a(1024);
+  for (size_t size = 1; size <= 256; ++size) {
+    void *p = a.Alloc(size);
+    EXPECT_NE(p, nullptr);
+    EXPECT_EQ(reinterpret_cast<uintptr_t>(p) % 8, 0u);
+  }
+}
+
 TEST(ArenaDeque, SimpleOps) {
   Arena a(1024);
   ArenaDeque<int, 3, 96> container;  // deliberately funky min..max

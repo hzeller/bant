@@ -71,7 +71,7 @@ class Arena {
 
   ~Arena() {
     for (void *p : blocks_) {
-      std::free(p);
+      LowLevelFree(p);
     }
 
     if (!verbose_ || blocks_.empty()) return;
@@ -88,8 +88,20 @@ class Arena {
   void SetVerbose(bool verbose) { verbose_ = verbose; }
 
  private:
+  static void LowLevelFree(void *p) {
+#ifdef _WIN32
+    _aligned_free(p);
+#else
+    std::free(p);
+#endif
+  }
+
   void *LowLevelAlloc(size_t size) {
+#ifdef _WIN32
+    return blocks_.emplace_back(_aligned_malloc(size, kAlignment));
+#else
     return blocks_.emplace_back(std::aligned_alloc(kAlignment, size));
+#endif
   }
 
   void *NextBlockAlloc(size_t size) {
