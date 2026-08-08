@@ -123,7 +123,7 @@ class TargetLocator {
     const ParsedBuildFile *file = project.FindParsedOrNull(package);
     if (!file) return;  // should not happen.
     FileLocation loc{.filename = file->name()};
-    for (std::string_view pkg_name : {"__pkg__", "__subpackages__"}) {
+    for (const std::string_view pkg_name : {"__pkg__", "__subpackages__"}) {
       auto package_target = BazelTarget::ParseFrom(pkg_name, package);
       if (!package_target.has_value()) continue;  // should not happen.
       index->emplace(*package_target, loc);
@@ -133,7 +133,7 @@ class TargetLocator {
   std::optional<FileLocation> FindInSupplemental(Session &session,
                                                  const BazelTarget &target) {
     const BazelPackage &package = target.package;
-    ParsedBuildFile *file =
+    const ParsedBuildFile *file =
       supplemental_project_.GetOrAddPackage(session, package);
     if (!file) return std::nullopt;
     AddPackageLocationToIndex(package, supplemental_project_, &index_);

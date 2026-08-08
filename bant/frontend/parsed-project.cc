@@ -370,12 +370,12 @@ const ParsedProject::VariableBundle &ParsedProject::GetOrAddStarlarkContent(
 
 void ParsedProject::RegisterLocationRange(std::string_view range,
                                           const SourceLocator *source_locator) {
-  absl::MutexLock lock(location_map_lock_);
+  const absl::MutexLock lock(location_map_lock_);
   location_maps_.Insert(range, source_locator);
 }
 
 FileLocation ParsedProject::GetLocation(std::string_view text) const {
-  absl::MutexLock lock(location_map_lock_);
+  const absl::MutexLock lock(location_map_lock_);
   auto found = location_maps_.FindBySubrange(text);
   CHECK_NE(found, location_maps_.end())
     << "Not in any of the files managed by ParsedProject '" << text << "'";
@@ -384,7 +384,7 @@ FileLocation ParsedProject::GetLocation(std::string_view text) const {
 
 std::string_view ParsedProject::GetSurroundingLine(
   std::string_view text) const {
-  absl::MutexLock lock(location_map_lock_);
+  const absl::MutexLock lock(location_map_lock_);
   auto found = location_maps_.FindBySubrange(text);
   CHECK_NE(found, location_maps_.end())
     << "Not in any of the files managed by ParsedProject '" << text << "'";

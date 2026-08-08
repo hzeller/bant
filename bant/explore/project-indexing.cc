@@ -725,7 +725,7 @@ static absl::flat_hash_map<std::string, std::string> SplitFlagNameValue(
   const CommandlineFlags &flags) {
   absl::flat_hash_map<std::string, std::string> result;
   for (const std::string &flag : flags.custom_flags) {
-    std::pair<std::string, std::string> kv =
+    const std::pair<std::string, std::string> kv =
       absl::StrSplit(flag, absl::MaxSplits('=', 1));
     result.emplace(kv);
   }
@@ -749,7 +749,7 @@ FlagValueMap ExtractConfigFlagValues(const CommandlineFlags &flags,
       Node *const flag_default_node =
         query::FindKWArg(params.node, "build_setting_default");
       if (!flag_default_node) return;
-      Scalar *const flag_default = flag_default_node->CastAsScalar();
+      const Scalar *const flag_default = flag_default_node->CastAsScalar();
       if (!flag_default) return;
 
       if (params.rule == "bool_flag") {

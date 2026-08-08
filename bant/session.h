@@ -125,7 +125,7 @@ class Session {
   // Both strings needs to outlive this session object, so typically a regular
   // compile-time string constant.
   Stat &GetStatsFor(std::string_view subsystem_name, std::string_view subject) {
-    absl::MutexLock lock(mu_);
+    const absl::MutexLock lock(mu_);
     auto inserted =
       stats_.emplace(subsystem_name, std::make_unique<Stat>(subject));
     if (inserted.second) {

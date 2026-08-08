@@ -1415,7 +1415,7 @@ static std::pair<std::string, std::string> TestGlobFile(
   bant::test::ChangeToTmpDir tmpdir(test_name);
 
   // Creating the file relative to the package path, as we glob relative to it.
-  for (std::string_view file : filenames) {
+  for (const std::string_view file : filenames) {
     tmpdir.touch(package, file);
   }
 

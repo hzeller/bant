@@ -56,7 +56,7 @@ class Arena {
     // into account.
     size += kAlignment - (size % kAlignment);
 
-    absl::MutexLock l(lock_);
+    const absl::MutexLock l(lock_);
     total_allocations_++;
     total_bytes_ += size;
 

@@ -240,7 +240,7 @@ std::vector<std::string> CollectIncDirs(Session &session,
 
   // TODO: once we have a 'walk all branches of a select()' config,
   // set that. In the compilation db we want the superset of needed deps.
-  ElaborationOptions elab_options{.builtin_macro_expansion = true};
+  const ElaborationOptions elab_options{.builtin_macro_expansion = true};
   // All the -I (or more precisely: -iquote) directories.
   const BazelWorkspace &workspace = project->workspace();
   DuplicationCheckSet already_seen;

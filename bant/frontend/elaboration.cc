@@ -617,7 +617,7 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
 
     std::function<void(Node *, Node *, query::KwMap *)> unpack =
       [&](Node *target, Node *value, query::KwMap *map) {
-        if (Identifier *id = target->CastAsIdentifier()) {
+        if (const Identifier *const id = target->CastAsIdentifier()) {
           (*map)[id->id()] = value;
           return;
         }
@@ -1036,7 +1036,7 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
         } else if (kw == "exclude") {
           exclude_list = kwarg->value()->CastAsList();
         } else if (kw == "bant_limit_per_dir") {
-          if (Scalar *value = kwarg->value()->CastAsScalar(); value) {
+          if (const Scalar *value = kwarg->value()->CastAsScalar(); value) {
             limit_per_dir = value->AsInt();
           }
         }
