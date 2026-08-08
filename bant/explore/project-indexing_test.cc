@@ -573,13 +573,13 @@ static std::string reverse(std::string_view in) {
   return std::string{in.rbegin(), in.rend()}.append("/");
 }
 
-// Check for existence of value of fail if not.
-#define ASSERT_HAS_VALUE(x)     \
-  ({                            \
-    auto v = (x);               \
-    CHECK(v.has_value()) << #x; \
-    v.value();                  \
-  })
+// Check for existence of value of fail if not. Would be more readable
+// as stement expression, alas, not all compilers support it. So more ugly as:
+#define ASSERT_HAS_VALUE(x)                        \
+  ([&](auto &&_v) -> decltype(auto) {              \
+    CHECK(_v.has_value()) << #x;                   \
+    return std::forward<decltype(_v)>(_v).value(); \
+  }((x)))
 
 TEST(HeaderProviders, FindBySuffixTest) {
   ProvidedFromTargetSet test_index;
