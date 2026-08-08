@@ -40,7 +40,6 @@ IntScalar *IntScalar::FromLiteral(Arena *arena, std::string_view literal) {
   }
 
   // Well, it's a number then.
-  int64_t val = 0;
   int base = 10;
   if (literal.size() >= 2) {
     switch (literal[1]) {
@@ -55,7 +54,10 @@ IntScalar *IntScalar::FromLiteral(Arena *arena, std::string_view literal) {
     default:;
     }
   }
-  auto result = std::from_chars(literal.begin(), literal.end(), val, base);
+
+  int64_t val = 0;
+  auto result =
+    std::from_chars(literal.data(), literal.data() + literal.size(), val, base);
   if (result.ec != std::errc{}) {
     return nullptr;
   }
