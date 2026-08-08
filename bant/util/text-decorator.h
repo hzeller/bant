@@ -45,7 +45,8 @@ class TextDecorator {
     // next annoation are stably sorted. The end is finished before the next
     // start happens.
     OffsetDecoration(size_t offset, bool is_start, SnippetEmitter s)
-        : offset_location(offset << 1 | is_start), emitter(std::move(s)) {}
+        : offset_location(offset << 1 | static_cast<size_t>(is_start)),
+          emitter(std::move(s)) {}
     size_t offset() const { return offset_location >> 1; }
 
     uint64_t offset_location;
