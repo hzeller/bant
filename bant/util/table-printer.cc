@@ -17,7 +17,14 @@
 
 #include "bant/util/table-printer.h"
 
-#include <unistd.h>
+#ifndef _WIN32
+#include <unistd.h>  // for isatty
+#else
+#include <io.h>
+// MSVC recommends to use _isatty...
+#define isatty        _isatty
+#define STDOUT_FILENO 1
+#endif
 
 #include <algorithm>
 #include <cstddef>

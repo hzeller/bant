@@ -89,7 +89,11 @@ class Arena {
 
  private:
   void *LowLevelAlloc(size_t size) {
+#ifdef _WIN32
+    return blocks_.emplace_back(malloc(size));  // no std::alinged_alloc in win
+#else
     return blocks_.emplace_back(std::aligned_alloc(kAlignment, size));
+#endif
   }
 
   void *NextBlockAlloc(size_t size) {

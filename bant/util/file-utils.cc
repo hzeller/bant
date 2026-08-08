@@ -114,6 +114,11 @@ bool FilesystemPath::is_symlink() const {
 
 // Just in a struct, so that FilesystemPath can be 'friends' :)
 // The update_known_is_directory() method should not really be visible.
+#if defined __WIN32__ || defined _WIN32 || defined _Windows
+#if !defined S_ISDIR
+#define S_ISDIR(m) (((m) & _S_IFDIR) == _S_IFDIR)
+#endif
+#endif
 struct InternalDirectoryStat {
   // Test if symbolic link points to a directory and return 'true' if it does.
   // Update "out_inode" with the inode at the destination.
