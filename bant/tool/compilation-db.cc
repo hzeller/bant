@@ -129,7 +129,8 @@ std::vector<std::string> AddDefaultOptions(DuplicationCheckSet *already_seen) {
 std::vector<std::string> ExtractOptionsFromBazelrc(
   const std::string_view content, DuplicationCheckSet *already_seen) {
   // Line prefix we're interested in to look for options.
-  static const LazyRE2 kLinePrefix{R"/(^\s*(build|test|common)(\:linux)? )/"};
+  static const LazyRE2 kLinePrefix{
+    R"/(^\s*(build|test|common)(\:linux|\:unix)? )/"};
 
   // Hack: for cxx options that start with dash (to avoid picking up options
   // meant for Windows that start with slash (we don't do system-specific
