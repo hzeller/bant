@@ -828,7 +828,7 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     return MapAccess(orig, map_list, key->AsString(), args->at(1));
   }
 
-  static std::optional<int> GetOptionalIntScalar(Node *n) {
+  static std::optional<int64_t> GetOptionalIntScalar(Node *n) {
     if (!n) return std::nullopt;
     const Scalar *const scalar = n->CastAsScalar();
     if (!scalar) return std::nullopt;
