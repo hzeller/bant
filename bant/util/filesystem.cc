@@ -17,18 +17,25 @@
 
 #include "bant/util/filesystem.h"
 
+#ifdef _WIN32
+#define POSIX_COMPATIBLE 0
+#else
+#define POSIX_COMPATIBLE 1
+#endif
+
+#if POSIX_COMPATIBLE
 #include <dirent.h>
-#include <fcntl.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <unistd.h>
+#endif
 
 #include <algorithm>
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <filesystem>
 #include <optional>
 #include <string>
 #include <string_view>
+#include <system_error>
 #include <utility>
 #include <vector>
 
@@ -42,6 +49,14 @@
 static constexpr bool kDebugCacheMisses = false;
 
 namespace bant {
+
+Filesystem &Filesystem::instance() {
+  // We don't care about any cleanup, so make it leak intentionally.
+  static Filesystem *instance = new Filesystem();
+  return *instance;
+}
+
+#if POSIX_COMPATIBLE
 static DirectoryEntry::Type FileTypeFromDirent(const dirent *entry) {
   switch (entry->d_type) {
   case DT_LNK: return DirectoryEntry::Type::kSymlink;
@@ -50,14 +65,21 @@ static DirectoryEntry::Type FileTypeFromDirent(const dirent *entry) {
   default: return DirectoryEntry::Type::kOther;
   }
 }
-
-Filesystem &Filesystem::instance() {
-  // We don't care about any cleanup, so make it leak intentionally.
-  static Filesystem *instance = new Filesystem();
-  return *instance;
+#else
+static DirectoryEntry::Type FileTypeFromStatus(
+  std::filesystem::file_status status) {
+  using std::filesystem::file_type;
+  switch (status.type()) {
+  case file_type::symlink: return DirectoryEntry::Type::kSymlink;
+  case file_type::directory: return DirectoryEntry::Type::kDirectory;
+  case file_type::regular: return DirectoryEntry::Type::kRegularFile;
+  default: return DirectoryEntry::Type::kOther;
+  }
 }
+#endif
 
 void Filesystem::ReadDirectory(std::string_view path, CacheEntry &result) {
+#if POSIX_COMPATIBLE
   const std::string dir_as_string(path);
   DIR *const dir = opendir(dir_as_string.c_str());
   if (!dir) return;
@@ -74,6 +96,27 @@ void Filesystem::ReadDirectory(std::string_view path, CacheEntry &result) {
       .name = entry->d_name,
     });
   }
+#else
+  // Fallback implementation with std::filesystem, missing inode in the process
+  std::error_code ec;
+  const std::filesystem::path dir_path(path);
+  std::filesystem::directory_iterator dir_iter(
+    dir_path, std::filesystem::directory_options::skip_permission_denied, ec);
+  if (ec) return;
+
+  for (auto it = std::filesystem::begin(dir_iter);
+       it != std::filesystem::end(dir_iter); it.increment(ec)) {
+    if (ec) break;
+    const auto &entry = *it;
+    const std::filesystem::file_status status = entry.symlink_status(ec);
+
+    result.emplace_back(DirectoryEntry{
+      .inode = 0,  // no inode known in non-posix systems.
+      .type = ec ? DirectoryEntry::Type::kOther : FileTypeFromStatus(status),
+      .name = entry.path().filename().string(),
+    });
+  }
+#endif
 
   // Keep them sorted, so we generate a reproducible output and we can
   // also find them easily with binary search.
@@ -196,21 +239,20 @@ const std::optional<std::string> &Filesystem::ReadFileToString(
 
   const std::string filename_as_string(path);
   std::optional<std::string> result;
-  const int fd = open(filename_as_string.c_str(), O_RDONLY);
-  if (fd > 0) {
-    const absl::Cleanup fd_closer = [fd]() { close(fd); };
-    struct stat st;
-    if (fstat(fd, &st) == 0) {
-      const size_t filesize = st.st_size;
+  std::error_code ec;
+  const uint64_t filesize = std::filesystem::file_size(filename_as_string, ec);
+  if (!ec) {
+    FILE *const f = fopen(filename_as_string.c_str(), "rb");
+    if (f) {
+      const absl::Cleanup file_closer = [f]() { fclose(f); };
       bool success = false;
       std::string content;
-      auto copy_file_to_buffer = [fd, filesize, &success](
+      auto copy_file_to_buffer = [f, filesize, &success](
                                    char *buf, std::size_t available) {
-        // Need to use filesize; alloced_size is >= requested.
         size_t bytes_left = filesize;
-        while (bytes_left) {
-          const ssize_t r = read(fd, buf, bytes_left);
-          if (r <= 0) break;
+        while (bytes_left > 0) {
+          const size_t r = fread(buf, 1, bytes_left, f);
+          if (r == 0) break;
           bytes_left -= r;
           buf += r;
         }
