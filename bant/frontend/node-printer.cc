@@ -122,7 +122,6 @@ class TargetLocator {
   // Create an initial index by looking what is already in our existing project
   void BuildInitialIndex(const ParsedProject &project) {
     TargetToLocation result;
-    absl::flat_hash_set<BazelPackage> all_packages;
     const ProjectWalker walker(project);
     walker.FindTargets(
       {}, [&](const BazelPackage &package, const BazelTarget &target,
@@ -130,7 +129,7 @@ class TargetLocator {
         known_packages_.emplace(package);
         index_.emplace(target, project.GetLocation(query_target.name));
       });
-    for (const BazelPackage &p : all_packages) {
+    for (const BazelPackage &p : known_packages_) {
       AddPackageLocationToIndex(p, project, &index_);
     }
   }
