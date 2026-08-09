@@ -18,6 +18,7 @@
 #include "bant/frontend/node-printer.h"
 
 #include <cstddef>
+#include <deque>
 #include <functional>
 #include <memory>
 #include <optional>
@@ -86,7 +87,7 @@ class TargetLocator {
   explicit TargetLocator(const ParsedProject &project)
       : project_(project),
         supplemental_project_(project_.workspace(), false, false) {
-    BuildInitialIndex(project_);
+    BuildInitialIndexFromExistingProject(project_);
   }
 
   std::optional<FileLocation> GetLocationFor(Session &session,
@@ -95,8 +96,13 @@ class TargetLocator {
       return found->second;
     }
     if (known_packages_.contains(target.package)) {
-      // Package, already known but just not that target. Don't supplement.
+      // Package already known but just not that target. Don't supplement.
       return std::nullopt;
+    }
+    // If this is a reference to a package of sorts, don't do any IO, but
+    // just create a reference to the BUILD file.
+    if (target.target_name.starts_with("__")) {  // __pkg__ or __subpackages__
+      return DirectBuildFileReference(target);
     }
     return FindInSupplemental(session, target);
   }
@@ -120,7 +126,8 @@ class TargetLocator {
   }
 
   // Create an initial index by looking what is already in our existing project
-  void BuildInitialIndex(const ParsedProject &project) {
+  // and create a mapping of target -> location, including __pkg__ kind.
+  void BuildInitialIndexFromExistingProject(const ParsedProject &project) {
     TargetToLocation result;
     const ProjectWalker walker(project);
     walker.FindTargets(
@@ -134,7 +141,25 @@ class TargetLocator {
     }
   }
 
-  // Look in suplemental project, and possibly fill it.
+  std::optional<FileLocation> DirectBuildFileReference(
+    const BazelTarget &target) {
+    const auto resolved_build =
+      target.package.FullyQualifiedFile(workspace(), "BUILD");
+    if (!resolved_build) return std::nullopt;
+
+    // Technically, we'd need to look for Exists() of that file and also test
+    // for BUILD.bazel, but we're just YOLO'ing it here as
+    // (a) BUILD file will be the default anyway, and (b) this will only be
+    // some visibility declarations, so low on the interesting list.
+    // (c) we want to avoid IO as much as possible.
+    FileLocation result;
+    result.filename = file_name_backing_store_.emplace_back(*resolved_build);
+    index_.emplace(target, result);
+    return result;
+  }
+
+  // Look in suplemental project, and possibly add new packages to then
+  // be indexed.
   std::optional<FileLocation> FindInSupplemental(Session &session,
                                                  const BazelTarget &target) {
     const BazelPackage &package = target.package;
@@ -161,6 +186,9 @@ class TargetLocator {
   ParsedProject supplemental_project_;
 
   absl::flat_hash_set<BazelPackage> known_packages_;
+
+  // Backing store for strings that we hand out as string_views.
+  std::deque<std::string> file_name_backing_store_;
   TargetToLocation index_;
 };
 }  // namespace
