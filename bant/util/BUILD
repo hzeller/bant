@@ -14,14 +14,14 @@ cc_library(
     deps = ["@abseil-cpp//absl/synchronization"],
 )
 
-cc_library(
-    name = "stat",
-    srcs = ["stat.cc"],
-    hdrs = ["stat.h"],
+cc_test(
+    name = "arena_test",
+    size = "small",
+    srcs = ["arena_test.cc"],
     deps = [
-        "@abseil-cpp//absl/strings:str_format",
-        "@abseil-cpp//absl/synchronization",
-        "@abseil-cpp//absl/time",
+        ":memory",
+        "@googletest//:gtest",
+        "@googletest//:gtest_main",
     ],
 )
 
@@ -33,6 +33,17 @@ cc_test(
         ":memory",
         "@googletest//:gtest",
         "@googletest//:gtest_main",
+    ],
+)
+
+cc_library(
+    name = "stat",
+    srcs = ["stat.cc"],
+    hdrs = ["stat.h"],
+    deps = [
+        "@abseil-cpp//absl/strings:str_format",
+        "@abseil-cpp//absl/synchronization",
+        "@abseil-cpp//absl/time",
     ],
 )
 

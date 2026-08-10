@@ -71,7 +71,7 @@ class Arena {
 
   ~Arena() {
     for (void *p : blocks_) {
-      std::free(p);
+      LowLevelFree(p);
     }
 
     if (!verbose_ || blocks_.empty()) return;
@@ -91,6 +91,7 @@ class Arena {
   void *LowLevelAlloc(size_t size) {
     return blocks_.emplace_back(std::aligned_alloc(kAlignment, size));
   }
+  static void LowLevelFree(void *p) { std::free(p); }
 
   void *NextBlockAlloc(size_t size) {
     if (pos_ == nullptr || std::cmp_greater(size, (end_ - pos_))) {
