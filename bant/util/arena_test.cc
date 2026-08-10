@@ -15,33 +15,21 @@
 // with this program; if not, write to the Free Software Foundation, Inc.,
 // 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 
-#include "bant/util/arena-container.h"
-
 #include "bant/util/arena.h"
+
+#include <cstddef>
+#include <cstdint>
+
 #include "gtest/gtest.h"
 
 namespace bant {
 namespace {
-TEST(ArenaDeque, SimpleOps) {
+TEST(Arena, Alignment) {
   Arena a(1024);
-  ArenaDeque<int, 3, 96> container;  // deliberately funky min..max
-
-  // Make sure that multiple crossings of block-boundaries work well.
-  // This test is O(N^2). But with low N.
-  for (int i = 0; i < 300; ++i) {
-    container.Append(i, &a);
-
-    // Checking iterator access up to this point.
-    int count = 0;
-    for (const int value : container) {
-      EXPECT_EQ(value, count);
-      count++;
-    }
-
-    // Checking operator[] access up to this point.
-    for (int j = 0; j < i; ++j) {
-      EXPECT_EQ(container[j], j);
-    }
+  for (size_t size = 1; size <= 256; ++size) {
+    void *p = a.Alloc(size);
+    EXPECT_NE(p, nullptr);
+    EXPECT_EQ(reinterpret_cast<uintptr_t>(p) % 8, 0u);
   }
 }
 }  // namespace

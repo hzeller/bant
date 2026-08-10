@@ -128,7 +128,6 @@ class TargetLocator {
   // Create an initial index by looking what is already in our existing project
   // and create a mapping of target -> location, including __pkg__ kind.
   void BuildInitialIndexFromExistingProject(const ParsedProject &project) {
-    TargetToLocation result;
     const ProjectWalker walker(project);
     walker.FindTargets(
       {}, [&](const BazelPackage &package, const BazelTarget &target,
