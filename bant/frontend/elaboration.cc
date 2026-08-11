@@ -25,7 +25,6 @@
 #include <initializer_list>
 #include <optional>
 #include <ostream>
-#include <stack>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -59,8 +58,12 @@ namespace {
 
 class NestCounter {
  public:
-  explicit NestCounter(int *value) : value_(value) { ++*value_; }
-  ~NestCounter() { --*value_; }
+  explicit NestCounter(int *value) : value_(value) {
+    if (value_) ++*value_;
+  }
+  ~NestCounter() {
+    if (value_) --*value_;
+  }
 
  private:
   int *const value_;
@@ -83,11 +86,12 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
  public:
   SimpleElaborator(Session &session, ParsedProject *project,
                    const BazelPackage &package, ElaborationOptions options,
-                   VariableBundle *variable_storage)
+                   const Node *toplevel_ast, VariableBundle *variable_storage)
       : session_(session),
         project_(project),
         options_(std::move(options)),
         package_(package),
+        toplevel_ast_(toplevel_ast),
         f_(project),
         string_method_eval_(f_),
         variables_(*variable_storage) {}
@@ -159,8 +163,9 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
   }
 
   Node *VisitList(List *l) final {
-    // TODO: maybe increase nest level here, but need to make sure
-    // toplevel project would be at level 0 (as file-ast is a list)
+    // Only in the toplevel list, we allow assignments, otherwise increase
+    // nest counter.
+    const NestCounter c(l != toplevel_ast_ ? &nest_level_ : nullptr);
     return BaseNodeReplacementVisitor::VisitList(l);
   }
 
@@ -975,7 +980,7 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
         starlark_options.builtin_macro_expansion = false;
         // Elaborate that file and extract variables.
         SimpleElaborator starlark_elab(session_, project_, bazel_ref->package,
-                                       starlark_options, bundle);
+                                       starlark_options, ast, bundle);
         starlark_elab.WalkNonNull(ast);
       });
 
@@ -1161,12 +1166,10 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
   ParsedProject *const project_;
   const ElaborationOptions options_;
   const BazelPackage &package_;
+  const Node *const toplevel_ast_;
   ElaborationFactories f_;
   StringMethodEval string_method_eval_;
   int nest_level_ = 0;
-  // Stack is a meh-abstraction here; should be addressed when list
-  // comprehension is fixed.
-  std::stack<List::Type> current_lh_type_;
   ParsedProject::VariableBundle &variables_;
   List *current_comprehension_output_ = nullptr;
 };
@@ -1177,7 +1180,7 @@ Node *Elaborate(Session &session, ParsedProject *project,
                 const BazelPackage &package, const ElaborationOptions &options,
                 Node *ast) {
   VariableBundle variable_storage;
-  SimpleElaborator elaborator(session, project, package, options,
+  SimpleElaborator elaborator(session, project, package, options, ast,
                               &variable_storage);
   return elaborator.WalkNonNull(ast);
 }

@@ -1407,6 +1407,35 @@ SBAZ = struct(green = '#00FF00', "should skip", blue = '#0000FF').noexist
   EXPECT_EQ(result.first, result.second);
 }
 
+TEST_F(ElaborationTest, StructAccessInListComprehension) {
+  auto result = ElabAndPrint(
+    R"(
+LIST = [
+    struct(attribute = "value1"),
+    struct(attribute = "value2"),
+]
+
+[
+    cc_library(
+        name = info.attribute
+    )
+    for info in LIST
+]
+  )",
+    R"(
+LIST = [
+    struct(attribute = "value1"),
+    struct(attribute = "value2"),
+]
+
+[
+    cc_library(name = "value1"),
+    cc_library(name = "value2"),
+]
+)");
+  EXPECT_EQ(result.first, result.second);
+}
+
 static std::pair<std::string, std::string> TestGlobFile(
   std::string_view test_name, ElaborationTest *test, std::string_view package,
   const std::vector<std::string_view> &filenames, std::string_view glob_pattern,
