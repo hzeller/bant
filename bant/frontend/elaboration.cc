@@ -208,6 +208,9 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
       return ProcessIf(b);
     }
 
+    Identifier *const dot_field_access_identifier =
+      (b->op() == '.' && b->right()) ? b->right()->CastAsIdentifier() : nullptr;
+
     Node *post_visit = BaseNodeReplacementVisitor::VisitBinOpNode(b);
     BinOpNode *bin_op = post_visit->CastAsBinOp();  // still binop ?
     if (!bin_op) return post_visit;
@@ -320,7 +323,9 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
         if (lhs && method_call) {
           return ListMethodCall(bin_op, lhs, method_call);
         }
-        Identifier *const field = bin_op->right()->CastAsIdentifier();
+        Identifier *const field = dot_field_access_identifier
+                                    ? dot_field_access_identifier
+                                    : bin_op->right()->CastAsIdentifier();
         if (lhs && field) {
           return StructAccess(bin_op, lhs, field);
         }

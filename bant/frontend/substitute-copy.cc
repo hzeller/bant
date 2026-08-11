@@ -73,7 +73,10 @@ class VariableSubstituteCopyVisitor : public NodeVisitor {
 
   Node *VisitBinOpNode(BinOpNode *b) override {
     Node *const left_prime = WalkNonNull(b->left());
-    Node *const right_prime = WalkNonNull(b->right());
+    Node *const right_prime =
+      (b->op() == '.' && b->right() && b->right()->CastAsIdentifier())
+        ? b->right()
+        : WalkNonNull(b->right());
     if (left_prime == b->left() && right_prime == b->right()) {
       return b;  // no change.
     }

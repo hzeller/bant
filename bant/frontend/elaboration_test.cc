@@ -1407,6 +1407,21 @@ SBAZ = struct(green = '#00FF00', "should skip", blue = '#0000FF').noexist
   EXPECT_EQ(result.first, result.second);
 }
 
+TEST_F(ElaborationTest, StructAccessDotIdentifierLooksAtStruct) {
+  auto result = ElabAndPrint(
+    R"(
+SOME_STRUCT = struct(green = '#00FF00', "should skip", blue = '#0000FF')
+green = "this variable should not be expanded after ."
+SFOO = SOME_STRUCT.green
+  )",
+    R"(
+SOME_STRUCT = struct(green = '#00FF00', "should skip", blue = '#0000FF')
+green = "this variable should not be expanded after ."
+SFOO = '#00FF00'
+)");
+  EXPECT_EQ(result.first, result.second);
+}
+
 TEST_F(ElaborationTest, StructAccessInListComprehension) {
   auto result = ElabAndPrint(
     R"(
