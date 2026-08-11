@@ -133,7 +133,10 @@ void PrintVisitor::VisitList(List *l) {
 
   // If a tuple only contains one element, then we need a final ','
   // to disambiguate from a parenthesized expression.
-  if (l->type() == List::Type::kTuple && l->size() == 1) {
+  // For 'struct', this is technically not needed, but tuples get converted
+  // to structs, so to make printing them look the same, also add the final ','
+  if ((l->type() == List::Type::kTuple || l->type() == List::Type::kStruct) &&
+      l->size() == 1) {
     out_ << ",";
   }
 
