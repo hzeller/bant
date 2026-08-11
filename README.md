@@ -631,10 +631,16 @@ Commands (unique prefix sufficient):
                         instead of "zlib.h") for considering deps for them.
                         ignore     : bracket inclues ignored, deps removed.
                         acknowldege: will not remove deps, but also no add.
-                        validate   : will also add deps providing that header.
-                        (fix your project to use quotes if you need acknowlege
-                         or validate).
+                        accept     : will also add deps providing that header.
+                        (fix your project to use quotes if you need 'acknowlege'
+                         or 'accept').
                         Default: acknowledge
+                      --pp-ifdef=<permissive|strict>
+                        strict    : only conisider branches fully defined.
+                        permissive: consider ifdef branches that are ambiguous
+                           because they're not fully derived in  defines = []
+                           or where defines are hidden in other includes.
+                        Default: permissive
                       --graph-augment=<bazel-target> Additioal bazel targets
                          you'd like the dependency graph know about.
     canonicalize   : Emit rename edits to canonicalize targets.

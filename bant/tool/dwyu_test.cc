@@ -1217,7 +1217,8 @@ cc_library(
 )");
 
   {
-    DWYUTestFixture tester(pp.project(), {.verbose = 1});
+    DWYUTestFixture tester(pp.project(),
+                           {.verbose = 1, .pp_strict_ifdef = true});
     tester.AddSource("some/path/foo.cc", R"(
 #ifdef HELLO_WORLD  // this one we should not see
 #include "some/path/bar.h"  // ... thus we should proceed to remove this

@@ -88,6 +88,7 @@ struct CommandlineFlags {
   bool do_color = false;
   bool do_links = false;
   BracketIncHandling dwyu_bracket_include = BracketIncHandling::kAcknowledge;
+  bool pp_strict_ifdef = false;
   std::vector<std::string> graph_deps;  // augment dependency graph with these
 
   // https://bazel.build/docs/configurable-attributes#custom-flags

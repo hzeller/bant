@@ -538,6 +538,8 @@ IncludeNeededDepsAlternatives DWYUGenerator::DependenciesNeededBySources(
   const bool bracket_inc_is_acknowlege =
     session_.flags().dwyu_bracket_include == BracketIncHandling::kAcknowledge;
 
+  const bool pp_strict_ifdef = session_.flags().pp_strict_ifdef;
+
   size_t total_size = 0;
 
   // In verbosity 3, we always show alternatives, in verbosity 2 we
@@ -664,7 +666,7 @@ IncludeNeededDepsAlternatives DWYUGenerator::DependenciesNeededBySources(
       if (inc.is_angle_bracket && bracket_inc_is_ignore) continue;
       const std::string_view inc_file = inc.include;
 
-      if (inc.is_ifdefed_out) {
+      if (inc.is_ifdefed_out && pp_strict_ifdef) {
         // TODO: should this look at bracket inc or rather some ifdef flag ?
         if (session_.MinVerbosity(1) && bracket_inc_is_validate) {
           // TODO: the following should really only be reported if this results
@@ -680,6 +682,7 @@ IncludeNeededDepsAlternatives DWYUGenerator::DependenciesNeededBySources(
             << "if not intended, make sure to set "
                "defines=[] or copts=[] in "
             << Norm(session_) << Bold(session_) << target << Norm(session_)
+            << " or use --pp-ifdef=permissive"
             << "\n";
         }
         any_maybe_not_intended_ifdef_out = true;

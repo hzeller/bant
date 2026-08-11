@@ -194,6 +194,12 @@ Commands (unique prefix sufficient):
                         (fix your project to use quotes if you need 'acknowlege'
                          or 'accept').
                         Default: acknowledge
+                      --pp-ifdef=<permissive|strict>
+                        strict    : only conisider branches fully defined.
+                        permissive: consider ifdef branches that are ambiguous
+                           because they're not fully derived in  defines = []
+                           or where defines are hidden in other includes.
+                        Default: permissive
                       --graph-augment=<bazel-target> Additioal bazel targets
                          you'd like the dependency graph know about.
     canonicalize   : Emit rename edits to canonicalize targets.
@@ -311,6 +317,7 @@ int main(int argc, char *argv[]) {
     OPT_GRAPH_AUGMENT = 1002,
     OPT_HYPERLINKS = 1003,
     OPT_DISALLOW_GLOBBING = 1004,  // Experimental. Not documented for now.
+    OPT_PP_IFDEF_INC = 1005,
   };
 
   // clang-format off
@@ -332,6 +339,7 @@ int main(int argc, char *argv[]) {
     { "directory",     required_argument, nullptr, 'C'          },
     { "bracket-include", required_argument, nullptr, OPT_BRACKET_INC },
     { "graph-augment", required_argument, nullptr, OPT_GRAPH_AUGMENT },
+    { "pp-ifdef",      required_argument, nullptr, OPT_PP_IFDEF_INC },
     //
     { nullptr, 0,                 nullptr, 0                    }};
   // NOLINTEND
@@ -450,6 +458,10 @@ int main(int argc, char *argv[]) {
       flags.dwyu_bracket_include =
         BestMatchValue(optarg, {"ignore", "acknowledge", "accept"},
                        bant::BracketIncHandling::kAcknowledge);
+      break;
+    case OPT_PP_IFDEF_INC:
+      flags.pp_strict_ifdef =
+        BestMatchValue(optarg, {"permissive", "strict"}, true);
       break;
     case OPT_GRAPH_AUGMENT: flags.graph_deps.emplace_back(optarg); break;
     case OPT_DISALLOW_GLOBBING: flags.elaborate_do_globbing = false; break;
