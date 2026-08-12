@@ -682,7 +682,7 @@ IncludeNeededDepsAlternatives DWYUGenerator::DependenciesNeededBySources(
             << "if not intended, make sure to set "
                "defines=[] or copts=[] in "
             << Norm(session_) << Bold(session_) << target << Norm(session_)
-            << " or use --pp-ifdef=permissive"
+            << " or use --pp-ifdef=lenient"
             << "\n";
         }
         any_maybe_not_intended_ifdef_out = true;

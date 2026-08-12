@@ -635,12 +635,12 @@ Commands (unique prefix sufficient):
                         (fix your project to use quotes if you need 'acknowlege'
                          or 'accept').
                         Default: acknowledge
-                      --pp-ifdef=<permissive|strict>
-                        strict    : only conisider branches fully defined.
-                        permissive: consider ifdef branches that are ambiguous
-                           because they're not fully derived in  defines = []
+                      --pp-ifdef=<lenient|strict>
+                        strict  : only conisider branches fully defined.
+                        lenient : consider ifdef branches that are ambiguous
+                           because they're not fully derived in defines = []
                            or where defines are hidden in other includes.
-                        Default: permissive
+                        Default: lenient
                       --graph-augment=<bazel-target> Additioal bazel targets
                          you'd like the dependency graph know about.
     canonicalize   : Emit rename edits to canonicalize targets.
