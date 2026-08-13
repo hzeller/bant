@@ -284,7 +284,11 @@ CliStatus RunCommand(Session &session, Command cmd,
 
   if (flags.recurse_dependency_depth <= 0 &&
       (cmd == Command::kDWYU || cmd == Command::kHasDependents)) {
-    constexpr int kReasonableDefaultDependencyDepth = 4;
+    // We already have all the external projects in our dependency list, so
+    // we can affort to relatively shallow follow current deps to get a good
+    // picture in particular if user uses dwyu ... (otherwise:
+    // --graph-augment=... is a good idea).
+    constexpr int kReasonableDefaultDependencyDepth = 2;
     flags.recurse_dependency_depth = kReasonableDefaultDependencyDepth;
   }
 
