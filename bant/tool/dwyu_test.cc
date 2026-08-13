@@ -447,7 +447,8 @@ cc_library(
 
   {
     // Add _all_ dependencies that provide the same header. Maybe not intended ?
-    DWYUTestFixture tester(pp.project(), {});
+    DWYUTestFixture tester(pp.project(),
+                           {.dep_choice = DependencySetBuilding::kMinimize});
     tester.AddSource("path/usefoo-all.cc", R"(#include "path/foo.h")");
     tester.RunForTarget("//path:usefoo-all");
     EXPECT_THAT(tester.LogContent(), HasSubstr("by //path:foo-1 before"));
@@ -1798,5 +1799,6 @@ cc_library(
   }
 }
 
+// TODO: tests that illustrate kConservative vs. kMinimize
 }  // namespace
 }  // namespace bant

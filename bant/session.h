@@ -64,6 +64,11 @@ enum class BracketIncHandling {
   kValidate,     // No remove, but add. Also: complain as not good practice.
 };
 
+enum class DependencySetBuilding {
+  kConservative,
+  kMinimize,
+};
+
 // Command line flags filled in main(), used by tools (some only needed
 // in some commands)
 struct CommandlineFlags {
@@ -89,6 +94,7 @@ struct CommandlineFlags {
   bool do_links = false;
   BracketIncHandling dwyu_bracket_include = BracketIncHandling::kAcknowledge;
   bool pp_strict_ifdef = false;
+  DependencySetBuilding dep_choice = DependencySetBuilding::kConservative;
   std::vector<std::string> graph_deps;  // augment dependency graph with these
 
   // https://bazel.build/docs/configurable-attributes#custom-flags

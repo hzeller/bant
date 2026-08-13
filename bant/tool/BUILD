@@ -88,6 +88,7 @@ cc_library(
         "//bant/util:stat",
         "//bant/util:term-color",
         "@abseil-cpp//absl/container:btree",
+        "@abseil-cpp//absl/container:flat_hash_set",
         "@abseil-cpp//absl/log:check",
         "@abseil-cpp//absl/strings",
         "@re2",

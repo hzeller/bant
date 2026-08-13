@@ -4,17 +4,17 @@
 bant - Build Analysis and Navigation Tool
 =========================================
 
+_Note: documentation only describes a subset of features. Needs to be updated_
+
 Utility to support projects using the [bazel] build system, in particular C++
 projects.
 
 Bant
-  * Helps [cleaning up BUILD dependencies](#dwyu--depend-on-what-you-use) by
-    adding missing, and removing superfluous, dependencies ("`build_cleaner`").
-    Emits a `buildozer` script that can be applied to the project.
-  * Has a feature to create a [compilation DB](#compilation-db) which should
-    work for most medium-complex C++ projects.
+  * Is a 'swiss army knife' to extract useful information from BUILD files
+    to simplify working with projects.
   * Helps printing targets [with "grep" feature](#print) that emits the full
-    syntax-highlighted rule that matches the regex.
+    syntax-highlighted rule that matches the regex and hyperlinks the sources
+    directly in the terminal.
   * Extracts interesting project information such as
     the [dependency graph](#dependency-graph),
     [headers provided by which libraries](#lib-headers) etc., and presents
@@ -27,6 +27,14 @@ Bant
   * Is available in the [Bazel Central Registry][on-bcr] for easy
     [integration in projects](#in-projects) to provide build-cleaner
     or compilation db features.
+  * Some higher-level functionality based on information extracted
+    above
+      * [cleaning up BUILD dependencies](#dwyu--depend-on-what-you-use) by
+        adding missing, and removing superfluous,
+        dependencies ("`build_cleaner`").
+        Emits a `buildozer` script that can be applied to the project.
+      * Has a feature to create a [compilation DB](#compilation-db) which should
+        work for most medium-complex C++ projects.
 
 ## Commands
 
@@ -91,7 +99,7 @@ contains the word 'keep' in the line in question.
 ```python
 cc_library(
   deps = [
-    ":foo"  # build_cleaner keep
+    ":foo"  # keep
   ]
 )
 ```
@@ -214,7 +222,8 @@ implemented as need arises (That is why it's called elaboration not evaluation
 right now :)). Use `-e` to enable the elaboration in `print`.
 
 Expressions that can be const-evaluated are then replaced with a literal of
-the result. Supported are things typically found in BUILD files.
+the result. Supported are expressoins typically found in BUILD files without
+claiming to be complete.
 
   * Variable substitution.
   * `glob()` expansion.
@@ -626,6 +635,13 @@ Commands (unique prefix sufficient):
     dwyu           : DWYU: Depend on What You Use (emit buildozer edit script)
                      Default invocation uses -r4
                       -k strict: emit remove even if # keep comment in line.
+                      --dep-choice=<conservative|minimize>
+                        conservative : if alternatives exist, use the one
+                            already provided
+                        minimize     : if alternatives exist, choose the set of
+                            deps that are minimal. Can create issues in corner
+                            cases.
+                        Default: conservative
                       --bracket-include one of ignore, acknowledge, or validate
                         How to handle bracketed includes (e.g. <zlib.h>
                         instead of "zlib.h") for considering deps for them.

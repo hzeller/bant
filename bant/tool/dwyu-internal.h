@@ -48,6 +48,9 @@ using AlternativeSet = absl::btree_set<BazelTarget>;
 // the need.
 using IncludeNeededDepsAlternatives = std::vector<AlternativeSet>;
 
+// deps = [] targets mentioned in a target and their location (locatable string)
+using TargetToFileLocation = OneToOne<BazelTarget, std::string_view>;
+
 // The DWYUGenerator is the underlying implementation, for which
 // CreateDependencyEdits() is the façade. Typically not used directly,
 // just needed in tests.
@@ -81,8 +84,6 @@ class DWYUGenerator {
                                                 Stat &read_stats);
 
  private:
-  using TargetToFileLocation = OneToOne<BazelTarget, std::string_view>;
-
   // Extract all the known targets in project and remember corresponding node
   // in case later inspection is needed (e.g. for visibility).
   void InitKnownLibraries();

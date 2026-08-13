@@ -31,6 +31,7 @@
 #include <vector>
 
 #include "absl/container/btree_set.h"
+#include "absl/container/flat_hash_set.h"
 #include "absl/log/check.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
@@ -159,6 +160,35 @@ static IncludeNeededDepsAlternatives MinimizeDependencySet(
 
   CHECK(already_covereed.size() == to_reduce.size());
   return result;
+}
+
+static IncludeNeededDepsAlternatives ChooseAlreadyProvidedDeps(
+  const IncludeNeededDepsAlternatives &needed,
+  const TargetToFileLocation &from_file) {
+  absl::flat_hash_set<size_t> to_exclude;
+  absl::flat_hash_set<BazelTarget> consumed;
+  for (const auto &[dep, _] : from_file) {
+    for (size_t i = 0; i < needed.size(); ++i) {
+      if (needed[i].contains(dep)) {
+        to_exclude.insert(i);
+        consumed.insert(dep);
+      }
+    }
+  }
+  if (to_exclude.empty()) return needed;
+  IncludeNeededDepsAlternatives reduced;
+
+  // All the dependencies that cover at least one alternative set are put
+  // into the collapsed alternative set.
+  for (const BazelTarget &target : consumed) {
+    reduced.emplace_back(AlternativeSet{target});
+  }
+
+  // All the ones not yet consumed, we keep as is for further processing.
+  for (size_t i = 0; i < needed.size(); ++i) {
+    if (!to_exclude.contains(i)) reduced.emplace_back(needed[i]);
+  }
+  return reduced;
 }
 
 // Open the given file an return an line-indexed content or nullptr if file
@@ -1030,6 +1060,13 @@ void DWYUGenerator::CreateEditsForTarget(const BazelTarget &target,
 
   if (session_.MinVerbosity(4)) {
     LogDepSet("Raw needed dependencies: ", deps_needed) << "\n";
+  }
+  if (session_.flags().dep_choice == DependencySetBuilding::kConservative) {
+    deps_needed =
+      ChooseAlreadyProvidedDeps(deps_needed, all_declared_dependencies);
+    if (session_.MinVerbosity(4)) {
+      LogDepSet("Choose already existing deps=[]: ", deps_needed) << "\n";
+    }
   }
   deps_needed = MinimizeDependencySet(deps_needed);
   if (session_.MinVerbosity(4)) {

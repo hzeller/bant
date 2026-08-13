@@ -185,6 +185,13 @@ Commands (unique prefix sufficient):
     dwyu           : DWYU: Depend on What You Use (emit buildozer edit script)
                      Default invocation uses -r4
                       -k strict: emit remove even if # keep comment in line.
+                      --dep-choice=<conservative|minimize>
+                        conservative : if alternatives exist, use the one
+                            already provided
+                        minimize     : if alternatives exist, choose the set of
+                            deps that are minimal. Can create issues in corner
+                            cases.
+                        Default: conservative
                       --bracket-include one of ignore, acknowledge, or validate
                         How to handle bracketed includes (e.g. <zlib.h>
                         instead of "zlib.h") for considering deps for them.
@@ -318,6 +325,7 @@ int main(int argc, char *argv[]) {
     OPT_HYPERLINKS = 1003,
     OPT_DISALLOW_GLOBBING = 1004,  // Experimental. Not documented for now.
     OPT_PP_IFDEF_INC = 1005,
+    OPT_DEP_CHOICE = 1006,
   };
 
   // clang-format off
@@ -340,6 +348,7 @@ int main(int argc, char *argv[]) {
     { "bracket-include", required_argument, nullptr, OPT_BRACKET_INC },
     { "graph-augment", required_argument, nullptr, OPT_GRAPH_AUGMENT },
     { "pp-ifdef",      required_argument, nullptr, OPT_PP_IFDEF_INC },
+    { "dep-choice",    required_argument, nullptr, OPT_DEP_CHOICE },
     //
     { nullptr, 0,                 nullptr, 0                    }};
   // NOLINTEND
@@ -462,6 +471,11 @@ int main(int argc, char *argv[]) {
     case OPT_PP_IFDEF_INC:
       flags.pp_strict_ifdef =
         BestMatchValue(optarg, {"lenient", "strict"}, true);
+      break;
+    case OPT_DEP_CHOICE:
+      flags.dep_choice =
+        BestMatchValue(optarg, {"conservative", "minimize"},
+                       bant::DependencySetBuilding::kConservative);
       break;
     case OPT_GRAPH_AUGMENT: flags.graph_deps.emplace_back(optarg); break;
     case OPT_DISALLOW_GLOBBING: flags.elaborate_do_globbing = false; break;
