@@ -998,6 +998,7 @@ void DWYUGenerator::CreateEditsForTarget(const BazelTarget &target,
   auto sources = query::ExtractStringList(details.srcs_list);
   if (!is_proto_library) {
     query::AppendStringList(details.hdrs_list, sources);
+    query::AppendStringList(details.textual_hdrs, sources);
   }
 
   // TODO: the following is expensive: we don't know what changed, so we have
