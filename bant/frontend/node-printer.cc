@@ -163,7 +163,7 @@ class TargetLocator {
                                                  const BazelTarget &target) {
     const BazelPackage &package = target.package;
     const ParsedBuildFile *file =
-      supplemental_project_.GetOrAddPackage(session, package);
+      supplemental_project_.GetOrAddPackage(session, package, false);
     if (!file) return std::nullopt;
     known_packages_.emplace(package);
     AddPackageLocationToIndex(package, supplemental_project_, &index_);
