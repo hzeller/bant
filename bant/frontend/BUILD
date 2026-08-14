@@ -144,7 +144,11 @@ cc_test(
 
 cc_library(
     name = "parsed-project",
-    srcs = ["parsed-project.cc"],
+    srcs = [
+        "macro-container.cc",
+        "macro-container.h",
+        "parsed-project.cc",
+    ],
     hdrs = ["parsed-project.h"],
     deps = [
         ":named-content",

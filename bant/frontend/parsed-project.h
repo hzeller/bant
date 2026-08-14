@@ -15,23 +15,22 @@
 // with this program; if not, write to the Free Software Foundation, Inc.,
 // 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 
-#ifndef BANT_PROJECT_PARDER_
-#define BANT_PROJECT_PARDER_
+#ifndef BANT_PARSED_PROJECT_
+#define BANT_PARSED_PROJECT_
 
 #include <cstddef>
 #include <functional>
 #include <memory>
-#include <ostream>
 #include <string>
 #include <string_view>
 #include <utility>
-#include <vector>
 
 #include "absl/base/thread_annotations.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
 #include "absl/synchronization/mutex.h"
 #include "bant/frontend/ast.h"
+#include "bant/frontend/macro-container.h"
 #include "bant/frontend/named-content.h"
 #include "bant/frontend/source-locator.h"
 #include "bant/session.h"
@@ -101,7 +100,7 @@ class ParsedProject : public SourceLocator {
 
   // Given a starlark file, provide storage for variables and store their
   // content. If starlark file is not available yet, calls "variable_extractor"
-  // to fill.
+  // to fill from the freshly generated AST.
   const VariableBundle &GetOrAddStarlarkContent(
     Session &session, std::string_view starlark_ref,
     const BazelTarget &starlark,
@@ -132,16 +131,20 @@ class ParsedProject : public SourceLocator {
 
   const BazelWorkspace &workspace() const { return workspace_; }
 
-  // Load project-local macro definitions from a .bant-macros file.
-  // Returns NotFoundError if the file doesn't exist (caller can ignore).
-  absl::Status LoadMacrosFromFile(Session &session,
-                                  const FilesystemPath &macro_file);
+  // TODO: the folloing just delegate to macro container, but should be
+  // refactored away
+  Node *FindMacro(std::string_view name) const {
+    return macros_.FindMacro(name);
+  }
 
-  // Find content of a macro with given name or nullptr if no such macro
-  // exists. The returned node and any of its nodes must not be altered.
-  // (So VariableSubstituteCopy(), careful if it ends up in Elaboration with
-  // modifying content such as glob()).
-  Node *FindMacro(std::string_view name) const;
+  absl::Status LoadMacrosFromFile(Session &session,
+                                  const FilesystemPath &macro_file) {
+    return macros_.LoadMacrosFromFile(session, macro_file);
+  }
+
+  absl::Status SetBuiltinMacroContent(std::string_view content) {
+    return macros_.SetBuiltinMacroContent(content);
+  }
 
   // Register the "source_locator" for given given string-view range.
   // Range must be disjoint from all other ranges. Ownership of
@@ -184,16 +187,6 @@ class ParsedProject : public SourceLocator {
                                 const BazelPackage &package,
                                 bool log_error_messages);
 
-  // Set content of bant file defining the macros to be found in FindMacro().
-  // Can be called multiple times (e.g. built-in + project-local).
-  // Passed string view must outlive ParsedProject lifetime.
-  absl::Status SetBuiltinMacroContent(std::string_view content);
-
-  // Core macro-parsing logic: parse assignments from content and add to
-  // macros_ map. On name collision, later definitions win.
-  absl::Status AddMacroContent(std::string_view source_name,
-                               std::string_view content, std::ostream &errors);
-
   Arena arena_{1 << 20};
   const BazelWorkspace workspace_;
   int error_count_ = 0;
@@ -205,13 +198,11 @@ class ParsedProject : public SourceLocator {
   DisjointRangeMap<std::string_view, const SourceLocator *> location_maps_
     ABSL_GUARDED_BY(location_map_lock_);
 
-  std::vector<std::unique_ptr<NamedLineIndexedContent>> macro_contents_;
-  std::vector<std::unique_ptr<std::string>> macro_owned_content_;
-  absl::flat_hash_map<std::string_view, Node *> macros_;
+  MacroContainer macros_;
 
   Target2Parsed starlark_to_parsed_;  // Starlark files.
   OneToOne<BazelTarget, std::unique_ptr<VariableBundle>> starlark_variables_;
 };
 
 }  // namespace bant
-#endif  // BANT_PROJECT_PARDER_
+#endif  // BANT_PARSED_PROJECT_
