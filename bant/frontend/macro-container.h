@@ -29,6 +29,7 @@
 #include "bant/frontend/ast.h"
 #include "bant/frontend/named-content.h"
 #include "bant/session.h"
+#include "bant/types-bazel.h"
 #include "bant/util/arena.h"
 #include "bant/util/file-utils.h"
 
@@ -39,7 +40,7 @@ class MacroContainer {
   MacroContainer(Arena *arena, ParsedProject *project)
       : arena_(arena), project_(project) {}
 
-  Node *FindMacro(std::string_view name) const;
+  Node *FindMacro(std::string_view name, const BazelPackage &) const;
 
   // Load project-local macro definitions from a .bant-macros file.
   // Returns NotFoundError if the file doesn't exist (caller can ignore).

@@ -29,6 +29,7 @@
 #include "bant/frontend/parsed-project.h"
 #include "bant/frontend/substitute-copy.h"
 #include "bant/session.h"
+#include "bant/types-bazel.h"
 #include "bant/util/arena.h"
 #include "bant/util/stat.h"
 
@@ -68,12 +69,14 @@ class MacroSubstitutor : public BaseNodeReplacementVisitor {
  public:
   static constexpr std::string_view kForwardMacro = "bant_forward_args";
 
-  explicit MacroSubstitutor(ParsedProject *project) : project_(project) {}
+  explicit MacroSubstitutor(ParsedProject *project,
+                            const BazelPackage &pacckage)
+      : project_(project), package_(pacckage) {}
 
   Node *VisitFunCall(FunCall *f) final {
     const NestCounter c(&nest_level_);
     if (nest_level_ != 1) return BaseNodeReplacementVisitor::VisitFunCall(f);
-    Node *macro = project_->FindMacro(f->identifier()->id());
+    Node *macro = project_->FindMacro(f->identifier()->id(), package_);
     if (!macro) return f;  // No such macro, function is left as-is.
     ++substitution_count_;
 
@@ -118,17 +121,20 @@ class MacroSubstitutor : public BaseNodeReplacementVisitor {
 
  private:
   ParsedProject *const project_;
+  const BazelPackage &package_;
+
   int nest_level_ = 0;
   int substitution_count_ = 0;
 };
 }  // namespace
 
-Node *MacroSubstitute(Session &session, ParsedProject *project, Node *ast) {
+Node *MacroSubstitute(Session &session, ParsedProject *project,
+                      const BazelPackage &package, Node *ast) {
   if (!ast) return ast;
   bant::Stat &substitute_stats =
     session.GetStatsFor("  - substituting", "macros");
   const ScopedTimer timer(substitute_stats);
-  MacroSubstitutor substitutor(project);
+  MacroSubstitutor substitutor(project, package);
   Node *const result = ast->Accept(&substitutor);
   substitute_stats.AddCount(substitutor.substitution_count());
   return result;

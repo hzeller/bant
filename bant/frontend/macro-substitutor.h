@@ -21,15 +21,13 @@
 #include "bant/frontend/ast.h"
 #include "bant/frontend/parsed-project.h"
 #include "bant/session.h"
+#include "bant/types-bazel.h"
 
 namespace bant {
 // Replace some known 'special' rules with some macros that expand it to
 // genrule()s and cc_library()s so that other commands such as dwyu can reason
 // about a bazel project without having to understand the *.bzl files.
-//
-// For now, however, it requires to hard-code these shallow substitutions;
-// these can be found in bant/builtin-macros.bnt
-// NB: early stages; this might change substantially over time.
-Node *MacroSubstitute(Session &session, ParsedProject *project, Node *ast);
+Node *MacroSubstitute(Session &session, ParsedProject *project,
+                      const BazelPackage &package, Node *ast);
 }  // namespace bant
 #endif  // BANT_MACRO_SUBSTITUTOR_H

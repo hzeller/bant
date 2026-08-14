@@ -33,11 +33,13 @@
 #include "bant/frontend/parser.h"
 #include "bant/frontend/scanner.h"
 #include "bant/session.h"
+#include "bant/types-bazel.h"
 #include "bant/util/file-utils.h"
 #include "bant/util/filesystem.h"
 
 namespace bant {
-Node *MacroContainer::FindMacro(std::string_view name) const {
+Node *MacroContainer::FindMacro(std::string_view name,
+                                const BazelPackage &package) const {
   auto found = macros_.find(name);
   if (found != macros_.end()) return found->second;
   return nullptr;

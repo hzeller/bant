@@ -101,7 +101,7 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     BaseNodeReplacementVisitor::VisitFunCall(f);
 
     if (options_.builtin_macro_expansion) {
-      if (Node *maybe_macro = MacroSubstitute(session_, project_, f);
+      if (Node *maybe_macro = MacroSubstitute(session_, project_, package_, f);
           maybe_macro != f) {
         // TODO: limit recursive expansion inside the eval ?
         return maybe_macro->Accept(this);

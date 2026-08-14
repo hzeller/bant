@@ -133,8 +133,8 @@ class ParsedProject : public SourceLocator {
 
   // TODO: the folloing just delegate to macro container, but should be
   // refactored away
-  Node *FindMacro(std::string_view name) const {
-    return macros_.FindMacro(name);
+  Node *FindMacro(std::string_view name, const BazelPackage &package) const {
+    return macros_.FindMacro(name, package);
   }
 
   absl::Status LoadMacrosFromFile(Session &session,

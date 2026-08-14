@@ -281,6 +281,7 @@ cc_library(
         ":parser",
         ":substitute-copy",
         "//bant:session",
+        "//bant:types-bazel",
         "//bant/explore:query-utils",
         "//bant/util:memory",
         "//bant/util:stat",

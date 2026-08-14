@@ -42,7 +42,7 @@ class MacroSubstituteTest : public ::testing::Test {
 
     Session session(&std::cerr, &std::cerr, &std::cerr, flags);
     Node *macro_substited =
-      MacroSubstitute(session, &pp_.project(), substitute_parsed->ast);
+      MacroSubstitute(session, &pp_.project(), {}, substitute_parsed->ast);
     if (elab) {
       macro_substited =
         Elaborate(session, &pp_.project(), {}, {}, macro_substited);
