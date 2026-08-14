@@ -26,7 +26,6 @@
 #include <string_view>
 #include <vector>
 
-#include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "bant/explore/aliased-by.h"
 #include "bant/explore/dependency-graph.h"
@@ -247,13 +246,6 @@ CliStatus RunCommand(Session &session, Command cmd,
   CommandlineFlags flags = session.flags();
 
   bant::ParsedProject project(workspace, flags.verbose);
-  {
-    const FilesystemPath macro_file(".bant-macros");
-    if (auto status = project.LoadMacrosFromFile(session, macro_file);
-        !status.ok() && !absl::IsNotFound(status)) {
-      session.info() << "Warning: " << status.message() << "\n";
-    }
-  }
   if (NeedsProjectPopulated(cmd, patterns)) {
     {
       Stat &stats =

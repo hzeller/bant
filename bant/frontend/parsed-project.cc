@@ -32,6 +32,7 @@
 
 #include "absl/container/flat_hash_map.h"
 #include "absl/log/check.h"
+#include "absl/status/status.h"
 #include "absl/synchronization/mutex.h"
 #include "bant/builtin-macros.h"
 #include "bant/frontend/ast.h"
@@ -127,6 +128,10 @@ ParsedProject::ParsedProject(BazelWorkspace workspace, bool verbose,
   arena_.SetVerbose(verbose);
   if (with_builtin_macros) {
     CHECK_OK(macros_.SetBuiltinMacroContent(kBuiltinMacros));
+  }
+  if (auto status = macros_.LoadPackageMacros({});
+      !status.ok() && !absl::IsNotFound(status)) {
+    std::cerr << "Warning: " << status.message() << "\n";
   }
 }
 

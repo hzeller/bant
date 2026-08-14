@@ -60,7 +60,6 @@ cc_binary(
         "//bant/util:table-printer",
         "//bant/util:term-color",
         "@abseil-cpp//absl/container:flat_hash_set",
-        "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/strings",
         "@abseil-cpp//absl/strings:str_format",
         "@abseil-cpp//absl/time",

@@ -28,7 +28,6 @@
 #include "absl/status/status.h"
 #include "bant/frontend/ast.h"
 #include "bant/frontend/named-content.h"
-#include "bant/session.h"
 #include "bant/types-bazel.h"
 #include "bant/util/arena.h"
 #include "bant/util/file-utils.h"
@@ -42,22 +41,24 @@ class MacroContainer {
 
   Node *FindMacro(std::string_view name, const BazelPackage &) const;
 
-  // Load project-local macro definitions from a .bant-macros file.
-  // Returns NotFoundError if the file doesn't exist (caller can ignore).
-  absl::Status LoadMacrosFromFile(Session &session,
-                                  const FilesystemPath &macro_file);
+  // Attempt to load macros for given
+  absl::Status LoadPackageMacros(const BazelPackage &package);
 
   // Set content of bant file defining the macros to be found in FindMacro().
   // Can be called multiple times (e.g. built-in + project-local).
   // Passed string view must outlive ParsedProject lifetime.
   absl::Status SetBuiltinMacroContent(std::string_view content);
 
+ private:
+  // Load project-local macro definitions from a .bant-macros file.
+  // Returns NotFoundError if the file doesn't exist (caller can ignore).
+  absl::Status LoadMacrosFromFile(const FilesystemPath &macro_file);
+
   // Core macro-parsing logic: parse assignments from content and add to
   // macros_ map. On name collision, later definitions win.
   absl::Status AddMacroContent(std::string_view source_name,
                                std::string_view content, std::ostream &errors);
 
- private:
   Arena *const arena_;
   ParsedProject *const project_;
 

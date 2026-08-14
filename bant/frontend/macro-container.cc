@@ -32,7 +32,6 @@
 #include "bant/frontend/parsed-project.h"
 #include "bant/frontend/parser.h"
 #include "bant/frontend/scanner.h"
-#include "bant/session.h"
 #include "bant/types-bazel.h"
 #include "bant/util/file-utils.h"
 #include "bant/util/filesystem.h"
@@ -81,8 +80,15 @@ absl::Status MacroContainer::SetBuiltinMacroContent(std::string_view content) {
   return AddMacroContent("(bant-builtin)", content, std::cerr);
 }
 
+absl::Status MacroContainer::LoadPackageMacros(const BazelPackage &package) {
+  auto load_file =
+    package.FullyQualifiedFile(project_->workspace(), ".bant-macros");
+  if (!load_file) return absl::NotFoundError(package.ToString());
+  return LoadMacrosFromFile(FilesystemPath(*load_file));
+}
+
 absl::Status MacroContainer::LoadMacrosFromFile(
-  Session &session, const FilesystemPath &macro_file) {
+  const FilesystemPath &macro_file) {
   std::optional<std::string> content =
     Filesystem::instance().ReadFileToString(macro_file.path());
   if (!content.has_value()) {
@@ -95,8 +101,10 @@ absl::Status MacroContainer::LoadMacrosFromFile(
   std::stringstream error_collect;
   absl::Status status = AddMacroContent(macro_file.path(), view, error_collect);
   if (!status.ok()) {
-    session.info() << error_collect.str();
+    std::cerr << error_collect.str();
   }
+  // TODO: this should be related to verbosity
+  std::cerr << "TEMPORARY msg: Loaded " << macro_file.path() << "\n";
   return status;
 }
 }  // namespace bant

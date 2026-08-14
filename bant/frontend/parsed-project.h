@@ -137,11 +137,6 @@ class ParsedProject : public SourceLocator {
     return macros_.FindMacro(name, package);
   }
 
-  absl::Status LoadMacrosFromFile(Session &session,
-                                  const FilesystemPath &macro_file) {
-    return macros_.LoadMacrosFromFile(session, macro_file);
-  }
-
   absl::Status SetBuiltinMacroContent(std::string_view content) {
     return macros_.SetBuiltinMacroContent(content);
   }
