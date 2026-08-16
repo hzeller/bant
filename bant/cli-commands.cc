@@ -155,7 +155,8 @@ std::optional<CliStatus> RunDebugCommand(Session &session, Command cmd) {
     session.info() << "Could not read " << file.path() << "\n";
     return CliStatus::kExitFailure;
   }
-  ParsedProject project({}, /*verbose=*/true, /*with_builtin_macros=*/true);
+  ParsedProject project({}, /*verbose=*/true,
+                        session.flags().load_builtin_macros);
   const BazelPackage package("", file.parent_path());
   ParsedBuildFile *parsed = project.AddBuildFileContent(
     session, package, file, *content, open_and_read_stat);
@@ -245,7 +246,8 @@ CliStatus RunCommand(Session &session, Command cmd,
 
   CommandlineFlags flags = session.flags();
 
-  bant::ParsedProject project(workspace, flags.verbose);
+  bant::ParsedProject project(workspace, flags.verbose,
+                              flags.load_builtin_macros);
   if (NeedsProjectPopulated(cmd, patterns)) {
     {
       Stat &stats =

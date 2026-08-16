@@ -80,6 +80,7 @@ struct CommandlineFlags {
   bool elaborate = false;
   bool elaborate_do_globbing = true;  // Last recourse in slow filesystems
   bool bant_macro_expand = false;
+  bool load_builtin_macros = true;
   bool ignore_keep_comment = false;
   bool only_physical_files = false;  // for target-{srcs,hdrs,data}
   int recurse_dependency_depth = 0;

@@ -326,6 +326,7 @@ int main(int argc, char *argv[]) {
     OPT_DISALLOW_GLOBBING = 1004,  // Experimental. Not documented for now.
     OPT_PP_IFDEF_INC = 1005,
     OPT_DEP_CHOICE = 1006,
+    OPT_NO_BUILTINS = 1007,
   };
 
   // clang-format off
@@ -349,6 +350,7 @@ int main(int argc, char *argv[]) {
     { "graph-augment", required_argument, nullptr, OPT_GRAPH_AUGMENT },
     { "pp-ifdef",      required_argument, nullptr, OPT_PP_IFDEF_INC },
     { "dep-choice",    required_argument, nullptr, OPT_DEP_CHOICE },
+    { "no-builtins",   no_argument,       nullptr, OPT_NO_BUILTINS },
     //
     { nullptr, 0,                 nullptr, 0                    }};
   // NOLINTEND
@@ -479,6 +481,7 @@ int main(int argc, char *argv[]) {
       break;
     case OPT_GRAPH_AUGMENT: flags.graph_deps.emplace_back(optarg); break;
     case OPT_DISALLOW_GLOBBING: flags.elaborate_do_globbing = false; break;
+    case OPT_NO_BUILTINS: flags.load_builtin_macros = false; break;
     case 'c': {
       if (optarg && !absl::SimpleAtoi(optarg, &flags.column_select)) {
         return usage(argv[0], "--column requires a numeric parameter",
