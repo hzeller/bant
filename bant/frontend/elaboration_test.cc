@@ -34,6 +34,8 @@
 #include "bant/session.h"
 #include "bant/types-bazel.h"
 #include "bant/util/file-test-util.h"
+#include "bant/util/file-utils.h"
+#include "bant/util/filesystem.h"
 #include "gtest/gtest.h"
 
 namespace bant {
@@ -1456,11 +1458,10 @@ static std::pair<std::string, std::string> TestGlobFile(
   const std::vector<std::string_view> &filenames, std::string_view glob_pattern,
   const std::vector<std::string_view> &expected = {},
   std::string_view extra_arg = "") {
-  bant::test::ChangeToTmpDir tmpdir(test_name);
-
-  // Creating the file relative to the package path, as we glob relative to it.
+  Filesystem &fs = Filesystem::instance();
+  fs.EvictCache();
   for (const std::string_view file : filenames) {
-    tmpdir.touch(package, file);
+    fs.InjectTestFileContents({{FilesystemPath(package, file).path(), ""}});
   }
 
   // Caller might provide the epxecgted list
