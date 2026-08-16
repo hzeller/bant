@@ -118,7 +118,6 @@ cc_test(
         ":edit-callback_testutil",
         "//bant:session",
         "//bant:types-bazel",
-        "//bant/frontend:parsed-project",
         "//bant/frontend:parsed-project_testutil",
         "@googletest//:gtest",
         "@googletest//:gtest_main",

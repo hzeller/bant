@@ -129,6 +129,7 @@ ParsedProject::ParsedProject(BazelWorkspace workspace, bool verbose,
   if (with_builtin_macros) {
     CHECK_OK(macros_.SetBuiltinMacroContent(kBuiltinMacros));
   }
+  // TODO: move this out of the constructor and maybe FillFromPattern()
   if (auto status = macros_.LoadPackageMacros({});
       !status.ok() && !absl::IsNotFound(status)) {
     std::cerr << "Warning: " << status.message() << "\n";

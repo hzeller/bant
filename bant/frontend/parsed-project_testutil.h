@@ -56,6 +56,12 @@ class ParsedProjectTestUtil {
     CHECK_OK(project_.SetBuiltinMacroContent(macros));
   }
 
+  void SetPackageMacros(const BazelPackage &package, std::string_view macros) {
+    // We are friend of project, so can access the macros
+    CHECK_OK(project_.macros_.AddMacroContent(
+      "test-macro", macros, MacroContainer::KeyForPackage(package), std::cerr));
+  }
+
   void ElaborateAll() {
     Session session(&std::cerr, &std::cerr, &std::cerr,
                     CommandlineFlags{.verbose = 1});

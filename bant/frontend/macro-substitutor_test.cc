@@ -27,6 +27,7 @@
 #include "bant/frontend/parsed-project.h"
 #include "bant/frontend/parsed-project_testutil.h"
 #include "bant/session.h"
+#include "bant/types-bazel.h"
 #include "gtest/gtest.h"
 
 namespace bant {
@@ -56,14 +57,20 @@ class MacroSubstituteTest : public ::testing::Test {
     return {expect_print, sub_print};
   }
 
-  void SetMacroContent(std::string_view macros) { pp_.SetMacroContent(macros); }
+  void SetBuiltinMacros(std::string_view macros) {
+    pp_.SetMacroContent(macros);
+  }
+
+  void SetPackageMacros(std::string_view macros) {
+    pp_.SetPackageMacros({}, macros);
+  }
 
  private:
   ParsedProjectTestUtil pp_;
 };
 
 TEST_F(MacroSubstituteTest, MacroBodyIsFunCall) {
-  SetMacroContent(R"(
+  SetBuiltinMacros(R"(
 some_macro_rule = cc_library(
      name = name,
      deps = ["a", "b", some_dep] + some_list,
@@ -88,7 +95,7 @@ cc_library(
 }
 
 TEST_F(MacroSubstituteTest, MacroBodyEvaluatesListComprehension) {
-  SetMacroContent(R"(
+  SetBuiltinMacros(R"(
 some_macro_rule = [
    foo(name = "generated-{}".format(x))
    for x in macro_parameter
@@ -120,7 +127,7 @@ SOME_LIST=["a", "b", "c"]
 }
 
 TEST_F(MacroSubstituteTest, MacroBodyIsTuple) {
-  SetMacroContent(R"(
+  SetBuiltinMacros(R"(
 some_macro_rule = (
    genrule(name = name + "-gen"),
    cc_library(
@@ -151,7 +158,7 @@ some_macro_rule(
 }
 
 TEST_F(MacroSubstituteTest, UsePositionalArgs) {
-  SetMacroContent(R"(
+  SetBuiltinMacros(R"(
 dict = {k : v for (k, v) in _arg_0}
 )");
 
@@ -168,7 +175,7 @@ B = {k : v for (k, v) in _arg_0}
 }
 
 TEST_F(MacroSubstituteTest, MacroBodyForwardKwArgsFunction) {
-  SetMacroContent(R"(
+  SetBuiltinMacros(R"(
 some_macro_rule = bant_forward_args(
     cc_library(
       visibility = "//visibility:public",
@@ -195,7 +202,7 @@ cc_library(
 }
 
 TEST_F(MacroSubstituteTest, MacroBodyForwardKwArgsToMultipleFunctionsInTuple) {
-  SetMacroContent(R"(
+  SetBuiltinMacros(R"(
 some_macro_rule = bant_forward_args(
       cc_library(
         visibility = "//visibility:public",
@@ -236,7 +243,7 @@ another_rule(
 TEST_F(MacroSubstituteTest, ProjectLocalMacroForwardArgs) {
   // Simulate a project-local macro like my_cc_test =
   // bant_forward_args(cc_test())
-  SetMacroContent(R"(
+  SetBuiltinMacros(R"(
 my_cc_test = bant_forward_args(cc_test())
 )");
 
@@ -258,12 +265,12 @@ cc_test(
 
 TEST_F(MacroSubstituteTest, MultipleSetMacroContentCallsAreAdditive) {
   // First call: define one macro
-  SetMacroContent(R"(
+  SetBuiltinMacros(R"(
 first_rule = bant_forward_args(cc_library())
 )");
 
   // Second call: define another macro (should not crash, should be additive)
-  SetMacroContent(R"(
+  SetBuiltinMacros(R"(
 second_rule = bant_forward_args(cc_test())
 )");
 
@@ -295,12 +302,12 @@ cc_test(
 
 TEST_F(MacroSubstituteTest, ProjectLocalMacroOverridesBuiltin) {
   // First call: define a macro
-  SetMacroContent(R"(
+  SetBuiltinMacros(R"(
 my_rule = bant_forward_args(cc_library())
 )");
 
   // Second call: override same macro name
-  SetMacroContent(R"(
+  SetPackageMacros(R"(
 my_rule = bant_forward_args(cc_test())
 )");
 

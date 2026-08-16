@@ -300,6 +300,7 @@ cc_test(
         ":parsed-project_testutil",
         ":parser",
         "//bant:session",
+        "//bant:types-bazel",
         "@googletest//:gtest",
         "@googletest//:gtest_main",
     ],

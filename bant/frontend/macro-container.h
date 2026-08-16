@@ -41,7 +41,7 @@ class MacroContainer {
 
   Node *FindMacro(std::string_view name, const BazelPackage &) const;
 
-  // Attempt to load macros for given
+  // Attempt to load macros for given package.
   absl::Status LoadPackageMacros(const BazelPackage &package);
 
   // Set content of bant file defining the macros to be found in FindMacro().
@@ -50,21 +50,31 @@ class MacroContainer {
   absl::Status SetBuiltinMacroContent(std::string_view content);
 
  private:
+  friend class ParsedProjectTestUtil;
+
   // Load project-local macro definitions from a .bant-macros file.
   // Returns NotFoundError if the file doesn't exist (caller can ignore).
-  absl::Status LoadMacrosFromFile(const FilesystemPath &macro_file);
+  absl::Status LoadMacrosFromFile(const BazelPackage &package,
+                                  const FilesystemPath &macro_file);
 
   // Core macro-parsing logic: parse assignments from content and add to
   // macros_ map. On name collision, later definitions win.
   absl::Status AddMacroContent(std::string_view source_name,
-                               std::string_view content, std::ostream &errors);
+                               std::string_view content,
+                               std::string_view package_key,
+                               std::ostream &errors);
+
+  static std::string KeyForPackage(const BazelPackage &package);
+
+  using MacroByName = absl::flat_hash_map<std::string_view, Node *>;
 
   Arena *const arena_;
   ParsedProject *const project_;
 
   std::vector<std::unique_ptr<NamedLineIndexedContent>> macro_contents_;
   std::vector<std::unique_ptr<std::string>> macro_owned_content_;
-  absl::flat_hash_map<std::string_view, Node *> macros_;
+
+  absl::flat_hash_map<std::string, MacroByName> macros_;
 };
 }  // namespace bant
 #endif  // BANT_MACRO_CONTAINER_

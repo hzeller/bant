@@ -19,7 +19,6 @@
 
 #include <iostream>
 
-#include "bant/frontend/parsed-project.h"
 #include "bant/frontend/parsed-project_testutil.h"
 #include "bant/session.h"
 #include "bant/tool/edit-callback_testutil.h"
