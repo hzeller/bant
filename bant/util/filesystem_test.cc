@@ -30,6 +30,7 @@ TEST(FilesystemTest, DirectoryListing) {
   dir.touch(".", "foo");
 
   Filesystem &fs = Filesystem::instance();
+
   const auto &entries = fs.ReadDir(".");
   EXPECT_EQ(entries.size(), 4u);
 
@@ -38,14 +39,18 @@ TEST(FilesystemTest, DirectoryListing) {
   EXPECT_EQ(entries[0].type, DirectoryEntry::Type::kDirectory);
 
   EXPECT_EQ(entries[1].name, "baz");
+  EXPECT_EQ(entries[1].type, DirectoryEntry::Type::kRegularFile);
   EXPECT_EQ(entries[2].name, "foo");
+  EXPECT_EQ(entries[2].type, DirectoryEntry::Type::kRegularFile);
   EXPECT_EQ(entries[3].name, "zulu");
+  EXPECT_EQ(entries[3].type, DirectoryEntry::Type::kRegularFile);
 
-  EXPECT_EQ(fs.cache_size(), 1u);
+  // At this point, we only have accessed the toplevel, so only one entry.
+  EXPECT_EQ(fs.dir_cache_size(), 1u);
 
   // Reading dir "./" should not result in a different cache key than "."
   fs.ReadDir("./");
-  EXPECT_EQ(fs.cache_size(), 1u);
+  EXPECT_EQ(fs.dir_cache_size(), 1u);
 
   EXPECT_TRUE(fs.Exists("bar"));
   EXPECT_TRUE(fs.ExistsInDir("", "bar"));
@@ -59,7 +64,8 @@ TEST(FilesystemTest, DirectoryListing) {
   EXPECT_FALSE(fs.Exists(substring_checking));  // that is not there.
   EXPECT_TRUE(fs.Exists(substring_checking.substr(0, 3)));  // query "foo"
 
-  EXPECT_EQ(fs.cache_size(), 1u);  // No new directories should be cached yet.
+  EXPECT_EQ(fs.dir_cache_size(),
+            1u);  // No new directories should be cached yet.
 
   // Requesting the existence of an item in a subdirectory will read and cache
   // that subdirectory.
@@ -68,14 +74,14 @@ TEST(FilesystemTest, DirectoryListing) {
   EXPECT_TRUE(fs.Exists("./bar/abc"));
   EXPECT_FALSE(fs.Exists("./bar/xyz"));
 
-  EXPECT_EQ(fs.cache_size(), 2u);
+  EXPECT_EQ(fs.dir_cache_size(), 2u);
 
   // Requesting already cached directory with slightly different name: same
   // cache key, so no new entries should make it into the cache.
   fs.ReadDir("bar");
   fs.ReadDir("bar/");
   fs.ReadDir("bar//");
-  EXPECT_EQ(fs.cache_size(), 2u);  // No new entries observed
+  EXPECT_EQ(fs.dir_cache_size(), 2u);  // No new entries observed
 
   // Let's ignore that directory (e.g. used for .bazelignore dirs).
   EXPECT_FALSE(fs.ReadDir("bar").empty());
@@ -83,9 +89,41 @@ TEST(FilesystemTest, DirectoryListing) {
   EXPECT_TRUE(fs.ReadDir("bar").empty());
 
   // Testing cache evicting success (used in unit tests for clean slates)
-  EXPECT_EQ(fs.cache_size(), 2u);
+  EXPECT_EQ(fs.dir_cache_size(), 2u);
   fs.EvictCache();
-  EXPECT_EQ(fs.cache_size(), 0u);
+  EXPECT_EQ(fs.dir_cache_size(), 0u);
 }
+
+TEST(FilesystemTest, TestonlyDirectoryListing) {
+  Filesystem &fs = Filesystem::instance();
+  fs.EvictCache();
+  fs.InjectTestFileContents({{"baz", "hello-baz"},
+                             {"zulu", ""},
+                             {"bar/abc", "hello-abc"},
+                             {"foo", ""}});
+
+  const auto &entries = fs.ReadDir(".");
+  EXPECT_EQ(entries.size(), 4u);
+
+  // We expect these to be sorted alphabetically.
+  EXPECT_EQ(entries[0].name, "bar");
+  EXPECT_EQ(entries[0].type, DirectoryEntry::Type::kDirectory);
+
+  EXPECT_EQ(entries[1].name, "baz");
+  EXPECT_EQ(entries[1].type, DirectoryEntry::Type::kRegularFile);
+  EXPECT_EQ(entries[2].name, "foo");
+  EXPECT_EQ(entries[2].type, DirectoryEntry::Type::kRegularFile);
+  EXPECT_EQ(entries[3].name, "zulu");
+  EXPECT_EQ(entries[3].type, DirectoryEntry::Type::kRegularFile);
+
+  auto content = fs.ReadFileToString("baz");
+  ASSERT_TRUE(content.has_value());
+  EXPECT_EQ(content.value(), "hello-baz");  // NOLINT
+
+  content = fs.ReadFileToString("./bar/abc");
+  ASSERT_TRUE(content.has_value());
+  EXPECT_EQ(content.value(), "hello-abc");  // NOLINT
+}
+
 }  // namespace
 }  // namespace bant

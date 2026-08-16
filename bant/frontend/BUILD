@@ -258,6 +258,7 @@ cc_test(
         "//bant:types-bazel",
         "//bant/explore:query-utils",
         "//bant/util:file-test-util",
+        "//bant/util:filesystem-testing",
         "@abseil-cpp//absl/container:flat_hash_set",
         "@abseil-cpp//absl/strings",
         "@abseil-cpp//absl/strings:str_format",

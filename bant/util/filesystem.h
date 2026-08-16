@@ -23,6 +23,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include "absl/base/thread_annotations.h"
@@ -86,17 +87,24 @@ class Filesystem {
   // Similar to StatInDir(), but with whole path.
   std::optional<DirectoryEntry> StatPath(std::string_view path);
 
-  // Evict cache. Might be needed in unit tests.
-  void EvictCache();
-
   // Make ReadDir() always return an empty directory if this path is requested.
   // (Essentially poison the cache with an empty content).
   void SetAlwaysReportEmptyDirectory(std::string_view path);
 
-  size_t cache_size() const {
+  size_t dir_cache_size() const {
     const absl::ReaderMutexLock l(dir_mutex_);
     return dir_cache_.size();
   }
+
+  // -- Only available when linking testonly target :filesystem-testing
+
+  // Evict cache. Might be needed in unit tests.
+  void EvictCache();
+
+  // Insert file contents to be returned under the given paths; also populates
+  // the corresponding directories.
+  void InjectTestFileContents(
+    const std::vector<std::pair<std::string_view, std::string_view>> &contents);
 
  private:
   Filesystem() = default;
@@ -104,6 +112,15 @@ class Filesystem {
   using CacheEntry = std::vector<DirectoryEntry>;
 
   static void ReadDirectory(std::string_view path, CacheEntry &result);
+
+  // Given an ordered directory listing, check if content is included.
+  static bool ExistsInCachedDirListing(const CacheEntry &dir_list,
+                                       std::string_view filename);
+
+  static std::string_view LightlyCanonicalizeAsCacheKey(std::string_view path);
+
+  // NB: Node hash maps as we don't want the locations of the values to be
+  // changing location as we return references.
 
   mutable absl::Mutex dir_mutex_;
   absl::node_hash_map<std::string, CacheEntry> dir_cache_

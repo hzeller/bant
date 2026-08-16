@@ -146,6 +146,17 @@ cc_library(
     ],
 )
 
+cc_library(
+    name = "filesystem-testing",
+    testonly = True,
+    srcs = ["filesystem-testing.cc"],
+    tags = ["keep_dep"],
+    deps = [
+        ":file-utils",
+        "@abseil-cpp//absl/synchronization",
+    ],
+)
+
 cc_test(
     name = "file-utils_test",
     size = "small",
@@ -195,6 +206,7 @@ cc_test(
     deps = [
         ":file-test-util",
         ":file-utils",
+        ":filesystem-testing",
         "@googletest//:gtest",
         "@googletest//:gtest_main",
     ],

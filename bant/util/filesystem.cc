@@ -123,12 +123,8 @@ void Filesystem::ReadDirectory(std::string_view path, CacheEntry &result) {
   std::sort(result.begin(), result.end());
 }
 
-void Filesystem::EvictCache() {
-  const absl::WriterMutexLock l(dir_mutex_);
-  dir_cache_.clear();
-}
-
-static std::string_view LightlyCanonicalizeAsCacheKey(std::string_view path) {
+/*static*/ std::string_view Filesystem::LightlyCanonicalizeAsCacheKey(
+  std::string_view path) {
   while (path.size() > 1 && absl::EndsWith(path, "/")) path.remove_suffix(1);
   if (absl::StartsWith(path, "./")) {
     return path.length() > 2 ? path.substr(2) : path.substr(0, 1);
@@ -170,14 +166,17 @@ const std::vector<DirectoryEntry> &Filesystem::ReadDir(
   return inserted.first->second;
 }
 
-bool Filesystem::ExistsInDir(std::string_view dir, std::string_view filename) {
-  if (dir.empty()) dir = ".";
+/*static*/ bool Filesystem::ExistsInCachedDirListing(
+  const CacheEntry &dir_list, std::string_view filename) {
   DirectoryEntry compare_entry;
   compare_entry.name = filename;
 
-  const auto &dir_content = ReadDir(dir);
-  return std::binary_search(dir_content.begin(), dir_content.end(),
-                            compare_entry);
+  return std::binary_search(dir_list.begin(), dir_list.end(), compare_entry);
+}
+
+bool Filesystem::ExistsInDir(std::string_view dir, std::string_view filename) {
+  if (dir.empty()) dir = ".";
+  return ExistsInCachedDirListing(ReadDir(dir), filename);
 }
 
 namespace {
