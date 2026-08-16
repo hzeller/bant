@@ -129,16 +129,25 @@ ParsedProject::ParsedProject(BazelWorkspace workspace, bool verbose,
   if (with_builtin_macros) {
     CHECK_OK(macros_.SetBuiltinMacroContent(kBuiltinMacros));
   }
-  // TODO: move this out of the constructor and maybe FillFromPattern()
-  if (auto status = macros_.LoadPackageMacros({});
-      !status.ok() && !absl::IsNotFound(status)) {
-    std::cerr << "Warning: " << status.message() << "\n";
+}
+
+void ParsedProject::LoadBantMacrosInPackage(Session &session,
+                                            const BazelPackage &package) {
+  Stat &macro_stat = session.GetStatsFor("Found and loaded", ".bant-macros");
+  const ScopedTimer timer(macro_stat);
+  auto load_macro = macros_.LoadPackageMacros(package);
+  if (load_macro.ok()) {
+    if (session.MinVerbosity(2)) {
+      session.info() << "Loaded .bant-macros in " << package << "\n";
+    }
+    macro_stat.IncCount();
   }
 }
 
 int ParsedProject::FillFromPattern(Session &session,
                                    const BazelPatternBundle &bundle,
                                    bool log_error_messages) {
+  LoadBantMacrosInPackage(session, {});
   int count = 0;
   std::set<std::string> unique_files;  // bundle might match multiple same
   for (const BazelPattern &pattern : bundle.patterns()) {
@@ -150,8 +159,9 @@ int ParsedProject::FillFromPattern(Session &session,
       // not attempt to load both. Use kDesiredBuildLoadingSequence
       if (unique_files.insert(std::string{path}).second) {
         ++count;
-        AddBuildFile(session, build_file, pattern.project(),
-                     log_error_messages);
+        ParsedBuildFile *parsed = AddBuildFile(
+          session, build_file, pattern.project(), log_error_messages);
+        if (parsed) LoadBantMacrosInPackage(session, parsed->package);
       }
     }
   }

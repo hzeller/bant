@@ -182,6 +182,8 @@ class ParsedProject : public SourceLocator {
                                 const BazelPackage &package,
                                 bool log_error_messages);
 
+  void LoadBantMacrosInPackage(Session &session, const BazelPackage &package);
+
   Arena arena_{1 << 20};
   const BazelWorkspace workspace_;
   int error_count_ = 0;

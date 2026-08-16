@@ -136,6 +136,12 @@ absl::Status MacroContainer::LoadPackageMacros(const BazelPackage &package) {
 
 absl::Status MacroContainer::LoadMacrosFromFile(
   const BazelPackage &package, const FilesystemPath &macro_file) {
+  const std::string lookup_key = KeyForPackage(package);
+  if (macros_.contains(lookup_key)) {
+    return absl::AlreadyExistsError(
+      absl::StrCat("already loaded macros for ", package.ToString()));
+  }
+
   std::optional<std::string> content =
     Filesystem::instance().ReadFileToString(macro_file.path());
   if (!content.has_value()) {
@@ -146,13 +152,11 @@ absl::Status MacroContainer::LoadMacrosFromFile(
   const std::string_view view = *owned;
   macro_owned_content_.push_back(std::move(owned));
   std::stringstream error_collect;
-  absl::Status status = AddMacroContent(macro_file.path(), view,
-                                        KeyForPackage(package), error_collect);
+  absl::Status status =
+    AddMacroContent(macro_file.path(), view, lookup_key, error_collect);
   if (!status.ok()) {
     std::cerr << error_collect.str();
   }
-  // TODO: this should be related to verbosity
-  std::cerr << "TEMPORARY msg: Loaded " << macro_file.path() << "\n";
   return status;
 }
 }  // namespace bant
