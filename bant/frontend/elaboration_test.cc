@@ -1603,6 +1603,7 @@ proto_library(
 foo(
   name = "qux",
   srcs = bant_expand_filegroups([
+     "regular-file.txt",  # not expanded, just handed through
      ":foo_group",
      ":bar_genrule",
      ":baz_proto",
@@ -1632,6 +1633,7 @@ foo(
      "group2.txt",
      "p1.proto",
      "p2.proto",
+     "regular-file.txt",
    ],
 )
 
