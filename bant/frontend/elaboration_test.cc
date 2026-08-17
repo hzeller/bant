@@ -26,6 +26,7 @@
 #include "absl/container/flat_hash_set.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/str_join.h"
+#include "bant/explore/project-indexing.h"
 #include "bant/explore/query-utils.h"
 #include "bant/frontend/ast.h"
 #include "bant/frontend/parsed-project.h"
@@ -90,9 +91,11 @@ class ElaborationTest : public ::testing::Test {
 
     EXPECT_EQ(pp_.project().error_count(), 0) << "invalid test inputs.";
 
+    const auto filegroup_index = bant::ExtractFilegroupTargets(pp_.project());
     const ElaborationOptions elab_options{
       .builtin_macro_expansion = flags.bant_macro_expand,
       .enabled_configurations = configurations,
+      .filegroup_index = &filegroup_index,
     };
     Session session(&std::cerr, &std::cerr, &std::cerr, flags);
     Node *const after_elaboration =
@@ -1578,5 +1581,63 @@ EXAMPLE = "somefilename"
 
   EXPECT_EQ(result.first, result.second);
 }
+
+TEST_F(ElaborationTest, FileGroupExpandUsingFunction) {
+  auto result = ElabAndPrint(
+    R"(
+# all of the following rules are regarded as file groups
+filegroup(
+   name = "foo_group",
+   srcs = ["group1.txt", "group2.txt"],
+)
+genrule(
+   name = "bar_genrule",
+   outs = ["genrule1.txt", "genrule2.txt"],
+)
+proto_library(
+   name = "baz_proto",
+   srcs = ["p1.proto", "p2.proto"],
+)
+
+# here we want to expand all the files
+foo(
+  name = "qux",
+  srcs = bant_expand_filegroups([
+     ":foo_group",
+     ":bar_genrule",
+     ":baz_proto",
+  ]),
+)
+  )",
+    R"(
+filegroup(
+   name = "foo_group",
+   srcs = ["group1.txt", "group2.txt"],
+)
+genrule(
+   name = "bar_genrule",
+   outs = ["genrule1.txt", "genrule2.txt"],
+)
+proto_library(
+   name = "baz_proto",
+   srcs = ["p1.proto", "p2.proto"],
+)
+
+foo(
+   name = "qux",
+   srcs = [
+     "genrule1.txt",
+     "genrule2.txt",
+     "group1.txt",
+     "group2.txt",
+     "p1.proto",
+     "p2.proto",
+   ],
+)
+
+)");
+  EXPECT_EQ(result.first, result.second);
+}
+
 }  // namespace
 }  // namespace bant

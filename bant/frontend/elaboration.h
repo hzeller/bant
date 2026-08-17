@@ -23,6 +23,7 @@
 #define BANT_ELABORATION_H
 
 #include "absl/container/flat_hash_set.h"
+#include "bant/explore/project-indexing.h"
 #include "bant/frontend/ast.h"
 #include "bant/frontend/parsed-project.h"
 #include "bant/session.h"
@@ -35,6 +36,9 @@ struct ElaborationOptions {
   bool expand_load_functions = true;     // load *.bzl, extract scalars
   bool evaluate_glob_call = true;        // Can be expensive on slow fileystems.
   absl::flat_hash_set<BazelTarget> enabled_configurations;
+
+  // If available, bant_expand_filegroups() will work
+  const TargetProvidedFiles *filegroup_index = nullptr;
 
   // TODO: an option that chooses to evaluate _all_ configurations, e.g. if
   // there is a select, follow all of them. This can be helpful in building

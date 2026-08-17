@@ -165,9 +165,12 @@ std::optional<CliStatus> RunDebugCommand(Session &session, Command cmd) {
   }
 
   if (session.flags().elaborate) {
-    const auto options = GetElaborationOptionsFrom(session.flags(), project);
+    const auto index = bant::ExtractFilegroupTargets(project);
+    auto options = GetElaborationOptionsFrom(session.flags(), project);
+    options.filegroup_index = &index;
     Elaborate(session, &project, options, parsed);
   }
+
   if (cmd == Command::kPrint && parsed->ast) {
     auto highlighter = CreateGrepHighlighterFromFlags(session);
     if (!highlighter) return CliStatus::kExitFailure;
@@ -295,8 +298,10 @@ CliStatus RunCommand(Session &session, Command cmd,
     flags.bant_macro_expand = true;
   }
 
-  const auto elab_options = GetElaborationOptionsFrom(flags, project);
+  auto elab_options = GetElaborationOptionsFrom(flags, project);
   if (flags.elaborate) {
+    const auto index = bant::ExtractFilegroupTargets(project);
+    elab_options.filegroup_index = &index;
     bant::Elaborate(session, &project, elab_options);
   }
 

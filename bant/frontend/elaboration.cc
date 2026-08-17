@@ -35,6 +35,7 @@
 #include "absl/log/check.h"
 #include "absl/log/log.h"
 #include "absl/strings/match.h"
+#include "bant/explore/project-indexing.h"
 #include "bant/explore/query-utils.h"
 #include "bant/frontend/ast.h"
 #include "bant/frontend/macro-substitutor.h"
@@ -118,6 +119,9 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
                               f->argument()->at(0)->CastAsScalar();
       auto loc = project_->GetLocation(fun_name);
       return f_.MakeBoolWithStringRep(loc, is_defined);
+    }
+    if (fun_name == "bant_expand_filegroups") {
+      return HandleExpandFilegroups(f);
     }
     if (fun_name == "struct") {
       // fun-args: already a tagged tuple; relabel as struct.
@@ -1164,6 +1168,28 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
         return true;
       });
     glob_stats.AddCount(checked_files);
+    return result;
+  }
+
+  // Input a list of filenames or filegroups. Expand
+  Node *HandleExpandFilegroups(FunCall *f) {
+    List *const arg_list = f->argument();
+    if (!arg_list || arg_list->size() != 1) return f;
+    Node *arg = arg_list->at(0);
+    List *input_list = arg->CastAsList();
+    if (!input_list) return f;
+    // If we don't have and index, just return current list.
+    if (!options_.filegroup_index) return input_list;
+    std::vector<std::string_view> output = query::ExtractStringList(input_list);
+    bool any_change =
+      ExpandFilegroupsInList(package_, *options_.filegroup_index, &output);
+    if (!any_change) return input_list;
+    List *result = f_.Make<List>(List::Type::kList);
+    for (std::string_view str : output) {
+      // all the string views we have are already locatable strings.
+      auto *const string_scalar = f_.Make<StringScalar>(str, false, false);
+      result->Append(project_->arena(), string_scalar);
+    }
     return result;
   }
 
