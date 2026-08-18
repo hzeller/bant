@@ -252,6 +252,7 @@ std::vector<std::string> CollectIncDirs(Session &session,
       // add all these.
       const auto inc_dirs = query::ExtractStringList(details.includes_list);
       for (const std::string_view inc_dir : inc_dirs) {
+        if (inc_dir == "." || inc_dir == "./") continue;
         const std::optional<std::string> inc_path =
           current_package.FullyQualifiedFile(workspace, inc_dir);
         if (!inc_path.has_value()) continue;
