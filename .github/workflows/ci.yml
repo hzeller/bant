@@ -106,9 +106,10 @@ jobs:
       - name: Get Bant
         run: |
           # This tests the static binary provided in the release, so
-          # instead of simply compiling and running locally, we fetch that.
+          # instead of simply compiling and running locally, we fetch that
+          # to show how that works.
           # TODO: provide this as action where we simply say with version=...
-          VERSION="v0.2.3"
+          VERSION="v0.3.5"
           STATIC_VERSION="bant-${VERSION}-linux-static-x86_64"
           wget "https://github.com/hzeller/bant/releases/download/${VERSION}/${STATIC_VERSION}.tar.gz"
           tar xvzf "${STATIC_VERSION}.tar.gz"
