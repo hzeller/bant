@@ -40,6 +40,7 @@
 #include "bant/explore/query-utils.h"
 #include "bant/explore/source-finder.h"
 #include "bant/frontend/ast.h"
+#include "bant/frontend/elaboration.h"
 #include "bant/frontend/named-content.h"
 #include "bant/frontend/parsed-project.h"
 #include "bant/frontend/source-locator.h"
@@ -1211,7 +1212,7 @@ std::ostream &DWYUGenerator::Loc(const SourceLocator &locator,
 
 // -- Publically visible interface
 
-DWYUGenerator::DWYUGenerator(Session &session, const ParsedProject &project,
+DWYUGenerator::DWYUGenerator(Session &session, ParsedProject &project,
                              EditCallback emit_deps_edit)
     : session_(session),
       project_(project),
@@ -1245,6 +1246,17 @@ DWYUGenerator::DWYUGenerator(Session &session, const ParsedProject &project,
 
   InitKnownLibraries();
   stats.AddCount(known_libs_.size());
+
+  // Now that we have all filegroups after the whole dependency graph
+  // is loaded, we can evaluate bant_expand_filegroups().
+  // All other evaluations are off.
+  const ElaborationOptions elab_options{
+    .builtin_macro_expansion = false,
+    .expand_load_functions = false,
+    .evaluate_glob_call = false,
+    .filegroup_index = &filegroups_,
+  };
+  bant::Elaborate(session, &project, elab_options);
 }
 
 size_t DWYUGenerator::CreateEditsForPattern(const BazelTargetMatcher &pattern) {
@@ -1297,7 +1309,7 @@ void DWYUGenerator::PrintSourcesNotFound(std::ostream &out) {
   out << "\n";
 }
 
-size_t CreateDependencyEdits(Session &session, const ParsedProject &project,
+size_t CreateDependencyEdits(Session &session, ParsedProject &project,
                              const BazelTargetMatcher &pattern,
                              const EditCallback &emit_deps_edit) {
   Stat &dwyu_stats = session.GetStatsFor("DWYU Operation", "targets");

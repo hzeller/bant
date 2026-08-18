@@ -17,8 +17,6 @@
 
 #include "bant/frontend/substitute-copy.h"
 
-#include <vector>
-
 #include "bant/explore/query-utils.h"
 #include "bant/frontend/ast.h"
 #include "bant/util/arena.h"

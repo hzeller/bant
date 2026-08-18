@@ -32,7 +32,7 @@ namespace bant {
 // Input should be an elaborated project for best availability of inspected
 // lists.
 // Return number of edits that have been emitted.
-size_t CreateDependencyEdits(Session &session, const ParsedProject &project,
+size_t CreateDependencyEdits(Session &session, ParsedProject &project,
                              const BazelTargetMatcher &pattern,
                              const EditCallback &emit_deps_edit);
 

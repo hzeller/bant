@@ -64,7 +64,7 @@ class TestableDWYUGenerator : public bant::DWYUGenerator {
 // Putthing it all together
 class DWYUTestFixture {
  public:
-  DWYUTestFixture(const ParsedProject &project, const CommandlineFlags &flags)
+  DWYUTestFixture(ParsedProject &project, const CommandlineFlags &flags)
       : session_{&log_messages_, &log_messages_, &log_messages_,
                  MakeAtLeastVerbosity(flags, 1)},
         dwyu_(session_, project, edit_expector_.checker()) {}

@@ -28,6 +28,7 @@
 #include "bant/frontend/parsed-project_testutil.h"
 #include "bant/session.h"
 #include "bant/types-bazel.h"
+#include "bant/util/filesystem.h"
 #include "gtest/gtest.h"
 
 namespace bant {
@@ -39,13 +40,12 @@ class MacroSubstituteTest : public ::testing::Test {
     std::string_view to_substitute, std::string_view expected,
     const BazelPackage &target_package = {}, bool elab = false) {
     const CommandlineFlags flags = CommandlineFlags{.verbose = 1};
-    const auto &substitute_parsed = pp_.Add(target_package.ToString(),
-                                             to_substitute);
+    const auto &substitute_parsed =
+      pp_.Add(target_package.ToString(), to_substitute);
 
     Session session(&std::cerr, &std::cerr, &std::cerr, flags);
-    Node *macro_substited =
-      MacroSubstitute(session, &pp_.project(), target_package,
-                      substitute_parsed->ast);
+    Node *macro_substited = MacroSubstitute(
+      session, &pp_.project(), target_package, substitute_parsed->ast);
     if (elab) {
       macro_substited =
         Elaborate(session, &pp_.project(), target_package, {}, macro_substited);
@@ -341,13 +341,13 @@ foo = cc_library(name = name, srcs = glob(["*.cc"]))
     auto result = MacroSubstituteAndPrint(R"input(
 foo(name="abc_lib")
 )input",
-                                        R"expanded(
+                                          R"expanded(
 cc_library(
   name = "abc_lib",
   srcs = ["abc.cc"],
 )
 )expanded",
-                                        abc_pkg, /*elab=*/true);
+                                          abc_pkg, /*elab=*/true);
     EXPECT_EQ(result.first, result.second);
   }
   {
@@ -355,13 +355,13 @@ cc_library(
     auto result = MacroSubstituteAndPrint(R"input(
 foo(name="def_lib")
 )input",
-                                        R"expanded(
+                                          R"expanded(
 cc_library(
   name = "def_lib",
   srcs = ["def.cc"],
 )
 )expanded",
-                                        def_pkg, /*elab=*/true);
+                                          def_pkg, /*elab=*/true);
     EXPECT_EQ(result.first, result.second);
   }
 }

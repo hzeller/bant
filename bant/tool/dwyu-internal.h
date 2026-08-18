@@ -56,7 +56,7 @@ using TargetToFileLocation = OneToOne<BazelTarget, std::string_view>;
 // just needed in tests.
 class DWYUGenerator {
  public:
-  DWYUGenerator(Session &session, const ParsedProject &project,
+  DWYUGenerator(Session &session, ParsedProject &project,
                 EditCallback emit_deps_edit);
   virtual ~DWYUGenerator() = default;
 

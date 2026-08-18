@@ -298,10 +298,8 @@ CliStatus RunCommand(Session &session, Command cmd,
     flags.bant_macro_expand = true;
   }
 
-  auto elab_options = GetElaborationOptionsFrom(flags, project);
+  const auto elab_options = GetElaborationOptionsFrom(flags, project);
   if (flags.elaborate) {
-    const auto index = bant::ExtractFilegroupTargets(project);
-    elab_options.filegroup_index = &index;
     bant::Elaborate(session, &project, elab_options);
   }
 

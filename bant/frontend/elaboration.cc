@@ -1173,13 +1173,12 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
 
   // Input a list of filenames or filegroups. Expand
   Node *HandleExpandFilegroups(FunCall *f) {
+    if (!options_.filegroup_index) return f;  // only handle if we have index.
     List *const arg_list = f->argument();
     if (!arg_list || arg_list->size() != 1) return f;
     Node *arg = arg_list->at(0);
     List *input_list = arg->CastAsList();
     if (!input_list) return f;
-    // If we don't have and index, just return current list.
-    if (!options_.filegroup_index) return input_list;
     std::vector<std::string_view> output = query::ExtractStringList(input_list);
     bool any_change =
       ExpandFilegroupsInList(package_, *options_.filegroup_index, &output);
