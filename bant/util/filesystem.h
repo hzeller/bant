@@ -31,6 +31,9 @@
 #include "absl/synchronization/mutex.h"
 
 namespace bant {
+namespace test {
+class FilesystemTesting;
+}
 
 // Platform-independent `struct dirent`-like struct with only the things
 // we're interested in.
@@ -96,17 +99,9 @@ class Filesystem {
     return dir_cache_.size();
   }
 
-  // -- Only available when linking testonly target :filesystem-testing
-
-  // Evict cache. Might be needed in unit tests.
-  void EvictCache();
-
-  // Insert file contents to be returned under the given paths; also populates
-  // the corresponding directories.
-  void InjectTestFileContents(
-    const std::vector<std::pair<std::string_view, std::string_view>> &contents);
-
  private:
+  friend class ::bant::test::FilesystemTesting;
+
   Filesystem() = default;
 
   using CacheEntry = std::vector<DirectoryEntry>;
@@ -118,6 +113,17 @@ class Filesystem {
                                        std::string_view filename);
 
   static std::string_view LightlyCanonicalizeAsCacheKey(std::string_view path);
+
+  // -- Only available when linking testonly target :filesystem-testing
+  // Use via class FilesystemTesting
+  //
+  // Evict cache. Might be needed in unit tests.
+  void EvictCache();
+
+  // Insert file contents to be returned under the given paths; also populates
+  // the corresponding directories.
+  void InjectTestFileContents(
+    const std::vector<std::pair<std::string_view, std::string_view>> &contents);
 
   // NB: Node hash maps as we don't want the locations of the values to be
   // changing location as we return references.

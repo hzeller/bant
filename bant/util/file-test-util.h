@@ -20,6 +20,7 @@
 #include <string_view>
 #include <system_error>
 
+#include "bant/util/filesystem-testing.h"
 #include "bant/util/filesystem.h"
 #include "gtest/gtest.h"
 
@@ -38,12 +39,12 @@ class ChangeToTmpDir {
 
     // Since we're changing cwd underneath, can't re-use cached results,
     // because that stores relative to cwd.
-    Filesystem::instance().EvictCache();
+    FilesystemTesting::EvictCache(Filesystem::instance());
   }
 
   ~ChangeToTmpDir() {
     std::filesystem::current_path(dir_before_, error_receiver_);
-    Filesystem::instance().EvictCache();
+    FilesystemTesting::EvictCache(Filesystem::instance());
   }
 
   void touch(std::string_view relative_to, std::string_view file) {

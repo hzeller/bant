@@ -150,6 +150,7 @@ cc_library(
     name = "filesystem-testing",
     testonly = True,
     srcs = ["filesystem-testing.cc"],
+    hdrs = ["filesystem-testing.h"],
     tags = ["keep_dep"],
     deps = [
         ":file-utils",
@@ -196,6 +197,7 @@ cc_library(
     hdrs = ["file-test-util.h"],
     deps = [
         ":file-utils",
+        ":filesystem-testing",
         "@googletest//:gtest",
     ],
 )

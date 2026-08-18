@@ -28,6 +28,7 @@
 #include "bant/frontend/parsed-project_testutil.h"
 #include "bant/session.h"
 #include "bant/types-bazel.h"
+#include "bant/util/filesystem-testing.h"
 #include "bant/util/filesystem.h"
 #include "gtest/gtest.h"
 
@@ -329,8 +330,11 @@ cc_test(
 
 TEST_F(MacroSubstituteTest, DeepCopyRegression) {
   Filesystem &fs = Filesystem::instance();
-  fs.EvictCache();
-  fs.InjectTestFileContents({{"abc_pkg/abc.cc", ""}, {"def_pkg/def.cc", ""}});
+  test::FilesystemTesting::EvictCache(fs);
+  test::FilesystemTesting::InjectTestFileContents(fs, {
+                                                        {"abc_pkg/abc.cc", ""},
+                                                        {"def_pkg/def.cc", ""},
+                                                      });
 
   SetBuiltinMacros(R"(
 foo = cc_library(name = name, srcs = glob(["*.cc"]))

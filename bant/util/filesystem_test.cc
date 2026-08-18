@@ -18,6 +18,7 @@
 #include "bant/util/filesystem.h"
 
 #include "bant/util/file-test-util.h"
+#include "bant/util/filesystem-testing.h"
 #include "gtest/gtest.h"
 
 namespace bant {
@@ -90,17 +91,17 @@ TEST(FilesystemTest, DirectoryListing) {
 
   // Testing cache evicting success (used in unit tests for clean slates)
   EXPECT_EQ(fs.dir_cache_size(), 2u);
-  fs.EvictCache();
+  test::FilesystemTesting::EvictCache(fs);
   EXPECT_EQ(fs.dir_cache_size(), 0u);
 }
 
 TEST(FilesystemTest, TestonlyDirectoryListing) {
   Filesystem &fs = Filesystem::instance();
-  fs.EvictCache();
-  fs.InjectTestFileContents({{"baz", "hello-baz"},
-                             {"zulu", ""},
-                             {"bar/abc", "hello-abc"},
-                             {"foo", ""}});
+  test::FilesystemTesting::EvictCache(fs);
+  test::FilesystemTesting::InjectTestFileContents(fs, {{"baz", "hello-baz"},
+                                                       {"zulu", ""},
+                                                       {"bar/abc", "hello-abc"},
+                                                       {"foo", ""}});
 
   const auto &entries = fs.ReadDir(".");
   EXPECT_EQ(entries.size(), 4u);

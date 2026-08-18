@@ -36,6 +36,7 @@
 #include "bant/types-bazel.h"
 #include "bant/util/file-test-util.h"
 #include "bant/util/file-utils.h"
+#include "bant/util/filesystem-testing.h"
 #include "bant/util/filesystem.h"
 #include "gtest/gtest.h"
 
@@ -1476,9 +1477,10 @@ static std::pair<std::string, std::string> TestGlobFile(
   const std::vector<std::string_view> &expected = {},
   std::string_view extra_arg = "") {
   Filesystem &fs = Filesystem::instance();
-  fs.EvictCache();
+  test::FilesystemTesting::EvictCache(fs);
   for (const std::string_view file : filenames) {
-    fs.InjectTestFileContents({{FilesystemPath(package, file).path(), ""}});
+    test::FilesystemTesting::InjectTestFileContents(
+      fs, {{FilesystemPath(package, file).path(), ""}});
   }
 
   // Caller might provide the epxecgted list
