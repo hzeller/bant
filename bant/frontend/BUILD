@@ -300,6 +300,7 @@ cc_test(
         ":macro-substitutor",
         ":parsed-project",
         ":parsed-project_testutil",
+        "//bant/util:filesystem-testing",
         ":parser",
         "//bant:session",
         "//bant:types-bazel",

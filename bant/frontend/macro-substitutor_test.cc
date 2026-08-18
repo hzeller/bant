@@ -37,22 +37,24 @@ class MacroSubstituteTest : public ::testing::Test {
  public:
   std::pair<std::string, std::string> MacroSubstituteAndPrint(
     std::string_view to_substitute, std::string_view expected,
-    bool elab = false) {
+    const BazelPackage &target_package = {}, bool elab = false) {
     const CommandlineFlags flags = CommandlineFlags{.verbose = 1};
-    const auto &substitute_parsed = pp_.Add("//substitute", to_substitute);
+    const auto &substitute_parsed = pp_.Add(target_package.ToString(),
+                                             to_substitute);
 
     Session session(&std::cerr, &std::cerr, &std::cerr, flags);
     Node *macro_substited =
-      MacroSubstitute(session, &pp_.project(), {}, substitute_parsed->ast);
+      MacroSubstitute(session, &pp_.project(), target_package,
+                      substitute_parsed->ast);
     if (elab) {
       macro_substited =
-        Elaborate(session, &pp_.project(), {}, {}, macro_substited);
+        Elaborate(session, &pp_.project(), target_package, {}, macro_substited);
     }
     const std::string sub_print = ToString(macro_substited);
 
     // Parse and re-print expected to get same formatting.
     const std::string expect_print =
-      ToString(pp_.Add("//expect", expected)->ast);
+      ToString(pp_.Add(target_package.ToString() + "_expect", expected)->ast);
 
     return {expect_print, sub_print};
   }
@@ -121,7 +123,7 @@ SOME_LIST=["a", "b", "c"]
   foo(name = "generated-f"),
 ]
 )expanded",
-                                              /* elab= */ true);
+                                              {}, /* elab= */ true);
 
   EXPECT_EQ(result.first, result.second);
 }
@@ -323,6 +325,31 @@ cc_test(
 )
 )expanded");
   EXPECT_EQ(result.first, result.second);
+}
+
+TEST_F(MacroSubstituteTest, DeepCopyRegression) {
+  Filesystem &fs = Filesystem::instance();
+  fs.EvictCache();
+  fs.InjectTestFileContents({{"abc_pkg/abc.cc", ""}, {"def_pkg/def.cc", ""}});
+
+  SetBuiltinMacros(R"(
+foo = cc_library(name = name, srcs = glob(["*.cc"]))
+)");
+
+  {
+    const auto abc_pkg = *BazelPackage::ParseFrom("//abc_pkg");  // NOLINT
+    auto result = MacroSubstituteAndPrint(R"input(
+foo(name="abc_lib")
+)input",
+                                        R"expanded(
+cc_library(
+  name = "abc_lib",
+  srcs = ["abc.cc"],
+)
+)expanded",
+                                        abc_pkg, /*elab=*/true);
+    EXPECT_EQ(result.first, result.second);
+  }
 }
 
 TEST_F(MacroSubstituteTest, BuiltinMacrosAreParsing) {
