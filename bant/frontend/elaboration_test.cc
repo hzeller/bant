@@ -343,6 +343,7 @@ OUT = [ "hello b=2, c=3", "world b=5, c=6" ]
 )lc-result");
   EXPECT_EQ(result.first, result.second);
 }
+
 TEST_F(ElaborationTest, ListComprehensionTupleFromMap) {
   auto result = ElabAndPrint(
     R"lc-in(
@@ -443,6 +444,19 @@ G = [
      2,
      4,
 ]
+)lc-result");
+  EXPECT_EQ(result.first, result.second);
+}
+
+TEST_F(ElaborationTest, ListComprehensionUnderSpecifiedStaysUnevaluated) {
+  // Function yielding a list does not exst, so list comprehension should
+  // stay unevaluated.
+  auto result = ElabAndPrint(
+    R"lc-in(
+OUT = [ f for f in unknown_function() ]
+)lc-in",
+    R"lc-result(
+OUT = [ f for f in unknown_function() ]
 )lc-result");
   EXPECT_EQ(result.first, result.second);
 }

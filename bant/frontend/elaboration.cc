@@ -516,7 +516,7 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     // sequence gracefully. If partial evaluation fails to sequentially unpack,
     // we fallback to returning unresolved portions.
     if (!eval) return result;
-    return eval;
+    return lc;
   }
 
  private:
