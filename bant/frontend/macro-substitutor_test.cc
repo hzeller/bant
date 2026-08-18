@@ -350,6 +350,20 @@ cc_library(
                                         abc_pkg, /*elab=*/true);
     EXPECT_EQ(result.first, result.second);
   }
+  {
+    const auto def_pkg = *BazelPackage::ParseFrom("//def_pkg");  // NOLINT
+    auto result = MacroSubstituteAndPrint(R"input(
+foo(name="def_lib")
+)input",
+                                        R"expanded(
+cc_library(
+  name = "def_lib",
+  srcs = ["def.cc"],
+)
+)expanded",
+                                        def_pkg, /*elab=*/true);
+    EXPECT_EQ(result.first, result.second);
+  }
 }
 
 TEST_F(MacroSubstituteTest, BuiltinMacrosAreParsing) {

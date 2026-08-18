@@ -33,42 +33,25 @@ class VariableSubstituteCopyVisitor : public NodeVisitor {
   Node *VisitAssignment(Assignment *a) override {
     // Not visiting the identifier; lhs regarded immutable.
     Node *right_prime = WalkNonNull(a->right());
-    if (right_prime == a->right()) return a;
     return Make<Assignment>(a->left(), right_prime, a->source_range());
   }
 
   Node *VisitFunCall(FunCall *f) override {
     // Not visiting the identifier; lhs regarded immutable.
     Node *right_prime = WalkNonNull(f->right());
-    if (right_prime == f->right()) return f;
     return Make<FunCall>(f->identifier(), right_prime->CastAsList());
   }
 
   Node *VisitList(List *l) override {
-    // TODO: replacements in lists are rare, so creating a temporary vector
-    // for each of these is expensive. Instead, we should just go through the
-    // list, and only once we reach the first difference, start building the
-    // list up to that and continue building it .
-    std::vector<Node *> new_elements;
-    new_elements.reserve(l->size());
-    bool all_same = true;
-    for (Node *const element : *l) {
-      Node *const element_prime = WalkNonNull(element);
-      all_same &= (element == element_prime);
-      new_elements.push_back(element_prime);
-    }
-    if (all_same) return l;
     List *result = Make<List>(l->type());
-    for (Node *element : new_elements) {
-      result->Append(arena_, element);
+    for (Node *const element : *l) {
+      result->Append(arena_, WalkNonNull(element));
     }
     return result;
   }
 
   Node *VisitUnaryExpr(UnaryExpr *e) override {
-    Node *const node_prime = WalkNonNull(e->node());
-    if (node_prime == e->node()) return e;
-    return Make<UnaryExpr>(e->op(), node_prime);
+    return Make<UnaryExpr>(e->op(), WalkNonNull(e->node()));
   }
 
   Node *VisitBinOpNode(BinOpNode *b) override {
@@ -77,16 +60,11 @@ class VariableSubstituteCopyVisitor : public NodeVisitor {
       (b->op() == '.' && b->right() && b->right()->CastAsIdentifier())
         ? b->right()
         : WalkNonNull(b->right());
-    if (left_prime == b->left() && right_prime == b->right()) {
-      return b;  // no change.
-    }
     return Make<BinOpNode>(left_prime, right_prime, b->op(), b->source_range());
   }
 
   Node *VisitListComprehension(ListComprehension *lc) override {
-    // Dance around that we actually don't know if a BinOp type comes back.
     Node *for_node_prime = WalkNonNull(lc->for_node());
-    if (for_node_prime == lc->for_node()) return lc;
     return Make<ListComprehension>(lc->type(), for_node_prime->CastAsBinOp());
   }
 
@@ -94,10 +72,6 @@ class VariableSubstituteCopyVisitor : public NodeVisitor {
     Node *const condition_prime = WalkNonNull(t->condition());
     Node *const positive_prime = WalkNonNull(t->positive());
     Node *const negative_prime = WalkNonNull(t->negative());
-    if (condition_prime == t->condition() && positive_prime == t->positive() &&
-        negative_prime == t->negative()) {
-      return t;
-    }
     return Make<Ternary>(condition_prime, positive_prime, negative_prime);
   }
 

@@ -57,7 +57,8 @@ foo(
   const query::KwMap no_vars;
   Node *const original = Parse(kOriginal);
   Node *const copy = VariableSubstituteCopy(original, arena(), no_vars);
-  EXPECT_EQ(original, copy);  // Deep copy, but all scalar literals.
+  EXPECT_NE(original, copy);  // Deep copy creates new AST nodes.
+  EXPECT_EQ(ToString(original), ToString(copy));
 }
 
 TEST_F(VariableSubstituteCopyTest, TestVarReplacement) {

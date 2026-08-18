@@ -28,12 +28,7 @@ namespace bant {
 // provided in "varmap".
 //
 // Unlike the elaboration, this does _not_ modify the original AST, but
-// copies if needed. This is a copy-on-write operation, so only nodes that
-// depend on a variable substitution will be newly allocated in the "arena"
-// while unaffected nodes will be hocked up as they are.
-//
-// In consequence, iff there are no variable subsitutions, the returned Node
-// pointer equals the input "ast".
+// creates a deep copy where identifiers matching "varmap" are substituted.
 //
 // Caller needs to make sure to not provide variable subsitutions that reach
 // into the original AST to not accidentally create cycles (unlikely scenario).
