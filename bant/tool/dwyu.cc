@@ -1225,6 +1225,18 @@ DWYUGenerator::DWYUGenerator(Session &session, ParsedProject &project,
   // We should just pass this through.
   filegroups_ = ExtractFilegroupTargets(project);
 
+  // Now that we have all filegroups after the whole dependency graph
+  // is loaded, we can evaluate bant_expand_filegroups().
+  // All other evaluations are off.
+  // Do this before we extract the remaining indices.
+  const ElaborationOptions elab_options{
+    .builtin_macro_expansion = false,
+    .expand_load_functions = false,
+    .evaluate_glob_call = false,
+    .filegroup_index = &filegroups_,
+  };
+  bant::Elaborate(session, &project, elab_options);
+
   // for visibilitychecks
   packagegroups_ = ExtractPackageGroups(project);
 
@@ -1246,17 +1258,6 @@ DWYUGenerator::DWYUGenerator(Session &session, ParsedProject &project,
 
   InitKnownLibraries();
   stats.AddCount(known_libs_.size());
-
-  // Now that we have all filegroups after the whole dependency graph
-  // is loaded, we can evaluate bant_expand_filegroups().
-  // All other evaluations are off.
-  const ElaborationOptions elab_options{
-    .builtin_macro_expansion = false,
-    .expand_load_functions = false,
-    .evaluate_glob_call = false,
-    .filegroup_index = &filegroups_,
-  };
-  bant::Elaborate(session, &project, elab_options);
 }
 
 size_t DWYUGenerator::CreateEditsForPattern(const BazelTargetMatcher &pattern) {
