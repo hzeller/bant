@@ -49,11 +49,11 @@ class AlignedTextColumnPrinter : public TablePrinter {
                            const std::vector<std::string> &headers)
       : out_(out),
         // TODO: the print table header should be chosen by flag do_color.
-        print_table_header_(isatty(STDOUT_FILENO)),
+        print_table_meta_(isatty(STDOUT_FILENO)),
         highligther_(highligther),
         headers_(headers),
         widths_(headers.size()) {
-    if (print_table_header_) {
+    if (print_table_meta_) {
       for (size_t i = 0; i < headers.size(); ++i) {
         widths_[i] = headers[i].length();
       }
@@ -62,6 +62,7 @@ class AlignedTextColumnPrinter : public TablePrinter {
 
   void AddRow(const std::vector<std::string> &row) final {
     CHECK_EQ(row.size(), widths_.size());
+    ++before_grep_count_;
     // Filter out early, so that we can have compact column widths.
     if (!highligther_.Match(absl::StrJoin(row, "\t"), nullptr)) {
       return;
@@ -93,7 +94,7 @@ class AlignedTextColumnPrinter : public TablePrinter {
     // as the eye does not have an 'column alignment' hint.
     const int min_space = buffer_.size() < 2 ? 4 : 1;
 
-    if (print_table_header_) {
+    if (print_table_meta_) {
       std::cerr << Dim(true);
       for (size_t i = 0; i < headers_.size(); ++i) {
         if (column_selector > 0 && std::cmp_not_equal(i + 1, column_selector)) {
@@ -121,13 +122,21 @@ class AlignedTextColumnPrinter : public TablePrinter {
       GrepHighlight(highligther_, row_out.str(), out_,
                     HighlightWhat::kJustHighlight);
     }
+    if (print_table_meta_ && !buffer_.empty()) {
+      std::cerr << Dim(true) << "Total " << before_grep_count_ << " rows.";
+      if (before_grep_count_ != buffer_.size()) {
+        std::cerr << " Grep-selected " << buffer_.size() << " of these.";
+      }
+      std::cerr << Norm(true) << "\n";
+    }
   }
 
  private:
   std::ostream &out_;
-  const bool print_table_header_;
+  const bool print_table_meta_;
   const GrepHighlighter &highligther_;
   const std::vector<std::string> headers_;
+  size_t before_grep_count_ = 0;
   // Buffer to keep while determining the print width;
   std::vector<int> widths_;
   std::vector<std::vector<std::string>> buffer_;
