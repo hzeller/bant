@@ -346,8 +346,10 @@ static void AppendProtoLibraryHeaders(const ParsedProject &project,
         }
 
         // Create a header file out of it. foo.proto becomes foo.pb.h or, in
-        // some environments, foo.proto.h
-        for (const std::string_view suffix : {".pb.h", ".proto.h"}) {
+        // newer environments, foo.proto.h.
+        // TODO: all this can probably done with macros these days.
+        for (const std::string_view suffix :
+             {".pb.h", ".proto.h", ".proto.static_reflection.h"}) {
           std::string proto_header = absl::StrCat(stem, middle_name, suffix);
           proto_header = package.QualifiedFile(proto_header);
           // What is strip_include_prefix is called strip_import_prefix
