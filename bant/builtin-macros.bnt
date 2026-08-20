@@ -273,5 +273,8 @@ xls_pass = bant_forward_args(
     cc_library(),
 )
 
-perfetto_proto_library = bant_forward_args(proto_library())
+# Perfetto has all kinds of forwarding macros.
+perfetto_cc_library = bant_forward_args(cc_library())
 perfetto_cc_proto_library = bant_forward_args(cc_proto_library())
+perfetto_filegroup = bant_forward_args(filegroup())
+perfetto_proto_library = bant_forward_args(proto_library())
