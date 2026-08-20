@@ -359,17 +359,13 @@ std::optional<std::string_view> DWYUGenerator::AvoidDueToVisibility(
 
 std::optional<std::string_view> DWYUGenerator::AvoidDependencyReason(
   const BazelTarget &self, const BazelTarget &dep) const {
-  const bool strict_avoid_dep =
-    session_.flags().dep_choice == DependencySetBuilding::kMinimize;
   if (auto found = known_libs_.find(dep); found != known_libs_.end()) {
     if (!found->second.deprecation.empty()) {
       return found->second.deprecation;
     }
-    if (strict_avoid_dep) {
-      if (auto avoid_dep = TagContains(found->second.tags, "avoid_dep");
-          avoid_dep.has_value()) {
-        return avoid_dep;  // Original string_view from file.
-      }
+    if (auto avoid_dep = TagContains(found->second.tags, "avoid_dep");
+        avoid_dep.has_value()) {
+      return avoid_dep;  // Original string_view from file.
     }
 
     // Hack: the gtest_for_library should be avoided as well, but it doesn't
@@ -380,6 +376,25 @@ std::optional<std::string_view> DWYUGenerator::AvoidDependencyReason(
     }
   }
   return AvoidDueToVisibility(self, dep);
+}
+
+bool DWYUGenerator::IsAvoidDepWaived(
+  std::string_view reason, const BazelTarget &dep,
+  const TargetToFileLocation &declared_deps) const {
+  return reason == "avoid_dep" &&
+         session_.flags().dep_choice == DependencySetBuilding::kConservative &&
+         declared_deps.contains(dep);
+}
+
+bool DWYUGenerator::ShouldAvoidDependency(
+  const BazelTarget &self, const BazelTarget &dep,
+  const TargetToFileLocation &declared_deps) const {
+  auto reason = AvoidDependencyReason(self, dep);
+  if (!reason.has_value()) return false;
+  if (IsAvoidDepWaived(*reason, dep, declared_deps)) {
+    return false;
+  }
+  return true;
 }
 
 namespace {
@@ -473,11 +488,12 @@ void DWYUGenerator::LogUnknownProvider(const NamedLineIndexedContent &source,
 
 void DWYUGenerator::AddVisibleAlternatives(
   const BazelTarget &target, const AlternativeSet &alternatives,
+  const TargetToFileLocation &declared_deps,
   IncludeNeededDepsAlternatives &result) {
   AlternativeSet no_limits;
   AlternativeSet avoid_if_possible;
   for (const BazelTarget &t : alternatives) {
-    if (AvoidDependencyReason(target, t).has_value()) {
+    if (ShouldAvoidDependency(target, t, declared_deps)) {
       avoid_if_possible.emplace(t);
     } else {
       no_limits.emplace(t);
@@ -494,12 +510,13 @@ void DWYUGenerator::AddVisibleAlternatives(
 // Add alternatives, but rank root > bazel_dep() > randomly found dependencies
 void DWYUGenerator::AddVisibleAlternativesWithStratum(
   const BazelTarget &target, const AlternativeSet &alternatives,
+  const TargetToFileLocation &declared_deps,
   IncludeNeededDepsAlternatives &result) {
   Range stratum_range;
   std::vector<BazelTarget> temp_result;
   bool found_non_avoiding = false;
   for (const BazelTarget &t : alternatives) {
-    const bool is_to_avoid = AvoidDependencyReason(target, t).has_value();
+    const bool is_to_avoid = ShouldAvoidDependency(target, t, declared_deps);
     if (is_to_avoid && found_non_avoiding) continue;
     if (!is_to_avoid && !found_non_avoiding) {
       // Until we find the first non-avoid alternative, we also
@@ -657,8 +674,11 @@ IncludeNeededDepsAlternatives DWYUGenerator::DependenciesNeededBySources(
           reason.has_value()) {
         const FileLocation loc = project_.GetLocation(*reason);
         msg << Red(session_) << " (avoid if possible: "
-            << HyperLinked(session_.linkgen(), loc, *reason) << ")"
-            << Norm(session_);
+            << HyperLinked(session_.linkgen(), loc, *reason);
+        if (IsAvoidDepWaived(*reason, possible_provider, declared_deps)) {
+          msg << " but waived due to --dep-choice=conservative";
+        }
+        msg << ")" << Norm(session_);
       }
       const auto found_declared = declared_deps.find(possible_provider);
       if (found_declared != declared_deps.end()) {
@@ -803,7 +823,8 @@ IncludeNeededDepsAlternatives DWYUGenerator::DependenciesNeededBySources(
           conservatively_no_remove->insert(header_providers.begin(),
                                            header_providers.end());
         } else {
-          AddVisibleAlternativesWithStratum(target, header_providers, result);
+          AddVisibleAlternativesWithStratum(target, header_providers,
+                                            declared_deps, result);
         }
         continue;
       }
@@ -833,7 +854,8 @@ IncludeNeededDepsAlternatives DWYUGenerator::DependenciesNeededBySources(
           conservatively_no_remove->insert(found->target_set->begin(),
                                            found->target_set->end());
         } else {
-          AddVisibleAlternativesWithStratum(target, *found->target_set, result);
+          AddVisibleAlternativesWithStratum(target, *found->target_set,
+                                            declared_deps, result);
         }
         continue;
       }
@@ -913,7 +935,7 @@ IncludeNeededDepsAlternatives DWYUGenerator::DependenciesNeededBySources(
 IncludeNeededDepsAlternatives DWYUGenerator::DependenciesNeededByProtoSources(
   const BazelTarget &target, const BazelPackage &package,
   const std::vector<std::string_view> &sources,
-  bool *all_imports_accounted_for) {
+  const TargetToFileLocation &declared_deps, bool *all_imports_accounted_for) {
   Stat &source_read_stats =
     session_.GetStatsFor("  - read(proto source)", "sources");
   Stat &source_grep_stats =
@@ -966,7 +988,8 @@ IncludeNeededDepsAlternatives DWYUGenerator::DependenciesNeededByProtoSources(
             Loc(source, imp_file) << "    | " << p << "\n";
           }
         }
-        AddVisibleAlternatives(target, *found->target_set, result);
+        AddVisibleAlternatives(target, *found->target_set, declared_deps,
+                               result);
         continue;
       }
 
@@ -1058,7 +1081,8 @@ void DWYUGenerator::CreateEditsForTarget(const BazelTarget &target,
   // Grep for all includes/imports they use to determine which deps we need
   auto deps_needed = is_proto_library
                        ? DependenciesNeededByProtoSources(
-                           target, package, sources, &all_header_deps_known)
+                           target, package, sources, all_declared_dependencies,
+                           &all_header_deps_known)
                        : DependenciesNeededBySources(
                            target, package, sources, includes_list, defines,
                            all_declared_dependencies, &conservatively_no_remove,

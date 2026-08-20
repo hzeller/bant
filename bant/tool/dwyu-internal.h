@@ -113,6 +113,17 @@ class DWYUGenerator {
   std::optional<std::string_view> AvoidDependencyReason(
     const BazelTarget &self, const BazelTarget &dep) const;
 
+  // Returns true if the dependency should be avoided, taking into account
+  // whether the target is already declared in declared_deps under conservative
+  // mode.
+  bool ShouldAvoidDependency(const BazelTarget &self, const BazelTarget &dep,
+                             const TargetToFileLocation &declared_deps) const;
+
+  // Returns true if an avoid_dep tag is waived because the dependency is
+  // already declared and we are running in conservative mode.
+  bool IsAvoidDepWaived(std::string_view reason, const BazelTarget &dep,
+                        const TargetToFileLocation &declared_deps) const;
+
   // Workspace stratum of a bazel target. Relevant to weed out imposters.
   int GetStratum(const BazelTarget &target) const;
 
@@ -138,7 +149,7 @@ class DWYUGenerator {
   IncludeNeededDepsAlternatives DependenciesNeededByProtoSources(
     const BazelTarget &target, const BazelPackage &package,
     const std::vector<std::string_view> &sources,
-    bool *all_imports_accounted_for);
+    const TargetToFileLocation &declared_deps, bool *all_imports_accounted_for);
 
   void CreateEditsForTarget(const BazelTarget &target,
                             const query::Result &details,
@@ -162,12 +173,14 @@ class DWYUGenerator {
   // Filter alternatives to only visible targets and append to result.
   void AddVisibleAlternatives(const BazelTarget &target,
                               const AlternativeSet &alternatives,
+                              const TargetToFileLocation &declared_deps,
                               IncludeNeededDepsAlternatives &result);
 
   // Like AddVisibleAlternatives but also considers stratum for cc targets.
-  void AddVisibleAlternativesWithStratum(const BazelTarget &target,
-                                         const AlternativeSet &alternatives,
-                                         IncludeNeededDepsAlternatives &result);
+  void AddVisibleAlternativesWithStratum(
+    const BazelTarget &target, const AlternativeSet &alternatives,
+    const TargetToFileLocation &declared_deps,
+    IncludeNeededDepsAlternatives &result);
 
   // Print filename and line/column of given string-view, possibly colored.
   std::ostream &Loc(const SourceLocator &locator, std::string_view where) const;
