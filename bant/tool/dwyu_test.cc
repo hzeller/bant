@@ -505,7 +505,7 @@ cc_binary(
 
 // Similar to deprecation, the tag = ["avoid_dep"] helps filter out.
 // (note: example similar to ChooseNonDeprecatedAlternative)
-TEST(DWYUTest, ChooseNonAvoidDepAlternative) {
+TEST(DWYUTest, ChooseNonAvoidDepAlternativeInMinimizeMode) {
   ParsedProjectTestUtil pp;
   pp.Add("//some/lib", R"(
 alias(
@@ -525,17 +525,124 @@ cc_library(
 cc_binary(
    name = "hello",
    srcs = ["hello.cc"],
-   deps = ["//some/lib:to_avoid_foo"],
+   deps = ["//some/lib:to_avoid_foo"],  # wrong dep here, expect replace
 )
 )");
 
   {
-    DWYUTestFixture tester(pp.project(), {.verbose = 3});
+    DWYUTestFixture tester(
+      pp.project(),
+      {.verbose = 3, .dep_choice = DependencySetBuilding::kMinimize});
     tester.ExpectAdd("//some/lib:new_foo");
     tester.ExpectRemove("//some/lib:to_avoid_foo");
     tester.AddSource("user/hello.cc", R"(#include "some/lib/foo.h")");
     tester.RunForTarget("//user:hello");
     EXPECT_THAT(tester.LogContent(), HasSubstr("avoid if possible: avoid_dep"));
+  }
+}
+
+TEST(DWYUTest, AllowExistingAvoidDepAlternativeInConservativeMode) {
+  ParsedProjectTestUtil pp;
+  pp.Add("//some/lib", R"(
+alias(
+  name = "to_avoid_foo",
+  actual = ":new_foo",
+  tags = ["avoid_dep"],
+)
+
+cc_library(
+  name = "new_foo",
+  srcs = ["foo.cc"],
+  hdrs = ["foo.h"],
+)
+)");
+
+  pp.Add("//user", R"(
+cc_binary(
+   name = "hello",
+   srcs = ["hello.cc"],
+   deps = ["//some/lib:to_avoid_foo"],  # wrong dep here, but keep
+)
+)");
+
+  {
+    DWYUTestFixture tester(
+      pp.project(),
+      {.verbose = 3, .dep_choice = DependencySetBuilding::kConservative});
+    // in conservative mode we acknowledge that the to avoid part is
+    // ok to keep; so no add and no remove, leave as-is.
+    tester.AddSource("user/hello.cc", R"(#include "some/lib/foo.h")");
+    tester.RunForTarget("//user:hello");
+
+#if 0
+    // Ideally we still tell about this being avoid_dep, but in this
+    // particular case it is allowed as it is already existing.
+    EXPECT_THAT(tester.LogContent(),
+                HasSubstr("avoid if possible: avoid_dep but waived due to "
+                          "--dep-choice=conservative"));
+#endif
+    EXPECT_THAT(tester.LogContent(), HasSubstr("✓ //some/lib:to_avoid_foo"));
+  }
+}
+
+TEST(DWYUTest, AvoidDepAlternativeForNewInsertInConservativeMode) {
+  ParsedProjectTestUtil pp;
+  pp.Add("//some/lib", R"(
+# We have two libraries, but one of them is avoid dep, so there is a clear
+# choice what to add
+alias(
+  name = "to_avoid_foo",
+  actual = ":new_foo",
+  tags = ["avoid_dep"],
+)
+
+cc_library(
+  name = "new_foo",
+  srcs = ["foo.cc"],
+  hdrs = ["foo.h"],
+)
+)");
+
+  pp.Add("//user", R"(
+cc_binary(
+   name = "hello",
+   srcs = ["hello.cc"],
+   deps = [],  # no dependency given, we expect a clear choice of new_foo
+)
+)");
+
+  // In kminimize mode, this is a clear choice.
+  {
+    DWYUTestFixture tester(
+      pp.project(),
+      {.verbose = 3, .dep_choice = DependencySetBuilding::kMinimize});
+    tester.AddSource("user/hello.cc", R"(#include "some/lib/foo.h")");
+    tester.ExpectAdd("//some/lib:new_foo");  // the only one not avoid_dep
+    tester.RunForTarget("//user:hello");
+    EXPECT_THAT(tester.LogContent(), HasSubstr("- //some/lib:to_avoid_foo"));
+    EXPECT_THAT(tester.LogContent(), HasSubstr("- //some/lib:new_foo"));
+  }
+
+  // also in Conservative mode it should be, however, right now we disable
+  // avoid_dep check alltogether, so the following is disabled now.
+  {
+    DWYUTestFixture tester(
+      pp.project(),
+      {.verbose = 3, .dep_choice = DependencySetBuilding::kConservative});
+    // in conservative mode we acknowledge that the to avoid part is
+    // ok to keep; so no add and no remove, leave as-is.
+    tester.AddSource("user/hello.cc", R"(#include "some/lib/foo.h")");
+#if 0
+  // this is what we want, currently disabled
+  tester.ExpectAdd("//some/lib:new_foo");  // the only one not avoid_dep
+  tester.RunForTarget("//user:hello");
+  EXPECT_THAT(tester.LogContent(), HasSubstr("- //some/lib:to_avoid_foo"));
+    EXPECT_THAT(tester.LogContent(), HasSubstr("- //some/lib:new_foo"));
+#else
+    // this is what happens instead.
+    tester.RunForTarget("//user:hello");
+    EXPECT_THAT(tester.LogContent(), HasSubstr("multiple choices"));
+#endif
   }
 }
 

@@ -359,13 +359,17 @@ std::optional<std::string_view> DWYUGenerator::AvoidDueToVisibility(
 
 std::optional<std::string_view> DWYUGenerator::AvoidDependencyReason(
   const BazelTarget &self, const BazelTarget &dep) const {
+  const bool strict_avoid_dep =
+    session_.flags().dep_choice == DependencySetBuilding::kMinimize;
   if (auto found = known_libs_.find(dep); found != known_libs_.end()) {
     if (!found->second.deprecation.empty()) {
       return found->second.deprecation;
     }
-    if (auto avoid_dep = TagContains(found->second.tags, "avoid_dep");
-        avoid_dep.has_value()) {
-      return avoid_dep;  // Original string_view from file.
+    if (strict_avoid_dep) {
+      if (auto avoid_dep = TagContains(found->second.tags, "avoid_dep");
+          avoid_dep.has_value()) {
+        return avoid_dep;  // Original string_view from file.
+      }
     }
 
     // Hack: the gtest_for_library should be avoided as well, but it doesn't
