@@ -134,19 +134,22 @@ std::string_view BazelPackage::MakeRelative(std::string_view fqn_file) const {
 }
 
 /*static*/ std::optional<BazelTarget> BazelTarget::ParseFrom(
-  std::string_view str, const BazelPackage &context) {
+  std::string_view str, const BazelPackage &context, bool allow_pattern) {
   const std::string_view project = context.project;
   std::string_view package;
   std::string_view target;
 
   std::vector<std::string_view> parts = absl::StrSplit(str, ':');
   switch (parts.size()) {
-  case 1: {
+  case 1: {  // foo/bar
     package = parts[0];
     auto last_slash = package.find_last_of('/');
     if (last_slash != std::string_view::npos) {
       // //absl/strings to be interpreted as //absl/strings:strings
       target = package.substr(last_slash + 1);
+      if (!allow_pattern && target == "...") {
+        return std::nullopt;
+      }
     } else if (!package.empty() && package[0] == '@') {
       // we just have a toplevel, e.g. @jsonhpp
       target = package.substr(1);
@@ -156,7 +159,7 @@ std::string_view BazelPackage::MakeRelative(std::string_view fqn_file) const {
     }
     break;
   }
-  case 2: {
+  case 2: {  // foo/bar:baz
     package = parts[0];
     target = parts[1];
     break;
@@ -267,7 +270,7 @@ std::optional<BazelPattern> BazelPattern::ParseFrom(
   const bool negative_match = pattern.starts_with('-');
   if (negative_match) pattern.remove_prefix(1);
 
-  auto target = BazelTarget::ParseFrom(pattern, context);
+  auto target = BazelTarget::ParseFrom(pattern, context, true);
   if (!target.has_value()) return std::nullopt;
 
   std::unique_ptr<RE2> regex;

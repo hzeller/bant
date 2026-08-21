@@ -79,7 +79,8 @@ class BazelTarget {
   // Parse target from string. Both forms //foo/bar:baz and :baz are
   // supported. The latter case is canonicalized by adding the context package.
   static std::optional<BazelTarget> ParseFrom(std::string_view str,
-                                              const BazelPackage &context);
+                                              const BazelPackage &context,
+                                              bool allow_pattern = false);
 
   BazelTarget() = default;
 

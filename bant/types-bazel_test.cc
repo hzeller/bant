@@ -194,6 +194,13 @@ TEST(TypesBazel, ParseTarget) {
   }
 }
 
+TEST(TypesBazel, MatchPatternsAreNotTargets) {
+  const BazelPackage context("", "foo/bar");
+  std::optional<BazelTarget> target_or =
+    BazelTarget::ParseFrom("//abc/foo/...", context);
+  EXPECT_FALSE(target_or.has_value());
+}
+
 TEST(TypesBazel, QualifiedFile) {
   const BazelPackage p("", "bar/baz");
   EXPECT_EQ(p.QualifiedFile("quux.cc"), "bar/baz/quux.cc");
