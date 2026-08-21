@@ -67,7 +67,9 @@ jobs:
           wget https://apt.llvm.org/llvm.sh
           chmod +x ./llvm.sh
           sudo ./llvm.sh 19
-          sudo apt install -y clang-format-19
+          sudo apt-get update
+          sudo apt-get install -y clang-format-19
+          sudo apt-get install -y golang-go
           go install github.com/bazelbuild/buildtools/buildifier@latest
           echo "PATH=$PATH:$(go env GOPATH)/bin/" >> $GITHUB_ENV
 
