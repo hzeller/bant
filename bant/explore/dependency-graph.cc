@@ -110,8 +110,13 @@ static void AppendPossibleFileDependencies(
       Filesystem &fs = Filesystem::instance();
       const std::optional<std::string> as_filename =
         context_package.FullyQualifiedFile(workspace, path_or_label);
-      if (as_filename.has_value() && fs.Exists(*as_filename)) {
-        return std::nullopt;  // physical file existing in source tree.
+      if (as_filename.has_value() &&
+          // To avoid an Exists() check, pre-check that it does not look
+          // like a pattern - in that case it is also not a dependency, early
+          // rejectable.
+          (as_filename->ends_with("/...")  // neither file nor package.
+           || fs.Exists(*as_filename))) {  // a file, and it exists.
+        return std::nullopt;  // not a depenency, it is an actual file.
       }
 
       // Alright, let's resolve this as a target, as this is also
