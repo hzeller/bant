@@ -1010,8 +1010,16 @@ IncludeNeededDepsAlternatives DWYUGenerator::DependenciesNeededByProtoSources(
 void DWYUGenerator::CreateEditsForTarget(const BazelTarget &target,
                                          const query::Result &details,
                                          const BazelPackage &package) {
-  if (details.bant_skip_dependency_check ||
-      TagContains(details.tags, "nofixdeps").has_value()) {
+  const bool do_skip_check_logging = session_.MinVerbosity(3);
+  if (details.bant_skip_dependency_check) {
+    return;  // Not logging that, typically used in macros anyway.
+  }
+  if (auto nofix_tag = TagContains(details.tags, "nofixdeps");
+      nofix_tag.has_value()) {
+    if (do_skip_check_logging) {
+      Loc(project_, *nofix_tag)
+        << " " << target << " skipped due to nofixdeps tag\n";
+    }
     return;
   }
 
@@ -1035,6 +1043,14 @@ void DWYUGenerator::CreateEditsForTarget(const BazelTarget &target,
   int max_rounds = 2;
   while (ExpandFilegroupsInList(target.package, filegroups_, &sources) &&
          --max_rounds > 0) {
+  }
+
+  if (sources.empty()) {
+    if (do_skip_check_logging) {
+      Loc(project_, details.name)
+        << " " << target << " skipped because there are no sources.\n";
+    }
+    return;
   }
 
   // all implicit -I with includes = ["include"] elements.

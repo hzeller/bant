@@ -336,6 +336,41 @@ cc_library(
   }
 }
 
+TEST(DWYUTest, LibraryWithoutSourcesShouldBeConsideredDependencyForwarding) {
+  ParsedProjectTestUtil pp;
+  pp.Add("//path", R"(
+cc_library(
+  name = "some_lib",
+  hdrs = ["foo.h"]
+)
+
+cc_library(
+  name = "some_other_lib",
+  hdrs = ["bar.h"]
+)
+
+# This library does not use any headers, yet has dependencies. We assume
+# that this is intentional and do not touch the dependencies here.
+cc_binary(
+  name = "baz",
+  # no srcs = []
+  # no hdrs = []
+  deps = [
+     ":some_lib",
+     ":some_other_lib",
+  ],
+)
+)");
+
+  {
+    DWYUTestFixture tester(pp.project(), {.verbose = 3});
+    // no removal expected
+    tester.RunForTarget("//path:baz");
+    EXPECT_THAT(tester.LogContent(),
+                HasSubstr("skipped because there are no sources"));
+  }
+}
+
 TEST(DWYUTest, ChooseMinimalDependencySetIfMultipleLibrariesProvideHeader) {
   ParsedProjectTestUtil pp;
   pp.Add("//path", R"(
@@ -1770,12 +1805,13 @@ cc_library(
 )
 )");
 
-  DWYUTestFixture tester(pp.project(), {});
+  DWYUTestFixture tester(pp.project(), {.verbose = 3});
   tester.AddSource("some/path/bar.cc", R"(
 #include "lib/path/foo.h"
 )");
   // Since tag "nofixdeps" is provided, we do NOT expect an Add() for :foo
   tester.RunForTarget("//some/path:bar");
+  EXPECT_THAT(tester.LogContent(), HasSubstr("skipped due to nofixdeps tag"));
 }
 
 // If something is deprecated, we usually would not consider it. However, if

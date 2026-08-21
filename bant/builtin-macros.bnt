@@ -40,7 +40,10 @@ dict = {k: v for (k, v) in _arg_0}
 #
 # Note: these only need to be 'approximate', enough for bant to know what files
 # and libraries are provided, broken down into bazel building blocks.
-# Use tags = ["nofixdeps"] in cc_library() to skip dwyu there.
+# If you expand to a cc_library() in a macro and don't want bant to dwyu that
+# macro expansion itself, then use one of
+#   * bant_skip_dependency_check = True  # this silently skips without logging
+#   * tags = ["nofixdeps"]               # this will show up in -vvv logging
 #
 # Genrules often have the same name as corresponding cc_library(); this allows
 # to accurately report where something is coming from. Same name for different
@@ -86,7 +89,7 @@ gentbl_cc_library = (
     cc_library(
         name = name,
         hdrs = tbl_outs.keys(),
-        tags = ["nofixdeps"],
+        bant_skip_dependency_check = True,
     ),
 )
 
@@ -166,7 +169,7 @@ cc_xls_ir_jit_wrapper = cc_library(
     name = name,
     srcs = [name + ".cc"],
     hdrs = [name + ".h"],
-    tags = ["nofixdeps"],
+    bant_skip_dependency_check = True,
 )
 
 xls_dslx_cpp_type_library = (
@@ -177,14 +180,14 @@ xls_dslx_cpp_type_library = (
     cc_library(
         name = name,
         hdrs = [name + ".h"],
-        tags = ["nofixdeps"],
+        bant_skip_dependency_check = True,
     ),
 )
 
 xls_dslx_ir_wrapper = cc_library(
     name = name + "_wrapper",
     hdrs = [name + "_wrapper.h"],
-    tags = ["nofixdeps"],
+    bant_skip_dependency_check = True,
 )
 
 xls_codegen_pass = (
@@ -218,7 +221,7 @@ xls_ir_cc_library_macro = (
     cc_library(
         name = name,
         hdrs = [name + ".h"],
-        tags = ["nofixdeps"],
+        bant_skip_dependency_check = True,
     ),
 )
 
@@ -230,7 +233,7 @@ xls_ir_cc_library = (
     cc_library(
         name = name,
         hdrs = [name + ".h"],
-        tags = ["nofixdeps"],
+        bant_skip_dependency_check = True,
     ),
 )
 
@@ -265,7 +268,7 @@ xls_cc_embed_data = (
     cc_library(
         name = name,
         hdrs = [name + "_embedded.h"],
-        tags = ["nofixdeps"],
+        bant_skip_dependency_check = True,
     ),
 )
 
