@@ -107,6 +107,13 @@ class TargetLocator {
     return FindInSupplemental(session, target);
   }
 
+  std::optional<FileLocation> GetLocationFor(Session &session,
+                                             const BazelPackage &package) {
+    auto as_pkg_target = package.QualifiedTarget("__pkg__");
+    if (!as_pkg_target) return std::nullopt;
+    return GetLocationFor(session, *as_pkg_target);
+  }
+
   const BazelWorkspace &workspace() const { return project_.workspace(); }
 
  private:
@@ -236,6 +243,17 @@ static bool PrintNodeInternal(Session &session,
           // We only go through the effort of
           // attempting to resolve and link these
           // when actually printed.
+          if (s.ends_with("/...") || s.ends_with(":all")) {  // a pattern
+            auto package = BazelPackage::ParseFrom(s.substr(0, s.length() - 3));
+            if (package.has_value()) {
+              if (auto loc = package_locator->GetLocationFor(session, *package);
+                  loc.has_value()) {
+                link_emitted = session.linkgen()->LinkTo(*loc, out);
+                return;
+              }
+            }
+          }
+
           auto target = context.QualifiedTarget(s);
           if (target.has_value()) {
             if (auto loc = package_locator->GetLocationFor(session, *target);
