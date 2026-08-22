@@ -70,6 +70,7 @@ class DWYUTestFixture {
         dwyu_(session_, project, edit_expector_.checker()) {}
 
   ~DWYUTestFixture() {
+    EXPECT_EQ(run_for_target_called_, 1) << "Forgot to call RunForTarget() ?";
     // Make sure that if there is a log output that the test will look for it.
     EXPECT_TRUE(log_content_requested_ || log_messages_.str().empty())
       << "Encountered messages, but never requested output to check\n"
@@ -89,6 +90,7 @@ class DWYUTestFixture {
   }
 
   void RunForTarget(std::string_view target) {
+    ++run_for_target_called_;
     auto pattern_or = BazelPattern::ParseFrom(target);
     CHECK(pattern_or.has_value());
     EXPECT_EQ(dwyu_.CreateEditsForPattern(*pattern_or), 1)
@@ -111,7 +113,8 @@ class DWYUTestFixture {
   Session session_;
   EditExpector edit_expector_;
   TestableDWYUGenerator dwyu_;
-  bool log_content_requested_{false};
+  bool log_content_requested_ = false;
+  int run_for_target_called_ = 0;
 };
 
 TEST(DWYUTest, Add_MissingDependency) {
