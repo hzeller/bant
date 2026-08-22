@@ -18,6 +18,7 @@
 #ifndef BANT_FILESYSTEM_PREWARM_CACHE_H
 #define BANT_FILESYSTEM_PREWARM_CACHE_H
 
+#include <string>
 #include <string_view>
 
 #include "absl/types/span.h"
@@ -42,10 +43,14 @@ namespace bant {
 // Filenames are based on arguments and flags and the project directory.
 // If init finds an existing file, it attempts to warm the OS filesystem cache.
 //
+// If output_file is non-empty, that file will be used regardless of ~/.cache/
+// path existing.
+//
 // The prewarm only happens if there is a ~/.cache/bant directory. The return
 // value indicated if prewarm caching was enabled.
 bool FilesystemPrewarmCacheInit(
-  bant::Session &session, absl::Span<const std::string_view> positional_args);
+  bant::Session &session, absl::Span<const std::string_view> positional_args,
+  const std::string &output_file);
 
 // Tell prewarm cache of future invocations that we just accessed a file.
 bool FilesystemPrewarmCacheRememberFileWasAccessed(std::string_view file);

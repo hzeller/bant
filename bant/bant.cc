@@ -311,6 +311,8 @@ int main(int argc, char *argv[]) {
   // TODO: replace with better flag handling.
   ExtractCustomFlags(&argc, argv, &flags.custom_flags);
 
+  std::string debug_fs_cache_file;  // fs cache for debugging
+
   using bant::OutputFormat;
   static const std::map<std::string_view, OutputFormat> kFormatOutNames = {
     {"native", OutputFormat::kNative}, {"s-expr", OutputFormat::kSExpr},
@@ -327,6 +329,7 @@ int main(int argc, char *argv[]) {
     OPT_PP_IFDEF_INC = 1005,
     OPT_DEP_CHOICE = 1006,
     OPT_NO_BUILTINS = 1007,
+    OPT_FS_CACHE_FILE = 1008,  // Not documented, useful for debugging
   };
 
   // clang-format off
@@ -344,13 +347,15 @@ int main(int argc, char *argv[]) {
     { "or",            no_argument,       nullptr, 'O'          },
     { "macro-expand",  no_argument,       nullptr, 'm'          },
     { "elaborate",     no_argument,       nullptr, 'e'          },
-    { "disallow-globbing",no_argument,    nullptr, OPT_DISALLOW_GLOBBING},
     { "directory",     required_argument, nullptr, 'C'          },
     { "bracket-include", required_argument, nullptr, OPT_BRACKET_INC },
     { "graph-augment", required_argument, nullptr, OPT_GRAPH_AUGMENT },
     { "pp-ifdef",      required_argument, nullptr, OPT_PP_IFDEF_INC },
     { "dep-choice",    required_argument, nullptr, OPT_DEP_CHOICE },
     { "no-builtins",   no_argument,       nullptr, OPT_NO_BUILTINS },
+    // Some non-documented flags useful for debugging.
+    { "disallow-globbing",no_argument,    nullptr, OPT_DISALLOW_GLOBBING},
+    { "fs-cache-file", required_argument, nullptr, OPT_FS_CACHE_FILE },
     //
     { nullptr, 0,                 nullptr, 0                    }};
   // NOLINTEND
@@ -482,6 +487,7 @@ int main(int argc, char *argv[]) {
     case OPT_GRAPH_AUGMENT: flags.graph_deps.emplace_back(optarg); break;
     case OPT_DISALLOW_GLOBBING: flags.elaborate_do_globbing = false; break;
     case OPT_NO_BUILTINS: flags.load_builtin_macros = false; break;
+    case OPT_FS_CACHE_FILE: debug_fs_cache_file = optarg; break;
     case 'c': {
       if (optarg && !absl::SimpleAtoi(optarg, &flags.column_select)) {
         return usage(argv[0], "--column requires a numeric parameter",
@@ -508,7 +514,8 @@ int main(int argc, char *argv[]) {
       positional_args.emplace_back(argv[i]);
     }
 
-    did_prewarm = bant::FilesystemPrewarmCacheInit(session, positional_args);
+    did_prewarm = bant::FilesystemPrewarmCacheInit(session, positional_args,
+                                                   debug_fs_cache_file);
     result = RunCliCommand(session, positional_args);
     if (result == bant::CliStatus::kExitCommandlineClarification) {
       session.error() << "\n\n";  // A bit more space to let message stand out.

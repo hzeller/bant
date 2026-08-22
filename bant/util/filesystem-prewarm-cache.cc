@@ -24,6 +24,7 @@
 #include <functional>  // for std::hash
 #include <ios>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <system_error>
@@ -109,14 +110,15 @@ void FilesystemPrewarmCache::InitCacheFile(bant::Session &session,
 
 // -- Public interface
 
-bool FilesystemPrewarmCacheInit(
+// If there is a ~/.cache/bant directory, create a unique filename.
+static std::optional<std::string> CreateCacheFileFromArgs(
   bant::Session &session, absl::Span<const std::string_view> positional_args) {
   // If the user created a ~/.cache/bant directory, use that.
   const char *homedir = getenv("HOME");
-  if (!homedir) return false;
+  if (!homedir) return std::nullopt;
   const std::string cache_dir = absl::StrCat(homedir, "/.cache/bant");
   if (!std::filesystem::is_directory(cache_dir)) {
-    return false;  // no dir, no cache.
+    return std::nullopt;  // no dir, no cache for you.
   }
 
   // Create cache key from the commandline args that influence which files
@@ -139,11 +141,24 @@ bool FilesystemPrewarmCacheInit(
     absl::StrCat(flags.recurse_dependency_depth, "-", flags.elaborate, "-",
                  flags.direct_filename));
 
-  const std::string cache_file = absl::StrFormat(
-    "%s/fs-warm-%08x-%s", cache_dir, argument_dependent_hash & 0xffff'ffff,
-    cwd.filename().c_str());
-  FilesystemPrewarmCache::instance().InitCacheFile(session, cache_file);
-  return true;
+  return absl::StrFormat("%s/fs-warm-%08x-%s", cache_dir,
+                         argument_dependent_hash & 0xffff'ffff,
+                         cwd.filename().c_str());
+}
+
+bool FilesystemPrewarmCacheInit(
+  bant::Session &session, absl::Span<const std::string_view> positional_args,
+  const std::string &output_file) {
+  if (!output_file.empty()) {
+    FilesystemPrewarmCache::instance().InitCacheFile(session, output_file);
+    return true;
+  }
+  if (auto maybe_path = CreateCacheFileFromArgs(session, positional_args);
+      maybe_path.has_value()) {
+    FilesystemPrewarmCache::instance().InitCacheFile(session, *maybe_path);
+    return true;
+  }
+  return false;
 }
 
 bool FilesystemPrewarmCacheRememberFileWasAccessed(std::string_view file) {
