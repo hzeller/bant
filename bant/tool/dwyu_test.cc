@@ -403,6 +403,37 @@ cc_binary(
   }
 }
 
+TEST(DWYUTest, DoNotRemoveDependencyIfEntirelyUnknown) {
+  ParsedProjectTestUtil pp;
+  pp.Add("//path", R"(
+cc_library(
+  name = "foo-providing",
+  hdrs = ["foo.h"]
+)
+
+cc_binary(
+  name = "bar",
+  srcs = ["bar.cc"],
+  deps = [
+    # some library nobody knows where it came from or what it does; keep
+    "//unknown/location:keep-the-thing",
+  ],
+)
+)");
+
+  {
+    DWYUTestFixture tester(pp.project(), {.verbose = 3});
+    tester.AddSource("path/bar.cc", R"(
+#include "path/foo.h"
+)");
+    tester.ExpectAdd(":foo-providing");
+    tester.RunForTarget("//path:bar");
+    EXPECT_THAT(tester.LogContent(), HasSubstr("- //path:foo-providing"));
+    EXPECT_THAT(tester.LogContent(),
+                HasSubstr("this being an unresolved target: '//unknown"));
+  }
+}
+
 TEST(DWYUTest, RequestUserGuidanceIfThereAreMultipleAlternatives) {
   // Sometimes, there are multiple libraries providing the same
   // header.

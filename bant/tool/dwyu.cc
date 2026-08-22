@@ -239,9 +239,13 @@ static std::optional<std::string_view> TagContains(List *tags_list,
 
 // Various predicates to check
 bool DWYUGenerator::DependencySaysShouldKeep(const BazelTarget &target,
+                                             std::string_view dep_in_file,
                                              ShouldKeepMessage *msg) const {
   auto found = known_libs_.find(target);
-  if (found == known_libs_.end()) return true;  // Unknown ? Be conservative.
+  if (found == known_libs_.end()) {
+    *msg = {"this being an unresolved target", dep_in_file};
+    return true;  // Unknown ? Be conservative.
+  }
   const query::Result &dep = found->second;
   // TODO: follow all libs we depend on ?
   if (dep.alwayslink_scalar && dep.alwayslink_scalar->AsInt()) {
@@ -1170,7 +1174,7 @@ void DWYUGenerator::CreateEditsForTarget(const BazelTarget &target,
     // There might be reasons why we might not want to remove a dependency
     ShouldKeepMessage keep_msg;
     const bool veto_removal =
-      DependencySaysShouldKeep(requested_target, &keep_msg) ||
+      DependencySaysShouldKeep(requested_target, dep_in_file, &keep_msg) ||
       CommentSaysShouldKeepDependency(dep_in_file, &keep_msg) ||
       conservatively_no_remove.contains(requested_target);
 

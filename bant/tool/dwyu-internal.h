@@ -94,6 +94,7 @@ class DWYUGenerator {
     std::string_view locatable_reason;  // Point to string-view in project
   };
   bool DependencySaysShouldKeep(const BazelTarget &target,
+                                std::string_view dep_in_file,
                                 ShouldKeepMessage *msg) const;
   bool CommentSaysShouldKeepDependency(std::string_view dep_in_file,
                                        ShouldKeepMessage *msg) const;
