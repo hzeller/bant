@@ -266,6 +266,7 @@ static void DetermineExternalBaseDirMaybeSymlinked(BazelWorkspace *workspace) {
 static bool PossiblyApplyBazelIgnore(bant::Filesystem &fs,
                                      std::string_view dir) {
   const FilesystemPath bazel_ignore(dir, ".bazelignore");
+  if (!fs.Exists(bazel_ignore.path())) return false;
   const auto &content = fs.ReadFileToString(bazel_ignore.path());
   if (!content.has_value()) return false;
   for (std::string_view line : absl::StrSplit(*content, '\n')) {
