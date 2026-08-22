@@ -29,6 +29,7 @@
 #include <utility>
 #include <vector>
 
+#include "absl/strings/match.h"
 #include "bant/explore/project-indexing.h"
 #include "bant/explore/project-walker.h"
 #include "bant/explore/query-utils.h"
@@ -119,27 +120,25 @@ static void AppendPossibleFileDependencies(
         return std::nullopt;  // not a depenency, it is an actual file.
       }
 
+      // The following is a bit fuzzy and probably not covering all the bases.
+      // We probably want to revamp that, maybe in a second pass, and look for
+      // stuff that reasonably could be coming from filegroups ?
+
       // Alright, let's resolve this as a target, as this is also
-      // a way to refer to a file.
+      // a way to refer to a file, possibly from a genrule.
       const auto fqt = BazelTarget::ParseFrom(path_or_label, context_package);
       if (!fqt.has_value()) {
         return std::nullopt;  // does not look like a label.
       }
 
-      const FilesystemPath path_in_src_tree(fqt->package.path,
-                                            fqt->target_name);
-      if (fs.Exists(path_in_src_tree.path())) {
-        return std::nullopt;  // Looks like physical file.
-      }
-
-      // Not an existing file. Is it generated somewhere ?
-      auto found_genrule = generated_by_target.find(path_in_src_tree.path());
+      const FilesystemPath maybe_generated(fqt->package.path, fqt->target_name);
+      auto found_genrule = generated_by_target.find(maybe_generated.path());
       if (found_genrule != generated_by_target.end()) {
         return found_genrule->second;
       }
 
       // Not generated. Let's assume this is a bazel label if requested.
-      if (fallback_is_target) {
+      if (fallback_is_target && absl::StrContains(path_or_label, ':')) {
         return path_or_label;
       }
       return std::nullopt;

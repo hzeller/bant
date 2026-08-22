@@ -26,6 +26,7 @@ cc_library(
         "//bant/util:table-printer",
         "//bant/util:term-color",
         "//bant/util:thread-pool",
+        "@abseil-cpp//absl/strings",
     ],
 )
 
