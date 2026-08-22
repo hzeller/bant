@@ -142,11 +142,16 @@ absl::Status MacroContainer::LoadMacrosFromFile(
       absl::StrCat("already loaded macros for ", package.ToString()));
   }
 
-  std::optional<std::string> content =
-    Filesystem::instance().ReadFileToString(macro_file.path());
-  if (!content.has_value()) {
+  Filesystem &fs = Filesystem::instance();
+  if (!fs.Exists(macro_file.path())) {
     return absl::NotFoundError(
       absl::StrCat("Macro file not found: ", macro_file.path()));
+  }
+
+  std::optional<std::string> content = fs.ReadFileToString(macro_file.path());
+  if (!content.has_value()) {
+    return absl::NotFoundError(
+      absl::StrCat("Macro file not readable: ", macro_file.path()));
   }
   auto owned = std::make_unique<std::string>(std::move(*content));
   const std::string_view view = *owned;
