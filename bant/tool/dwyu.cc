@@ -260,6 +260,12 @@ bool DWYUGenerator::DependencySaysShouldKeep(const BazelTarget &target,
     *msg = {"empty hdrs = []", dep.name};
     return true;
   }
+  // defines = [] are inherited, so even if we don't use any header, the
+  // dependent might rely on a defined macro.
+  if (dep.rule == "cc_library" && dep.defines != nullptr) {
+    *msg = {"might provide relevant", dep.defines_label};
+    return true;
+  }
   return false;
 }
 

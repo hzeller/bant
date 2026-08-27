@@ -437,6 +437,35 @@ cc_binary(
   }
 }
 
+TEST(DWYUTest, DoNotRemoveDependencyThatProvidesDefines) {
+  ParsedProjectTestUtil pp;
+  pp.Add("//path", R"(
+cc_library(
+  name = "foo",
+  defines = ["THIS_MIGHT_BE_IMPORTANT"],
+  hdrs = ["foo.h"]
+)
+
+cc_binary(
+  name = "bar",
+  srcs = ["bar.cc"],
+  deps = [
+     ":foo"  # we do not include 'foo.h', but maybe we use the define ?
+  ],
+)
+)");
+
+  {
+    DWYUTestFixture tester(pp.project(), {.verbose = 3});
+    tester.AddSource("path/bar.cc", R"(
+  // not including anything.
+)");
+    tester.RunForTarget("//path:bar");
+    EXPECT_THAT(tester.LogContent(),
+                HasSubstr("might provide relevant: 'defines'"));
+  }
+}
+
 TEST(DWYUTest, RequestUserGuidanceIfThereAreMultipleAlternatives) {
   // Sometimes, there are multiple libraries providing the same
   // header.
@@ -1369,7 +1398,6 @@ TEST(DWYUTest, COptsAreNotInheritedFromLibraries) {
 cc_library(
   name = "bar",
   hdrs = ["bar.h"],
-  defines = ["SOME_UNRELATED_DEFINE"],
   copts = ["-DHELLO_WORLD"],
 )
 

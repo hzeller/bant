@@ -51,6 +51,7 @@ struct Result {
   List *visibility = nullptr;         // from rule or default_visibility
   List *includes_list = nullptr;      // various ways ...
   List *copts = nullptr;
+  std::string_view defines_label;  // locatable string.
   List *defines = nullptr;
   List *local_defines = nullptr;
   List *tags = nullptr;
