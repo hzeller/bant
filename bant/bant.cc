@@ -109,7 +109,7 @@ static int usage(const char *prog, const char *message, int exit_code) {
                      Without numeric parameter, follows dependencies to the end.
                      An optional parameter allows to limit the nesting depth,
                      e.g. -r2 just follows two levels after the toplevel
-                     pattern. Default for most commands is -r5
+                     pattern. Default for most commands is -r2
     -v             : Verbose; print some stats. Multiple times: more verbose.
     -h             : This help.
     --//<flag>     : configurable flag attribute to be used in select() and
