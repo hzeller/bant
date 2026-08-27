@@ -1289,6 +1289,9 @@ DWYUGenerator::DWYUGenerator(Session &session, ParsedProject &project,
     .evaluate_glob_call = false,
     .filegroup_index = &filegroups_,
   };
+  // This will re-elab all build-files, but since they are already
+  // mostly evaluated and only bant_expand_filegroups() needs attention, this
+  // is only a few 10ths of milliseconds, so no need for special optimization.
   bant::Elaborate(session, &project, elab_options);
 
   // for visibilitychecks
