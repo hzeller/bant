@@ -1657,5 +1657,22 @@ foo(
   EXPECT_EQ(result.first, result.second);
 }
 
+TEST(Elaboration, FileGroupExpansionKeepsPackageAndSourceLocation) {
+  ParsedProjectTestUtil pp;
+  pp.Add("@vendor//headers", R"(
+filegroup(name = "headers", srcs = ["api.h"])
+)");
+  const auto *file = pp.Add("//wrapper", R"(
+cc_library(name = "api", hdrs = bant_expand_filegroups(["@vendor//headers:headers"]))
+)");
+  const auto filegroups = ExtractFilegroupTargets(pp.project());
+  Session session(&std::cerr, &std::cerr, &std::cerr, {});
+  const ElaborationOptions options{.filegroup_index = &filegroups};
+  Node *result =
+    Elaborate(session, &pp.project(), file->package, options, file->ast);
+  EXPECT_NE(ToString(result).find("@vendor//headers:api.h"), std::string::npos);
+  CheckAllStringsLocatableVisitor(pp.project()).WalkNonNull(result);
+}
+
 }  // namespace
 }  // namespace bant

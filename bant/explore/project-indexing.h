@@ -111,15 +111,19 @@ std::vector<std::string_view> ResolvePackageGroupPatterns(
 // point to the original locaion in the project, so can be location extracted.
 TargetProvidedFiles ExtractFilegroupTargets(const ParsedProject &project);
 
-// Expand every element in the list that is a filegroup with the content
-// of that filegroup; leave other elements as-is.
-// The string_views in the list will always point to the original location
-// in the project, so it is possible to trace these back to the original BUILD
-// file.
-// Returns 'true' if filegroups have been expanded.
-bool ExpandFilegroupsInList(const BazelPackage &context_package,
-                            const TargetProvidedFiles &filegropus,
-                            std::vector<std::string_view> *list);
+// A file name together with the package in which it was declared. The name
+// remains a string_view into the original BUILD file for source diagnostics.
+struct FileReference {
+  std::string_view name;
+  BazelPackage package;
+};
+
+// Recursively expand filegroups while preserving the package of their files.
+// Repeated files and filegroups are visited once, including cycles. If
+// provided, `expanded` reports whether any filegroup was expanded.
+std::vector<FileReference> ExpandFilegroups(
+  const BazelPackage &context_package, const TargetProvidedFiles &filegroups,
+  const std::vector<std::string_view> &files, bool *expanded = nullptr);
 
 struct FindResult {
   std::string match;  // Found match. Different from query if fuzzy match.

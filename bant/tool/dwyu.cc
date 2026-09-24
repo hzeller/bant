@@ -67,7 +67,7 @@ namespace bant {
 // Given a header file, check if it is in the list. Take possible prefix
 // into account.
 static bool IsHeaderInList(std::string_view header,
-                           const std::vector<std::string_view> &list,
+                           const std::vector<FileReference> &list,
                            std::string_view prefix_path) {
   // Don't do relative includes like that.
   while (header.starts_with("../")) {
@@ -80,8 +80,9 @@ static bool IsHeaderInList(std::string_view header,
 
   // The list items are provided without the full path in the cc_library(),
   // so we always need to prepend that prefix_path.
-  for (std::string_view list_item : list) {
+  for (auto [list_item, package] : list) {
     if (list_item.empty()) continue;  // should not happen.
+    if (package.QualifiedFile(list_item) == header) return true;
     // TODO: thid colon detection is half-assed and only works for one
     // sub-case. What we actually want to do
     // is to package QualifiedFile() the sources as well as the prefix path,
@@ -440,8 +441,6 @@ int DWYUGenerator::GetStratum(const BazelTarget &target) const {
 std::optional<DWYUGenerator::SourceFile> DWYUGenerator::ReadSourceForDWYU(
   std::string_view src_name, const BazelTarget &target,
   const BazelPackage &package, Stat &read_stats, bool *all_accounted) {
-  // TODO: ParsedProject::GetPackageFor() as we might have filenames coming
-  // from different packages due to filegroups.
   const std::optional<std::string> source_file =
     package.FullyQualifiedFile(project_.workspace(), src_name);
   if (!source_file.has_value()) return std::nullopt;
@@ -581,7 +580,7 @@ static bool AnyAlternativeInProvidedDeps(
 // That way we avoid the various unnamed blocks in a huge loop.
 IncludeNeededDepsAlternatives DWYUGenerator::DependenciesNeededBySources(
   const BazelTarget &target, const BazelPackage &package,
-  const std::vector<std::string_view> &sources,            // srcs, hdrs
+  const std::vector<FileReference> &sources,               // srcs, hdrs
   const std::vector<std::string_view> &includes_dir_list,  // includes = []
   const DefineMap &defines, const TargetToFileLocation &declared_deps,
   absl::btree_set<BazelTarget> *conservatively_no_remove,
@@ -709,10 +708,11 @@ IncludeNeededDepsAlternatives DWYUGenerator::DependenciesNeededBySources(
 
   bool any_maybe_not_intended_ifdef_out = false;
   IncludeNeededDepsAlternatives result;
-  for (const std::string_view src_name : sources) {
+  for (const auto &[src_name, src_package] : sources) {
     source_headline_logged_already = false;
-    auto source_content = ReadSourceForDWYU(
-      src_name, target, package, source_read_stats, all_headers_accounted_for);
+    auto source_content =
+      ReadSourceForDWYU(src_name, target, src_package, source_read_stats,
+                        all_headers_accounted_for);
     if (!source_content.has_value()) continue;
 
     source_grep_stats.IncCount();
@@ -944,7 +944,7 @@ IncludeNeededDepsAlternatives DWYUGenerator::DependenciesNeededBySources(
 
 IncludeNeededDepsAlternatives DWYUGenerator::DependenciesNeededByProtoSources(
   const BazelTarget &target, const BazelPackage &package,
-  const std::vector<std::string_view> &sources,
+  const std::vector<FileReference> &sources,
   const TargetToFileLocation &declared_deps, bool *all_imports_accounted_for) {
   Stat &source_read_stats =
     session_.GetStatsFor("  - read(proto source)", "sources");
@@ -969,10 +969,11 @@ IncludeNeededDepsAlternatives DWYUGenerator::DependenciesNeededByProtoSources(
 
   IncludeNeededDepsAlternatives result;
 
-  for (const std::string_view src_name : sources) {
+  for (const auto &[src_name, src_package] : sources) {
     source_logged_already = false;
-    auto source_content = ReadSourceForDWYU(
-      src_name, target, package, source_read_stats, all_imports_accounted_for);
+    auto source_content =
+      ReadSourceForDWYU(src_name, target, src_package, source_read_stats,
+                        all_imports_accounted_for);
     if (!source_content.has_value()) continue;
 
     source_grep_stats.IncCount();
@@ -1047,15 +1048,10 @@ void DWYUGenerator::CreateEditsForTarget(const BazelTarget &target,
     query::AppendStringList(details.textual_hdrs, sources);
   }
 
-  // TODO: the following is expensive: we don't know what changed, so we have
-  // to re-run the expansion over all sources again. Ideally, this should be
-  // handled by ExpandFilegroupsInList() whenever it expands files.
-  int max_rounds = 2;
-  while (ExpandFilegroupsInList(target.package, filegroups_, &sources) &&
-         --max_rounds > 0) {
-  }
+  const auto expanded_sources =
+    ExpandFilegroups(target.package, filegroups_, sources);
 
-  if (sources.empty()) {
+  if (expanded_sources.empty()) {
     if (do_skip_check_logging) {
       Loc(project_, details.name)
         << " " << target << " skipped because there are no sources.\n";
@@ -1107,12 +1103,12 @@ void DWYUGenerator::CreateEditsForTarget(const BazelTarget &target,
   // Grep for all includes/imports they use to determine which deps we need
   auto deps_needed = is_proto_library
                        ? DependenciesNeededByProtoSources(
-                           target, package, sources, all_declared_dependencies,
-                           &all_header_deps_known)
+                           target, package, expanded_sources,
+                           all_declared_dependencies, &all_header_deps_known)
                        : DependenciesNeededBySources(
-                           target, package, sources, includes_list, defines,
-                           all_declared_dependencies, &conservatively_no_remove,
-                           &all_header_deps_known);
+                           target, package, expanded_sources, includes_list,
+                           defines, all_declared_dependencies,
+                           &conservatively_no_remove, &all_header_deps_known);
 
   if (session_.MinVerbosity(4)) {
     LogDepSet("Raw needed dependencies: ", deps_needed) << "\n";
