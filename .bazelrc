@@ -9,29 +9,36 @@ build --features=layering_check
 build --features=parse_headers
 
 # C++, with warnings mostly turned to 11.
-build       --cxxopt=-std=c++20            --host_cxxopt=-std=c++20
-build       --cxxopt=-xc++                 --host_cxxopt=-xc++
-build       --cxxopt=-Wall                 --host_cxxopt=-Wall
-build       --cxxopt=-Wextra               --host_cxxopt=-Wextra
-build       --cxxopt=-Wno-unused-parameter --host_cxxopt=-Wno-unused-parameter
+# the following options work well on unix-style compilers gcc and clang
+build:unix  --cxxopt=-std=c++20            --host_cxxopt=-std=c++20
+build:unix  --cxxopt=-xc++                 --host_cxxopt=-xc++
+build:unix  --cxxopt=-Wall                 --host_cxxopt=-Wall
+build:unix  --cxxopt=-Wextra               --host_cxxopt=-Wextra
+build:unix  --cxxopt=-Wno-unused-parameter --host_cxxopt=-Wno-unused-parameter
 
 # Avoid costly language features.
-build       --cxxopt=-fno-exceptions       --host_cxxopt=-fno-exceptions
-build       --cxxopt=-fno-rtti             --host_cxxopt=-fno-rtti
+build:unix  --cxxopt=-fno-exceptions       --host_cxxopt=-fno-exceptions
+build:unix  --cxxopt=-fno-rtti             --host_cxxopt=-fno-rtti
 
-# Bazel compiles headers and then compiler complains about -c arg.
-build --copt=-Wno-unused-command-line-argument
+# Platform specific options.
+build --enable_platform_specific_config
+
+common:linux   --config=unix
+common:freebsd --config=unix
+common:openbsd --config=unix
+common:macos   --config=unix
+
+build:macos --macos_minimum_os=10.15
+build:macos --features=-supports_dynamic_linker
+build:macos --cxxopt=-std=c++2b            --host_cxxopt=-std=c++2b
+
+# Flags on windows are different
+build:windows  --cxxopt=/std:c++20  --host_cxxopt=/std:c++20 --client_env=BAZEL_CXXOPTS=/std:c++20
 
 # For 3rd party code: Disable warnings entirely.
 # They are not actionable and just create noise.
 build --per_file_copt=external/.*@-w
 build --host_per_file_copt=external/.*@-w
-
-# Platform specific options.
-build --enable_platform_specific_config
-build:macos --macos_minimum_os=10.15
-build:macos --features=-supports_dynamic_linker
-build:macos --cxxopt=-std=c++2b            --host_cxxopt=-std=c++2b
 
 # Print out test log on failure.
 test --test_output=errors
