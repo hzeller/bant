@@ -353,7 +353,8 @@ std::optional<std::string_view> DWYUGenerator::AvoidDueToVisibility(
     }
     vis_bundle.Finish();
 
-    if (vis_bundle.Match(target)) {
+    // Visibility applies to packages, regardless of the target name.
+    if (vis_bundle.Match(target.package)) {
       return std::nullopt;
     }
   }

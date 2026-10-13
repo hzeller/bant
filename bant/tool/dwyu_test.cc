@@ -860,6 +860,95 @@ cc_library(
   tester.RunForTarget("//some/path:bar");
 }
 
+TEST(DWYUTest, VisibilityMatchesExactPackagePatterns) {
+  struct TestCase {
+    std::string_view packages;
+    std::string_view consumer;
+    bool allowed;
+  };
+
+  for (const auto &test : {
+         TestCase{R"(["//some/path"])", "some/path", true},
+         TestCase{R"(["//some/path"])", "some/path/child", false},
+         TestCase{R"(["//some/path"])", "some/path_other", false},
+         TestCase{R"(["//some/...", "-//some/path"])", "some/path", false},
+         TestCase{R"(["//some/...", "-//some/path"])", "some/path/child", true},
+       }) {
+    SCOPED_TRACE(absl::StrFormat("packages = %s, consumer = %s", test.packages,
+                                 test.consumer));
+
+    ParsedProjectTestUtil pp;
+    pp.Add("//lib", absl::StrFormat(R"(
+package_group(
+  name = "group",
+  packages = %s,
+)
+
+cc_library(
+  name = "foo",
+  hdrs = ["foo.h"],
+  visibility = [":group"],
+)
+)",
+                                    test.packages));
+
+    pp.Add(absl::StrFormat("//%s", test.consumer), R"(
+cc_library(
+  name = "bar",
+  srcs = ["bar.cc"],
+)
+)");
+
+    DWYUTestFixture tester(pp.project(), {});
+    if (test.allowed) tester.ExpectAdd("//lib:foo");
+    tester.AddSource(absl::StrFormat("%s/bar.cc", test.consumer),
+                     R"(#include "lib/foo.h")");
+    tester.RunForTarget(absl::StrFormat("//%s:bar", test.consumer));
+  }
+}
+
+TEST(DWYUTest, KeepAliasVisibleThroughExactPackageGroup) {
+  ParsedProjectTestUtil pp;
+  pp.Add("//headers", R"(
+cc_library(
+  name = "api",
+  hdrs = ["api.h"],
+  visibility = ["//ffi:__pkg__"],
+)
+
+cc_library(
+  name = "public_api",
+  hdrs = ["api.h"],
+  visibility = ["//visibility:public"],
+)
+)");
+
+  pp.Add("//ffi", R"(
+package_group(
+  name = "internal",
+  packages = ["//consumer"],
+)
+
+alias(
+  name = "api",
+  actual = "//headers:api",
+  visibility = [":internal"],
+)
+)");
+
+  pp.Add("//consumer", R"(
+cc_library(
+  name = "uses_api",
+  srcs = ["consumer.cc"],
+  deps = ["//ffi:api"],
+)
+)");
+
+  DWYUTestFixture tester(pp.project(), {});
+  tester.AddSource("consumer/consumer.cc", R"(#include "headers/api.h")");
+  tester.RunForTarget("//consumer:uses_api");
+}
+
 TEST(DWYUTest, VisibilityMatchesBasicNegativePattern) {
   ParsedProjectTestUtil pp;
   pp.Add("//some/package", R"(
