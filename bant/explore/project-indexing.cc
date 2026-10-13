@@ -171,32 +171,28 @@ static void IterateCCLibraryHeaders(const ParsedProject &project,
       query::AppendStringList(cc_lib.srcs_list, hdrs);
     }
 
-    // If there are references to filegroups, exand these to files first.
-    int max_rounds = 2;
-    while (ExpandFilegroupsInList(package, filegroups, &hdrs) &&
-           --max_rounds > 0) {
-    }
     const auto incdirs = query::ExtractStringList(cc_lib.includes_list);
-    for (const std::string_view header : hdrs) {
+    for (const auto &[header, header_package] :
+         ExpandFilegroups(package, filegroups, hdrs)) {
       if (absl_string_view_skip && header == "string_view.h") continue;
 
       const auto strip_include_prefix = cc_lib.strip_include_prefix;
       const bool is_abs_inc_prefix = strip_include_prefix.starts_with('/');
-      const std::string header_abs = package.QualifiedFile(header);
+      const std::string header_abs = header_package.QualifiedFile(header);
       const std::string_view stripped =
         StripIfNeeded(header, header_abs, strip_include_prefix);
       if (!cc_lib.include_prefix.empty()) {  // cc_library() dictates path.
-        callback(package, cc_library, header,
+        callback(header_package, cc_library, header,
                  absl::StrCat(cc_lib.include_prefix, "/", stripped));
         continue;
       }
 
       // Assemble the header filename as it can be #include'ed in sources.
-      const std::string header_fqn = package.QualifiedFile(stripped);
+      const std::string header_fqn = header_package.QualifiedFile(stripped);
       if (!is_abs_inc_prefix) {
-        callback(package, cc_library, header, header_fqn);
+        callback(header_package, cc_library, header, header_fqn);
       } else {
-        callback(package, cc_library, header, stripped);
+        callback(header_package, cc_library, header, stripped);
       }
 
       // The same header could also show up with different prefixes, all of
@@ -212,7 +208,7 @@ static void IterateCCLibraryHeaders(const ParsedProject &project,
           prefix.append("/");
         }
         if (header_fqn.starts_with(prefix)) {
-          callback(package, cc_library, header,
+          callback(header_package, cc_library, header,
                    header_fqn.substr(prefix.length()));
         }
       }
@@ -325,12 +321,8 @@ static void AppendProtoLibraryHeaders(const ParsedProject &project,
         // as a filegroup for all the sources in deps.
         query::AppendStringList(proto_lib.deps_list, proto_srcs);
       }
-      int max_rounds = 2;
-      while (ExpandFilegroupsInList(package, idx.filegroups, &proto_srcs) &&
-             --max_rounds > 0) {
-      }
-
-      for (std::string_view proto : proto_srcs) {
+      for (auto [proto, proto_package] :
+           ExpandFilegroups(package, idx.filegroups, proto_srcs)) {
         auto dot_pos = proto.find_last_of('.');
         if (dot_pos == std::string_view::npos) continue;
 
@@ -351,7 +343,7 @@ static void AppendProtoLibraryHeaders(const ParsedProject &project,
         for (const std::string_view suffix :
              {".pb.h", ".proto.h", ".proto.static_reflection.h"}) {
           std::string proto_header = absl::StrCat(stem, middle_name, suffix);
-          proto_header = package.QualifiedFile(proto_header);
+          proto_header = proto_package.QualifiedFile(proto_header);
           // What is strip_include_prefix is called strip_import_prefix
           // for proto_library().
           const std::string_view maybe_stripped = StripIfNeeded(
@@ -445,14 +437,9 @@ ProvidedFromTargetSet ExtractComponentToTargetMapping(
       case ExtractComponent::kData: search_list = cc_lib.data_list; break;
       }
       auto srcs = query::ExtractStringList(search_list);
-      int max_rounds = 2;
-      while (ExpandFilegroupsInList(package, filegroups, &srcs) &&
-             --max_rounds > 0) {
-      }
-      for (const std::string_view src : srcs) {
-        // TODO: ParsedProject::GetPackageFor() as we might have mixed
-        // packages due to filegroups.
-        const std::string src_fqn = package.QualifiedFile(src);
+      for (const auto &[src, src_package] :
+           ExpandFilegroups(package, filegroups, srcs)) {
+        const std::string src_fqn = src_package.QualifiedFile(src);
         if (!only_physical_files || fs.Exists(src_fqn)) {
           result[src_fqn].emplace(cc_library);
         }
@@ -581,43 +568,36 @@ TargetProvidedFiles ExtractFilegroupTargets(const ParsedProject &project) {
   return result;
 }
 
-bool ExpandFilegroupsInList(const BazelPackage &context_package,
-                            const TargetProvidedFiles &filegropus,
-                            std::vector<std::string_view> *list) {
-  // TODO: currently users of this function recursively expand filegroups if
-  // the result contained filegroups. Put this loop in here.
-  // TODO: we only copy the the string-views from the filegroup (thus preserving
-  // the SourceLocator-able property), so it can be wrong if interpreted in
-  // context_package. Maybe we need a fully qualified version just knowing
-  // the project ? (that already has a mapping string-view->build-file(=package)
-  bool any_expansion = false;
-  absl::btree_set<std::string_view> collected_files;
-  for (const std::string_view element : *list) {
-    bool expanded_filegroup = false;
-    // Let's test if this can be resolved as a filegroup-interpretable target
-    const auto potential_target = context_package.QualifiedTarget(element);
-    if (potential_target.has_value()) {
-      if (const auto found = filegropus.find(*potential_target);
-          found != filegropus.end()) {
-        for (const std::string_view filename : found->second) {
-          collected_files.insert(filename);
+std::vector<FileReference> ExpandFilegroups(
+  const BazelPackage &context_package, const TargetProvidedFiles &filegroups,
+  const std::vector<std::string_view> &files, bool *expanded) {
+  if (expanded) *expanded = false;
+  absl::btree_set<BazelTarget> visited;
+  std::vector<FileReference> result;
+  const auto expand = [&](const auto &self, const BazelPackage &package,
+                          std::string_view name) -> void {
+    const auto target = package.QualifiedTarget(name);
+    if (target) {
+      if (!visited.insert(*target).second) return;
+      if (const auto found = filegroups.find(*target);
+          found != filegroups.end()) {
+        if (expanded) *expanded = true;
+        for (std::string_view file : found->second) {
+          self(self, found->first.package, file);
         }
-        expanded_filegroup = true;
-        any_expansion = true;
+        return;
       }
     }
-
-    if (!expanded_filegroup) {
-      // Otherwise, just keep the file as-is
-      collected_files.insert(element);
-    }
+    result.push_back({name, package});
+  };
+  for (std::string_view file : files) {
+    expand(expand, context_package, file);
   }
-
-  if (any_expansion) {
-    list->clear();
-    list->insert(list->end(), collected_files.begin(), collected_files.end());
-  }
-  return any_expansion;
+  std::sort(result.begin(), result.end(), [](const auto &a, const auto &b) {
+    if (a.name != b.name) return a.name < b.name;
+    return a.package < b.package;
+  });
+  return result;
 }
 
 static std::string_view CommonPrefix(std::string_view a, std::string_view b) {

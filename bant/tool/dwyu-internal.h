@@ -138,7 +138,7 @@ class DWYUGenerator {
   // (these are too many parameters. Refactor)
   IncludeNeededDepsAlternatives DependenciesNeededBySources(
     const BazelTarget &target, const BazelPackage &package,
-    const std::vector<std::string_view> &sources,
+    const std::vector<FileReference> &sources,
     const std::vector<std::string_view> &includes_dir_list,
     const DefineMap &defines, const TargetToFileLocation &declared_deps,
     absl::btree_set<BazelTarget> *conservatively_no_remove,
@@ -149,7 +149,7 @@ class DWYUGenerator {
   // which proto_library deps are actually needed.
   IncludeNeededDepsAlternatives DependenciesNeededByProtoSources(
     const BazelTarget &target, const BazelPackage &package,
-    const std::vector<std::string_view> &sources,
+    const std::vector<FileReference> &sources,
     const TargetToFileLocation &declared_deps, bool *all_imports_accounted_for);
 
   void CreateEditsForTarget(const BazelTarget &target,

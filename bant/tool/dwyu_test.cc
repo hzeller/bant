@@ -339,6 +339,50 @@ cc_library(
   }
 }
 
+TEST(DWYUTest, KeepsDependencyProvidingHeadersFromAnotherPackage) {
+  ParsedProjectTestUtil pp;
+  pp.Add("//headers", R"(
+filegroup(name = "headers", srcs = ["api.h"])
+)");
+  pp.Add("//wrapper", R"(
+cc_library(name = "api", hdrs = ["//headers:headers"])
+cc_library(name = "unused", hdrs = ["unused.h"])
+)");
+  pp.Add("//consumer", R"(
+cc_library(
+  name = "consumer",
+  srcs = ["consumer.cc"],
+  deps = ["//wrapper:api", "//wrapper:unused"],
+)
+)");
+  DWYUTestFixture tester(pp.project(), {});
+  tester.ExpectRemove("//wrapper:unused");
+  tester.AddSource("headers/api.h", "");
+  tester.AddSource("consumer/consumer.cc", "#include \"headers/api.h\"\n");
+  tester.RunForTarget("//consumer");
+}
+
+TEST(DWYUTest, ScansSourcesFromFilegroupsInAnotherPackage) {
+  ParsedProjectTestUtil pp;
+  pp.Add("//sources", R"(
+filegroup(name = "files", srcs = ["api.h", "api.cc"])
+)");
+  pp.Add("//dep", R"(
+cc_library(name = "dep", hdrs = ["dep.h"])
+)");
+  pp.Add("//wrapper", R"(
+cc_library(name = "api", srcs = ["//sources:files"])
+)");
+  DWYUTestFixture tester(pp.project(), {});
+  tester.ExpectAdd("//dep");
+  tester.AddSource("sources/api.h", "");
+  tester.AddSource("sources/api.cc", R"(
+#include "sources/api.h"
+#include "dep/dep.h"
+)");
+  tester.RunForTarget("//wrapper:api");
+}
+
 TEST(DWYUTest, LibraryWithoutSourcesShouldBeConsideredDependencyForwarding) {
   ParsedProjectTestUtil pp;
   pp.Add("//path", R"(

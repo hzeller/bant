@@ -399,6 +399,51 @@ cc_library(
   EXPECT_THAT(hdrs_map, Not(Contains(Pair(":headers", Ts("//some/path:foo")))));
 }
 
+TEST(SourceToLibMapping, LibHeaderMapExpandsFilegroupsAcrossPackages) {
+  ParsedProjectTestUtil pp;
+  pp.Add("//headers", R"(
+filegroup(name = "inner", srcs = ["api.h", ":other.h"])
+filegroup(name = "outer", srcs = [":inner"])
+)");
+  pp.Add("//wrapper", R"(
+cc_library(name = "api", hdrs = ["//headers:outer"])
+)");
+  std::stringstream log_absorb;
+  auto hdrs_map = ExtractExpandedHeaderToLibMapping(pp.project(), log_absorb);
+  EXPECT_THAT(hdrs_map,
+              ElementsAre(Pair("headers/api.h", Ts("//wrapper:api")),
+                          Pair("headers/other.h", Ts("//wrapper:api"))));
+
+  auto canon_map = CanonicalHeaderMapping(pp.project(), log_absorb);
+  EXPECT_THAT(
+    canon_map,
+    ElementsAre(Pair("headers/api.h", ElementsAre("headers/api.h")),
+                Pair("headers/other.h", ElementsAre("headers/other.h"))));
+}
+
+TEST(SourceToLibMapping, FilegroupsPreserveEqualNamesInDifferentPackages) {
+  ParsedProjectTestUtil pp;
+  pp.Add("//headers", R"(
+filegroup(name = "headers", srcs = ["api.h"])
+)");
+  pp.Add("@vendor//other", R"(
+filegroup(name = "headers", srcs = ["api.h"])
+)");
+  pp.Add("//wrapper", R"(
+filegroup(name = "one", srcs = [":two"])
+filegroup(name = "two", srcs = [":three"])
+filegroup(name = "three", srcs = [":one", "//headers:headers", "@vendor//other:headers"])
+cc_library(name = "api", hdrs = [":one", ":two"])
+)");
+  std::stringstream log_absorb;
+  auto hdrs_map = ExtractExpandedHeaderToLibMapping(pp.project(), log_absorb);
+  EXPECT_THAT(hdrs_map, ElementsAre(Pair("headers/api.h", Ts("//wrapper:api")),
+                                    Pair("other/api.h", Ts("//wrapper:api"))));
+  auto files = ExtractComponentToTargetMapping(
+    pp.project(), ExtractComponent::kHdrs, false, log_absorb);
+  EXPECT_EQ(files, hdrs_map);
+}
+
 // Sources are much simpler. Just matter-of-fact, no include path fiddling.
 TEST(SourceToLibMapping, CCRuleExtraction) {
   ParsedProjectTestUtil pp;

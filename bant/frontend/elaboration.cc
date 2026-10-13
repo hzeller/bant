@@ -1179,14 +1179,21 @@ class SimpleElaborator : public BaseNodeReplacementVisitor {
     Node *arg = arg_list->at(0);
     List *input_list = arg->CastAsList();
     if (!input_list) return f;
-    std::vector<std::string_view> output = query::ExtractStringList(input_list);
-    bool any_change =
-      ExpandFilegroupsInList(package_, *options_.filegroup_index, &output);
+    bool any_change = false;
+    const auto output =
+      ExpandFilegroups(package_, *options_.filegroup_index,
+                       query::ExtractStringList(input_list), &any_change);
     if (!any_change) return input_list;
     List *result = f_.Make<List>(List::Type::kList);
-    for (std::string_view str : output) {
-      // all the string views we have are already locatable strings.
-      auto *const string_scalar = f_.Make<StringScalar>(str, false, false);
+    for (const auto &[str, package] : output) {
+      Node *string_scalar;
+      const auto target = package.QualifiedTarget(str);
+      if (package == package_ || !target) {
+        string_scalar = f_.Make<StringScalar>(str, false, false);
+      } else {
+        string_scalar = f_.MakeNewStringScalarFrom(target->ToString(),
+                                                   project_->GetLocation(str));
+      }
       result->Append(project_->arena(), string_scalar);
     }
     return result;
