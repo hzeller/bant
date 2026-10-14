@@ -20,10 +20,10 @@ Bant
     the [dependency graph](#dependency-graph),
     [headers provided by which libraries](#lib-headers) etc., and presents
     them for easy post-processing (outputs simple tables for `grep` or `awk`,
+    but as well CSV, JSON and S-Expressions).
   * AI-Agent friendly: Not only are the output formats friendly to humans but
     also LLMs. Bant is extremely fast, so can be used to quickly explore and
-    understand a project by an agent.
-    but as well CSV, JSON and S-Expressions).
+    understand a project by an agent without invoking expensive bazel query.
   * Shows (non-)ambiguous [header paths and their fully qualified
     form](#srcs-canonical) to identify ambiguity problems or fix
     the project to use only fully qualified project-relative paths.
