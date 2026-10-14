@@ -5,6 +5,7 @@ bant - Build Analysis and Navigation Tool
 =========================================
 
 _Note: documentation only describes a subset of features. Needs to be updated_
+_TODO: make a little tutorial highlighting features_
 
 Utility to support projects using the [bazel] build system, in particular C++
 projects.
@@ -19,6 +20,9 @@ Bant
     the [dependency graph](#dependency-graph),
     [headers provided by which libraries](#lib-headers) etc., and presents
     them for easy post-processing (outputs simple tables for `grep` or `awk`,
+  * AI-Agent friendly: Not only are the output formats friendly to humans but
+    also LLMs. Bant is extremely fast, so can be used to quickly explore and
+    understand a project by an agent.
     but as well CSV, JSON and S-Expressions).
   * Shows (non-)ambiguous [header paths and their fully qualified
     form](#srcs-canonical) to identify ambiguity problems or fix
@@ -268,6 +272,12 @@ Project-local macros are loaded in addition to the built-in macros. If a
 project-local macro has the same name as a built-in, the project-local
 definition takes precedence.
 
+Some projects that use bant macros in the field:
+
+  * [xls](https://github.com/google/xls/blob/main/.bant-macros)
+  * [xla](https://github.com/openxla/xla/blob/main/.bant-macros)
+  * [verible](https://github.com/chipsalliance/verible/blob/master/.bant-macros)
+
 #### Grep
 As targets to print, the usual bazel patterns apply, such as exact label names,
 `...`, or `:all`; also, some `*`-globbing label names is supported in the
@@ -479,7 +489,7 @@ can use `bant` itself to find rules that generate files to be passed to
 bazel, e.g.
 
 ```bash
-bazel build $(bant list-targets | awk '/genrule|cc_proto_library/ {print $3}')
+bazel build $(bant list-targets ... -g "genrule|cc_proto_library" -c3)
 ```
 
 (but of course there might be other bazel rules beside obvious genrules that
