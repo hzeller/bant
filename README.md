@@ -131,10 +131,8 @@ C++ targets.
 ### compilation-db
 
 Creates a compilation db that can be used by `clang-tidy` or `clangd`.
-**Experimental** right now. It is not exactly emitting all the options bazel
-would use, and is missing virtual includes (provided by `cc_library()` with
-`include_prefix`) so less accurate than tools that make use of bazel actions,
-but should work pretty well for a typical bazel project already.
+**Experimental** right now. It might not emitting all the options bazel
+would use; but should work pretty well for a typical bazel project already.
 
 ```bash
   bant compile-flags -o compile_flags.txt
@@ -145,6 +143,10 @@ but should work pretty well for a typical bazel project already.
 If you inspect these files: the path to external includes in the compilation
 db are `-Ibazel-out/../../../external/whateverproject`; this relative
 path keeps it independent of any current compilation mode.
+
+The `compile_commands.json` can be huge for typical bazel projects; it is
+recommended to use the simpler `compile_flags.txt` for faster loading in IDEs
+or tools such as `clangd` or `clang-tidy`.
 
 #### clang-tidy
 These paths work well for `clang-tidy`, it nicely can follow these paths with
