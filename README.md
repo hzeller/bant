@@ -251,32 +251,42 @@ good candidate to implement next).
 #### Macros
 
 Bant ships with a set of [built-in macros][builtin-macros] that map common
-custom rules (e.g. `cc_proto_library`) to standard Bazel rules so that `dwyu`
-and other commands can analyze them.
+custom rules (e.g. [`gentbl_cc_library()`](https://github.com/hzeller/bant/blob/6b489945c57130d82b27be2691b41df01fab89ef/bant/builtin-macros.bnt#L68-L81)) to standard Bazel rules so that `dwyu` and other commands can see through them.
 
 If your project uses custom rules that bant doesn't know about (e.g.
 `my_cc_test` wrapping `cc_test`), you can define project-local macros in a
 `.bant-macros` file at the project root. The syntax is the same as the
 built-in macros file:
 
-```
+```Python
 # .bant-macros
+# A simple rule that is just forwarded to another one
 my_cc_test = bant_forward_args(cc_test())
-my_cc_library = bant_forward_args(cc_library())
+
+# A rule that can be defined in terms of another one
+my_cc_library = cc_library(
+   name = name,
+   srcs = srcs,
+   deps = deps + [ ":myspecial-lib"],
+)
 ```
 
 `bant_forward_args(target_rule())` expands calls to the custom rule by
 forwarding all arguments to the specified standard rule.
 
-Project-local macros are loaded in addition to the built-in macros. If a
-project-local macro has the same name as a built-in, the project-local
+Bant looks for `.bant-macros` files from the target package up to the project
+root, so you can keep relevant macros in their relative directories; typically
+folks just put it in the toplevel dir.
+
+If a project-local macro has the same name as a built-in, the project-local
 definition takes precedence.
 
-Some projects that use bant macros in the field:
+Some projects that use bant macros in the field to get some inspiration:
 
   * [xls](https://github.com/google/xls/blob/main/.bant-macros)
   * [xla](https://github.com/openxla/xla/blob/main/.bant-macros)
   * [verible](https://github.com/chipsalliance/verible/blob/master/.bant-macros)
+  * [OpenRoad](https://github.com/The-OpenROAD-Project/OpenROAD/blob/master/.bant-macros)
 
 #### Grep
 As targets to print, the usual bazel patterns apply, such as exact label names,
