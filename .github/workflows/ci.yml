@@ -54,6 +54,27 @@ jobs:
           bazel-bin/bant/bant -V  # Print version
           # TODO: package ?
 
+  WindowsBuild:
+    runs-on: windows-latest
+    steps:
+      - name: Check out with linefeed
+        run: git config --global core.autocrlf false
+
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Test
+        run: |
+          bazel test --noshow_progress --keep_going --test_output=errors ...
+
+      - name: Build
+        run: |
+          bazel build --noshow_progress -c opt bant:bant
+          bazel-bin/bant/bant -V  # Print version
+          # TODO: package ?
+
   CodeFormatting:
     runs-on: ubuntu-latest
     steps:

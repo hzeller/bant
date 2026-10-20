@@ -89,9 +89,20 @@ class Arena {
 
  private:
   void *LowLevelAlloc(size_t size) {
+#ifdef _WIN32
+    return blocks_.emplace_back(_aligned_malloc(size, kAlignment));
+#else
     return blocks_.emplace_back(std::aligned_alloc(kAlignment, size));
+#endif
   }
-  static void LowLevelFree(void *p) { std::free(p); }
+
+  static void LowLevelFree(void *p) {
+#ifdef _WIN32
+    _aligned_free(p);
+#else
+    std::free(p);
+#endif
+  }
 
   void *NextBlockAlloc(size_t size) {
     if (pos_ == nullptr || std::cmp_greater(size, (end_ - pos_))) {
