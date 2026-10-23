@@ -172,10 +172,15 @@ There is a simple work-around you can do: by creating a toplevel symbolic
 link `external/` yourself:
 
 ```
+ln -s $(bazel info output_base)/external .
+```
+
+... or a relative one (easier portable, but requires bazel-out/ to already
+exist, e.g. a build was happening)
+
+```
 ln -s bazel-out/../../../external .
 ```
-(also `ln -s bazel-out/../../../external bazel-external` works if you prefer
-a `bazel-` prefix).
 
 `bant` then recognizes this symlink and if you create a compilation db
 afterwards, it uses that short path instead of the multi-`../` one.

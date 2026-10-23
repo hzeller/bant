@@ -27,6 +27,7 @@
 #include <vector>
 
 #include "absl/strings/ascii.h"
+#include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_split.h"
 #include "bant/explore/query-utils.h"
@@ -233,14 +234,28 @@ static std::optional<int> LoadWorkspaceFromFile(Session &session,
   return count_added;
 }
 
-static void DetermineExternalBaseDirMaybeSymlinked(BazelWorkspace *workspace) {
-  static constexpr std::string_view kExternalBaseDir =
-    "bazel-out/../../../external";
-  workspace->external_dir = kExternalBaseDir;  // the default.
+static constexpr std::string_view kExternalBaseDir =
+  "bazel-out/../../../external";
 
+static bool LooksLikePlausibleInfobaseExternal(std::string_view path) {
   //  $(bazel info output_base)/external resolving without calling bazel.
+  // Requires bazel-out/ to already exist.
   auto infobase_external = StronglyCanonicalizePath(kExternalBaseDir);
-  if (!infobase_external) return;
+  if (infobase_external.has_value()) {
+    return path == *infobase_external;
+  }
+
+  // Otherwise, apply some heuristics if the path contains relevant parts.
+  if (absl::StrContains(path, ".cache/bazel/_bazel") &&
+      path.ends_with("/external")) {
+    return true;
+  }
+
+  return false;
+}
+
+static void DetermineExternalBaseDirMaybeSymlinked(BazelWorkspace *workspace) {
+  workspace->external_dir = kExternalBaseDir;  // the default.
 
   // Let's see if the user created one of bazel-external/ or external/ symlink
   // to the infobase external dir for easier navivation, then use that.
@@ -255,7 +270,7 @@ static void DetermineExternalBaseDirMaybeSymlinked(BazelWorkspace *workspace) {
     if (!FilesystemPath(symlink).is_symlink()) continue;
     auto link_canonical = StronglyCanonicalizePath(symlink);
     if (!link_canonical) continue;
-    if (*link_canonical == *infobase_external) {  // actually points there ?
+    if (LooksLikePlausibleInfobaseExternal(*link_canonical)) {
       workspace->external_dir = symlink;
       break;
     }
